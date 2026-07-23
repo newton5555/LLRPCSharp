@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\LlrpSdk\LlrpSdk.csproj" />
+    <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
+

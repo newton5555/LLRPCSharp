@@ -1,0 +1,31 @@
+# Build output
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+coverage/
+
+# IDE and user files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Local standard documents and unprocessed captures may be proprietary or large.
+references/standards/**
+references/captures/raw/**
+references/legacy/**
+
+# The currently supplied Impinj definition declares itself confidential and
+# proprietary. Keep it local until redistribution/commit rights are confirmed.
+definitions/imports/xml/extensions/impinj/**
+
+# Keep directory guidance files tracked.
+!references/standards/README.md
+!references/captures/raw/.gitkeep
+!references/legacy/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db

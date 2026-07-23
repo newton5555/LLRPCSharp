@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llrpcsharp.local/schemas/core-message-vectors.schema.json",
+  "type": "object",
+  "required": ["protocolVersion", "vectors"],
+  "properties": {
+    "protocolVersion": {
+      "type": "string"
+    },
+    "vectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "messageType", "messageId", "hex"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "messageType": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1023
+          },
+          "messageId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "hex": {
+            "type": "string",
+            "pattern": "^[0-9A-F]*$"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

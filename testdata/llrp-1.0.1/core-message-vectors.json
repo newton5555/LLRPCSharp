@@ -1,0 +1,24 @@
+{
+  "$schema": "./core-message-vectors.schema.json",
+  "protocolVersion": "1.0.1",
+  "vectors": [
+    {
+      "name": "KEEPALIVE",
+      "messageType": 62,
+      "messageId": 16909060,
+      "hex": "043E0000000A01020304"
+    },
+    {
+      "name": "KEEPALIVE_ACK",
+      "messageType": 72,
+      "messageId": 16909060,
+      "hex": "04480000000A01020304"
+    },
+    {
+      "name": "GET_READER_CAPABILITIES_ALL",
+      "messageType": 1,
+      "messageId": 16909060,
+      "hex": "04010000000B0102030400"
+    }
+  ]
+}

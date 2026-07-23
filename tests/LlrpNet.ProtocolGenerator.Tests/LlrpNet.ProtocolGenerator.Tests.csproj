@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LlrpNet.Core\LlrpNet.Core.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet.ProtocolGenerator\LlrpNet.ProtocolGenerator.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet.ProtocolModel\LlrpNet.ProtocolModel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\definitions\imports\xml\llrp-1.0.1\llrp-1x0-def.xml"
+          Link="TestData\llrp-1x0-def.xml"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

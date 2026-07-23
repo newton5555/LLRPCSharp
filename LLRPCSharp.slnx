@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LlrpCli/LlrpCli.csproj" />
+    <Project Path="src/LlrpNet.Core/LlrpNet.Core.csproj" />
+    <Project Path="src/LlrpNet.Protocol/LlrpNet.Protocol.csproj" />
+    <Project Path="src/LlrpNet.ProtocolGenerator/LlrpNet.ProtocolGenerator.csproj" />
+    <Project Path="src/LlrpNet.ProtocolModel/LlrpNet.ProtocolModel.csproj" />
+    <Project Path="src/LlrpSdk.Extensions.Abstractions/LlrpSdk.Extensions.Abstractions.csproj" />
+    <Project Path="src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj" />
+    <Project Path="src/LlrpSdk/LlrpSdk.csproj" />
+    <Project Path="src/LlrpVirtualReader/LlrpVirtualReader.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Interop.Tests/Interop.Tests.csproj" />
+    <Project Path="tests/LlrpCli.Tests/LlrpCli.Tests.csproj" />
+    <Project Path="tests/LlrpNet.Core.Tests/LlrpNet.Core.Tests.csproj" />
+    <Project Path="tests/LlrpNet.Protocol.Tests/LlrpNet.Protocol.Tests.csproj" />
+    <Project Path="tests/LlrpNet.ProtocolGenerator.Tests/LlrpNet.ProtocolGenerator.Tests.csproj" />
+    <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
+    <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>
