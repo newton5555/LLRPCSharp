@@ -34,8 +34,12 @@ public sealed class LlrpCliApplication
         });
 
         var app = new CommandApp(new TypeRegistrar(console));
+        app.SetDefaultCommand<LiveCommand>()
+            .WithDescription("Launch interactive live LLRP session.");
+
         app.Configure(config =>
         {
+            config.ConfigureConsole(console);
             config.SetApplicationName("llrp");
             config.UseStrictParsing();
             config.PropagateExceptions();
@@ -98,9 +102,35 @@ public sealed class LlrpCliApplication
     {
         public object? Resolve(Type? type)
         {
-            if (type == null) return null;
-            if (type == typeof(IAnsiConsole)) return console;
-            return Activator.CreateInstance(type);
+            if (type == null)
+            {
+                return null;
+            }
+            if (type == typeof(IAnsiConsole))
+            {
+                return console;
+            }
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            {
+                Type itemType = type.GetGenericArguments()[0];
+                return Array.CreateInstance(itemType, 0);
+            }
+            if (type.IsInterface || type.IsAbstract)
+            {
+                return null;
+            }
+            try
+            {
+                if (type.GetConstructor(new[] { typeof(IAnsiConsole) }) != null)
+                {
+                    return Activator.CreateInstance(type, console);
+                }
+                return Activator.CreateInstance(type);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

@@ -19,9 +19,18 @@ public sealed class ConnectSettings : CommandSettings
 
 public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
 {
+    private readonly IAnsiConsole _console;
+
+    public ConnectCommand() : this(AnsiConsole.Console) { }
+
+    public ConnectCommand(IAnsiConsole console)
+    {
+        _console = console ?? AnsiConsole.Console;
+    }
+
     protected override async Task<int> ExecuteAsync(CommandContext context, ConnectSettings settings, CancellationToken cancellationToken)
     {
-        AnsiConsole.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
+        _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
 
         await using LlrpReader reader = LlrpReader.CreateBuilder(settings.Host)
             .WithPort(settings.Port)
@@ -31,8 +40,8 @@ public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
         try
         {
             await reader.ConnectAsync(cancellationToken);
-            AnsiConsole.MarkupLine("[bold springgreen2]✔ Connected successfully![/]");
-            AnsiConsole.WriteLine();
+            _console.MarkupLine("[bold springgreen2]✔ Connected successfully![/]");
+            _console.WriteLine();
 
             if (reader.Identity is { } identity)
             {
@@ -40,15 +49,22 @@ public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
                 table.AddColumn("[bold grey70]Property[/]");
                 table.AddColumn("[bold grey70]Value[/]");
 
-                table.AddRow("Manufacturer", $"[cyan1]{Markup.Escape(identity.ManufacturerName)}[/]");
-                table.AddRow("Model", $"[springgreen2]{Markup.Escape(identity.ModelName)}[/]");
+                table.AddRow("Manufacturer ID", $"[cyan1]{identity.ManufacturerId}[/]");
+                table.AddRow("Model ID", $"[springgreen2]{identity.ModelId}[/]");
                 table.AddRow("Firmware Version", $"[yellow]{Markup.Escape(identity.FirmwareVersion)}[/]");
 
+                if (reader.Capabilities is { } capabilities)
+                {
+                    table.AddRow("Max Antennas", $"[white]{capabilities.MaxNumberOfAntennas}[/]");
+                    table.AddRow("Set Antenna Properties", capabilities.CanSetAntennaProperties ? "[green]Yes[/]" : "[grey]No[/]");
+                    table.AddRow("UTC Clock Support", capabilities.HasUtcClockCapability ? "[green]Yes[/]" : "[grey]No[/]");
+                }
+
                 var panel = new Panel(table)
-                    .Header("[bold deepskyblue1] READER IDENTITY [/]")
+                    .Header("[bold deepskyblue1] READER IDENTITY & CAPABILITIES [/]")
                     .Border(BoxBorder.Rounded);
 
-                AnsiConsole.Write(panel);
+                _console.Write(panel);
             }
 
             await reader.DisconnectAsync(cancellationToken);
@@ -56,7 +72,7 @@ public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine($"[bold red]✖ Connection failed:[/] {Markup.Escape(ex.Message)}");
+            _console.MarkupLine($"[bold red]✖ Connection failed:[/] {Markup.Escape(ex.Message)}");
             return 1;
         }
     }

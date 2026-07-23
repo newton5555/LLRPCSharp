@@ -13,9 +13,16 @@ public sealed class InspectSettings : CommandSettings
     public string Hex { get; init; } = string.Empty;
 }
 
-public sealed class InspectCommand(IAnsiConsole console) : Command<InspectSettings>
+public sealed class InspectCommand : Command<InspectSettings>
 {
-    private readonly IAnsiConsole _console = console ?? AnsiConsole.Console;
+    private readonly IAnsiConsole _console;
+
+    public InspectCommand() : this(AnsiConsole.Console) { }
+
+    public InspectCommand(IAnsiConsole console)
+    {
+        _console = console ?? AnsiConsole.Console;
+    }
 
     protected override int Execute(CommandContext context, InspectSettings settings, CancellationToken cancellationToken)
     {

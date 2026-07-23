@@ -29,9 +29,16 @@ public sealed class EncodeSettings : CommandSettings
     public string RequestedDataRaw { get; init; } = "All";
 }
 
-public sealed class EncodeCommand(IAnsiConsole console) : Command<EncodeSettings>
+public sealed class EncodeCommand : Command<EncodeSettings>
 {
-    private readonly IAnsiConsole _console = console ?? AnsiConsole.Console;
+    private readonly IAnsiConsole _console;
+
+    public EncodeCommand() : this(AnsiConsole.Console) { }
+
+    public EncodeCommand(IAnsiConsole console)
+    {
+        _console = console ?? AnsiConsole.Console;
+    }
 
     protected override int Execute(CommandContext context, EncodeSettings settings, CancellationToken cancellationToken)
     {

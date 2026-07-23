@@ -1,14 +1,58 @@
 using System.Reflection;
 using System.Text;
 using Spectre.Console;
+using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Parameters;
+using LlrpCli.Terminal;
+using LlrpCli.Commands;
 
 namespace LlrpCli.Rendering;
 
 public static class FrameRenderer
 {
+    public static void RenderObservedFrame(CapturedFrame frame, IAnsiConsole console, bool includeHexDump = true)
+    {
+        RenderFrameData(frame.Direction, frame.Timestamp, frame.Bytes, console, includeHexDump);
+    }
+
+    public static void RenderFrameData(LlrpFrameDirection direction, DateTimeOffset timestamp, byte[] rawFrame, IAnsiConsole console, bool includeHexDump = true)
+    {
+        LlrpMessageHeader header = LlrpMessageHeader.Decode(rawFrame);
+        ILlrpMessage? message = null;
+        try
+        {
+            message = Helpers.CreateRegistry().DecodeMessage(rawFrame);
+        }
+        catch { }
+
+        string dirBadge = direction == LlrpFrameDirection.Transmit
+            ? "[deepskyblue1 bold]→ TX[/]"
+            : "[springgreen2 bold]← RX[/]";
+
+        string name = message?.GetType().Name ?? $"MessageType({(ushort)header.MessageType})";
+        string timeStr = timestamp.ToString("HH:mm:ss.fff");
+
+        console.MarkupLine($"{dirBadge}  [bold]{Markup.Escape(name)}[/]  [grey]ID {header.MessageId} · {rawFrame.Length} bytes · {timeStr}[/]");
+
+        if (message != null)
+        {
+            var tree = new Tree($"[bold green]{Markup.Escape(name)}[/] [grey](ID: {header.MessageId})[/]")
+                .Style(new Style(Color.Grey70))
+                .Guide(TreeGuide.Line);
+
+            BuildObjectTree(tree, message, 0);
+            console.Write(tree);
+            console.WriteLine();
+        }
+
+        if (includeHexDump)
+        {
+            RenderHexDumpPanel(rawFrame, console);
+        }
+    }
+
     public static void RenderHeader(LlrpMessageHeader header, int totalFrameBytes, IAnsiConsole console)
     {
         console.WriteLine($"Version: {(byte)header.Version} ({header.Version})");
@@ -74,9 +118,18 @@ public static class FrameRenderer
             builder.Append($"{offset:X4}  ");
             for (var index = 0; index < 16; index++)
             {
-                if (index < count) builder.Append($"{bytes[offset + index]:X2} ");
-                else builder.Append("   ");
-                if (index == 7) builder.Append(' ');
+                if (index < count)
+                {
+                    builder.Append($"{bytes[offset + index]:X2} ");
+                }
+                else
+                {
+                    builder.Append("   ");
+                }
+                if (index == 7)
+                {
+                    builder.Append(' ');
+                }
             }
             builder.Append(" | ");
             for (var index = 0; index < count; index++)
@@ -94,15 +147,24 @@ public static class FrameRenderer
 
     private static void BuildObjectTree(IHasTreeNodes parentNode, object target, int depth)
     {
-        if (target is null || depth > 8) return;
+        if (target is null || depth > 8)
+        {
+            return;
+        }
 
         PropertyInfo[] properties = target.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
         foreach (PropertyInfo prop in properties)
         {
-            if (prop.Name is "MessageId" or "MessageType" or "Version") continue;
+            if (prop.Name is "MessageId" or "MessageType" or "Version")
+            {
+                continue;
+            }
 
             object? value = prop.GetValue(target);
-            if (value is null) continue;
+            if (value is null)
+            {
+                continue;
+            }
 
             string propName = prop.Name;
 
@@ -111,7 +173,10 @@ public static class FrameRenderer
                 var listNode = parentNode.AddNode($"[deepskyblue1]{Markup.Escape(propName)}[/] [grey](collection)[/]");
                 foreach (object item in enumerable)
                 {
-                    if (item is null) continue;
+                    if (item is null)
+                    {
+                        continue;
+                    }
                     var itemNode = listNode.AddNode($"[green]{Markup.Escape(item.GetType().Name)}[/]");
                     BuildObjectTree(itemNode, item, depth + 1);
                 }

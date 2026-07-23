@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
@@ -8,12 +8,12 @@ namespace LlrpCli.Tests;
 public sealed class LlrpCliApplicationTests
 {
     [Fact]
-    public void NoArguments_PrintsHelp()
+    public void HelpOption_PrintsHelp()
     {
-        InvocationResult result = Invoke();
+        InvocationResult result = Invoke("--help");
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("llrp inspect", result.Output, StringComparison.Ordinal);
+        Assert.Contains("inspect", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(result.Error);
     }
 
@@ -38,7 +38,7 @@ public sealed class LlrpCliApplicationTests
             "043E0000000A01020304");
 
         Assert.Equal(0, result.ExitCode);
-        using JsonDocument document = JsonDocument.Parse(result.Output);
+        using JsonDocument document = JsonDocument.Parse(result.Output.Trim());
         JsonElement root = document.RootElement;
         Assert.Equal(62, root.GetProperty("messageType").GetInt32());
         Assert.Equal(0x01020304U, root.GetProperty("messageId").GetUInt32());

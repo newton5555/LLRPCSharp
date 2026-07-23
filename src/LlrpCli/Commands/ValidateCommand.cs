@@ -13,9 +13,16 @@ public sealed class ValidateSettings : CommandSettings
     public string Hex { get; init; } = string.Empty;
 }
 
-public sealed class ValidateCommand(IAnsiConsole console) : Command<ValidateSettings>
+public sealed class ValidateCommand : Command<ValidateSettings>
 {
-    private readonly IAnsiConsole _console = console ?? AnsiConsole.Console;
+    private readonly IAnsiConsole _console;
+
+    public ValidateCommand() : this(AnsiConsole.Console) { }
+
+    public ValidateCommand(IAnsiConsole console)
+    {
+        _console = console ?? AnsiConsole.Console;
+    }
 
     protected override int Execute(CommandContext context, ValidateSettings settings, CancellationToken cancellationToken)
     {

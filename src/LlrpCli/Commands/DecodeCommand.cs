@@ -15,14 +15,21 @@ public sealed class DecodeSettings : CommandSettings
     public string Hex { get; init; } = string.Empty;
 
     [CommandOption("--output <FORMAT>")]
-    [Description("Output format: text or json.")]
-    [DefaultValue("text")]
-    public string Output { get; init; } = "text";
+    [Description("Output format: json or text.")]
+    [DefaultValue("json")]
+    public string Output { get; init; } = "json";
 }
 
-public sealed class DecodeCommand(IAnsiConsole console) : Command<DecodeSettings>
+public sealed class DecodeCommand : Command<DecodeSettings>
 {
-    private readonly IAnsiConsole _console = console ?? AnsiConsole.Console;
+    private readonly IAnsiConsole _console;
+
+    public DecodeCommand() : this(AnsiConsole.Console) { }
+
+    public DecodeCommand(IAnsiConsole console)
+    {
+        _console = console ?? AnsiConsole.Console;
+    }
 
     protected override int Execute(CommandContext context, DecodeSettings settings, CancellationToken cancellationToken)
     {

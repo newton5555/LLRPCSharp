@@ -28,11 +28,20 @@ public sealed class MonitorSettings : CommandSettings
 
 public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
 {
+    private readonly IAnsiConsole _console;
+
+    public MonitorCommand() : this(AnsiConsole.Console) { }
+
+    public MonitorCommand(IAnsiConsole console)
+    {
+        _console = console ?? AnsiConsole.Console;
+    }
+
     protected override async Task<int> ExecuteAsync(CommandContext context, MonitorSettings settings, CancellationToken cancellationToken)
     {
-        AnsiConsole.MarkupLine($"[grey]Starting LLRP Frame Monitor on[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
+        _console.MarkupLine($"[grey]Starting LLRP Frame Monitor on[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
 
-        var observer = new ConsoleFrameObserver();
+        var observer = new ConsoleFrameObserver(_console);
         await using LlrpReader reader = LlrpReader.CreateBuilder(settings.Host)
             .WithPort(settings.Port)
             .WithFrameObserver(observer)
@@ -49,8 +58,8 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
         try
         {
             await reader.ConnectAsync(cts.Token);
-            AnsiConsole.MarkupLine("[bold springgreen2]✔ Connected! Streaming LLRP frames... (Press Ctrl+C to stop)[/]");
-            AnsiConsole.WriteLine();
+            _console.MarkupLine("[bold springgreen2]✔ Connected! Streaming LLRP frames... (Press Ctrl+C to stop)[/]");
+            _console.WriteLine();
 
             DateTimeOffset started = DateTimeOffset.UtcNow;
             while (!cts.IsCancellationRequested &&
@@ -66,11 +75,11 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
-            AnsiConsole.MarkupLine("[grey]Monitoring stopped by user.[/]");
+            _console.MarkupLine("[grey]Monitoring stopped by user.[/]");
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine($"[bold red]✖ Monitor error:[/] {Markup.Escape(ex.Message)}");
+            _console.MarkupLine($"[bold red]✖ Monitor error:[/] {Markup.Escape(ex.Message)}");
             return 1;
         }
         finally
@@ -85,7 +94,7 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
         return 0;
     }
 
-    private sealed class ConsoleFrameObserver : ILlrpFrameObserver
+    private sealed class ConsoleFrameObserver(IAnsiConsole console) : ILlrpFrameObserver
     {
         private static readonly object ConsoleLock = new();
 
@@ -94,7 +103,6 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
             byte[] frameCopy = observation.FrameBytes.ToArray();
             bool isTx = observation.Direction == LlrpFrameDirection.Transmit;
             string directionBadge = isTx ? "[deepskyblue1 bold]→ TX[/]" : "[springgreen2 bold]← RX[/]";
-            string borderColor = isTx ? "deepskyblue1" : "springgreen2";
 
             lock (ConsoleLock)
             {
@@ -103,15 +111,15 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
                     LlrpMessageHeader header = LlrpMessageHeader.Decode(frameCopy);
                     ILlrpMessage message = Helpers.CreateRegistry().DecodeMessage(frameCopy);
 
-                    AnsiConsole.MarkupLine($"{directionBadge}  [bold]{Markup.Escape(message.GetType().Name)}[/]  [grey]ID {header.MessageId} · {frameCopy.Length} bytes · {observation.Timestamp:HH:mm:ss.fff}[/]");
-                    FrameRenderer.RenderHexDumpPanel(frameCopy, AnsiConsole.Console);
-                    AnsiConsole.WriteLine();
+                    console.MarkupLine($"{directionBadge}  [bold]{Markup.Escape(message.GetType().Name)}[/]  [grey]ID {header.MessageId} · {frameCopy.Length} bytes · {observation.Timestamp:HH:mm:ss.fff}[/]");
+                    FrameRenderer.RenderHexDumpPanel(frameCopy, console);
+                    console.WriteLine();
                 }
                 catch
                 {
-                    AnsiConsole.MarkupLine($"{directionBadge}  [grey]Raw Frame ({frameCopy.Length} bytes)[/]");
-                    FrameRenderer.RenderHexDumpPanel(frameCopy, AnsiConsole.Console);
-                    AnsiConsole.WriteLine();
+                    console.MarkupLine($"{directionBadge}  [grey]Raw Frame ({frameCopy.Length} bytes)[/]");
+                    FrameRenderer.RenderHexDumpPanel(frameCopy, console);
+                    console.WriteLine();
                 }
             }
 
