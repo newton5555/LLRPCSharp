@@ -19,7 +19,7 @@ M1 协议运行时已经落地：
 - `LlrpReader` Builder、状态机、能力初始化、Typed/Raw Protocol 入口与 Keepalive 自动应答；
 - `reader.RoSpecs` Add/Delete/Enable/Disable/Start/Stop/GetAll 进阶资源服务；
 - LTK XML → ProtocolModel Core/Custom 导入、定义校验与 C# Generator 基础；
-- CLI 离线帧 `inspect`、`decode`、`validate` 和首批标准消息 `encode`。
+- Spectre.Console 交互式 CLI Live Shell（支持 `connect`、`status`、`caps`、`rospec`、`frames` 诊断及报文树状分析）。
 
 日志通过 `Microsoft.Extensions.Logging` 抽象注入；完整 TX/RX 报文通过 `ILlrpFrameObserver` 注入。两者均位于底层 Transport/Session，因此使用 `LlrpReader` 高级 API 时仍能打印或采集底层报文。诊断边界见 [ADR 0001](docs/decisions/0001-structured-logging-and-frame-observation.md)。
 
@@ -39,6 +39,19 @@ dotnet run --project src/LlrpCli -- inspect "043E0000000A01020304"
 dotnet run --project src/LlrpCli -- decode "043E0000000A01020304"
 dotnet run --project src/LlrpCli -- encode get-rospecs --message-id 1
 ```
+
+## 手写与代码生成边界
+
+本 SDK 明确区分**手写核心架构**与**基于协议定义自动生成的源码**：
+
+- **手写核心架构（Hand-written Core）**：
+  - `LlrpSdk.LlrpReader`：设备会话状态机、能力初始化与高级服务。
+  - `LlrpNet.Core`：网络大端序 IO、TCP 流式帧切分、`LlrpSession` 事务匹配与 `ILlrpFrameObserver` 报文监听。
+  - `LlrpNet.ProtocolModel` & `LlrpNet.ProtocolGenerator`：包含 `LtkXmlDefinitionImporter` 定义导入器与代码生成器。
+  - `LlrpCli`：基于 Spectre.Console 的终端 Shell、智能提示链与深层 LLRP 报文树状分析器。
+
+- **自动生成源码（Generated Code via LTK XML）**：
+  - `LlrpNet.Protocol` 中的 Message（消息）、Parameter（参数）、Enum（枚举）强类型 C# 类及其二进制 Codec 编解码器（由 `definitions/imports/xml/` 导入官方及厂商描述自动生成）。
 
 ## 目录
 
