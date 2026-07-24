@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpNet.Core.Diagnostics;
@@ -37,6 +37,18 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     private Task? _inventoryPumpTask;
     private string? _currentHost;
     private int _currentPort = 5084;
+    private bool _isMonitoring;
+    private bool _isMonitoringTable;
+    private Action<CapturedFrame>? _monitorFrameCallback;
+
+    private sealed class TagStat
+    {
+        public required string Epc { get; init; }
+        public ushort AntennaId { get; set; }
+        public sbyte PeakRssi { get; set; }
+        public long ReadCount { get; set; }
+        public DateTime LastSeen { get; set; }
+    }
 
     public LiveCommand() : this(AnsiConsole.Console) { }
 
@@ -67,8 +79,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             bool isConnected = _reader?.IsConnected == true;
             string promptState = isConnected
-                ? $"[grey]llrp[/] [springgreen2]({_currentHost}:{_currentPort})[/] [bold]>[/]"
-                : "[grey]llrp[/] [red](disconnected)[/] [bold]>[/]";
+                ? $"[deepskyblue1 bold]📡 llrp[/] [springgreen2]({_currentHost}:{_currentPort})[/] [bold cyan]>[/]"
+                : "[deepskyblue1 bold]📡 llrp[/] [grey](disconnected)[/] [bold cyan]>[/]";
 
             LineReadResult readResult = editor.ReadLine(
                 promptState,
@@ -116,6 +128,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         break;
                     case "inventory":
                         await HandleInventoryAsync(tokens, cancellationToken);
+                        break;
+                    case "monitor":
+                        await HandleMonitorAsync(tokens, cancellationToken);
                         break;
                     case "frames":
                         HandleFrames(tokens);
@@ -241,7 +256,18 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _reader = null;
         }
 
-        _observer = new DelegateFrameObserver(_ => { });
+        _observer = new DelegateFrameObserver(frame =>
+        {
+            if (_isMonitoring)
+            {
+                FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
+                _console.WriteLine();
+            }
+            if (_isMonitoringTable)
+            {
+                _monitorFrameCallback?.Invoke(frame);
+            }
+        });
 
         _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{Markup.Escape(host)}:{port}[/]...");
 
@@ -258,6 +284,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _reader = reader;
             _currentHost = host;
             _currentPort = port;
+            UpdateWindowTitle($"{host}:{port}");
 
             _console.MarkupLine("[bold springgreen2]✔ Connected successfully![/]");
             _console.WriteLine();
@@ -282,6 +309,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             await reader.DisposeAsync();
             _reader = null;
             _observer = null;
+            UpdateWindowTitle("offline");
             _console.MarkupLine($"[bold red]✖ Connection failed:[/] {Markup.Escape(ex.Message)}");
         }
     }
@@ -299,6 +327,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         await _reader.DisposeAsync();
         _reader = null;
         _observer = null;
+        UpdateWindowTitle("offline");
         _console.MarkupLine("[grey]Disconnected from reader.[/]");
     }
 
@@ -455,6 +484,174 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             default:
                 _console.MarkupLine("[red]Usage:[/] inventory start [[antenna-id]] | stop | status");
                 break;
+        }
+    }
+
+    private async Task HandleMonitorAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        if (_reader is null || !_reader.IsConnected)
+        {
+            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
+            return;
+        }
+
+        bool useTable = false;
+        int seconds = 10;
+
+        for (int i = 1; i < tokens.Length; i++)
+        {
+            string token = tokens[i].ToLowerInvariant();
+            if (token is "--table" or "-t" or "table")
+            {
+                useTable = true;
+            }
+            else if (token is "--frames" or "-f" or "frames" or "raw")
+            {
+                useTable = false;
+            }
+            else if (int.TryParse(token, out int parsedSec))
+            {
+                seconds = parsedSec;
+            }
+        }
+
+        if (!useTable)
+        {
+            _console.MarkupLine($"[bold springgreen2]📡 Listening to passive LLRP frame logs for {seconds} seconds...[/]");
+            _console.MarkupLine("[grey]Raw Frame Mode: printing raw RX/TX frame trees and hex dumps.[/]");
+            _console.WriteLine();
+
+            _isMonitoringTable = false;
+            _isMonitoring = true;
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected if user cancels
+            }
+            finally
+            {
+                _isMonitoring = false;
+                _console.MarkupLine("[bold cyan1]✔ Passive frame monitoring ended.[/]");
+            }
+        }
+        else
+        {
+            _console.MarkupLine($"[bold springgreen2]📊 Streaming live tag statistics table for {seconds} seconds...[/]");
+            _console.MarkupLine("[grey]Live Table Mode: aggregated unique EPC tag counts, RSSI, and antennas.[/]");
+            var tagStats = new System.Collections.Concurrent.ConcurrentDictionary<string, TagStat>();
+
+            _monitorFrameCallback = frame =>
+            {
+                try
+                {
+                    ILlrpMessage msg = _reader.Registry.DecodeMessage(frame.Bytes);
+                    IReadOnlyList<TagReport> reports = _reader.TranslateTagReports(msg);
+                    foreach (TagReport report in reports)
+                    {
+                        string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
+                        if (string.IsNullOrEmpty(epc))
+                        {
+                            continue;
+                        }
+
+                        tagStats.AddOrUpdate(
+                            epc,
+                            key => new TagStat
+                            {
+                                Epc = key,
+                                AntennaId = report.AntennaId ?? 0,
+                                PeakRssi = report.PeakRssi ?? 0,
+                                ReadCount = 1,
+                                LastSeen = DateTime.Now
+                            },
+                            (key, existing) =>
+                            {
+                                existing.ReadCount++;
+                                existing.AntennaId = report.AntennaId ?? existing.AntennaId;
+                                existing.PeakRssi = report.PeakRssi ?? existing.PeakRssi;
+                                existing.LastSeen = DateTime.Now;
+                                return existing;
+                            });
+                    }
+                }
+                catch
+                {
+                    // Non-report messages ignored in tag table
+                }
+            };
+
+            _isMonitoringTable = true;
+            _isMonitoring = false;
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(seconds));
+
+            var table = new Table
+            {
+                Border = TableBorder.Rounded,
+                BorderStyle = new Style(Color.DeepSkyBlue1)
+            };
+            table.AddColumn("[bold deepskyblue1]🏷️ EPC (Hex)[/]");
+            table.AddColumn("[bold springgreen2]📡 Antenna[/]");
+            table.AddColumn("[bold yellow1]📶 Peak RSSI[/]");
+            table.AddColumn("[bold cyan1]🔢 Read Count[/]");
+            table.AddColumn("[bold grey70]🕒 Last Seen[/]");
+
+            try
+            {
+                await _console.Live(table)
+                    .AutoClear(false)
+                    .Overflow(VerticalOverflow.Ellipsis)
+                    .StartAsync(async ctx =>
+                    {
+                        while (!cts.IsCancellationRequested)
+                        {
+                            table.Rows.Clear();
+                            var topTags = tagStats.Values
+                                .OrderByDescending(t => t.LastSeen)
+                                .Take(15)
+                                .ToList();
+
+                            long totalReads = tagStats.Values.Sum(t => t.ReadCount);
+
+                            foreach (var tag in topTags)
+                            {
+                                table.AddRow(
+                                    $"[bold white]{tag.Epc}[/]",
+                                    $"[cyan1]{tag.AntennaId}[/]",
+                                    $"[yellow1]{tag.PeakRssi} dBm[/]",
+                                    $"[bold springgreen2]{tag.ReadCount:N0}[/]",
+                                    $"[grey]{tag.LastSeen:HH:mm:ss.fff}[/]");
+                            }
+
+                            table.Title = new TableTitle(
+                                $"[bold white on deepskyblue1] 🏷️ LIVE TAG MONITOR [/] [grey]Unique Tags:[/] [bold yellow]{tagStats.Count}[/] | [grey]Total Reads:[/] [bold springgreen2]{totalReads:N0}[/]");
+
+                            ctx.Refresh();
+                            try
+                            {
+                                await Task.Delay(100, cts.Token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                break;
+                            }
+                        }
+                    });
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when canceled
+            }
+            finally
+            {
+                _isMonitoringTable = false;
+                _monitorFrameCallback = null;
+                _console.MarkupLine($"[bold cyan1]✔ Live tag summary ended. Total Unique Tags: {tagStats.Count}[/]");
+            }
         }
     }
 
@@ -836,38 +1033,100 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         FrameRenderer.RenderEncodedHex(msgName, msgId, frame, _console);
     }
 
+    private static void UpdateWindowTitle(string status)
+    {
+        try
+        {
+            Console.Title = $"LLRPCSharp Studio · {status}";
+        }
+        catch
+        {
+            // Ignore restricted terminals
+        }
+    }
+
     private void RenderBanner()
     {
-        var rule = new Rule("[bold deepskyblue1]LLRP C# SDK Interactive Live Shell[/]")
+        UpdateWindowTitle(_reader?.IsConnected == true ? $"{_currentHost}:{_currentPort}" : "offline");
+
+        _console.Write(
+            new FigletText("LLRPCSharp")
+                .LeftJustified()
+                .Color(Color.DeepSkyBlue1));
+
+        var grid = new Grid();
+        grid.AddColumn(new GridColumn().NoWrap().PadRight(2));
+        grid.AddColumn(new GridColumn());
+
+        grid.AddRow(
+            "[bold springgreen2]📡 连接与通信[/]",
+            "[grey][cyan1]connect <host> [[port]][/] 连接读写器 (如 [cyan1]connect 192.0.2.10[/])[/]");
+        grid.AddRow(
+            "[bold deepskyblue1]⚙️ ROSpec 与配置[/]",
+            "[grey][cyan1]rospec list[/] / [cyan1]start[/] / [cyan1]stop[/] / [cyan1]caps[/] / [cyan1]status[/][/]");
+        grid.AddRow(
+            "[bold yellow1]🏷️ 托管盘点流[/]",
+            "[grey][cyan1]inventory start|stop[/] 开启/停止 SDK 托管盘点[/]");
+        grid.AddRow(
+            "[bold cyan1]📡 被动推流监听[/]",
+            "[grey][cyan1]monitor 10[/] 纯被动接收打印 10 秒 TCP 回调帧[/]");
+        grid.AddRow(
+            "[bold magenta1]🔍 协议诊断工具[/]",
+            "[grey][cyan1]inspect <hex>[/] / [cyan1]decode <hex>[/] / [cyan1]frames[/] / [cyan1]help[/][/]");
+
+        var panel = new Panel(grid)
         {
-            Style = Style.Parse("cyan1")
+            Header = new PanelHeader("[bold white on deepskyblue1] 📡 LLRP C# SDK Terminal Studio [/] [grey70]v1.0.1[/]", Justify.Center),
+            Border = BoxBorder.Rounded,
+            BorderStyle = new Style(Color.DeepSkyBlue1),
+            Padding = new Padding(1, 0, 1, 0)
         };
-        _console.Write(rule);
-        _console.MarkupLine("[grey]Type [cyan1]connect <host> [[port]] --llrp 1.0.1[/] to force LLRP 1.0.1, or [cyan1]help[/] for commands.[/]");
+
+        _console.Write(panel);
         _console.WriteLine();
     }
 
     private void RenderHelp()
     {
-        var table = new Table();
-        table.AddColumn("[bold grey70]Command[/]");
-        table.AddColumn("[bold grey70]Description[/]");
+        var table = new Table
+        {
+            Border = TableBorder.Rounded,
+            BorderStyle = new Style(Color.DeepSkyBlue1)
+        };
+        table.AddColumn("[bold deepskyblue1]📌 指令 (Command)[/]");
+        table.AddColumn("[bold grey70]📝 说明 (Description)[/]");
 
-        table.AddRow("[cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]][/]", "Connect to an LLRP Reader");
-        table.AddRow("[cyan1]disconnect[/]", "Disconnect current Reader session");
-        table.AddRow("[cyan1]status[/]", "Show current connection status and metadata");
-        table.AddRow("[cyan1]caps[/]", "Display Reader capabilities");
-        table.AddRow("[cyan1]frames [[count]][/]", "Show recent captured LLRP message frames");
-        table.AddRow("[cyan1]rospec list|enable|disable|start|stop|delete[/]", "Manage ROSpecs");
-        table.AddRow("[cyan1]accessspec list|enable|disable|delete [[id]][/]", "Manage AccessSpecs");
-        table.AddRow("[cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "Send an exact LLRP frame");
-        table.AddRow("[cyan1]sync[/]", "Synchronize managed state after raw access");
-        table.AddRow("[cyan1]inspect <hex>[/]", "Inspect raw hex LLRP header");
-        table.AddRow("[cyan1]decode <hex>[/]", "Decode raw hex into parameter tree");
-        table.AddRow("[cyan1]validate <hex>[/]", "Validate LLRP frame integrity");
-        table.AddRow("[cyan1]encode <msg>[/]", "Encode standard LLRP message to hex");
-        table.AddRow("[cyan1]clear[/]", "Clear console screen");
-        table.AddRow("[cyan1]exit | quit[/]", "Exit interactive live shell");
+        // 分组 1: 连接与会话状态
+        table.AddRow("[bold yellow1]─── 🌐 连接与会话状态 (Connection & Status) ───[/]", "");
+        table.AddRow("  [cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]][/]", "连接到远程 RFID 读写器并完成版本协商");
+        table.AddRow("  [cyan1]disconnect[/]", "断开当前读写器 TCP 会话");
+        table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
+        table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");
+
+        // 分组 2: 高层托管盘点 (Managed Inventory)
+        table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
+        table.AddRow("  [cyan1]inventory start [[antenna-id]] | stop | status[/]", "一键托管盘点 (SDK 自动处理 ADD/ENABLE/START ROSpec 声明)");
+
+        // 分组 3: 纯被动推流监听 (Passive Monitoring)
+        table.AddRow("[bold yellow1]─── 📡 纯被动推流监听 (Passive Monitoring) ───[/]", "");
+        table.AddRow("  [cyan1]monitor [[seconds]] [[--table | --frames]][/]", "被动推流监听 (--table 实时汇总表, --frames 原始报文树)");
+        table.AddRow("  [cyan1]frames [[count]][/]", "展示最近捕获的原始收发 LLRP 帧日志");
+
+        // 分组 4: 进阶底层资源操控 (Advanced Resource API)
+        table.AddRow("[bold yellow1]─── ⚙️ 进阶底层资源操控 (Advanced Resource API) ───[/]", "");
+        table.AddRow("  [cyan1]rospec list|enable|disable|start|stop|delete [[id]][/]", "声明式管理设备 ROSpec 资源 (独立控制指定 ROSpec ID)");
+        table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "声明式管理设备 AccessSpec 资源 (密码/Memory 读写)");
+        table.AddRow("  [cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "精准发送或收发原始二进制 Hex 报文");
+        table.AddRow("  [cyan1]sync[/]", "同步 Raw 操作后的托管状态与配置缓存");
+
+        // 分组 5: 报文工具与终端
+        table.AddRow("[bold yellow1]─── 🛠️ 报文工具与终端 (Codec & Utilities) ───[/]", "");
+        table.AddRow("  [cyan1]inspect <hex>[/]", "检查单个 Hex 报文的 Header 结构");
+        table.AddRow("  [cyan1]decode <hex>[/]", "将 Hex 报文解码为树状结构或 JSON");
+        table.AddRow("  [cyan1]validate <hex>[/]", "校验 LLRP 报文结构完整性与长度");
+        table.AddRow("  [cyan1]encode <msg>[/]", "将标准 LLRP 消息编码为 Hex 二进制");
+        table.AddRow("  [cyan1]clear | cls[/]", "清空终端屏幕");
+        table.AddRow("  [cyan1]exit | quit[/]", "退出交互式 Live Shell 终端");
 
         _console.Write(table);
     }

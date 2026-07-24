@@ -15,7 +15,7 @@ public sealed record ReaderSettings
     /// <remarks>
     /// The value must be non-zero and must not conflict with a ROSpec managed through the advanced resource API.
     /// </remarks>
-    public uint RoSpecId { get; init; } = 1;
+    public uint RoSpecId { get; init; } = 14150;
 
     /// <summary>
     /// Gets the reader antenna identifiers to use. The default value <c>0</c> selects all reader antennas.

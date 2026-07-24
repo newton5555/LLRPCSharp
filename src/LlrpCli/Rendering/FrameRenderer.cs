@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text;
 using Spectre.Console;
 using LlrpNet.Core.Diagnostics;
@@ -38,9 +38,15 @@ public static class FrameRenderer
 
         if (message != null)
         {
-            var tree = new Tree($"[bold green]{Markup.Escape(name)}[/] [grey](ID: {header.MessageId})[/]")
+            var tree = new Tree($"[bold green]{Markup.Escape(name)}[/]")
                 .Style(new Style(Color.Grey70))
                 .Guide(TreeGuide.Line);
+
+            var headerNode = tree.AddNode("[deepskyblue1]Header[/]");
+            headerNode.AddNode($"[grey70]Version:[/] [white]{(byte)header.Version}[/]");
+            headerNode.AddNode($"[grey70]MessageType:[/] [white]{header.MessageType} ({(ushort)header.MessageType})[/]");
+            headerNode.AddNode($"[grey70]Length:[/] [white]{header.MessageLength}[/]");
+            headerNode.AddNode($"[grey70]MessageID:[/] [white]{header.MessageId}[/]");
 
             BuildObjectTree(tree, message, 0);
             console.Write(tree);
@@ -69,9 +75,15 @@ public static class FrameRenderer
         console.MarkupLine($"[deepskyblue1 bold]→ DECODED[/]  [bold]{Markup.Escape(message.GetType().Name)}[/]  [grey]ID {header.MessageId} · {rawFrame.Length} bytes[/]");
         console.WriteLine();
 
-        var tree = new Tree($"[bold green]{Markup.Escape(message.GetType().Name)}[/] [grey](ID: {header.MessageId})[/]")
+        var tree = new Tree($"[bold green]{Markup.Escape(message.GetType().Name)}[/]")
             .Style(new Style(Color.Grey70))
             .Guide(TreeGuide.Line);
+
+        var headerNode = tree.AddNode("[deepskyblue1]Header[/]");
+        headerNode.AddNode($"[grey70]Version:[/] [white]{(byte)header.Version}[/]");
+        headerNode.AddNode($"[grey70]MessageType:[/] [white]{header.MessageType} ({(ushort)header.MessageType})[/]");
+        headerNode.AddNode($"[grey70]Length:[/] [white]{header.MessageLength}[/]");
+        headerNode.AddNode($"[grey70]MessageID:[/] [white]{header.MessageId}[/]");
 
         BuildObjectTree(tree, message, 0);
         console.Write(tree);
@@ -168,10 +180,31 @@ public static class FrameRenderer
 
             string propName = prop.Name;
 
-            if (value is System.Collections.IEnumerable enumerable and not string and not byte[])
+            if (value.GetType().IsPrimitive || value.GetType().IsEnum || value is string)
+            {
+                parentNode.AddNode($"[grey70]{Markup.Escape(propName)}:[/] [white]{Markup.Escape(value.ToString() ?? string.Empty)}[/]");
+            }
+            else if (value is ReadOnlyMemory<byte> readOnlyBytes)
+            {
+                parentNode.AddNode($"[grey70]{Markup.Escape(propName)}:[/] [white]{Convert.ToHexString(readOnlyBytes.Span)}[/]");
+            }
+            else if (value is Memory<byte> memoryBytes)
+            {
+                parentNode.AddNode($"[grey70]{Markup.Escape(propName)}:[/] [white]{Convert.ToHexString(memoryBytes.Span)}[/]");
+            }
+            else if (value is IEnumerable<bool> bools)
+            {
+                bool[] boolArray = bools.ToArray();
+                string hex = FormatBitsToHex(boolArray);
+                parentNode.AddNode($"[grey70]{Markup.Escape(propName)}:[/] [white]{hex}[/] [grey]({boolArray.Length} bits)[/]");
+            }
+            else if (value is System.Collections.IEnumerable enumerable and not string and not byte[])
             {
                 var listNode = parentNode.AddNode($"[deepskyblue1]{Markup.Escape(propName)}[/] [grey](collection)[/]");
                 int index = 0;
+                const int maxPrimitiveItems = 20;
+                bool truncated = false;
+
                 foreach (object item in enumerable)
                 {
                     if (item is null)
@@ -181,6 +214,12 @@ public static class FrameRenderer
 
                     if (item.GetType().IsPrimitive || item is Enum || item is string)
                     {
+                        if (index >= maxPrimitiveItems)
+                        {
+                            truncated = true;
+                            index++;
+                            continue;
+                        }
                         listNode.AddNode($"[grey]{Markup.Escape($"[{index++}]:")}[/] [white]{Markup.Escape(item.ToString() ?? string.Empty)}[/]");
                     }
                     else
@@ -188,6 +227,11 @@ public static class FrameRenderer
                         var itemNode = listNode.AddNode($"[green]{Markup.Escape(item.GetType().Name)}[/]");
                         BuildObjectTree(itemNode, item, depth + 1);
                     }
+                }
+
+                if (truncated)
+                {
+                    listNode.AddNode($"[grey]... (+ {index - maxPrimitiveItems} more items)[/]");
                 }
             }
             else if (value.GetType().Assembly == typeof(LlrpMessageHeader).Assembly
@@ -207,5 +251,24 @@ public static class FrameRenderer
                 parentNode.AddNode($"[grey70]{Markup.Escape(propName)}:[/] [white]{Markup.Escape(displayValue)}[/]");
             }
         }
+    }
+
+    private static string FormatBitsToHex(bool[] bits)
+    {
+        if (bits.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        int byteCount = (bits.Length + 7) / 8;
+        byte[] bytes = new byte[byteCount];
+        for (int i = 0; i < bits.Length; i++)
+        {
+            if (bits[i])
+            {
+                bytes[i / 8] |= (byte)(1 << (7 - (i % 8)));
+            }
+        }
+        return Convert.ToHexString(bytes);
     }
 }

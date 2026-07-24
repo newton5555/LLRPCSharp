@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpNet.Core.Protocol;
@@ -30,7 +30,7 @@ public sealed class LlrpCliApplication
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
             Out = new AnsiConsoleOutput(output),
-            Ansi = AnsiSupport.No,
+            Ansi = AnsiSupport.Detect,
         });
 
         var app = new CommandApp(new TypeRegistrar(console, output));

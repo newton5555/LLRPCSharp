@@ -1,4 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
@@ -69,7 +69,7 @@ public sealed class LlrpReader : IAsyncDisposable
             options.IncomingMessageCapacity)
         {
             AllowSynchronousContinuations = false,
-            FullMode = BoundedChannelFullMode.Wait,
+            FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = false,
             SingleWriter = true,
         });
@@ -77,7 +77,7 @@ public sealed class LlrpReader : IAsyncDisposable
             options.IncomingMessageCapacity)
         {
             AllowSynchronousContinuations = false,
-            FullMode = BoundedChannelFullMode.Wait,
+            FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = false,
             SingleWriter = true,
         });
@@ -206,6 +206,20 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Gets the underlying transport correlation identifier used in diagnostics.
     /// </summary>
     public string ConnectionId => _session.ConnectionId;
+
+    /// <summary>
+    /// Gets the codec registry configured for this reader.
+    /// </summary>
+    public LlrpCodecRegistry Registry => _registry;
+
+    /// <summary>
+    /// Translates an incoming LLRP message into SDK tag reports using the active protocol adapter.
+    /// </summary>
+    public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        return GetProtocolAdapter().TranslateTagReports(message);
+    }
 
     /// <summary>
     /// Occurs after a connection-state transition has been recorded.
@@ -541,6 +555,33 @@ public sealed class LlrpReader : IAsyncDisposable
             bool enabled = false;
             try
             {
+                try
+                {
+                    await RoSpecs.StopAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best-effort pre-cleanup if ROSpec is already Active
+                }
+
+                try
+                {
+                    await RoSpecs.DisableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best-effort pre-cleanup if ROSpec is already Enabled
+                }
+
+                try
+                {
+                    await RoSpecs.DeleteAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best-effort pre-cleanup if ROSpec already exists
+                }
+
                 ILlrpParameter roSpec =
                     GetProtocolAdapter().CompileInventory(settings);
                 await RoSpecs.AddAsync(roSpec, cancellationToken).ConfigureAwait(false);
@@ -917,22 +958,11 @@ public sealed class LlrpReader : IAsyncDisposable
 
                     foreach (TagReport tagReport in GetProtocolAdapter().TranslateTagReports(message))
                     {
-                        if (!_tagReports.Writer.TryWrite(tagReport))
-                        {
-                            throw new LlrpReaderBackpressureException(
-                                ConnectionId,
-                                Options.IncomingMessageCapacity);
-                        }
-
+                        _tagReports.Writer.TryWrite(tagReport);
                         PublishTagReport(tagReport);
                     }
 
-                    if (!_messages.Writer.TryWrite(message))
-                    {
-                        throw new LlrpReaderBackpressureException(
-                            ConnectionId,
-                            Options.IncomingMessageCapacity);
-                    }
+                    _messages.Writer.TryWrite(message);
                 }
 
                 pendingAvailability = _session.UnsolicitedFrames
