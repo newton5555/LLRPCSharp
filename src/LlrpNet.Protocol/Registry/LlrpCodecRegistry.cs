@@ -420,7 +420,13 @@ public sealed class LlrpCodecRegistry
         return encoding.CompleteLength;
     }
 
-    internal ushort GetParameterWireType(
+    /// <summary>
+    /// Resolves the complete wire identity that would be used to encode a parameter.
+    /// </summary>
+    /// <param name="version">The target protocol version.</param>
+    /// <param name="parameter">The parameter to inspect.</param>
+    /// <returns>The parameter type, header encoding, and custom metadata when applicable.</returns>
+    public LlrpParameterWireIdentity GetParameterWireIdentity(
         LlrpProtocolVersion version,
         ILlrpParameter parameter)
     {
@@ -430,19 +436,31 @@ public sealed class LlrpCodecRegistry
         if (parameter is UnknownParameter unknown)
         {
             EnsureMatchingVersion(version, unknown.Version, nameof(parameter));
-            return unknown.ParameterType;
+            return new LlrpParameterWireIdentity(
+                unknown.ParameterType,
+                LlrpParameterEncoding.Tlv,
+                VendorId: null,
+                ParameterSubtype: null);
         }
 
         if (parameter is RawCustomParameter rawCustom)
         {
             EnsureMatchingVersion(version, rawCustom.Version, nameof(parameter));
-            return RawCustomParameter.CustomParameterType;
+            return new LlrpParameterWireIdentity(
+                RawCustomParameter.CustomParameterType,
+                LlrpParameterEncoding.Tlv,
+                rawCustom.VendorId,
+                rawCustom.Subtype);
         }
 
         ParameterRegistration? registration = FindParameterEncoder(version, parameter.GetType());
         if (registration is not null)
         {
-            return registration.ParameterType;
+            return new LlrpParameterWireIdentity(
+                registration.ParameterType,
+                registration.Encoding,
+                VendorId: null,
+                ParameterSubtype: null);
         }
 
         CustomParameterRegistration? customRegistration = FindCustomParameterEncoder(
@@ -450,12 +468,20 @@ public sealed class LlrpCodecRegistry
             parameter.GetType());
         if (customRegistration is not null)
         {
-            return RawCustomParameter.CustomParameterType;
+            return new LlrpParameterWireIdentity(
+                RawCustomParameter.CustomParameterType,
+                LlrpParameterEncoding.Tlv,
+                customRegistration.VendorId,
+                customRegistration.ParameterSubtype);
         }
 
         throw new NotSupportedException(
             $"No parameter encoder is registered for version {version}, CLR type {parameter.GetType().FullName}.");
     }
+
+    internal ushort GetParameterWireType(
+        LlrpProtocolVersion version,
+        ILlrpParameter parameter) => GetParameterWireIdentity(version, parameter).ParameterType;
 
     /// <summary>
     /// Encodes a complete LLRP TV or TLV parameter into a caller-provided destination.

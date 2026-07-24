@@ -1,4 +1,4 @@
-using LlrpNet.Core.Protocol;
+﻿using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Registry;
 
