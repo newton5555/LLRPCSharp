@@ -37,6 +37,7 @@ public sealed class LlrpReaderOptions
         LlrpAutomaticReconnectOptions? automaticReconnect,
         LlrpTransportFactory? transportFactory,
         IEnumerable<ILlrpProtocolModule> protocolModules,
+        IEnumerable<IReaderExtension> readerExtensions,
         IEnumerable<Action<LlrpCodecRegistry>> protocolConfigurations)
     {
         Host = host;
@@ -51,6 +52,7 @@ public sealed class LlrpReaderOptions
         AutomaticReconnect = automaticReconnect;
         TransportFactory = transportFactory ?? CreateTcpTransport;
         ProtocolModules = Array.AsReadOnly(protocolModules.ToArray());
+        ReaderExtensions = Array.AsReadOnly(readerExtensions.ToArray());
         ProtocolConfigurations = Array.AsReadOnly(protocolConfigurations.ToArray());
     }
 
@@ -109,6 +111,9 @@ public sealed class LlrpReaderOptions
 
     /// <summary>Gets protocol modules registered before the reader connects.</summary>
     public IReadOnlyList<ILlrpProtocolModule> ProtocolModules { get; }
+
+    /// <summary>Gets extensions eligible for identity-based activation after standard initialization.</summary>
+    public IReadOnlyList<IReaderExtension> ReaderExtensions { get; }
 
     internal IReadOnlyList<Action<LlrpCodecRegistry>> ProtocolConfigurations { get; }
 

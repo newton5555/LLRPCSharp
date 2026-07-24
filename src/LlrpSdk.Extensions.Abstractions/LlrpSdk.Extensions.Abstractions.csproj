@@ -4,7 +4,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" />
     <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
   </ItemGroup>
 </Project>
-

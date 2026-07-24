@@ -160,6 +160,15 @@ public sealed class LlrpReaderBuilder
         return this;
     }
 
+    /// <summary>Registers an extension for identity-based activation after the reader initializes.</summary>
+    /// <param name="extension">The extension eligible for this reader.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderBuilder UseReaderExtension(IReaderExtension extension)
+    {
+        _optionsBuilder.UseReaderExtension(extension);
+        return this;
+    }
+
     /// <summary>
     /// Builds the immutable options without constructing a reader.
     /// </summary>

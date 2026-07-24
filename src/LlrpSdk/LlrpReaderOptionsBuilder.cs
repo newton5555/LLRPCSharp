@@ -29,6 +29,7 @@ public sealed class LlrpReaderOptionsBuilder
     private LlrpAutomaticReconnectOptions? _automaticReconnect;
     private LlrpTransportFactory? _transportFactory;
     private readonly List<ILlrpProtocolModule> _protocolModules = [];
+    private readonly List<IReaderExtension> _readerExtensions = [];
     private readonly List<Action<LlrpCodecRegistry>> _protocolConfigurations = [];
 
     /// <summary>
@@ -201,6 +202,21 @@ public sealed class LlrpReaderOptionsBuilder
         return this;
     }
 
+    /// <summary>Registers an extension for matching after standard reader initialization.</summary>
+    /// <param name="extension">The extension eligible for this reader.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderOptionsBuilder UseReaderExtension(IReaderExtension extension)
+    {
+        ArgumentNullException.ThrowIfNull(extension);
+        if (string.IsNullOrWhiteSpace(extension.Id))
+        {
+            throw new ArgumentException("A reader extension must have a non-empty identifier.", nameof(extension));
+        }
+
+        _readerExtensions.Add(extension);
+        return this;
+    }
+
     /// <summary>
     /// Validates the accumulated values and creates immutable reader options.
     /// </summary>
@@ -221,6 +237,7 @@ public sealed class LlrpReaderOptionsBuilder
             _automaticReconnect,
             _transportFactory,
             _protocolModules,
+            _readerExtensions,
             _protocolConfigurations);
     }
 
@@ -287,6 +304,16 @@ public sealed class LlrpReaderOptionsBuilder
         {
             throw new InvalidOperationException(
                 $"Protocol module identifier '{duplicateModuleId}' was configured more than once.");
+        }
+
+        string? duplicateExtensionId = _readerExtensions
+            .GroupBy(static extension => extension.Id, StringComparer.Ordinal)
+            .FirstOrDefault(static group => group.Count() > 1)
+            ?.Key;
+        if (duplicateExtensionId is not null)
+        {
+            throw new InvalidOperationException(
+                $"Reader extension identifier '{duplicateExtensionId}' was configured more than once.");
         }
     }
 }

@@ -27,6 +27,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly ILogger<LlrpReader> _logger;
     private readonly LlrpMessageIdGenerator _messageIds = new();
+    private readonly ReaderExtensionCollection _extensions = new();
     private readonly LlrpCodecRegistry _registry;
     private readonly ILlrpProtocolAdapter _protocolAdapter;
     private readonly LlrpSession _session;
@@ -106,6 +107,7 @@ public sealed class LlrpReader : IAsyncDisposable
         RoSpecs = new RoSpecService(this, _protocolAdapter, _messageIds);
         AccessSpecs = new AccessSpecService(this, _protocolAdapter, _messageIds);
         Protocol = new ReaderProtocolAccess(this);
+        Extensions = _extensions;
     }
 
     /// <summary>
@@ -189,6 +191,9 @@ public sealed class LlrpReader : IAsyncDisposable
     /// </summary>
     public IReaderProtocolAccess Protocol { get; }
 
+    /// <summary>Gets extensions whose match rules selected this initialized reader.</summary>
+    public IReaderExtensionCollection Extensions { get; }
+
     /// <summary>
     /// Gets the underlying transport correlation identifier used in diagnostics.
     /// </summary>
@@ -261,6 +266,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 AddTransition(transitions, ReaderConnectionState.Negotiating);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
+                ActivateReaderExtensions();
                 AddTransition(transitions, ReaderConnectionState.Ready);
             }
             catch (Exception exception)
@@ -395,6 +401,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 AddTransition(transitions, ReaderConnectionState.Negotiating);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
+                ActivateReaderExtensions();
                 AddTransition(transitions, ReaderConnectionState.Ready);
             }
             catch (Exception exception)
@@ -1135,6 +1142,35 @@ public sealed class LlrpReader : IAsyncDisposable
     private void InvalidateMetadata()
     {
         Volatile.Write(ref _metadata, null);
+        _extensions.Replace([]);
+    }
+
+    private void ActivateReaderExtensions()
+    {
+        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ??
+            throw new InvalidOperationException("Reader extensions cannot activate before standard metadata is available.");
+        var context = new ReaderExtensionMatchContext(
+            metadata.Identity.ManufacturerId,
+            metadata.Identity.ModelId,
+            metadata.Identity.FirmwareVersion,
+            NegotiatedVersion);
+        IReaderExtension[] activated = Options.ReaderExtensions
+            .Where(extension => extension.Matches(context))
+            .ToArray();
+
+        foreach (IGrouping<string, IReaderExtension> group in activated
+            .Where(static extension => !string.IsNullOrWhiteSpace(extension.MutualExclusionGroup))
+            .GroupBy(static extension => extension.MutualExclusionGroup!, StringComparer.Ordinal))
+        {
+            if (group.Count() > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Reader extensions '{string.Join("', '", group.Select(static extension => extension.Id))}' " +
+                    $"all match mutual-exclusion group '{group.Key}'.");
+            }
+        }
+
+        _extensions.Replace(activated);
     }
 
     private void EnsureProtocolAvailable()
