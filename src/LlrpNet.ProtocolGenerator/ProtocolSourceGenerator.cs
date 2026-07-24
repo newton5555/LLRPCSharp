@@ -69,6 +69,16 @@ public sealed class ProtocolSourceGenerator
                 $"'{options.RootNamespace}' is not a valid C# namespace."));
         }
 
+        string dependencyRootNamespaceInput = options.DependencyRootNamespace ?? options.RootNamespace;
+        if (!CSharpIdentifier.TryEscapeQualifiedName(dependencyRootNamespaceInput, out string dependencyRootNamespace))
+        {
+            diagnostics.Add(new ProtocolGenerationDiagnostic(
+                "LLRPG001",
+                ProtocolGenerationDiagnosticSeverity.Error,
+                "options:DependencyRootNamespace",
+                $"'{dependencyRootNamespaceInput}' is not a valid C# dependency namespace."));
+        }
+
         if (!CSharpIdentifier.TryEscapeQualifiedName(options.VersionNamespace, out string versionNamespace))
         {
             diagnostics.Add(new ProtocolGenerationDiagnostic(
@@ -100,7 +110,11 @@ public sealed class ProtocolSourceGenerator
             return new ProtocolGenerationResult([], diagnostics);
         }
 
-        var symbols = new ProtocolSymbolTable(visibleDefinitions);
+        var symbols = new ProtocolSymbolTable(
+            definition,
+            validationContext.Dependencies,
+            rootNamespace,
+            dependencyRootNamespace);
         var renderer = new ProtocolSourceRenderer(
             rootNamespace,
             versionNamespace,

@@ -778,10 +778,10 @@ internal sealed partial class ProtocolSourceRenderer
             ParameterReferenceDefinition parameter when symbols.IsEnvelopeParameter(parameter.ParameterType) =>
                 "global::LlrpNet.Protocol.Parameters.ILlrpParameter",
             ParameterReferenceDefinition parameter =>
-                Qualify("Parameters", symbols.GetParameter(parameter.ParameterType)),
+                QualifyParameter(parameter.ParameterType),
             ChoiceReferenceDefinition choice when choicesContainingEnvelope.Contains(choice.ChoiceType) =>
                 "global::LlrpNet.Protocol.Parameters.ILlrpParameter",
-            ChoiceReferenceDefinition choice => Qualify("Choices", symbols.GetChoice(choice.ChoiceType)),
+            ChoiceReferenceDefinition choice => QualifyChoice(choice.ChoiceType),
             _ => throw new InvalidOperationException("A generated reference must be a parameter or choice."),
         };
     }
@@ -982,7 +982,7 @@ internal sealed partial class ProtocolSourceRenderer
 
     private string GetEnumerationElementType(FieldDefinition field)
     {
-        return Qualify("Enumerations", symbols.GetEnumeration(field.Enumeration!));
+        return QualifyEnumeration(field.Enumeration!);
     }
 
     private static int GetFixedFieldLength(IReadOnlyList<ProtocolMemberDefinition> members)

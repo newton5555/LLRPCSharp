@@ -32,8 +32,9 @@ YAML Loader 与 XML Importer 都输出同一个 `ProtocolDefinition`，后续 Va
 ```powershell
 dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
   --input definitions/my-extension.yaml --output src/MyExtension.Protocol `
-  --root-namespace LlrpNet.Protocol --version-namespace V1_0_1 `
-  --protocol-version 1 --dependency definitions/llrp-1.0.1.xml `
+  --root-namespace MyExtension.Protocol --version-namespace V1_0_1 `
+  --protocol-version 1 --dependency definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
+  --dependency-root-namespace LlrpNet.Protocol `
   --registry-module-name MyExtensionProtocolModule --codecs --verify
 ```
 
@@ -58,8 +59,22 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
 ```
 
 不带 `--verify` 时只写入缺失或内容变化的 `.g.cs` 文件，并使用 UTF-8 BOM；`--verify` 不写文件，适合 CI 检查生成资产已提交。
-扩展定义以基础协议作为 `--dependency`，只生成扩展自身的类型；扩展应使用与基础协议相同的
-`--root-namespace`，并指定不与标准模块冲突的 `--registry-module-name`。
+扩展定义以基础协议作为 `--dependency`，只生成扩展自身的类型；当扩展输出到独立程序集时，
+`--root-namespace` 指向扩展程序集，`--dependency-root-namespace` 指向基础协议程序集的根命名空间。
+扩展仍须指定不与标准模块冲突的 `--registry-module-name`。
+
+项目内 Impinj 1.0.1 本地输入的生成命令如下；原始 XML 按 `.gitignore` 保持本地，生成的 `.g.cs` 进入
+`LlrpSdk.Extensions.Impinj` 并与源码一同提交：
+
+```powershell
+dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
+  --input definitions/imports/xml/extensions/impinj/Impinjdef.xml `
+  --dependency definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
+  --dependency-root-namespace LlrpNet.Protocol `
+  --output src/LlrpSdk.Extensions.Impinj --root-namespace LlrpSdk.Extensions.Impinj `
+  --version-namespace V1_0_1 --protocol-version 1 `
+  --registry-module-name ImpinjProtocolModule --codecs --verify
+```
 
 在定义格式和导入器完成前，不创建占位的伪协议数据。
 

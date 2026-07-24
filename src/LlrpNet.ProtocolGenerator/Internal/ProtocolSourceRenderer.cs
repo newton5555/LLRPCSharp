@@ -226,7 +226,7 @@ internal sealed partial class ProtocolSourceRenderer
         {
             if (symbols.TryGetChoice(allowed.Type, out string choiceIdentifier))
             {
-                string choiceType = Qualify("Choices", choiceIdentifier);
+                string choiceType = QualifyChoice(allowed.Type);
                 if (!interfaces.Contains(choiceType, StringComparer.Ordinal))
                 {
                     interfaces.Add(choiceType);
@@ -298,7 +298,7 @@ internal sealed partial class ProtocolSourceRenderer
                 case ParameterReferenceDefinition parameter:
                     string parameterType = symbols.IsEnvelopeParameter(parameter.ParameterType)
                         ? "global::LlrpNet.Protocol.Parameters.ILlrpParameter"
-                        : Qualify("Parameters", symbols.GetParameter(parameter.ParameterType));
+                        : QualifyParameter(parameter.ParameterType);
                     properties.Add(CreateReferenceProperty(
                         parameterType,
                         parameter.ParameterType,
@@ -310,7 +310,7 @@ internal sealed partial class ProtocolSourceRenderer
                 case ChoiceReferenceDefinition choice:
                     string choiceType = choicesContainingEnvelope.Contains(choice.ChoiceType)
                         ? "global::LlrpNet.Protocol.Parameters.ILlrpParameter"
-                        : Qualify("Choices", symbols.GetChoice(choice.ChoiceType));
+                        : QualifyChoice(choice.ChoiceType);
                     properties.Add(CreateReferenceProperty(
                         choiceType,
                         choice.ChoiceType,
@@ -350,7 +350,7 @@ internal sealed partial class ProtocolSourceRenderer
     {
         if (field.Enumeration is not null)
         {
-            string enumerationType = Qualify("Enumerations", symbols.GetEnumeration(field.Enumeration));
+            string enumerationType = QualifyEnumeration(field.Enumeration);
             return field.FieldType is ProtocolFieldType.U1Vector
                 or ProtocolFieldType.U8Vector
                 or ProtocolFieldType.U16Vector
@@ -389,7 +389,7 @@ internal sealed partial class ProtocolSourceRenderer
         };
         if (parameterChoices.TryGetValue(parameterName, out IReadOnlyList<string>? choices))
         {
-            interfaces.AddRange(choices.Select(choice => Qualify("Choices", symbols.GetChoice(choice))));
+            interfaces.AddRange(choices.Select(QualifyChoice));
         }
 
         return interfaces;
@@ -432,9 +432,21 @@ internal sealed partial class ProtocolSourceRenderer
         writer.WriteLine("{");
     }
 
-    private string Qualify(string category, string identifier)
+    private string QualifyParameter(string name) =>
+        Qualify(symbols.GetParameterRootNamespace(name), "Parameters", symbols.GetParameter(name));
+
+    private string QualifyChoice(string name) =>
+        Qualify(symbols.GetChoiceRootNamespace(name), "Choices", symbols.GetChoice(name));
+
+    private string QualifyEnumeration(string name) =>
+        Qualify(symbols.GetEnumerationRootNamespace(name), "Enumerations", symbols.GetEnumeration(name));
+
+    private string Qualify(string category, string identifier) =>
+        Qualify(rootNamespace, category, identifier);
+
+    private string Qualify(string referenceRootNamespace, string category, string identifier)
     {
-        return $"global::{rootNamespace}.{category}.{versionNamespace}.{identifier}";
+        return $"global::{referenceRootNamespace}.{category}.{versionNamespace}.{identifier}";
     }
 
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildParameterChoices(

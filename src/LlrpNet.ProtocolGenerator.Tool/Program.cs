@@ -27,6 +27,7 @@ public static class Program
                 new ProtocolGenerationOptions
                 {
                     RootNamespace = options.RootNamespace,
+                    DependencyRootNamespace = options.DependencyRootNamespace,
                     VersionNamespace = options.VersionNamespace,
                     GenerateCodecs = options.GenerateCodecs,
                     ProtocolVersionValue = checked((byte)options.ProtocolVersion),
@@ -147,6 +148,7 @@ public static class Program
         string InputPath,
         string OutputPath,
         string RootNamespace,
+        string? DependencyRootNamespace,
         string VersionNamespace,
         int ProtocolVersion,
         IReadOnlyList<string> BaselinePaths,
@@ -199,7 +201,7 @@ public static class Program
                     continue;
                 }
 
-                if (argument is not ("--input" or "--output" or "--root-namespace" or "--version-namespace" or "--protocol-version" or "--registry-module-name") || index + 1 >= args.Length)
+                if (argument is not ("--input" or "--output" or "--root-namespace" or "--dependency-root-namespace" or "--version-namespace" or "--protocol-version" or "--registry-module-name") || index + 1 >= args.Length)
                 {
                     throw Usage();
                 }
@@ -234,6 +236,7 @@ public static class Program
 
             string output = Required(values, "--output");
             string rootNamespace = Required(values, "--root-namespace");
+            values.TryGetValue("--dependency-root-namespace", out string? dependencyRootNamespace);
             string versionNamespace = Required(values, "--version-namespace");
             string protocolVersionText = Required(values, "--protocol-version");
             if (!int.TryParse(protocolVersionText, out int protocolVersion) || protocolVersion is < 1 or > 3)
@@ -242,7 +245,7 @@ public static class Program
             }
 
             values.TryGetValue("--registry-module-name", out string? registryModuleName);
-            return new Options(input, output, rootNamespace, versionNamespace, protocolVersion, baselines, dependencies, registryModuleName, codecs, verify);
+            return new Options(input, output, rootNamespace, dependencyRootNamespace, versionNamespace, protocolVersion, baselines, dependencies, registryModuleName, codecs, verify);
         }
 
         private static string Required(IReadOnlyDictionary<string, string> values, string name)
@@ -253,6 +256,7 @@ public static class Program
         private static ArgumentException Usage() => new(
             "Usage: --input <definition.xml|yaml> --output <directory> --root-namespace <namespace> " +
             "--version-namespace <V1_0_1> --protocol-version <1|2|3> [--base <definition>]... " +
-            "[--dependency <definition>]... [--registry-module-name <name>] [--codecs] [--verify]");
+            "[--dependency <definition>]... [--dependency-root-namespace <namespace>] " +
+            "[--registry-module-name <name>] [--codecs] [--verify]");
     }
 }

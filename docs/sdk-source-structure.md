@@ -68,7 +68,7 @@ src/
   - **定位三元组**：`VendorID (如 Impinj = 25882)` + `Subtype (如 1023, 1001)` + `TypeKind (Message 或 Parameter)`。
 * **扩展注册机制 (`ImpinjProtocolModule`)**：
   - 生成器会自动产出 `ImpinjProtocolModule`（或 `ImpinjExtensionModule`）。
-  - 在 `LlrpReader` 与读写器建立连接前，通过 `WithProtocolConfiguration(ImpinjProtocolModule.Register)` 将厂商 Custom Codec 注入到 `LlrpCodecRegistry` 中。
+  - 在 `LlrpReader` 与读写器建立连接前，通过 `UseProtocolModule(ImpinjProtocolModule.Instance)` 将厂商 Custom Codec 注入到 `LlrpCodecRegistry` 中；常规集成可直接调用 `builder.UseImpinj()`。
   - **容错隔离**：若未安装或未注册 Impinj 扩展模块，收到该厂商报文时系统不会崩溃，而是自动降级解析为 `RawCustomParameter`，确保主盘点流程不受干扰。
 
 ---

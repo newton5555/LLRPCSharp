@@ -11,6 +11,12 @@ public sealed record ProtocolGenerationOptions
     public string RootNamespace { get; init; } = "LlrpNet.Protocol.Generated";
 
     /// <summary>
+    /// Gets the root namespace of definitions supplied through the validation dependency context.
+    /// When omitted, dependencies are assumed to be generated into <see cref="RootNamespace"/>.
+    /// </summary>
+    public string? DependencyRootNamespace { get; init; }
+
+    /// <summary>
     /// Gets the final namespace segment that identifies the generated protocol version.
     /// </summary>
     public string VersionNamespace { get; init; } = "V1_0_1";

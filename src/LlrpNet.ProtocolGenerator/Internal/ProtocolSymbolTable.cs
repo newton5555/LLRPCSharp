@@ -10,14 +10,26 @@ internal sealed class ProtocolSymbolTable
     private readonly Dictionary<string, string> choices = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> messageCodecs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> parameterCodecs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> messageRootNamespaces = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> parameterRootNamespaces = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> enumerationRootNamespaces = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> choiceRootNamespaces = new(StringComparer.Ordinal);
     private readonly Dictionary<string, uint> vendors = new(StringComparer.Ordinal);
     private readonly HashSet<string> envelopeParameters = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ParameterWireIdentity> parameterWireIdentities = new(StringComparer.Ordinal);
 
-    public ProtocolSymbolTable(IEnumerable<ProtocolDefinition> definitions)
+    public ProtocolSymbolTable(
+        ProtocolDefinition definition,
+        IEnumerable<ProtocolDefinition> dependencies,
+        string rootNamespace,
+        string dependencyRootNamespace)
     {
-        ArgumentNullException.ThrowIfNull(definitions);
-        ProtocolDefinition[] definitionArray = definitions.ToArray();
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(dependencies);
+        ArgumentNullException.ThrowIfNull(rootNamespace);
+        ArgumentNullException.ThrowIfNull(dependencyRootNamespace);
+        ProtocolDefinition[] dependencyArray = dependencies.ToArray();
+        ProtocolDefinition[] definitionArray = [definition, .. dependencyArray];
         var messageNames = new CSharpIdentifierAllocator();
         var parameterNames = new CSharpIdentifierAllocator();
         var enumerationNames = new CSharpIdentifierAllocator();
@@ -30,20 +42,22 @@ internal sealed class ProtocolSymbolTable
             vendors.TryAdd(vendor.Name, vendor.VendorId);
         }
 
-        foreach (ProtocolDefinition definition in definitionArray)
+        foreach ((ProtocolDefinition currentDefinition, string currentRootNamespace) in
+                 new[] { (definition, rootNamespace) }
+                     .Concat(dependencyArray.Select(item => (item, dependencyRootNamespace))))
         {
             envelopeParameters.UnionWith(
-                definition.Parameters
+                currentDefinition.Parameters
                     .Where(static parameter => parameter.TypeNumber == 1023)
                     .Select(static parameter => parameter.Name));
-            foreach (ParameterDefinition parameter in definition.Parameters)
+            foreach (ParameterDefinition parameter in currentDefinition.Parameters)
             {
                 parameterWireIdentities.TryAdd(
                     parameter.Name,
                     new ParameterWireIdentity(parameter.TypeNumber, MatchCustomMetadata: false, 0, 0));
             }
 
-            foreach (CustomParameterDefinition parameter in definition.CustomParameters)
+            foreach (CustomParameterDefinition parameter in currentDefinition.CustomParameters)
             {
                 uint vendorId = vendors[parameter.Vendor];
                 parameterWireIdentities.TryAdd(
@@ -51,40 +65,52 @@ internal sealed class ProtocolSymbolTable
                     new ParameterWireIdentity(1023, MatchCustomMetadata: true, vendorId, parameter.Subtype));
             }
             AddSymbols(
-                definition.Messages.Select(static item => item.Name)
-                    .Concat(definition.CustomMessages.Select(static item => item.Name)),
+                currentDefinition.Messages.Select(static item => item.Name)
+                    .Concat(currentDefinition.CustomMessages.Select(static item => item.Name)),
                 messages,
+                messageRootNamespaces,
+                currentRootNamespace,
                 messageNames,
                 "Message");
             AddSymbols(
-                definition.Parameters.Select(static item => item.Name)
-                    .Concat(definition.CustomParameters.Select(static item => item.Name)),
+                currentDefinition.Parameters.Select(static item => item.Name)
+                    .Concat(currentDefinition.CustomParameters.Select(static item => item.Name)),
                 parameters,
+                parameterRootNamespaces,
+                currentRootNamespace,
                 parameterNames,
                 "Parameter");
             AddSymbols(
-                definition.Enumerations.Select(static item => item.Name)
-                    .Concat(definition.CustomEnumerations.Select(static item => item.Name)),
+                currentDefinition.Enumerations.Select(static item => item.Name)
+                    .Concat(currentDefinition.CustomEnumerations.Select(static item => item.Name)),
                 enumerations,
+                enumerationRootNamespaces,
+                currentRootNamespace,
                 enumerationNames,
                 "Enumeration");
             AddSymbols(
-                definition.Choices.Select(static item => item.Name),
+                currentDefinition.Choices.Select(static item => item.Name),
                 choices,
+                choiceRootNamespaces,
+                currentRootNamespace,
                 choiceNames,
                 "Choice",
                 prefix: "I");
             AddSymbols(
-                definition.Parameters.Select(static item => item.Name)
-                    .Concat(definition.CustomParameters.Select(static item => item.Name)),
+                currentDefinition.Parameters.Select(static item => item.Name)
+                    .Concat(currentDefinition.CustomParameters.Select(static item => item.Name)),
                 parameterCodecs,
+                null,
+                currentRootNamespace,
                 codecNames,
                 "ParameterCodec",
                 suffix: "Codec");
             AddSymbols(
-                definition.Messages.Select(static item => item.Name)
-                    .Concat(definition.CustomMessages.Select(static item => item.Name)),
+                currentDefinition.Messages.Select(static item => item.Name)
+                    .Concat(currentDefinition.CustomMessages.Select(static item => item.Name)),
                 messageCodecs,
+                null,
+                currentRootNamespace,
                 codecNames,
                 "MessageCodec",
                 suffix: "Codec");
@@ -103,6 +129,14 @@ internal sealed class ProtocolSymbolTable
 
     public string GetParameterCodec(string name) => parameterCodecs[name];
 
+    public string GetMessageRootNamespace(string name) => messageRootNamespaces[name];
+
+    public string GetParameterRootNamespace(string name) => parameterRootNamespaces[name];
+
+    public string GetEnumerationRootNamespace(string name) => enumerationRootNamespaces[name];
+
+    public string GetChoiceRootNamespace(string name) => choiceRootNamespaces[name];
+
     public bool TryGetChoice(string name, out string identifier) => choices.TryGetValue(name, out identifier!);
 
     public uint GetVendorId(string name) => vendors[name];
@@ -114,6 +148,8 @@ internal sealed class ProtocolSymbolTable
     private static void AddSymbols(
         IEnumerable<string> sourceNames,
         IDictionary<string, string> destination,
+        IDictionary<string, string>? rootNamespaces,
+        string rootNamespace,
         CSharpIdentifierAllocator allocator,
         string fallback,
         string prefix = "",
@@ -124,6 +160,7 @@ internal sealed class ProtocolSymbolTable
             if (!destination.ContainsKey(sourceName))
             {
                 destination.Add(sourceName, allocator.Allocate($"{prefix}{sourceName}{suffix}", fallback));
+                rootNamespaces?.Add(sourceName, rootNamespace);
             }
         }
     }
