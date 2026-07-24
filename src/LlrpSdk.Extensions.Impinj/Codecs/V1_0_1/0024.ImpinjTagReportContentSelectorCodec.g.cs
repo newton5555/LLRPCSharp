@@ -74,10 +74,22 @@ internal sealed class ImpinjTagReportContentSelectorCodec : global::LlrpNet.Prot
             ImpinjEnableCRHandle = GeneratedCodecRuntime.DecodeParameter<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableCRHandle>(registry, version, data, ref offset);
         }
         reader = new GeneratedWireReader(data[offset..]);
+        global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableID? ImpinjEnableID = null;
+        if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 25882U, 1606U))
+        {
+            ImpinjEnableID = GeneratedCodecRuntime.DecodeParameter<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableID>(registry, version, data, ref offset);
+        }
+        reader = new GeneratedWireReader(data[offset..]);
         global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableEnhancedIntegra? ImpinjEnableEnhancedIntegra = null;
         if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 25882U, 1591U))
         {
             ImpinjEnableEnhancedIntegra = GeneratedCodecRuntime.DecodeParameter<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableEnhancedIntegra>(registry, version, data, ref offset);
+        }
+        reader = new GeneratedWireReader(data[offset..]);
+        global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableEndpointICVerification? ImpinjEnableEndpointICVerification = null;
+        if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 25882U, 1594U))
+        {
+            ImpinjEnableEndpointICVerification = GeneratedCodecRuntime.DecodeParameter<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableEndpointICVerification>(registry, version, data, ref offset);
         }
         reader = new GeneratedWireReader(data[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
@@ -98,7 +110,9 @@ internal sealed class ImpinjTagReportContentSelectorCodec : global::LlrpNet.Prot
             ImpinjEnableTxPower,
             ImpinjEnableXPCWords,
             ImpinjEnableCRHandle,
+            ImpinjEnableID,
             ImpinjEnableEnhancedIntegra,
+            ImpinjEnableEndpointICVerification,
             CustomItems);
     }
 
@@ -154,10 +168,20 @@ internal sealed class ImpinjTagReportContentSelectorCodec : global::LlrpNet.Prot
             GeneratedCodecRuntime.ValidateParameterMatch(parameter.ImpinjEnableCRHandle, "ImpinjEnableCRHandle", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.ImpinjEnableCRHandle, 1023, true, 25882U, 1589U));
             length = checked(length + registry.GetEncodedParameterLength(version, parameter.ImpinjEnableCRHandle));
         }
+        if (parameter.ImpinjEnableID is not null)
+        {
+            GeneratedCodecRuntime.ValidateParameterMatch(parameter.ImpinjEnableID, "ImpinjEnableID", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.ImpinjEnableID, 1023, true, 25882U, 1606U));
+            length = checked(length + registry.GetEncodedParameterLength(version, parameter.ImpinjEnableID));
+        }
         if (parameter.ImpinjEnableEnhancedIntegra is not null)
         {
             GeneratedCodecRuntime.ValidateParameterMatch(parameter.ImpinjEnableEnhancedIntegra, "ImpinjEnableEnhancedIntegra", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.ImpinjEnableEnhancedIntegra, 1023, true, 25882U, 1591U));
             length = checked(length + registry.GetEncodedParameterLength(version, parameter.ImpinjEnableEnhancedIntegra));
+        }
+        if (parameter.ImpinjEnableEndpointICVerification is not null)
+        {
+            GeneratedCodecRuntime.ValidateParameterMatch(parameter.ImpinjEnableEndpointICVerification, "ImpinjEnableEndpointICVerification", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.ImpinjEnableEndpointICVerification, 1023, true, 25882U, 1594U));
+            length = checked(length + registry.GetEncodedParameterLength(version, parameter.ImpinjEnableEndpointICVerification));
         }
         if (parameter.CustomItems is null)
         {
@@ -230,9 +254,19 @@ internal sealed class ImpinjTagReportContentSelectorCodec : global::LlrpNet.Prot
             offset += registry.EncodeParameter(version, parameter.ImpinjEnableCRHandle, destination[offset..]);
         }
         wireWriter = new GeneratedWireWriter(destination[offset..]);
+        if (parameter.ImpinjEnableID is not null)
+        {
+            offset += registry.EncodeParameter(version, parameter.ImpinjEnableID, destination[offset..]);
+        }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ImpinjEnableEnhancedIntegra is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ImpinjEnableEnhancedIntegra, destination[offset..]);
+        }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
+        if (parameter.ImpinjEnableEndpointICVerification is not null)
+        {
+            offset += registry.EncodeParameter(version, parameter.ImpinjEnableEndpointICVerification, destination[offset..]);
         }
         wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)

@@ -63,8 +63,9 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
 `--root-namespace` 指向扩展程序集，`--dependency-root-namespace` 指向基础协议程序集的根命名空间。
 扩展仍须指定不与标准模块冲突的 `--registry-module-name`。
 
-项目内 Impinj 1.0.1 本地输入的生成命令如下；原始 XML 按 `.gitignore` 保持本地，生成的 `.g.cs` 进入
-`LlrpSdk.Extensions.Impinj` 并与源码一同提交：
+项目内 Impinj 1.0.1 本地输入来自 LTK Impinj Definition Files 10.58.0；原始 XML 按 `.gitignore`
+保持本地，生成的 `.g.cs` 进入 `LlrpSdk.Extensions.Impinj` 并与源码一同提交。该输入当前包含 4 条
+Custom Message、104 个 Custom Parameter 和 49 个 Custom Enumeration：
 
 ```powershell
 dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
@@ -78,6 +79,7 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
 
 在定义格式和导入器完成前，不创建占位的伪协议数据。
 
-`imports/` 保存外部格式的原始输入；经过导入、规范化和校验后，由本项目维护的定义才进入顶层 YAML 或 `extensions/`。当前 Impinj 输入声明为 confidential/proprietary，在确认授权前由 `.gitignore` 排除。
+`imports/` 保存外部格式的原始输入；经过导入、规范化和校验后，由本项目维护的定义才进入顶层 YAML 或 `extensions/`。
+当前 Impinj 输入声明为 confidential/proprietary，故原始 XML 继续由 `.gitignore` 排除；仅生成的 C# 资产进入 Git。
 
 当前输入文件的版本、SHA-256 与使用约束记录在 [`docs/protocol-source-inventory.md`](../docs/protocol-source-inventory.md)。

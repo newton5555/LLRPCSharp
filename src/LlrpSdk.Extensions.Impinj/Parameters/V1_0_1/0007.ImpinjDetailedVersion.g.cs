@@ -11,7 +11,7 @@ namespace LlrpSdk.Extensions.Impinj.Parameters.V1_0_1;
 /// <param name="FPGAVersion">Wire field 'FPGAVersion' (Utf8Vector).</param>
 /// <param name="PCBAVersion">Wire field 'PCBAVersion' (Utf8Vector).</param>
 /// <param name="ImpinjHubVersions">LLRP parameter 'ImpinjHubVersions' with cardinality 0..1.</param>
-/// <param name="ImpinjArrayVersion">LLRP parameter 'ImpinjArrayVersion' with cardinality 0..1.</param>
+/// <param name="ImpinjArrayVersionItems">LLRP parameter 'ImpinjArrayVersion' with cardinality 0..N.</param>
 /// <param name="ImpinjBLEVersion">LLRP parameter 'ImpinjBLEVersion' with cardinality 0..1.</param>
 /// <param name="CustomItems">LLRP parameter 'Custom' with cardinality 0..N.</param>
 public sealed record ImpinjDetailedVersion(
@@ -22,7 +22,7 @@ public sealed record ImpinjDetailedVersion(
     string FPGAVersion,
     string PCBAVersion,
     global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjHubVersions? ImpinjHubVersions,
-    global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjArrayVersion? ImpinjArrayVersion,
+    global::System.Collections.Generic.IReadOnlyList<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjArrayVersion> ImpinjArrayVersionItems,
     global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjBLEVersion? ImpinjBLEVersion,
     global::System.Collections.Generic.IReadOnlyList<global::LlrpNet.Protocol.Parameters.ILlrpParameter> CustomItems
 ) : global::LlrpNet.Protocol.Parameters.ILlrpParameter

@@ -103,8 +103,17 @@ public static class ImpinjProtocolModule
         registry.RegisterCustomParameter(version, 25882U, 1587U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEnableTagPopulationEstimationAlgorithmCodec(registry));
         registry.RegisterCustomParameter(version, 25882U, 1589U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEnableCRHandleCodec(registry));
         registry.RegisterCustomParameter(version, 25882U, 1590U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjCRHandleCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1606U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEnableIDCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1607U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjIDCodec(registry));
         registry.RegisterCustomParameter(version, 25882U, 1591U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEnableEnhancedIntegraCodec(registry));
         registry.RegisterCustomParameter(version, 25882U, 1592U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEnhancedIntegraReportCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1593U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEndpointICVerificationConfigCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1594U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEnableEndpointICVerificationCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1595U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjEndpointICVerificationReportCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1596U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjGen2XInventoryConfigCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1597U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjGen2XTagSelectionConfigCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1598U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjGen2XTagSelectionEpcLengthCodec(registry));
+        registry.RegisterCustomParameter(version, 25882U, 1608U, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.ImpinjRampUpPowerBoostCodec(registry));
         registry.RegisterCustomMessage(version, 25882U, 21, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.IMPINJ_ENABLE_EXTENSIONSCodec(registry));
         registry.RegisterCustomMessage(version, 25882U, 22, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.IMPINJ_ENABLE_EXTENSIONS_RESPONSECodec(registry));
         registry.RegisterCustomMessage(version, 25882U, 23, new global::LlrpSdk.Extensions.Impinj.Codecs.V1_0_1.IMPINJ_SAVE_SETTINGSCodec(registry));

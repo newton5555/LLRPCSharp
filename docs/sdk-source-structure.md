@@ -54,15 +54,16 @@ src/
 
 ### 2.2 厂商自定义扩展（Vendor Custom Extension，以 Impinj 为例）代码生成规范
 
-厂商扩展（如 Impinj / Alien / Zebra）基于厂商发布的扩展定义 XML（例如 `definitions/imports/xml/extensions/impinj/impinj.lld.xml`）生成。
+厂商扩展（如 Impinj / Alien / Zebra）基于厂商发布的扩展定义 XML 生成；当前 Impinj 输入为
+`definitions/imports/xml/extensions/impinj/Impinjdef.xml`（LTK Definition Files 10.58.0）。
 
 * **厂商标识与命名空间规约**：
   - 厂商私有扩展可生成在独立扩展项目 `LlrpSdk.Extensions.Impinj` 或 `LlrpNet.Protocol` 的 `Vendor/` 子目录下。
   - **命名空间**：`LlrpSdk.Extensions.Impinj.Messages` / `Parameters` / `Codecs`。
 * **类型与类名规约**：
   - 类名保持厂商定义名称，前缀显式带厂商标识，如：
-    - 扩展 Message：`ImpinjEnableExtension`
-    - 扩展 Parameter：`ImpinjSubsystemReport`、`ImpinjSearchMode`、`ImpinjTagInformation`
+    - 扩展 Message：`IMPINJ_ENABLE_EXTENSIONS`
+    - 扩展 Parameter：`ImpinjGen2XInventoryConfig`、`ImpinjEnableEndpointICVerification`、`ImpinjRampUpPowerBoost`
 * **唯一匹配主键 (Vendor Key)**：
   - 厂商扩展参数/消息在 LLRP 报文中属于 ParameterType = 327 (Custom Parameter) 或 MessageType = 1023 (Custom Message)。
   - **定位三元组**：`VendorID (如 Impinj = 25882)` + `Subtype (如 1023, 1001)` + `TypeKind (Message 或 Parameter)`。
@@ -85,7 +86,7 @@ src/
 - **`ILlrpFrameObserver`**：网络边界级别的原始 LLRP 帧监听观察者接口，用于无侵入打印和捕获完整 TX/RX 报文。
 
 ### 3.3 协议定义模型与导入器 (`src/LlrpNet.ProtocolModel/`) —— [手写]
-- **`LtkXmlDefinitionImporter`**：直接读取与解析 LLRP 官方及 Impinj 等厂商发布的原始 LTK XML 规范文件（如 `llrporg.lld.xml`、`impinj.lld.xml`）。
+- **`LtkXmlDefinitionImporter`**：直接读取与解析 LLRP 官方及 Impinj 等厂商发布的原始 LTK XML 规范文件（如 `llrp-1x0-def.xml`、`Impinjdef.xml`）。
 - **`ProtocolDefinition`**：将解析后的规范标准化为可校验的协议定义模型。
 
 ### 3.4 源码生成引擎 (`src/LlrpNet.ProtocolGenerator/`) —— [手写]

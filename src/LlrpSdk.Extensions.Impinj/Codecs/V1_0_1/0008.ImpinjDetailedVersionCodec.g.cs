@@ -33,11 +33,12 @@ internal sealed class ImpinjDetailedVersionCodec : global::LlrpNet.Protocol.Code
             ImpinjHubVersions = GeneratedCodecRuntime.DecodeParameter<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjHubVersions>(registry, version, data, ref offset);
         }
         reader = new GeneratedWireReader(data[offset..]);
-        global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjArrayVersion? ImpinjArrayVersion = null;
-        if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 25882U, 1520U))
+        var ImpinjArrayVersionItems = new global::System.Collections.Generic.List<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjArrayVersion>();
+        while (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 25882U, 1520U))
         {
-            ImpinjArrayVersion = GeneratedCodecRuntime.DecodeParameter<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjArrayVersion>(registry, version, data, ref offset);
+            ImpinjArrayVersionItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjArrayVersion>(registry, version, data, ref offset));
         }
+        GeneratedCodecRuntime.ValidateRequiredCount(ImpinjArrayVersionItems.Count, 0, "ImpinjArrayVersionItems");
         reader = new GeneratedWireReader(data[offset..]);
         global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjBLEVersion? ImpinjBLEVersion = null;
         if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 25882U, 1580U))
@@ -61,7 +62,7 @@ internal sealed class ImpinjDetailedVersionCodec : global::LlrpNet.Protocol.Code
             FPGAVersion,
             PCBAVersion,
             ImpinjHubVersions,
-            ImpinjArrayVersion,
+            ImpinjArrayVersionItems,
             ImpinjBLEVersion,
             CustomItems);
     }
@@ -84,10 +85,18 @@ internal sealed class ImpinjDetailedVersionCodec : global::LlrpNet.Protocol.Code
             GeneratedCodecRuntime.ValidateParameterMatch(parameter.ImpinjHubVersions, "ImpinjHubVersions", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.ImpinjHubVersions, 1023, true, 25882U, 1537U));
             length = checked(length + registry.GetEncodedParameterLength(version, parameter.ImpinjHubVersions));
         }
-        if (parameter.ImpinjArrayVersion is not null)
+        if (parameter.ImpinjArrayVersionItems is null)
         {
-            GeneratedCodecRuntime.ValidateParameterMatch(parameter.ImpinjArrayVersion, "ImpinjArrayVersion", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.ImpinjArrayVersion, 1023, true, 25882U, 1520U));
-            length = checked(length + registry.GetEncodedParameterLength(version, parameter.ImpinjArrayVersion));
+            throw new global::System.ArgumentNullException("ImpinjArrayVersionItems");
+        }
+        if (parameter.ImpinjArrayVersionItems.Count < 0)
+        {
+            throw new global::System.ArgumentException("Member 'ImpinjArrayVersionItems' requires cardinality 0..N.", "ImpinjArrayVersionItems");
+        }
+        foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.ImpinjArrayVersionItems)
+        {
+            GeneratedCodecRuntime.ValidateParameterMatch(nested, "ImpinjArrayVersionItems", GeneratedCodecRuntime.IsParameterMatch(registry, version, nested, 1023, true, 25882U, 1520U));
+            length = checked(length + registry.GetEncodedParameterLength(version, nested));
         }
         if (parameter.ImpinjBLEVersion is not null)
         {
@@ -132,9 +141,9 @@ internal sealed class ImpinjDetailedVersionCodec : global::LlrpNet.Protocol.Code
             offset += registry.EncodeParameter(version, parameter.ImpinjHubVersions, destination[offset..]);
         }
         wireWriter = new GeneratedWireWriter(destination[offset..]);
-        if (parameter.ImpinjArrayVersion is not null)
+        foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.ImpinjArrayVersionItems)
         {
-            offset += registry.EncodeParameter(version, parameter.ImpinjArrayVersion, destination[offset..]);
+            offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
         wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ImpinjBLEVersion is not null)

@@ -13,7 +13,9 @@ namespace LlrpSdk.Extensions.Impinj.Parameters.V1_0_1;
 /// <param name="ImpinjEnableTxPower">LLRP parameter 'ImpinjEnableTxPower' with cardinality 0..1.</param>
 /// <param name="ImpinjEnableXPCWords">LLRP parameter 'ImpinjEnableXPCWords' with cardinality 0..1.</param>
 /// <param name="ImpinjEnableCRHandle">LLRP parameter 'ImpinjEnableCRHandle' with cardinality 0..1.</param>
+/// <param name="ImpinjEnableID">LLRP parameter 'ImpinjEnableID' with cardinality 0..1.</param>
 /// <param name="ImpinjEnableEnhancedIntegra">LLRP parameter 'ImpinjEnableEnhancedIntegra' with cardinality 0..1.</param>
+/// <param name="ImpinjEnableEndpointICVerification">LLRP parameter 'ImpinjEnableEndpointICVerification' with cardinality 0..1.</param>
 /// <param name="CustomItems">LLRP parameter 'Custom' with cardinality 0..N.</param>
 public sealed record ImpinjTagReportContentSelector(
     global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableSerializedTID? ImpinjEnableSerializedTID,
@@ -25,7 +27,9 @@ public sealed record ImpinjTagReportContentSelector(
     global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableTxPower? ImpinjEnableTxPower,
     global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableXPCWords? ImpinjEnableXPCWords,
     global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableCRHandle? ImpinjEnableCRHandle,
+    global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableID? ImpinjEnableID,
     global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableEnhancedIntegra? ImpinjEnableEnhancedIntegra,
+    global::LlrpSdk.Extensions.Impinj.Parameters.V1_0_1.ImpinjEnableEndpointICVerification? ImpinjEnableEndpointICVerification,
     global::System.Collections.Generic.IReadOnlyList<global::LlrpNet.Protocol.Parameters.ILlrpParameter> CustomItems
 ) : global::LlrpNet.Protocol.Parameters.ILlrpParameter
 {

@@ -38,7 +38,7 @@
 ### 场景 1：使用标准 1.0.1 / 1.1 读写器，或 Impinj 1.0.1 读写器
 - **客户需要准备什么**：**无需准备任何文件**。
 - **项目处理机制**：
-  - 1.0.1 标准与 Impinj 1.0.1 扩展已基于本地 XML 预编译；Impinj 原始 XML 不随包分发，但其生成模型和 Codec 已包含在 `LlrpSdk.Extensions.Impinj`。
+  - 1.0.1 标准与 Impinj 1.0.1 扩展已基于本地 XML 预编译；当前 Impinj 输入为 LTK Definition Files 10.58.0（4 条 Custom Message、104 个 Custom Parameter、49 个 Custom Enumeration）。原始 XML 不随包分发，但其生成模型和 Codec 已包含在 `LlrpSdk.Extensions.Impinj`。
   - LLRP 1.1 已由 SDK 内置 `llrp-1.1.yaml` 并生成代码，客户开箱即用；LLRP 2.0 的 `llrp-2.0-delta.yaml` 已入库，待完成 V2 Adapter 与协商后才成为可用的 SDK 协议版本。
 
 ---
