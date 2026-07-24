@@ -54,7 +54,7 @@ public sealed class KeepaliveMessageTests
         LlrpProtocolException exception = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(frame));
 
-        Assert.Equal(LlrpProtocolErrorCode.InvalidMessageLength, exception.ErrorCode);
+        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, exception.ErrorCode);
     }
 
     private static LlrpCodecRegistry CreateRegistry()

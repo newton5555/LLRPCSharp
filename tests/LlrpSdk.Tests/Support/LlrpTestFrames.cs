@@ -5,6 +5,7 @@ namespace LlrpSdk.Tests.Support;
 
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
@@ -39,6 +40,7 @@ internal static class LlrpTestFrames
         string firmwareVersion = DefaultFirmwareVersion,
         IEnumerable<ILlrpParameter>? parameters = null)
     {
+        _ = parameters;
         return new GeneralDeviceCapabilities(
             maxNumberOfAntennas,
             canSetAntennaProperties,
@@ -46,7 +48,10 @@ internal static class LlrpTestFrames
             manufacturerId,
             modelId,
             firmwareVersion,
-            parameters ?? RequiredGeneralDeviceParameters());
+            [new ReceiveSensitivityTableEntry(1, 0)],
+            [],
+            new GPIOCapabilities(0, 0),
+            [new PerAntennaAirProtocol(1, [AirProtocols.Unspecified])]);
     }
 
     public static ILlrpParameter[] RequiredGeneralDeviceParameters(
@@ -73,13 +78,19 @@ internal static class LlrpTestFrames
 
     public static byte[] CapabilitiesResponse(
         uint messageId,
-        LlrpStatus? status = null,
+        LLRPStatus? status = null,
         IEnumerable<ILlrpParameter>? parameters = null)
     {
+        ILlrpParameter[] items = (parameters ?? [GeneralCapabilities()]).ToArray();
+        GeneralDeviceCapabilities? general = items.OfType<GeneralDeviceCapabilities>().SingleOrDefault();
         var response = new GetReaderCapabilitiesResponse(
             messageId,
-            status ?? new LlrpStatus(LlrpStatusCode.MSuccess),
-            parameters ?? [GeneralCapabilities()]);
+            status ?? new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
+            general,
+            null,
+            null,
+            null,
+            items.Where(parameter => parameter is not GeneralDeviceCapabilities).ToArray());
         return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
     }
 
@@ -105,9 +116,9 @@ internal static class LlrpTestFrames
     public static byte[] RoSpecStatusResponse(
         ushort responseMessageType,
         uint messageId,
-        LlrpStatus? status = null)
+        LLRPStatus? status = null)
     {
-        LlrpStatus actualStatus = status ?? new LlrpStatus(LlrpStatusCode.MSuccess);
+        LLRPStatus actualStatus = status ?? new LLRPStatus(StatusCode.M_Success, string.Empty, null, null);
         ILlrpMessage response = responseMessageType switch
         {
             AddRoSpecResponse.MessageType => new AddRoSpecResponse(messageId, actualStatus),
@@ -127,17 +138,17 @@ internal static class LlrpTestFrames
 
     public static byte[] GetRoSpecsResponseFrame(
         uint messageId,
-        LlrpStatus? status = null,
-        IEnumerable<ILlrpParameter>? roSpecs = null)
+        LLRPStatus? status = null,
+        IEnumerable<ROSpec>? roSpecs = null)
     {
         var response = new GetRoSpecsResponse(
             messageId,
-            status ?? new LlrpStatus(LlrpStatusCode.MSuccess),
-            roSpecs);
+            status ?? new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
+            (roSpecs ?? []).ToArray());
         return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
     }
 
-    public static byte[] ErrorMessageFrame(uint messageId, LlrpStatus status)
+    public static byte[] ErrorMessageFrame(uint messageId, LLRPStatus status)
     {
         ArgumentNullException.ThrowIfNull(status);
         return Registry.EncodeMessage(

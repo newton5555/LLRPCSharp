@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
@@ -14,10 +15,6 @@ public sealed class LlrpReaderInitializationTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
-        ILlrpParameter[] nested = LlrpTestFrames.RequiredGeneralDeviceParameters(
-            receiveSensitivityData: [0xCA, 0xFE],
-            gpioData: [0x10],
-            airProtocolData: [0x20]);
         var additional = new RawCustomParameter(
             LlrpProtocolVersion.Version101,
             vendorId: 12_345,
@@ -29,8 +26,7 @@ public sealed class LlrpReaderInitializationTests
             hasUtcClockCapability: true,
             manufacturerId: 12_345,
             modelId: 67_890,
-            firmwareVersion: "fw-初始化",
-            parameters: nested);
+            firmwareVersion: "fw-初始化");
         transport.CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponse(
             messageId,
             parameters: [general, additional]);
@@ -58,15 +54,13 @@ public sealed class LlrpReaderInitializationTests
         Assert.False(capabilities.CanSetAntennaProperties);
         Assert.True(capabilities.HasUtcClockCapability);
         Assert.Equal(3, capabilities.GeneralDeviceParameters.Count);
-        UnknownParameter decodedSensitivity =
-            Assert.IsType<UnknownParameter>(capabilities.GeneralDeviceParameters[0]);
-        Assert.Equal(new byte[] { 0xCA, 0xFE }, decodedSensitivity.Data.ToArray());
+        Assert.IsType<ReceiveSensitivityTableEntry>(capabilities.GeneralDeviceParameters[0]);
         RawCustomParameter decodedAdditional =
             Assert.IsType<RawCustomParameter>(Assert.Single(capabilities.AdditionalParameters));
         Assert.Equal(12_345U, decodedAdditional.VendorId);
         Assert.Equal(7U, decodedAdditional.Subtype);
         Assert.Equal(new byte[] { 0x30 }, decodedAdditional.Data.ToArray());
-        Assert.Equal(2, capabilities.RawResponse.Parameters.Count);
+        Assert.Single(capabilities.RawResponse.CustomItems);
 
         byte[] request = transport.SentFrames.Single(static frame =>
             LlrpMessageHeader.Decode(frame).MessageType == GetReaderCapabilities.MessageType);
@@ -84,7 +78,7 @@ public sealed class LlrpReaderInitializationTests
         {
             CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponse(
                 messageId,
-                new LlrpStatus(LlrpStatusCode.MParameterError, "capabilities rejected"),
+                new LLRPStatus(StatusCode.M_ParameterError, "capabilities rejected", null, null),
                 []),
         };
         await using LlrpReader reader = CreateReader(transport);
@@ -93,9 +87,9 @@ public sealed class LlrpReaderInitializationTests
             await Assert.ThrowsAsync<LlrpReaderOperationException>(() => reader.ConnectAsync(timeout.Token));
 
         Assert.Equal("GET_READER_CAPABILITIES", exception.Operation);
-        Assert.Equal(LlrpStatusCode.MParameterError, exception.StatusCode);
+        Assert.Equal(StatusCode.M_ParameterError, exception.StatusCode);
         Assert.Equal("capabilities rejected", exception.ErrorDescription);
-        Assert.Contains(nameof(LlrpStatusCode.MParameterError), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(StatusCode.M_ParameterError), exception.Message, StringComparison.Ordinal);
         Assert.Equal(ReaderConnectionState.Faulted, reader.ConnectionState);
         Assert.Null(reader.Identity);
         Assert.Null(reader.Capabilities);

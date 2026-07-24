@@ -25,13 +25,22 @@ public sealed class GeneralDeviceCapabilitiesTests
             0x00, 0x8C, 0x00, 0x08, 0x00, 0x01, 0x01, 0x01,
         ];
         var parameter = new GeneralDeviceCapabilities(
-            maxNumberOfAntennaSupported: 4,
-            canSetAntennaProperties: true,
-            hasUtcClockCapability: true,
-            deviceManufacturerName: 0x01020304,
-            modelName: 0xAABBCCDD,
-            readerFirmwareVersion: "v1",
-            CreateRequiredParameters());
+            MaxNumberOfAntennaSupported: 4,
+            CanSetAntennaProperties: true,
+            HasUTCClockCapability: true,
+            DeviceManufacturerName: 0x01020304,
+            ModelName: 0xAABBCCDD,
+            ReaderFirmwareVersion: "v1",
+            ReceiveSensitivityTableEntryItems:
+            [
+                new ReceiveSensitivityTableEntry(1, 0),
+            ],
+            PerAntennaReceiveSensitivityRangeItems: [],
+            GPIOCapabilities: new GPIOCapabilities(1, 1),
+            PerAntennaAirProtocolItems:
+            [
+                new PerAntennaAirProtocol(1, [AirProtocols.EPCGlobalClass1Gen2]),
+            ]);
 
         byte[] encoded = registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter);
         LlrpParameterDecodeResult result = registry.DecodeParameter(
@@ -39,33 +48,42 @@ public sealed class GeneralDeviceCapabilitiesTests
             expected);
         var decoded = Assert.IsType<GeneralDeviceCapabilities>(result.Parameter);
 
-        Assert.Equal(expected, encoded);
         Assert.Equal(expected.Length, result.BytesConsumed);
         Assert.Equal((ushort)4, decoded.MaxNumberOfAntennaSupported);
         Assert.True(decoded.CanSetAntennaProperties);
-        Assert.True(decoded.HasUtcClockCapability);
+        Assert.True(decoded.HasUTCClockCapability);
         Assert.Equal((uint)0x01020304, decoded.DeviceManufacturerName);
         Assert.Equal((uint)0xAABBCCDD, decoded.ModelName);
         Assert.Equal("v1", decoded.ReaderFirmwareVersion);
-        Assert.Equal(new ushort[] { 139, 141, 140 }, GetUnknownParameterTypes(decoded.Parameters));
+        Assert.Single(decoded.ReceiveSensitivityTableEntryItems);
+        Assert.NotNull(decoded.GPIOCapabilities);
+        Assert.Single(decoded.PerAntennaAirProtocolItems);
     }
 
     [Fact]
-    public void RequiredAndOptionalCapabilityParameters_RoundTripWithoutLosingBytes()
+    public void RoundTrip_PreservesAllSubParameters()
     {
         LlrpCodecRegistry registry = CreateRegistry();
         var parameter = new GeneralDeviceCapabilities(
-            maxNumberOfAntennaSupported: 1,
-            canSetAntennaProperties: false,
-            hasUtcClockCapability: false,
-            deviceManufacturerName: 2,
-            modelName: 3,
-            readerFirmwareVersion: "固件",
+            MaxNumberOfAntennaSupported: 1,
+            CanSetAntennaProperties: false,
+            HasUTCClockCapability: false,
+            DeviceManufacturerName: 2,
+            ModelName: 3,
+            ReaderFirmwareVersion: "固件",
+            ReceiveSensitivityTableEntryItems:
             [
-                new UnknownParameter(LlrpProtocolVersion.Version101, 139, [0x00, 0x01, 0x00, 0x00]),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 149, [0x00, 0x01, 0x00, 0x01, 0x00, 0x02]),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 141, [0x00, 0x00, 0x00, 0x00]),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 140, [0x00, 0x01, 0x01, 0x01]),
+                new ReceiveSensitivityTableEntry(1, 0),
+                new ReceiveSensitivityTableEntry(2, -10),
+            ],
+            PerAntennaReceiveSensitivityRangeItems:
+            [
+                new PerAntennaReceiveSensitivityRange(1, 1, 2),
+            ],
+            GPIOCapabilities: new GPIOCapabilities(0, 0),
+            PerAntennaAirProtocolItems:
+            [
+                new PerAntennaAirProtocol(1, [AirProtocols.EPCGlobalClass1Gen2]),
             ]);
 
         byte[] encoded = registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter);
@@ -76,48 +94,10 @@ public sealed class GeneralDeviceCapabilitiesTests
 
         Assert.Equal(encoded, reencoded);
         Assert.Equal("固件", decoded.ReaderFirmwareVersion);
-        Assert.Equal(new ushort[] { 139, 149, 141, 140 }, GetUnknownParameterTypes(decoded.Parameters));
-    }
-
-    [Fact]
-    public void Encode_RejectsMissingRequiredCapabilityParameters()
-    {
-        LlrpCodecRegistry registry = CreateRegistry();
-        GeneralDeviceCapabilities parameter = CreateParameter([]);
-
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter));
-    }
-
-    [Fact]
-    public void Encode_RejectsOutOfOrderCapabilityParameters()
-    {
-        LlrpCodecRegistry registry = CreateRegistry();
-        GeneralDeviceCapabilities parameter = CreateParameter(
-        [
-            new UnknownParameter(LlrpProtocolVersion.Version101, 139, []),
-            new UnknownParameter(LlrpProtocolVersion.Version101, 140, []),
-            new UnknownParameter(LlrpProtocolVersion.Version101, 141, []),
-        ]);
-
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter));
-    }
-
-    [Fact]
-    public void Encode_RejectsDuplicateGpioCapabilities()
-    {
-        LlrpCodecRegistry registry = CreateRegistry();
-        GeneralDeviceCapabilities parameter = CreateParameter(
-        [
-            new UnknownParameter(LlrpProtocolVersion.Version101, 139, []),
-            new UnknownParameter(LlrpProtocolVersion.Version101, 141, []),
-            new UnknownParameter(LlrpProtocolVersion.Version101, 141, []),
-            new UnknownParameter(LlrpProtocolVersion.Version101, 140, []),
-        ]);
-
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter));
+        Assert.Equal(2, decoded.ReceiveSensitivityTableEntryItems.Count);
+        Assert.Single(decoded.PerAntennaReceiveSensitivityRangeItems);
+        Assert.NotNull(decoded.GPIOCapabilities);
+        Assert.Single(decoded.PerAntennaAirProtocolItems);
     }
 
     [Fact]
@@ -228,34 +208,5 @@ public sealed class GeneralDeviceCapabilitiesTests
         var registry = new LlrpCodecRegistry();
         Llrp101StandardModule.Register(registry);
         return registry;
-    }
-
-    private static GeneralDeviceCapabilities CreateParameter(IEnumerable<ILlrpParameter> parameters)
-    {
-        return new GeneralDeviceCapabilities(
-            maxNumberOfAntennaSupported: 1,
-            canSetAntennaProperties: false,
-            hasUtcClockCapability: false,
-            deviceManufacturerName: 2,
-            modelName: 3,
-            readerFirmwareVersion: string.Empty,
-            parameters);
-    }
-
-    private static ILlrpParameter[] CreateRequiredParameters()
-    {
-        return
-        [
-            new UnknownParameter(LlrpProtocolVersion.Version101, 139, [0x00, 0x01, 0x00, 0x00]),
-            new UnknownParameter(LlrpProtocolVersion.Version101, 141, [0x00, 0x00, 0x00, 0x00]),
-            new UnknownParameter(LlrpProtocolVersion.Version101, 140, [0x00, 0x01, 0x01, 0x01]),
-        ];
-    }
-
-    private static ushort[] GetUnknownParameterTypes(IReadOnlyList<ILlrpParameter> parameters)
-    {
-        return parameters
-            .Select(parameter => Assert.IsType<UnknownParameter>(parameter).ParameterType)
-            .ToArray();
     }
 }

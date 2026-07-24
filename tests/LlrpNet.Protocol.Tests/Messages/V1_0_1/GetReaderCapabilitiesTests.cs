@@ -17,7 +17,8 @@ public sealed class GetReaderCapabilitiesTests
         byte[] expected = [0x04, 0x01, 0x00, 0x00, 0x00, 0x0B, 0x01, 0x02, 0x03, 0x04, 0x00];
         var message = new GetReaderCapabilities(
             0x01020304,
-            GetReaderCapabilitiesRequestedData.All);
+            GetReaderCapabilitiesRequestedData.All,
+            CustomItems: []);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
         var decoded = Assert.IsType<GetReaderCapabilities>(registry.DecodeMessage(expected));
@@ -25,7 +26,7 @@ public sealed class GetReaderCapabilitiesTests
         Assert.Equal(expected, encoded);
         Assert.Equal((uint)0x01020304, decoded.MessageId);
         Assert.Equal(GetReaderCapabilitiesRequestedData.All, decoded.RequestedData);
-        Assert.Empty(decoded.Parameters);
+        Assert.Empty(decoded.CustomItems);
     }
 
     [Fact]
@@ -37,7 +38,7 @@ public sealed class GetReaderCapabilitiesTests
         LlrpProtocolException exception = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(frame));
 
-        Assert.Equal(LlrpProtocolErrorCode.InvalidMessageLength, exception.ErrorCode);
+        Assert.Equal(LlrpProtocolErrorCode.TruncatedData, exception.ErrorCode);
     }
 
     [Fact]
@@ -53,12 +54,16 @@ public sealed class GetReaderCapabilitiesTests
     }
 
     [Fact]
-    public void Constructor_RejectsUndefinedRequestedData()
+    public void Encode_RejectsUndefinedRequestedData()
     {
+        LlrpCodecRegistry registry = CreateRegistry();
+        var message = new GetReaderCapabilities(
+            1,
+            (GetReaderCapabilitiesRequestedData)5,
+            CustomItems: []);
+
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => new GetReaderCapabilities(
-                1,
-                (GetReaderCapabilitiesRequestedData)5));
+            () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));
     }
 
     [Fact]
@@ -66,8 +71,9 @@ public sealed class GetReaderCapabilitiesTests
     {
         LlrpCodecRegistry registry = CreateRegistry();
         var message = new GetReaderCapabilities(
-            messageId: 7,
-            GetReaderCapabilitiesRequestedData.GeneralDeviceCapabilities,
+            MessageId: 7,
+            GetReaderCapabilitiesRequestedData.General_Device_Capabilities,
+            CustomItems:
             [
                 new RawCustomParameter(
                     LlrpProtocolVersion.Version101,
@@ -81,7 +87,7 @@ public sealed class GetReaderCapabilitiesTests
         byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(encoded, reencoded);
-        var custom = Assert.IsType<RawCustomParameter>(Assert.Single(decoded.Parameters));
+        var custom = Assert.IsType<RawCustomParameter>(Assert.Single(decoded.CustomItems));
         Assert.Equal((uint)0x01020304, custom.VendorId);
         Assert.Equal((uint)0xAABBCCDD, custom.Subtype);
         Assert.Equal(new byte[] { 0x10, 0x20 }, custom.Data.ToArray());
@@ -98,16 +104,16 @@ public sealed class GetReaderCapabilitiesTests
             new TestCustomParameterCodec());
         Llrp101StandardModule.Register(registry);
         var message = new GetReaderCapabilities(
-            messageId: 9,
-            GetReaderCapabilitiesRequestedData.LlrpCapabilities,
-            [new TestCustomParameter(0xCAFE)]);
+            MessageId: 9,
+            GetReaderCapabilitiesRequestedData.LLRP_Capabilities,
+            CustomItems: [new TestCustomParameter(0xCAFE)]);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
         var decoded = Assert.IsType<GetReaderCapabilities>(registry.DecodeMessage(encoded));
 
         Assert.Equal(
             new TestCustomParameter(0xCAFE),
-            Assert.IsType<TestCustomParameter>(Assert.Single(decoded.Parameters)));
+            Assert.IsType<TestCustomParameter>(Assert.Single(decoded.CustomItems)));
     }
 
     [Fact]
@@ -115,9 +121,9 @@ public sealed class GetReaderCapabilitiesTests
     {
         LlrpCodecRegistry registry = CreateRegistry();
         var message = new GetReaderCapabilities(
-            messageId: 1,
+            MessageId: 1,
             GetReaderCapabilitiesRequestedData.All,
-            [new UnknownParameter(LlrpProtocolVersion.Version101, 200, [])]);
+            CustomItems: [new UnknownParameter(LlrpProtocolVersion.Version101, 200, [])]);
 
         Assert.Throws<ArgumentException>(
             () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));

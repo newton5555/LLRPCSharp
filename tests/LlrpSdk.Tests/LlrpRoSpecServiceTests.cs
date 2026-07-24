@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
@@ -16,7 +17,7 @@ public sealed class LlrpRoSpecServiceTests
     public async Task Operations_MapToTypedMessagesWithUniqueNonzeroIds()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var returnedRoSpecs = new ILlrpParameter[]
+        var returnedRoSpecs = new ROSpec[]
         {
             RoSpec([0x01]),
             RoSpec([0x02, 0x03]),
@@ -48,25 +49,20 @@ public sealed class LlrpRoSpecServiceTests
             request =>
             {
                 var add = Assert.IsType<AddRoSpec>(request);
-                UnknownParameter parameter = Assert.IsType<UnknownParameter>(add.RoSpec);
-                Assert.Equal(new byte[] { 0xCA, 0xFE }, parameter.Data.ToArray());
+                Assert.Equal(0xCAFEU, add.ROSpec.ROSpecID);
             },
-            request => Assert.Equal(10U, Assert.IsType<DeleteRoSpec>(request).RoSpecId),
-            request => Assert.Equal(20U, Assert.IsType<EnableRoSpec>(request).RoSpecId),
-            request => Assert.Equal(30U, Assert.IsType<DisableRoSpec>(request).RoSpecId),
-            request => Assert.Equal(40U, Assert.IsType<StartRoSpec>(request).RoSpecId),
-            request => Assert.Equal(50U, Assert.IsType<StopRoSpec>(request).RoSpecId),
+            request => Assert.Equal(10U, Assert.IsType<DeleteRoSpec>(request).ROSpecID),
+            request => Assert.Equal(20U, Assert.IsType<EnableRoSpec>(request).ROSpecID),
+            request => Assert.Equal(30U, Assert.IsType<DisableRoSpec>(request).ROSpecID),
+            request => Assert.Equal(40U, Assert.IsType<StartRoSpec>(request).ROSpecID),
+            request => Assert.Equal(50U, Assert.IsType<StopRoSpec>(request).ROSpecID),
             request => Assert.IsType<GetRoSpecs>(request));
         Assert.All(requests, static request => Assert.NotEqual(0U, request.MessageId));
         Assert.Equal(requests.Length, requests.Select(static request => request.MessageId).Distinct().Count());
 
         Assert.Equal(2, actualRoSpecs.Count);
-        Assert.Equal(
-            new byte[] { 0x01 },
-            Assert.IsType<UnknownParameter>(actualRoSpecs[0]).Data.ToArray());
-        Assert.Equal(
-            new byte[] { 0x02, 0x03 },
-            Assert.IsType<UnknownParameter>(actualRoSpecs[1]).Data.ToArray());
+        Assert.Equal(1U, Assert.IsType<ROSpec>(actualRoSpecs[0]).ROSpecID);
+        Assert.Equal(0x0203U, Assert.IsType<ROSpec>(actualRoSpecs[1]).ROSpecID);
         ICollection<ILlrpParameter> immutable =
             Assert.IsAssignableFrom<ICollection<ILlrpParameter>>(actualRoSpecs);
         Assert.True(immutable.IsReadOnly);
@@ -77,9 +73,11 @@ public sealed class LlrpRoSpecServiceTests
     public async Task EveryNonSuccessStatusThrowsOperationExceptionWithExactStatus()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var failureStatus = new LlrpStatus(
-            LlrpStatusCode.MParameterError,
-            "reader rejected ROSpec operation");
+        var failureStatus = new LLRPStatus(
+            StatusCode.M_ParameterError,
+            "reader rejected ROSpec operation",
+            null,
+            null);
         var transport = new ScriptedLlrpTransport();
         ConfigureStatusResponses(transport, failureStatus);
         await using LlrpReader reader = CreateReader(transport);
@@ -101,7 +99,7 @@ public sealed class LlrpRoSpecServiceTests
                 await Assert.ThrowsAsync<LlrpReaderOperationException>(invoke);
 
             Assert.Equal(operation, exception.Operation);
-            Assert.Equal(LlrpStatusCode.MParameterError, exception.StatusCode);
+            Assert.Equal(StatusCode.M_ParameterError, exception.StatusCode);
             Assert.Equal("reader rejected ROSpec operation", exception.ErrorDescription);
         }
     }
@@ -118,9 +116,11 @@ public sealed class LlrpRoSpecServiceTests
             {
                 transport.EnqueueFrame(LlrpTestFrames.ErrorMessageFrame(
                     header.MessageId,
-                    new LlrpStatus(
-                        LlrpStatusCode.MUnsupportedMessage,
-                        "DELETE_ROSPEC is unavailable")));
+                    new LLRPStatus(
+                        StatusCode.M_UnsupportedMessage,
+                        "DELETE_ROSPEC is unavailable",
+                        null,
+                        null)));
             }
 
             return ValueTask.CompletedTask;
@@ -132,8 +132,8 @@ public sealed class LlrpRoSpecServiceTests
             await Assert.ThrowsAsync<LlrpReaderOperationException>(() =>
                 reader.RoSpecs.DeleteAsync(7, timeout.Token));
 
-        Assert.Equal(nameof(DeleteRoSpec), exception.Operation);
-        Assert.Equal(LlrpStatusCode.MUnsupportedMessage, exception.StatusCode);
+        Assert.Equal("DELETE_ROSPEC", exception.Operation);
+        Assert.Equal(StatusCode.M_UnsupportedMessage, exception.StatusCode);
         Assert.Equal("DELETE_ROSPEC is unavailable", exception.ErrorDescription);
     }
 
@@ -185,7 +185,7 @@ public sealed class LlrpRoSpecServiceTests
         Assert.All(requests, static request => Assert.NotEqual(0U, request.MessageId));
         Assert.Equal(
             Enumerable.Range(1, 32).Select(static id => (uint)id).Order(),
-            requests.Select(static request => request.RoSpecId).Order());
+            requests.Select(static request => request.ROSpecID).Order());
     }
 
     [Fact]
@@ -277,17 +277,13 @@ public sealed class LlrpRoSpecServiceTests
         IReadOnlyList<ILlrpParameter> second = await reader.RoSpecs.GetAllAsync(timeout.Token);
 
         Assert.Equal(2, getCount);
-        Assert.Equal(
-            new byte[] { 0x01 },
-            Assert.IsType<UnknownParameter>(Assert.Single(first)).Data.ToArray());
-        Assert.Equal(
-            new byte[] { 0x02 },
-            Assert.IsType<UnknownParameter>(Assert.Single(second)).Data.ToArray());
+        Assert.Equal(1U, Assert.IsType<ROSpec>(Assert.Single(first)).ROSpecID);
+        Assert.Equal(2U, Assert.IsType<ROSpec>(Assert.Single(second)).ROSpecID);
     }
 
     private static void ConfigureSuccessResponses(
         ScriptedLlrpTransport transport,
-        IEnumerable<ILlrpParameter>? returnedRoSpecs = null)
+        IEnumerable<ROSpec>? returnedRoSpecs = null)
     {
         transport.OnSendAsync = (frame, _) =>
         {
@@ -299,7 +295,7 @@ public sealed class LlrpRoSpecServiceTests
 
     private static void ConfigureStatusResponses(
         ScriptedLlrpTransport transport,
-        LlrpStatus status)
+        LLRPStatus status)
     {
         transport.OnSendAsync = (frame, _) =>
         {
@@ -312,8 +308,8 @@ public sealed class LlrpRoSpecServiceTests
     private static void EnqueueResponse(
         ScriptedLlrpTransport transport,
         LlrpMessageHeader requestHeader,
-        LlrpStatus? status,
-        IEnumerable<ILlrpParameter>? returnedRoSpecs)
+        LLRPStatus? status,
+        IEnumerable<ROSpec>? returnedRoSpecs)
     {
         ushort? responseType = requestHeader.MessageType switch
         {
@@ -341,12 +337,23 @@ public sealed class LlrpRoSpecServiceTests
         }
     }
 
-    private static UnknownParameter RoSpec(ReadOnlySpan<byte> data)
+    private static ROSpec RoSpec(ReadOnlySpan<byte> data)
     {
-        return new UnknownParameter(
-            LlrpProtocolVersion.Version101,
-            parameterType: 177,
-            data);
+        uint id = data.IsEmpty ? 1U : data.ToArray().Aggregate(0U, static (value, octet) => (value << 8) | octet);
+        return new ROSpec(
+            id,
+            Priority: 0,
+            ROSpecState.Disabled,
+            new ROBoundarySpec(
+                new ROSpecStartTrigger(ROSpecStartTriggerType.Immediate, null, null),
+                new ROSpecStopTrigger(ROSpecStopTriggerType.Null, 0, null)),
+            [new RFSurveySpec(
+                AntennaID: 1,
+                StartFrequency: 0,
+                EndFrequency: 0,
+                new RFSurveySpecStopTrigger(RFSurveySpecStopTriggerType.Null, 0, 0),
+                [])],
+            ROReportSpec: null);
     }
 
     private static LlrpCodecRegistry CreateRegistry()

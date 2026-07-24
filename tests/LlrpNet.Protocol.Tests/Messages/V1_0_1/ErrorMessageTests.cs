@@ -24,14 +24,14 @@ public sealed class ErrorMessageTests
         ];
         var message = new ErrorMessage(
             MessageId,
-            new LlrpStatus(LlrpStatusCode.MSuccess));
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
         var decoded = Assert.IsType<ErrorMessage>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
         Assert.Equal(MessageId, decoded.MessageId);
-        Assert.Equal(LlrpStatusCode.MSuccess, decoded.Status.StatusCode);
+        Assert.Equal(LlrpStatusCode.M_Success, decoded.LLRPStatus.StatusCode);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class ErrorMessageTests
         LlrpCodecRegistry registry = CreateRegistry();
         byte[] status = registry.EncodeParameter(
             LlrpProtocolVersion.Version101,
-            new LlrpStatus(LlrpStatusCode.MSuccess));
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
 
         LlrpProtocolException missing = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(CreateFrame()));

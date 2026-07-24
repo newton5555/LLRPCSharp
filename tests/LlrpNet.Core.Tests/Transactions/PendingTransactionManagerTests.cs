@@ -106,8 +106,9 @@ public sealed class PendingTransactionManagerTests
     public async Task TimedOutIdentifier_IsQuarantinedUntilSafetyWindowExpires()
     {
         using var manager = new PendingTransactionManager<string>(TimeSpan.FromMilliseconds(50));
-        Task<string> timedOut = manager.Register(17, TimeSpan.Zero);
+        Task<string> timedOut = manager.Register(17, TimeSpan.FromMilliseconds(1));
         await Assert.ThrowsAsync<TimeoutException>(async () => await timedOut);
+        await Task.Delay(20);
 
         Assert.Throws<InvalidOperationException>(
             () =>

@@ -23,15 +23,21 @@ public sealed class GetReaderCapabilitiesResponseTests
         ];
         var message = new GetReaderCapabilitiesResponse(
             0x01020304,
-            new LlrpStatus(LlrpStatusCode.MSuccess));
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
+            GeneralDeviceCapabilities: null,
+            LLRPCapabilities: null,
+            RegulatoryCapabilities: null,
+            AirProtocolLLRPCapabilities: null,
+            CustomItems: []);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
         var decoded = Assert.IsType<GetReaderCapabilitiesResponse>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
         Assert.Equal((uint)0x01020304, decoded.MessageId);
-        Assert.Equal(LlrpStatusCode.MSuccess, decoded.Status.StatusCode);
-        Assert.Empty(decoded.Parameters);
+        Assert.Equal(LlrpStatusCode.M_Success, decoded.LLRPStatus.StatusCode);
+        Assert.Null(decoded.GeneralDeviceCapabilities);
+        Assert.Empty(decoded.CustomItems);
     }
 
     [Fact]
@@ -51,8 +57,32 @@ public sealed class GetReaderCapabilitiesResponseTests
         byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(expected, reencoded);
-        Assert.Equal(LlrpStatusCode.MParameterError, decoded.Status.StatusCode);
-        Assert.Equal("bad", decoded.Status.ErrorDescription);
+        Assert.Equal(LlrpStatusCode.M_ParameterError, decoded.LLRPStatus.StatusCode);
+        Assert.Equal("bad", decoded.LLRPStatus.ErrorDescription);
+    }
+
+    [Fact]
+    public void CapabilityParameters_RoundTripWithGeneralDeviceCapabilities()
+    {
+        LlrpCodecRegistry registry = CreateRegistry();
+        GeneralDeviceCapabilities caps = CreateGeneralDeviceCapabilities();
+        var message = new GetReaderCapabilitiesResponse(
+            MessageId: 7,
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
+            GeneralDeviceCapabilities: caps,
+            LLRPCapabilities: null,
+            RegulatoryCapabilities: null,
+            AirProtocolLLRPCapabilities: null,
+            CustomItems: []);
+
+        byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
+        var decoded = Assert.IsType<GetReaderCapabilitiesResponse>(registry.DecodeMessage(encoded));
+        byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
+
+        Assert.Equal(encoded, reencoded);
+        Assert.NotNull(decoded.GeneralDeviceCapabilities);
+        Assert.Equal((ushort)2, decoded.GeneralDeviceCapabilities!.MaxNumberOfAntennaSupported);
+        Assert.Empty(decoded.CustomItems);
     }
 
     [Fact]
@@ -60,13 +90,14 @@ public sealed class GetReaderCapabilitiesResponseTests
     {
         LlrpCodecRegistry registry = CreateRegistry();
         var message = new GetReaderCapabilitiesResponse(
-            messageId: 7,
-            new LlrpStatus(LlrpStatusCode.MSuccess),
+            MessageId: 7,
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
+            GeneralDeviceCapabilities: CreateGeneralDeviceCapabilities(),
+            LLRPCapabilities: null,
+            RegulatoryCapabilities: null,
+            AirProtocolLLRPCapabilities: null,
+            CustomItems:
             [
-                CreateGeneralDeviceCapabilities(),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 142, []),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 143, []),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 327, []),
                 new RawCustomParameter(
                     LlrpProtocolVersion.Version101,
                     vendorId: 0xAABBCCDD,
@@ -79,72 +110,9 @@ public sealed class GetReaderCapabilitiesResponseTests
         byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(encoded, reencoded);
-        Assert.Equal(5, decoded.Parameters.Count);
-        Assert.IsType<GeneralDeviceCapabilities>(decoded.Parameters[0]);
-        Assert.Equal((ushort)142, Assert.IsType<UnknownParameter>(decoded.Parameters[1]).ParameterType);
-        Assert.Equal((ushort)143, Assert.IsType<UnknownParameter>(decoded.Parameters[2]).ParameterType);
-        Assert.Equal((ushort)327, Assert.IsType<UnknownParameter>(decoded.Parameters[3]).ParameterType);
-        Assert.IsType<RawCustomParameter>(decoded.Parameters[4]);
-    }
-
-    [Fact]
-    public void Encode_RejectsDuplicateSingletonCapability()
-    {
-        LlrpCodecRegistry registry = CreateRegistry();
-        var message = new GetReaderCapabilitiesResponse(
-            messageId: 1,
-            new LlrpStatus(LlrpStatusCode.MSuccess),
-            [
-                new UnknownParameter(LlrpProtocolVersion.Version101, 142, []),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 142, []),
-            ]);
-
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));
-    }
-
-    [Fact]
-    public void Encode_RejectsCapabilityAfterCustomParameter()
-    {
-        LlrpCodecRegistry registry = CreateRegistry();
-        var message = new GetReaderCapabilitiesResponse(
-            messageId: 1,
-            new LlrpStatus(LlrpStatusCode.MSuccess),
-            [
-                new RawCustomParameter(LlrpProtocolVersion.Version101, 1, 2, []),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 142, []),
-            ]);
-
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));
-    }
-
-    [Fact]
-    public void Encode_RejectsUnexpectedCapabilityParameter()
-    {
-        LlrpCodecRegistry registry = CreateRegistry();
-        var message = new GetReaderCapabilitiesResponse(
-            messageId: 1,
-            new LlrpStatus(LlrpStatusCode.MSuccess),
-            [new UnknownParameter(LlrpProtocolVersion.Version101, 138, [])]);
-
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));
-    }
-
-    [Fact]
-    public void Decode_RejectsOutOfOrderCapabilities()
-    {
-        LlrpCodecRegistry registry = CreateRegistry();
-        byte[] frame = CreateResponseFrame(
-            registry,
-            new UnknownParameter(LlrpProtocolVersion.Version101, 142, []),
-            CreateGeneralDeviceCapabilities());
-
-        LlrpProtocolException exception = Assert.Throws<LlrpProtocolException>(
-            () => registry.DecodeMessage(frame));
-
-        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, exception.ErrorCode);
+        Assert.NotNull(decoded.GeneralDeviceCapabilities);
+        Assert.Single(decoded.CustomItems);
+        Assert.IsType<RawCustomParameter>(decoded.CustomItems[0]);
     }
 
     [Fact]
@@ -204,7 +172,7 @@ public sealed class GetReaderCapabilitiesResponseTests
     public void Constructor_RejectsMissingStatus()
     {
         Assert.Throws<ArgumentNullException>(
-            () => new GetReaderCapabilitiesResponse(1, null!));
+            () => new GetReaderCapabilitiesResponse(1, null!, null, null, null, null, []));
     }
 
     private static LlrpCodecRegistry CreateRegistry()
@@ -217,16 +185,21 @@ public sealed class GetReaderCapabilitiesResponseTests
     private static GeneralDeviceCapabilities CreateGeneralDeviceCapabilities()
     {
         return new GeneralDeviceCapabilities(
-            maxNumberOfAntennaSupported: 2,
-            canSetAntennaProperties: true,
-            hasUtcClockCapability: false,
-            deviceManufacturerName: 0x01020304,
-            modelName: 5,
-            readerFirmwareVersion: "fw",
+            MaxNumberOfAntennaSupported: 2,
+            CanSetAntennaProperties: true,
+            HasUTCClockCapability: false,
+            DeviceManufacturerName: 0x01020304,
+            ModelName: 5,
+            ReaderFirmwareVersion: "fw",
+            ReceiveSensitivityTableEntryItems:
             [
-                new UnknownParameter(LlrpProtocolVersion.Version101, 139, [0x00, 0x01, 0x00, 0x00]),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 141, [0x00, 0x00, 0x00, 0x00]),
-                new UnknownParameter(LlrpProtocolVersion.Version101, 140, [0x00, 0x01, 0x01, 0x01]),
+                new ReceiveSensitivityTableEntry(1, -70),
+            ],
+            PerAntennaReceiveSensitivityRangeItems: [],
+            GPIOCapabilities: new GPIOCapabilities(2, 2),
+            PerAntennaAirProtocolItems:
+            [
+                new PerAntennaAirProtocol(1, [AirProtocols.EPCGlobalClass1Gen2]),
             ]);
     }
 
@@ -236,7 +209,7 @@ public sealed class GetReaderCapabilitiesResponseTests
     {
         byte[] status = registry.EncodeParameter(
             LlrpProtocolVersion.Version101,
-            new LlrpStatus(LlrpStatusCode.MSuccess));
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
         byte[][] trailing = parameters
             .Select(parameter => registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter))
             .ToArray();

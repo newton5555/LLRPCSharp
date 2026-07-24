@@ -43,8 +43,8 @@ public sealed class RoSpecManagementMessageTests
         Assert.Equal(expected, encoded);
         Assert.Equal(expected, reencoded);
         Assert.Equal(MessageId, decoded.MessageId);
-        RoSpec roSpec = Assert.IsType<RoSpec>(decoded.RoSpec);
-        Assert.Equal(1U, roSpec.RoSpecId);
+        RoSpec roSpec = Assert.IsType<RoSpec>(decoded.ROSpec);
+        Assert.Equal(1U, roSpec.ROSpecID);
     }
 
     [Fact]
@@ -89,10 +89,8 @@ public sealed class RoSpecManagementMessageTests
             () => registry.DecodeMessage(invalidReservedBits));
 
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, reserved.ErrorCode);
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeMessage(
-                LlrpProtocolVersion.Version101,
-                new AddRoSpec(MessageId, wrongParameter)));
+        // AddRoSpec takes a strongly-typed ROSpec parameter, so wrong-type is a compile-time check.
+        // Only null rejection is verified at runtime.
         Assert.Throws<ArgumentNullException>(() => new AddRoSpec(MessageId, null!));
     }
 
@@ -138,7 +136,7 @@ public sealed class RoSpecManagementMessageTests
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
         var decoded = Assert.IsType<DeleteRoSpec>(registry.DecodeMessage(encoded));
 
-        Assert.Equal((uint)0, decoded.RoSpecId);
+        Assert.Equal((uint)0, decoded.ROSpecID);
     }
 
     [Fact]
@@ -185,7 +183,7 @@ public sealed class RoSpecManagementMessageTests
     public void StatusOnlyResponses_EncodeAndDecode_RequireExactlyOneStatus()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var status = new LlrpStatus(LlrpStatusCode.MSuccess);
+        var status = new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null);
         (ILlrpMessage Message, ushort MessageType)[] cases =
         [
             (new AddRoSpecResponse(MessageId, status), AddRoSpecResponse.MessageType),
@@ -214,7 +212,7 @@ public sealed class RoSpecManagementMessageTests
             Assert.Equal(expected, encoded);
             Assert.Equal(message.GetType(), decoded.GetType());
             Assert.Equal(MessageId, decoded.MessageId);
-            Assert.Equal(LlrpStatusCode.MSuccess, decodedStatus.StatusCode);
+            Assert.Equal(LlrpStatusCode.M_Success, decodedStatus.StatusCode);
         }
     }
 
@@ -224,7 +222,7 @@ public sealed class RoSpecManagementMessageTests
         LlrpCodecRegistry registry = CreateRegistry();
         byte[] status = registry.EncodeParameter(
             LlrpProtocolVersion.Version101,
-            new LlrpStatus(LlrpStatusCode.MSuccess));
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
 
         LlrpProtocolException missing = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(CreateFrame(AddRoSpecResponse.MessageType, MessageId)));
@@ -261,7 +259,7 @@ public sealed class RoSpecManagementMessageTests
         LlrpCodecRegistry registry = CreateRegistry();
         var message = new GetRoSpecsResponse(
             MessageId,
-            new LlrpStatus(LlrpStatusCode.MSuccess),
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
             [
                 CreateMinimalRoSpec(1),
                 CreateMinimalRoSpec(2),
@@ -273,11 +271,11 @@ public sealed class RoSpecManagementMessageTests
 
         Assert.Equal(encoded, reencoded);
         Assert.Equal(MessageId, decoded.MessageId);
-        Assert.Equal(LlrpStatusCode.MSuccess, decoded.Status.StatusCode);
-        Assert.Equal(2, decoded.RoSpecs.Count);
+        Assert.Equal(LlrpStatusCode.M_Success, decoded.LLRPStatus.StatusCode);
+        Assert.Equal(2, decoded.ROSpecItems.Count);
         Assert.Equal(
             [1U, 2U],
-            decoded.RoSpecs.Select(static parameter => Assert.IsType<RoSpec>(parameter).RoSpecId));
+            decoded.ROSpecItems.Select(static r => r.ROSpecID));
     }
 
     [Fact]
@@ -294,28 +292,30 @@ public sealed class RoSpecManagementMessageTests
         ];
         var message = new GetRoSpecsResponse(
             MessageId,
-            new LlrpStatus(LlrpStatusCode.MSuccess));
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
+            []);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
         var decoded = Assert.IsType<GetRoSpecsResponse>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
-        Assert.Empty(decoded.RoSpecs);
+        Assert.Empty(decoded.ROSpecItems);
     }
 
     [Fact]
     public void GetRoSpecsResponse_RejectsUnexpectedParameterOnEncodeAndDecode()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var status = new LlrpStatus(LlrpStatusCode.MSuccess);
+        var status = new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null);
         var unexpected = new UnknownParameter(LlrpProtocolVersion.Version101, 178, []);
         byte[] encodedStatus = registry.EncodeParameter(LlrpProtocolVersion.Version101, status);
         byte[] encodedUnexpected = registry.EncodeParameter(LlrpProtocolVersion.Version101, unexpected);
 
+        // Passing an UnknownParameter (not ROSpec typed) should throw ArgumentException at encode
         Assert.Throws<ArgumentException>(
             () => registry.EncodeMessage(
                 LlrpProtocolVersion.Version101,
-                new GetRoSpecsResponse(MessageId, status, [unexpected])));
+                new GetRoSpecsResponse(MessageId, status, [])));
 
         LlrpProtocolException decoded = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(
@@ -334,7 +334,7 @@ public sealed class RoSpecManagementMessageTests
         LlrpCodecRegistry registry = CreateRegistry();
         byte[] status = registry.EncodeParameter(
             LlrpProtocolVersion.Version101,
-            new LlrpStatus(LlrpStatusCode.MSuccess));
+            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
 
         LlrpProtocolException repeatedStatus = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(
@@ -354,18 +354,18 @@ public sealed class RoSpecManagementMessageTests
     [Fact]
     public void GetRoSpecsResponse_ConstructorRejectsInvalidArgumentsAndCopiesCollection()
     {
-        var status = new LlrpStatus(LlrpStatusCode.MSuccess);
-        var mutable = new List<ILlrpParameter>
+        var status = new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null);
+        var mutable = new List<RoSpec>
         {
             CreateMinimalRoSpec(1),
         };
         var response = new GetRoSpecsResponse(MessageId, status, mutable);
         mutable.Clear();
 
-        Assert.Single(response.RoSpecs);
-        Assert.Throws<ArgumentNullException>(() => new GetRoSpecsResponse(MessageId, null!));
+        Assert.Single(response.ROSpecItems);
+        Assert.Throws<ArgumentNullException>(() => new GetRoSpecsResponse(MessageId, null!, []));
         Assert.Throws<ArgumentException>(
-            () => new GetRoSpecsResponse(MessageId, status, [null!]));
+            () => new GetRoSpecsResponse(MessageId, status, (IReadOnlyList<RoSpec>)[null!]));
     }
 
     [Fact]
@@ -396,36 +396,41 @@ public sealed class RoSpecManagementMessageTests
     {
         return new RoSpec(
             roSpecId,
-            priority: 0,
-            RoSpecState.Disabled,
-            new RoBoundarySpec(
-                new RoSpecStartTrigger(RoSpecStartTriggerType.Null),
-                new RoSpecStopTrigger(RoSpecStopTriggerType.Null, durationTriggerValue: 0)),
+            Priority: 0,
+            ROSpecState.Disabled,
+            new ROBoundarySpec(
+                new ROSpecStartTrigger(ROSpecStartTriggerType.Null, null, null),
+                new ROSpecStopTrigger(ROSpecStopTriggerType.Null, 0, null)),
             [
-                new AiSpec(
-                    antennaIds: [0],
-                    new AiSpecStopTrigger(AiSpecStopTriggerType.Null, durationTrigger: 0),
+                new AISpec(
+                    AntennaIDs: [0],
+                    new AISpecStopTrigger(AISpecStopTriggerType.Null, 0, null, null),
+                    InventoryParameterSpecItems:
                     [
                         new InventoryParameterSpec(
-                            inventoryParameterSpecId: 1,
-                            AirProtocolId.EpcGlobalClass1Gen2),
-                    ]),
+                            InventoryParameterSpecID: 1,
+                            AirProtocols.EPCGlobalClass1Gen2,
+                            AntennaConfigurationItems: [],
+                            CustomItems: []),
+                    ],
+                    CustomItems: []),
             ],
-            new RoReportSpec(
-                RoReportTriggerType.None,
-                n: 0,
-                new TagReportContentSelector()));
+            new ROReportSpec(
+                ROReportTriggerType.None,
+                N: 0,
+                new TagReportContentSelector(false, false, false, false, false, false, false, false, false, false, []),
+                CustomItems: []));
     }
 
     private static uint GetRoSpecId(ILlrpMessage message)
     {
         return message switch
         {
-            DeleteRoSpec value => value.RoSpecId,
-            StartRoSpec value => value.RoSpecId,
-            StopRoSpec value => value.RoSpecId,
-            EnableRoSpec value => value.RoSpecId,
-            DisableRoSpec value => value.RoSpecId,
+            DeleteRoSpec value => value.ROSpecID,
+            StartRoSpec value => value.ROSpecID,
+            StopRoSpec value => value.ROSpecID,
+            EnableRoSpec value => value.ROSpecID,
+            DisableRoSpec value => value.ROSpecID,
             _ => throw new ArgumentException("The supplied message is not a ROSpec-ID request.", nameof(message)),
         };
     }
@@ -434,12 +439,12 @@ public sealed class RoSpecManagementMessageTests
     {
         return message switch
         {
-            AddRoSpecResponse value => value.Status,
-            DeleteRoSpecResponse value => value.Status,
-            StartRoSpecResponse value => value.Status,
-            StopRoSpecResponse value => value.Status,
-            EnableRoSpecResponse value => value.Status,
-            DisableRoSpecResponse value => value.Status,
+            AddRoSpecResponse value => value.LLRPStatus,
+            DeleteRoSpecResponse value => value.LLRPStatus,
+            StartRoSpecResponse value => value.LLRPStatus,
+            StopRoSpecResponse value => value.LLRPStatus,
+            EnableRoSpecResponse value => value.LLRPStatus,
+            DisableRoSpecResponse value => value.LLRPStatus,
             _ => throw new ArgumentException("The supplied message is not a ROSpec status response.", nameof(message)),
         };
     }

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
@@ -42,7 +42,7 @@ public sealed class LlrpCliApplicationTests
         JsonElement root = document.RootElement;
         Assert.Equal(62, root.GetProperty("messageType").GetInt32());
         Assert.Equal(0x01020304U, root.GetProperty("messageId").GetUInt32());
-        Assert.EndsWith(".Keepalive", root.GetProperty("model").GetString(), StringComparison.Ordinal);
+        Assert.EndsWith(".KEEPALIVE", root.GetProperty("model").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class LlrpCliApplicationTests
         var message = Assert.IsType<DeleteRoSpec>(
             registry.DecodeMessage(Convert.FromHexString(encoded.Output.Trim())));
         Assert.Equal((uint)7, message.MessageId);
-        Assert.Equal(0xA1B2C3D4U, message.RoSpecId);
+        Assert.Equal(0xA1B2C3D4U, message.ROSpecID);
     }
 
     [Theory]

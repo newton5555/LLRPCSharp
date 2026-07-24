@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -55,6 +55,7 @@ public sealed class GeneratedCodecIntegrationTests
         AssertBitVectorParameter(generatedAssembly, registry);
         AssertEnumerationVectorParameter(generatedAssembly, registry);
         AssertCustomSlotsPreserveRawAndTypedParameters(generatedAssembly, registry);
+        AssertCustomSlotsRejectStandardParameters(generatedAssembly, registry);
     }
 
     private static void AssertGetReaderCapabilitiesVector(
@@ -176,6 +177,23 @@ public sealed class GeneratedCodecIntegrationTests
             (LlrpNet.Protocol.Messages.ILlrpMessage)typedMessage);
         object decodedTypedMessage = registry.DecodeMessage(typedFrame);
         Assert.Equal(typed, Assert.IsType<TestCustomParameter>(GetSingleCustom(decodedTypedMessage)));
+    }
+
+    private static void AssertCustomSlotsRejectStandardParameters(
+        Assembly assembly,
+        LlrpCodecRegistry registry)
+    {
+        object standardParameter = Create(
+            assembly,
+            "Generated.Llrp.Parameters.V1_0_1.AntennaProperties",
+            true,
+            (ushort)1,
+            (short)0);
+        object message = CreateCapabilitiesMessage(assembly, (ILlrpParameter)standardParameter);
+
+        Assert.Throws<ArgumentException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            (LlrpNet.Protocol.Messages.ILlrpMessage)message));
     }
 
     private static object CreateCapabilitiesMessage(Assembly assembly, ILlrpParameter custom)
@@ -370,6 +388,38 @@ public sealed class GeneratedCodecIntegrationTests
             Assert.Single(destination.ToArray());
             destination[0] = parameter.Value;
             return 1;
+        }
+    }
+
+    [Fact]
+    public void EmitCore101SourcesToProtocolProject()
+    {
+        string solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        string definitionPath = Path.Combine(solutionRoot, "definitions", "imports", "xml", "llrp-1.0.1", "llrp-1x0-def.xml");
+        ProtocolDefinition definition = new LtkXmlDefinitionImporter().Import(definitionPath);
+        var options = new ProtocolGenerationOptions
+        {
+            RootNamespace = "LlrpNet.Protocol",
+            VersionNamespace = "V1_0_1",
+            GenerateCodecs = true,
+            ProtocolVersionValue = 1,
+        };
+
+        ProtocolGenerationResult result = new ProtocolSourceGenerator().Generate(definition, options);
+        Assert.True(result.Succeeded);
+
+        string protocolProjectDir = Path.Combine(solutionRoot, "src", "LlrpNet.Protocol");
+
+        foreach (GeneratedSourceFile source in result.Sources)
+        {
+            string targetPath = Path.Combine(protocolProjectDir, source.HintName.Replace('/', Path.DirectorySeparatorChar));
+            string? dir = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            File.WriteAllText(targetPath, source.SourceText, Encoding.UTF8);
         }
     }
 }

@@ -97,21 +97,26 @@ public sealed class Llrp101StandardModuleTests
     private static RoSpec CreateMinimalRoSpec()
     {
         return new RoSpec(
-            roSpecId: 1,
-            priority: 0,
-            RoSpecState.Disabled,
-            new RoBoundarySpec(
-                new RoSpecStartTrigger(RoSpecStartTriggerType.Null),
-                new RoSpecStopTrigger(RoSpecStopTriggerType.Null, durationTriggerValue: 0)),
+            ROSpecID: 1,
+            Priority: 0,
+            ROSpecState.Disabled,
+            new ROBoundarySpec(
+                new ROSpecStartTrigger(ROSpecStartTriggerType.Null, null, null),
+                new ROSpecStopTrigger(ROSpecStopTriggerType.Null, 0, null)),
             [
-                new AiSpec(
-                    antennaIds: [0],
-                    new AiSpecStopTrigger(AiSpecStopTriggerType.Null, durationTrigger: 0),
+                new AISpec(
+                    AntennaIDs: [0],
+                    new AISpecStopTrigger(AISpecStopTriggerType.Null, 0, null, null),
+                    InventoryParameterSpecItems:
                     [
                         new InventoryParameterSpec(
-                            inventoryParameterSpecId: 1,
-                            AirProtocolId.EpcGlobalClass1Gen2),
-                    ]),
-            ]);
+                            InventoryParameterSpecID: 1,
+                            AirProtocols.EPCGlobalClass1Gen2,
+                            AntennaConfigurationItems: [],
+                            CustomItems: []),
+                    ],
+                    CustomItems: []),
+            ],
+            ROReportSpec: null);
     }
 }
