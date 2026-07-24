@@ -26,6 +26,8 @@ public static class CommandCatalog
         new("inventory", "inventory start [antenna-id] | stop | status", "Manage SDK inventory and display tag reports.", RequiresConnection: true),
         new("rospec", "rospec list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true),
         new("accessspec", "accessspec list|enable|disable|delete [id]", "Manage AccessSpecs.", RequiresConnection: true),
+        new("raw", "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame.", RequiresConnection: true),
+        new("sync", "sync", "Synchronize SDK-managed resource state after raw access.", RequiresConnection: true),
         new("frames", "frames [count]", "Show recent captured LLRP message frames."),
         new("monitor", "monitor [seconds]", "Stream live received/transmitted LLRP frames.", RequiresConnection: true),
         new("inspect", "inspect <hex>", "Inspect raw hex LLRP header."),

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpSdk;
@@ -124,6 +125,12 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         break;
                     case "accessspec":
                         await HandleAccessSpecAsync(tokens, cancellationToken);
+                        break;
+                    case "raw":
+                        await HandleRawAsync(tokens, cancellationToken);
+                        break;
+                    case "sync":
+                        await HandleSynchronizeStateAsync(cancellationToken);
                         break;
                     case "inspect":
                         HandleInspect(tokens);
@@ -631,6 +638,114 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
     }
 
+    private async Task HandleRawAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        if (_reader is null || !_reader.IsConnected)
+        {
+            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
+            return;
+        }
+
+        if (tokens.Length < 4)
+        {
+            throw new CliUsageException(
+                "Usage: raw send|transact <hex-frame> [--response-type <type>] --yes");
+        }
+
+        string operation = tokens[1].ToLowerInvariant();
+        byte[] requestFrame = Helpers.ParseHex(tokens[2]);
+        LlrpMessageHeader requestHeader = Helpers.DecodeExactHeader(requestFrame);
+        bool confirmed = tokens.Skip(3).Any(static token => token.Equals("--yes", StringComparison.OrdinalIgnoreCase));
+        if (!confirmed)
+        {
+            throw new CliUsageException(
+                "Raw protocol access can change reader state. Repeat the command with --yes to send it.");
+        }
+
+        switch (operation)
+        {
+            case "send":
+                if (tokens.Length != 4 || !tokens[3].Equals("--yes", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new CliUsageException("Usage: raw send <hex-frame> --yes");
+                }
+
+                await _reader.Protocol.SendRawAsync(requestFrame, cancellationToken);
+                _console.MarkupLine("[bold springgreen2]✔ Raw frame sent.[/]");
+                break;
+
+            case "transact":
+                if (requestHeader.MessageId == 0)
+                {
+                    throw new CliUsageException("A raw transaction requires a non-zero message identifier.");
+                }
+
+                ushort? responseType = ParseRawResponseType(tokens.Skip(3).ToArray());
+                ReadOnlyMemory<byte> response = await _reader.Protocol.TransactRawAsync(
+                    requestFrame,
+                    (header, _) => header.MessageId == requestHeader.MessageId &&
+                        (!responseType.HasValue || (ushort)header.MessageType == responseType.Value),
+                    cancellationToken: cancellationToken);
+                _console.MarkupLine("[bold springgreen2]✔ Raw transaction completed.[/]");
+                FrameRenderer.RenderFrameData(
+                    LlrpFrameDirection.Receive,
+                    DateTimeOffset.Now,
+                    response.ToArray(),
+                    _console);
+                break;
+
+            default:
+                throw new CliUsageException("Usage: raw send|transact <hex-frame> [--response-type <type>] --yes");
+        }
+
+        if (!_reader.IsManagedStateSynchronized)
+        {
+            _console.MarkupLine(
+                "[yellow]SDK-managed state is now unsynchronized. Run [cyan1]sync[/] before the next managed operation.[/]");
+        }
+    }
+
+    private async Task HandleSynchronizeStateAsync(CancellationToken cancellationToken)
+    {
+        if (_reader is null || !_reader.IsConnected)
+        {
+            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
+            return;
+        }
+
+        _console.MarkupLine("[grey]Synchronizing reader-managed ROSpec and AccessSpec state...[/]");
+        await _reader.SynchronizeStateAsync(cancellationToken);
+        _console.MarkupLine("[bold springgreen2]✔ SDK-managed state synchronized.[/]");
+    }
+
+    private static ushort? ParseRawResponseType(string[] options)
+    {
+        ushort? responseType = null;
+        for (int index = 0; index < options.Length; index++)
+        {
+            string option = options[index];
+            if (option.Equals("--yes", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!option.Equals("--response-type", StringComparison.OrdinalIgnoreCase) || index + 1 >= options.Length)
+            {
+                throw new CliUsageException("Usage: raw transact <hex-frame> [--response-type <type>] --yes");
+            }
+
+            uint parsed = Helpers.ParseUInt32(options[++index], "--response-type");
+            if (parsed > ushort.MaxValue || responseType.HasValue)
+            {
+                throw new CliUsageException("--response-type must be specified once as a UInt16 value.");
+            }
+
+            responseType = (ushort)parsed;
+        }
+
+        return responseType;
+    }
+
     private void HandleInspect(string[] tokens)
     {
         if (tokens.Length < 2)
@@ -745,6 +860,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("[cyan1]frames [[count]][/]", "Show recent captured LLRP message frames");
         table.AddRow("[cyan1]rospec list|enable|disable|start|stop|delete[/]", "Manage ROSpecs");
         table.AddRow("[cyan1]accessspec list|enable|disable|delete [[id]][/]", "Manage AccessSpecs");
+        table.AddRow("[cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "Send an exact LLRP frame");
+        table.AddRow("[cyan1]sync[/]", "Synchronize managed state after raw access");
         table.AddRow("[cyan1]inspect <hex>[/]", "Inspect raw hex LLRP header");
         table.AddRow("[cyan1]decode <hex>[/]", "Decode raw hex into parameter tree");
         table.AddRow("[cyan1]validate <hex>[/]", "Validate LLRP frame integrity");
