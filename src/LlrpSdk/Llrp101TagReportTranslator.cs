@@ -20,10 +20,19 @@ internal static class Llrp101TagReportTranslator
             reports[index] = new TagReport(
                 GetElectronicProductCode(tag.EPCParameter),
                 tag.ROSpecID?.ROSpecID_2,
+                tag.SpecIndex?.SpecIndex_2,
+                tag.InventoryParameterSpecID?.InventoryParameterSpecID_2,
                 tag.AntennaID?.AntennaID_2,
                 tag.PeakRSSI?.PeakRSSI_2,
                 tag.ChannelIndex?.ChannelIndex_2,
-                tag.TagSeenCount?.TagCount);
+                GetTimestamp(
+                    tag.FirstSeenTimestampUTC?.Microseconds,
+                    tag.FirstSeenTimestampUptime?.Microseconds),
+                GetTimestamp(
+                    tag.LastSeenTimestampUTC?.Microseconds,
+                    tag.LastSeenTimestampUptime?.Microseconds),
+                tag.TagSeenCount?.TagCount,
+                tag.AccessSpecID?.AccessSpecID_2);
         }
 
         return reports;
@@ -38,6 +47,13 @@ internal static class Llrp101TagReportTranslator
             _ => throw new NotSupportedException(
                 $"Unsupported LLRP 1.0.1 EPC parameter type {parameter.GetType().FullName}."),
         };
+    }
+
+    private static TagTimestamp? GetTimestamp(ulong? utcMicroseconds, ulong? uptimeMicroseconds)
+    {
+        return utcMicroseconds is null && uptimeMicroseconds is null
+            ? null
+            : new TagTimestamp(utcMicroseconds, uptimeMicroseconds);
     }
 
     private static byte[] PackBits(IReadOnlyList<bool> bits)

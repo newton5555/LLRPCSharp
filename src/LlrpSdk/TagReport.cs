@@ -10,7 +10,12 @@
 public sealed record TagReport(
     ReadOnlyMemory<byte> ElectronicProductCode,
     uint? RoSpecId,
+    ushort? SpecIndex,
+    ushort? InventoryParameterSpecId,
     ushort? AntennaId,
     sbyte? PeakRssi,
     ushort? ChannelIndex,
-    ushort? SeenCount);
+    TagTimestamp? FirstSeen,
+    TagTimestamp? LastSeen,
+    ushort? SeenCount,
+    uint? AccessSpecId);
