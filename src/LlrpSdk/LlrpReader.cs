@@ -194,6 +194,15 @@ public sealed class LlrpReader : IAsyncDisposable
     public event EventHandler<ReaderErrorEventArgs>? ErrorOccurred;
 
     /// <summary>
+    /// Occurs when an unsolicited access report produces a version-independent tag observation.
+    /// </summary>
+    /// <remarks>
+    /// This event and <see cref="ReadTagReportsAsync(CancellationToken)"/> share the same translated report.
+    /// An event subscriber failure is isolated and does not interrupt the reader message pump.
+    /// </remarks>
+    public event EventHandler<TagReportEventArgs>? TagsReported;
+
+    /// <summary>
     /// Connects the session and starts the sole unsolicited-frame consumer.
     /// </summary>
     /// <param name="cancellationToken">Cancels waiting for or establishing the connection.</param>
@@ -853,6 +862,8 @@ public sealed class LlrpReader : IAsyncDisposable
                                     ConnectionId,
                                     Options.IncomingMessageCapacity);
                             }
+
+                            PublishTagReport(tagReport);
                         }
                     }
 
@@ -1183,6 +1194,21 @@ public sealed class LlrpReader : IAsyncDisposable
             _logger.LogError(
                 exception,
                 "A reader error event subscriber failed for connection {ConnectionId}",
+                ConnectionId);
+        }
+    }
+
+    private void PublishTagReport(TagReport report)
+    {
+        try
+        {
+            TagsReported?.Invoke(this, new TagReportEventArgs(report));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "A reader tag-report event subscriber failed for connection {ConnectionId}",
                 ConnectionId);
         }
     }

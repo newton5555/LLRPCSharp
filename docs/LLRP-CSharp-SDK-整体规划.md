@@ -379,7 +379,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
 连接、配置、Start/Stop、盘点流及常用标签访问直接放在设备根对象上。ROSpec/AccessSpec 通过稳定服务暴露。第一阶段标签访问逐步覆盖 Read、Write、Lock、Kill；组合操作统一走 `ExecuteTagAccessAsync`；LLRP 2.0 Authenticate/Untraceable 后续加入。
 
-截至 2026-07-24，已实现的 M3/M4 基线为：`StartAsync(ReaderSettings)`、`StopAsync()`、`InventoryAsync(ReaderSettings?)`、`ReadTagReportsAsync()`、`CurrentSettings`、`RoSpecs`、`AccessSpecs`、`IsManagedStateSynchronized` 和 `SynchronizeStateAsync()`。`ApplySettingsAsync`、`QuerySettingsAsync`、标签访问、事件化 TagReport 与 Extension 集合仍为后续 API；它们不能被表中的草案签名误解为当前已可调用。
+截至 2026-07-24，已实现的 M3/M4 基线为：`StartAsync(ReaderSettings)`、`StopAsync()`、`InventoryAsync(ReaderSettings?)`、`ReadTagReportsAsync()`、`TagsReported`、`CurrentSettings`、`RoSpecs`、`AccessSpecs`、`IsManagedStateSynchronized` 和 `SynchronizeStateAsync()`。异步流与事件使用同一份已翻译的 TagReport；订阅者异常只写入日志，不中断收包。`ApplySettingsAsync`、`QuerySettingsAsync`、标签访问与 Extension 集合仍为后续 API；它们不能被表中的草案签名误解为当前已可调用。
 
 ## 11. Managed / Raw 与状态同步
 
