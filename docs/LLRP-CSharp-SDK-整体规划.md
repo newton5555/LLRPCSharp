@@ -25,7 +25,7 @@
 - `references/standards/llrp-1.1/` 下的 1.1 标准与 Conformance PDF；
 - `references/standards/llrp-2.0/` 下的 Release 2.0（Jan 2021）标准 PDF。
 
-Core XML 文件头声明 Apache License 2.0；当前 Impinj 定义文件头声明 confidential/proprietary，因此在确认授权和再分发范围之前仅作为本地资料，并由 `.gitignore` 排除。标准与定义的来源、版本映射和 SHA-256 已记录在 [`protocol-source-inventory.md`](protocol-source-inventory.md)。真机原始帧、设备型号/固件和已知兼容问题尚待补充。
+Core XML 文件头声明 Apache License 2.0；当前 Impinj 定义文件头声明 confidential/proprietary，因此在确认授权和再分发范围之前仅作为本地资料，并由 `.gitignore` 排除。标准与定义的来源、版本映射和 SHA-256 已记录在 [`references/protocol-source-inventory.md`](references/protocol-source-inventory.md)。真机原始帧、设备型号/固件和已知兼容问题尚待补充。
 
 ## 1. 项目定位
 

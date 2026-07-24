@@ -82,4 +82,4 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
 `imports/` 保存外部格式的原始输入；经过导入、规范化和校验后，由本项目维护的定义才进入顶层 YAML 或 `extensions/`。
 当前 Impinj 输入声明为 confidential/proprietary，故原始 XML 继续由 `.gitignore` 排除；仅生成的 C# 资产进入 Git。
 
-当前输入文件的版本、SHA-256 与使用约束记录在 [`docs/protocol-source-inventory.md`](../docs/protocol-source-inventory.md)。
+当前输入文件的版本、SHA-256 与使用约束记录在 [`docs/references/protocol-source-inventory.md`](../docs/references/protocol-source-inventory.md)。

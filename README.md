@@ -21,7 +21,7 @@ M1 协议运行时已经落地：
 - LTK XML → ProtocolModel Core/Custom 导入、定义校验与 C# Generator 基础；
 - Spectre.Console 交互式 CLI Live Shell（支持 `connect`、`status`、`caps`、`rospec`、`frames` 诊断及报文树状分析）。
 
-日志通过 `Microsoft.Extensions.Logging` 抽象注入；完整 TX/RX 报文通过 `ILlrpFrameObserver` 注入。两者均位于底层 Transport/Session，因此使用 `LlrpReader` 高级 API 时仍能打印或采集底层报文。诊断边界见 [ADR 0001](docs/decisions/0001-structured-logging-and-frame-observation.md)。
+日志通过 `Microsoft.Extensions.Logging` 抽象注入；完整 TX/RX 报文通过 `ILlrpFrameObserver` 注入。两者均位于底层 Transport/Session，因此使用 `LlrpReader` 高级 API 时仍能打印或采集底层报文。诊断边界见 [ADR 0001](docs/adr/0001-structured-logging-and-frame-observation.md)。
 
 ```csharp
 await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")

@@ -20,6 +20,40 @@
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
   </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/README.md" />
+    <File Path="docs/LLRP-CSharp-SDK-整体规划.md" />
+  </Folder>
+  <Folder Name="/docs/adr/">
+    <File Path="docs/adr/README.md" />
+    <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
+  </Folder>
+  <Folder Name="/docs/architecture/">
+    <File Path="docs/architecture/source-structure.md" />
+    <File Path="docs/architecture/protocol-extension-guide.md" />
+  </Folder>
+  <Folder Name="/docs/references/">
+    <File Path="docs/references/protocol-source-inventory.md" />
+  </Folder>
+  <Folder Name="/docs/planning/">
+    <File Path="docs/planning/source-doc-gap-next-plan.md" />
+  </Folder>
+  <Folder Name="/definitions/">
+    <File Path="definitions/README.md" />
+    <File Path="definitions/llrp-definition.schema.yaml" />
+    <File Path="definitions/llrp-1.1.yaml" />
+    <File Path="definitions/llrp-2.0-delta.yaml" />
+  </Folder>
+  <Folder Name="/definitions/extensions/">
+    <File Path="definitions/extensions/.gitkeep" />
+  </Folder>
+  <Folder Name="/definitions/imports/xml/">
+    <File Path="definitions/imports/xml/.gitkeep" />
+  </Folder>
+  <Folder Name="/definitions/imports/xml/llrp-1.0.1/">
+    <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml" />
+    <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0.xsd" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path="Directory.Build.props" />
