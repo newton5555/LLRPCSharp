@@ -16,6 +16,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
     private readonly TcpListener listener;
     private readonly LlrpCodecRegistry registry = new();
     private readonly Dictionary<uint, ROSpec> roSpecs = [];
+    private readonly HashSet<uint> enabledRoSpecs = [];
     private readonly CancellationTokenSource cancellation = new();
     private Task? acceptLoop;
 
@@ -83,6 +84,11 @@ public sealed class VirtualReaderHost : IAsyncDisposable
                     GetReaderCapabilities => Capabilities(header.MessageId),
                     ADD_ROSPEC add => AddRoSpec(add),
                     GET_ROSPECS get => GetRoSpecs(get),
+                    DELETE_ROSPEC delete => DeleteRoSpec(delete),
+                    ENABLE_ROSPEC enable => EnableRoSpec(enable),
+                    DISABLE_ROSPEC disable => DisableRoSpec(disable),
+                    START_ROSPEC start => StartRoSpec(start),
+                    STOP_ROSPEC stop => StopRoSpec(stop),
                     _ => new ErrorMessage(header.MessageId, new LLRPStatus(StatusCode.M_UnsupportedMessage, "Virtual reader does not implement this request.", null, null)),
                 };
                 byte[] responseFrame = registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
@@ -120,6 +126,98 @@ public sealed class VirtualReaderHost : IAsyncDisposable
 
         return new GET_ROSPECS_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty), items);
     }
+
+    private DELETE_ROSPEC_RESPONSE DeleteRoSpec(DELETE_ROSPEC request)
+    {
+        lock (roSpecs)
+        {
+            if (!roSpecs.Remove(request.ROSpecID))
+            {
+                return new DELETE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
+            }
+
+            enabledRoSpecs.Remove(request.ROSpecID);
+        }
+
+        return new DELETE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+    }
+
+    private ENABLE_ROSPEC_RESPONSE EnableRoSpec(ENABLE_ROSPEC request)
+    {
+        lock (roSpecs)
+        {
+            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
+            {
+                return new ENABLE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
+            }
+
+            roSpecs[request.ROSpecID] = roSpec with { CurrentState = ROSpecState.Inactive };
+            enabledRoSpecs.Add(request.ROSpecID);
+        }
+
+        return new ENABLE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+    }
+
+    private DISABLE_ROSPEC_RESPONSE DisableRoSpec(DISABLE_ROSPEC request)
+    {
+        lock (roSpecs)
+        {
+            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
+            {
+                return new DISABLE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
+            }
+
+            roSpecs[request.ROSpecID] = roSpec with { CurrentState = ROSpecState.Disabled };
+            enabledRoSpecs.Remove(request.ROSpecID);
+        }
+
+        return new DISABLE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+    }
+
+    private START_ROSPEC_RESPONSE StartRoSpec(START_ROSPEC request)
+    {
+        lock (roSpecs)
+        {
+            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
+            {
+                return new START_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
+            }
+
+            if (!enabledRoSpecs.Contains(request.ROSpecID))
+            {
+                return new START_ROSPEC_RESPONSE(
+                    request.MessageId,
+                    Status(StatusCode.M_ParameterError, "ROSpec must be enabled before it can be started."));
+            }
+
+            roSpecs[request.ROSpecID] = roSpec with { CurrentState = ROSpecState.Active };
+        }
+
+        return new START_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+    }
+
+    private STOP_ROSPEC_RESPONSE StopRoSpec(STOP_ROSPEC request)
+    {
+        lock (roSpecs)
+        {
+            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
+            {
+                return new STOP_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
+            }
+
+            roSpecs[request.ROSpecID] = roSpec with
+            {
+                CurrentState = enabledRoSpecs.Contains(request.ROSpecID)
+                    ? ROSpecState.Inactive
+                    : ROSpecState.Disabled,
+            };
+        }
+
+        return new STOP_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+    }
+
+    private static LLRPStatus MissingRoSpec(uint roSpecId) =>
+        Status(StatusCode.M_ParameterError, $"ROSpec {roSpecId} does not exist.");
 
     private static LLRPStatus Status(StatusCode code, string description) => new(code, description, null, null);
 
