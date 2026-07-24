@@ -110,6 +110,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     case "rospec":
                         await HandleRospecAsync(tokens, cancellationToken);
                         break;
+                    case "accessspec":
+                        await HandleAccessSpecAsync(tokens, cancellationToken);
+                        break;
                     case "inspect":
                         HandleInspect(tokens);
                         break;
@@ -537,6 +540,55 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     _console.WriteLine();
                 }
             }
+        }
+    }
+
+    private async Task HandleAccessSpecAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        if (_reader is null || !_reader.IsConnected)
+        {
+            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
+            return;
+        }
+
+        if (tokens.Length < 2)
+        {
+            _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [id]");
+            return;
+        }
+
+        string subAction = tokens[1].ToLowerInvariant();
+        uint accessSpecId = 1;
+        if (tokens.Length >= 3 && uint.TryParse(tokens[2], out uint parsedId))
+        {
+            accessSpecId = parsedId;
+        }
+
+        switch (subAction)
+        {
+            case "list":
+                _console.MarkupLine("[grey]Querying installed AccessSpecs...[/]");
+                var accessSpecs = await _reader.AccessSpecs.GetAllAsync(cancellationToken);
+                _console.MarkupLine($"[green]Found {accessSpecs.Count} AccessSpec(s).[/]");
+                break;
+            case "enable":
+                _console.MarkupLine($"[grey]Enabling AccessSpec {accessSpecId}...[/]");
+                await _reader.AccessSpecs.EnableAsync(accessSpecId, cancellationToken);
+                _console.MarkupLine($"[bold springgreen2]✔ AccessSpec {accessSpecId} Enabled![/]");
+                break;
+            case "disable":
+                _console.MarkupLine($"[grey]Disabling AccessSpec {accessSpecId}...[/]");
+                await _reader.AccessSpecs.DisableAsync(accessSpecId, cancellationToken);
+                _console.MarkupLine($"[bold springgreen2]✔ AccessSpec {accessSpecId} Disabled![/]");
+                break;
+            case "delete":
+                _console.MarkupLine($"[grey]Deleting AccessSpec {accessSpecId}...[/]");
+                await _reader.AccessSpecs.DeleteAsync(accessSpecId, cancellationToken);
+                _console.MarkupLine($"[bold springgreen2]✔ AccessSpec {accessSpecId} Deleted![/]");
+                break;
+            default:
+                _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [id]");
+                break;
         }
     }
 

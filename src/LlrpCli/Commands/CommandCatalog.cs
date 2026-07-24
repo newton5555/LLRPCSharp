@@ -25,6 +25,7 @@ public static class CommandCatalog
         new("caps", "caps", "Query Reader capabilities.", RequiresConnection: true),
         new("inventory", "inventory start [antenna-id] | stop | status", "Manage SDK inventory and display tag reports.", RequiresConnection: true),
         new("rospec", "rospec list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true),
+        new("accessspec", "accessspec list|enable|disable|delete [id]", "Manage AccessSpecs.", RequiresConnection: true),
         new("frames", "frames [count]", "Show recent captured LLRP message frames."),
         new("monitor", "monitor [seconds]", "Stream live received/transmitted LLRP frames.", RequiresConnection: true),
         new("inspect", "inspect <hex>", "Inspect raw hex LLRP header."),
@@ -81,6 +82,15 @@ public static class CommandCatalog
         {
             string subToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
             string[] subCommands = ["list", "enable", "disable", "start", "stop", "delete"];
+            return subCommands
+                .Where(sc => sc.StartsWith(subToken, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        if (commandName == "accessspec")
+        {
+            string subToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
+            string[] subCommands = ["list", "enable", "disable", "delete"];
             return subCommands
                 .Where(sc => sc.StartsWith(subToken, StringComparison.OrdinalIgnoreCase))
                 .ToList();
