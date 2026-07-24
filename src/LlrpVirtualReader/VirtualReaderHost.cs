@@ -15,6 +15,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
 {
     private readonly TcpListener listener;
     private readonly LlrpCodecRegistry registry = new();
+    private readonly Dictionary<uint, ROSpec> roSpecs = [];
     private readonly CancellationTokenSource cancellation = new();
     private Task? acceptLoop;
 
@@ -80,6 +81,8 @@ public sealed class VirtualReaderHost : IAsyncDisposable
                 ILlrpMessage response = request switch
                 {
                     GetReaderCapabilities => Capabilities(header.MessageId),
+                    ADD_ROSPEC add => AddRoSpec(add),
+                    GET_ROSPECS get => GetRoSpecs(get),
                     _ => new ErrorMessage(header.MessageId, new LLRPStatus(StatusCode.M_UnsupportedMessage, "Virtual reader does not implement this request.", null, null)),
                 };
                 byte[] responseFrame = registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
@@ -93,6 +96,32 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
         new GeneralDeviceCapabilities(4, true, true, 0, 0, "virtual-reader", [new ReceiveSensitivityTableEntry(1, 0)], [], new GPIOCapabilities(0, 0), [new PerAntennaAirProtocol(1, [AirProtocols.Unspecified])]),
         null, null, null, []);
+
+    private ADD_ROSPEC_RESPONSE AddRoSpec(ADD_ROSPEC request)
+    {
+        lock (roSpecs)
+        {
+            if (!roSpecs.TryAdd(request.ROSpec.ROSpecID, request.ROSpec))
+            {
+                return new ADD_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_ParameterError, "ROSpec already exists."));
+            }
+        }
+
+        return new ADD_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+    }
+
+    private GET_ROSPECS_RESPONSE GetRoSpecs(GET_ROSPECS request)
+    {
+        ROSpec[] items;
+        lock (roSpecs)
+        {
+            items = roSpecs.Values.OrderBy(static item => item.ROSpecID).ToArray();
+        }
+
+        return new GET_ROSPECS_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty), items);
+    }
+
+    private static LLRPStatus Status(StatusCode code, string description) => new(code, description, null, null);
 
     private static async Task<bool> ReadExactAsync(NetworkStream stream, Memory<byte> buffer, CancellationToken token)
     {
