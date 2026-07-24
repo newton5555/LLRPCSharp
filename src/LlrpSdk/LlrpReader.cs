@@ -7,9 +7,9 @@ using LlrpNet.Core.Transactions;
 using LlrpNet.Core.Transport;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
-using LlrpNet.Protocol.Registry.V1_0_1;
 using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
 
@@ -27,6 +27,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private readonly ILogger<LlrpReader> _logger;
     private readonly LlrpMessageIdGenerator _messageIds = new();
     private readonly LlrpCodecRegistry _registry;
+    private readonly ILlrpProtocolAdapter _protocolAdapter;
     private readonly LlrpSession _session;
     private CancellationTokenSource? _pumpCancellation;
     private Task? _pumpTask;
@@ -75,7 +76,8 @@ public sealed class LlrpReader : IAsyncDisposable
         });
         _logger = options.LoggerFactory.CreateLogger<LlrpReader>();
         _registry = new LlrpCodecRegistry();
-        Llrp101StandardModule.Register(_registry);
+        _protocolAdapter = new Llrp101ProtocolAdapter();
+        _protocolAdapter.RegisterStandardCodecs(_registry);
         foreach (ILlrpProtocolModule protocolModule in options.ProtocolModules)
         {
             protocolModule.Register(_registry);
@@ -134,7 +136,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Version negotiation is an M2 follow-up. Until then the standard registry and typed encoder are fixed to
     /// LLRP 1.0.1 and this property always returns <see cref="LlrpProtocolVersion.Version101"/>.
     /// </remarks>
-    public LlrpProtocolVersion NegotiatedVersion => LlrpProtocolVersion.Version101;
+    public LlrpProtocolVersion NegotiatedVersion => _protocolAdapter.Version;
 
     /// <summary>
     /// Gets the identity from the current initialized connection, or <see langword="null"/> while disconnected or faulted.
@@ -504,8 +506,8 @@ public sealed class LlrpReader : IAsyncDisposable
             bool enabled = false;
             try
             {
-                global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpec roSpec =
-                    Llrp101InventoryCompiler.Compile(settings);
+                ILlrpParameter roSpec =
+                    _protocolAdapter.CompileInventory(settings);
                 await RoSpecs.AddAsync(roSpec, cancellationToken).ConfigureAwait(false);
                 added = true;
                 await RoSpecs.EnableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
@@ -858,19 +860,16 @@ public sealed class LlrpReader : IAsyncDisposable
                             .ConfigureAwait(false);
                     }
 
-                    if (message is global::LlrpNet.Protocol.Messages.V1_0_1.RO_ACCESS_REPORT accessReport)
+                    foreach (TagReport tagReport in _protocolAdapter.TranslateTagReports(message))
                     {
-                        foreach (TagReport tagReport in Llrp101TagReportTranslator.Translate(accessReport))
+                        if (!_tagReports.Writer.TryWrite(tagReport))
                         {
-                            if (!_tagReports.Writer.TryWrite(tagReport))
-                            {
-                                throw new LlrpReaderBackpressureException(
-                                    ConnectionId,
-                                    Options.IncomingMessageCapacity);
-                            }
-
-                            PublishTagReport(tagReport);
+                            throw new LlrpReaderBackpressureException(
+                                ConnectionId,
+                                Options.IncomingMessageCapacity);
                         }
+
+                        PublishTagReport(tagReport);
                     }
 
                     if (!_messages.Writer.TryWrite(message))
