@@ -19,10 +19,11 @@ internal sealed class GPOWriteDataCodec : global::LlrpNet.Protocol.Codecs.LlrpPa
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort GPOPortNumber = reader.ReadUInt16();
         bool GPOData = reader.ReadBoolean();
         reader.ReadReservedBits(7);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.GPOWriteData(
             GPOPortNumber,
@@ -48,10 +49,11 @@ internal sealed class GPOWriteDataCodec : global::LlrpNet.Protocol.Codecs.LlrpPa
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.GPOPortNumber);
         wireWriter.WriteBoolean(parameter.GPOData);
         wireWriter.WriteReservedBits(7);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

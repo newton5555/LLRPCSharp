@@ -20,17 +20,19 @@ internal sealed class GET_READER_CONFIGCodec : global::LlrpNet.Protocol.Codecs.L
         GeneratedCodecRuntime.ValidateVersion(header.Version, 1);
         var version = header.Version;
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort AntennaID = reader.ReadUInt16();
         global::LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderConfigRequestedData RequestedData = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderConfigRequestedData>(reader.ReadByte());
         ushort GPIPortNum = reader.ReadUInt16();
         ushort GPOPortNum = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CONFIG(
             header.MessageId,
@@ -73,15 +75,17 @@ internal sealed class GET_READER_CONFIGCodec : global::LlrpNet.Protocol.Codecs.L
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(message.AntennaID);
         GeneratedCodecRuntime.ValidateEnum(message.RequestedData, "RequestedData"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(message.RequestedData, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUInt16(message.GPIPortNum);
         wireWriter.WriteUInt16(message.GPOPortNum);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in message.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

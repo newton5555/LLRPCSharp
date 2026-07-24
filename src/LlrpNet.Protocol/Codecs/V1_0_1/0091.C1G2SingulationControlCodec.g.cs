@@ -19,16 +19,18 @@ internal sealed class C1G2SingulationControlCodec : global::LlrpNet.Protocol.Cod
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         byte Session = (byte)reader.ReadBits(2);
         reader.ReadReservedBits(6);
         ushort TagPopulation = reader.ReadUInt16();
         uint TagTransitTime = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryStateAwareSingulationAction? C1G2TagInventoryStateAwareSingulationAction = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 337, false, 0U, 0U))
         {
             C1G2TagInventoryStateAwareSingulationAction = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryStateAwareSingulationAction>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2SingulationControl(
             Session,
@@ -61,15 +63,17 @@ internal sealed class C1G2SingulationControlCodec : global::LlrpNet.Protocol.Cod
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBits(parameter.Session, 2);
         wireWriter.WriteReservedBits(6);
         wireWriter.WriteUInt16(parameter.TagPopulation);
         wireWriter.WriteUInt32(parameter.TagTransitTime);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (parameter.C1G2TagInventoryStateAwareSingulationAction is not null)
         {
             offset += registry.EncodeParameter(version, parameter.C1G2TagInventoryStateAwareSingulationAction, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

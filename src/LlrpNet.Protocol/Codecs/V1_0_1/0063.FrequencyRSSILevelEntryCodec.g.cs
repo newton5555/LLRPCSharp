@@ -19,11 +19,12 @@ internal sealed class FrequencyRSSILevelEntryCodec : global::LlrpNet.Protocol.Co
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint Frequency = reader.ReadUInt32();
         uint Bandwidth = reader.ReadUInt32();
         sbyte AverageRSSI = reader.ReadSByte();
         sbyte PeakRSSI = reader.ReadSByte();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Choices.V1_0_1.ITimestamp? Timestamp = null;
         if (offset < payload.Length && (GeneratedCodecRuntime.IsNextParameter(payload[offset..], 128, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 129, false, 0U, 0U)))
         {
@@ -33,6 +34,7 @@ internal sealed class FrequencyRSSILevelEntryCodec : global::LlrpNet.Protocol.Co
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required choice 'Timestamp' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyRSSILevelEntry(
             Frequency,
@@ -67,12 +69,14 @@ internal sealed class FrequencyRSSILevelEntryCodec : global::LlrpNet.Protocol.Co
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.Frequency);
         wireWriter.WriteUInt32(parameter.Bandwidth);
         wireWriter.WriteSByte(parameter.AverageRSSI);
         wireWriter.WriteSByte(parameter.PeakRSSI);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.Timestamp!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

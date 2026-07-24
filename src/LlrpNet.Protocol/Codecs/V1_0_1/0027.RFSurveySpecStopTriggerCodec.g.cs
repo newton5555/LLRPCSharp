@@ -19,10 +19,11 @@ internal sealed class RFSurveySpecStopTriggerCodec : global::LlrpNet.Protocol.Co
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.RFSurveySpecStopTriggerType StopTriggerType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.RFSurveySpecStopTriggerType>(reader.ReadByte());
         uint DurationPeriod = reader.ReadUInt32();
         uint N = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.RFSurveySpecStopTrigger(
             StopTriggerType,
@@ -49,10 +50,11 @@ internal sealed class RFSurveySpecStopTriggerCodec : global::LlrpNet.Protocol.Co
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.StopTriggerType, "StopTriggerType"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.StopTriggerType, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUInt32(parameter.DurationPeriod);
         wireWriter.WriteUInt32(parameter.N);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

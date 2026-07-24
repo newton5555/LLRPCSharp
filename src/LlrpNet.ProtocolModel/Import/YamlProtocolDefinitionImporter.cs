@@ -12,18 +12,45 @@ namespace LlrpNet.ProtocolModel.Import;
 public sealed class YamlProtocolDefinitionImporter
 {
     private static readonly HashSet<string> RootKeys =
-    ["namespace", "messages", "parameters", "enumerations", "choices", "vendors", "customMessages", "customParameters", "customEnumerations"];
+    ["namespace", "messages", "parameters", "enumerations", "choices", "vendors", "customMessages", "customParameters", "customEnumerations", "overrides"];
+
+    private static readonly HashSet<string> OverrideKeys =
+    ["messages", "parameters", "enumerations", "choices", "vendors", "customMessages", "customParameters", "customEnumerations"];
 
     /// <summary>Imports a definition from a file.</summary>
     public ProtocolDefinition Import(string path)
     {
+        ProtocolDefinitionDelta delta = ImportDelta(path);
+        if (delta.HasOverrides)
+        {
+            throw new DefinitionImportException(Path.GetFullPath(path), 1, 1, "A YAML definition with overrides must be used with an explicit --base definition.");
+        }
+
+        return delta.Additions;
+    }
+
+    /// <summary>Imports a native YAML definition as additions and explicit replacements.</summary>
+    public ProtocolDefinitionDelta ImportDelta(string path)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         using FileStream stream = File.OpenRead(path);
-        return Import(stream, Path.GetFullPath(path));
+        return ImportDelta(stream, Path.GetFullPath(path));
     }
 
     /// <summary>Imports a definition stream without taking ownership of it.</summary>
     public ProtocolDefinition Import(Stream stream, string sourceName)
+    {
+        ProtocolDefinitionDelta delta = ImportDelta(stream, sourceName);
+        if (delta.HasOverrides)
+        {
+            throw new DefinitionImportException(sourceName, 1, 1, "A YAML definition with overrides must be used with an explicit --base definition.");
+        }
+
+        return delta.Additions;
+    }
+
+    /// <summary>Imports a native YAML delta stream without taking ownership of it.</summary>
+    public ProtocolDefinitionDelta ImportDelta(Stream stream, string sourceName)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceName);
@@ -50,7 +77,22 @@ public sealed class YamlProtocolDefinitionImporter
 
         YamlMappingNode root = Map(sourceName, yaml.Documents[0].RootNode, "definition root");
         Keys(sourceName, root, RootKeys, "definition root");
-        ProtocolNamespaceDefinition? xmlNamespace = Has(root, "namespace", out YamlNode ns) ? Namespace(sourceName, ns) : null;
+        ProtocolDefinition additions = Definition(sourceName, root, includeNamespace: true);
+        ProtocolDefinition overrides = Has(root, "overrides", out YamlNode overridesNode)
+            ? Definition(sourceName, Map(sourceName, overridesNode, "overrides"), includeNamespace: false, OverrideKeys)
+            : Empty(sourceName);
+
+        return new ProtocolDefinitionDelta(additions, overrides);
+    }
+
+    private static ProtocolDefinition Definition(
+        string sourceName,
+        YamlMappingNode root,
+        bool includeNamespace,
+        IEnumerable<string>? allowedKeys = null)
+    {
+        Keys(sourceName, root, allowedKeys ?? RootKeys, includeNamespace ? "definition root" : "overrides");
+        ProtocolNamespaceDefinition? xmlNamespace = includeNamespace && Has(root, "namespace", out YamlNode ns) ? Namespace(sourceName, ns) : null;
         return new ProtocolDefinition(
             sourceName, xmlNamespace,
             Sequence(sourceName, root, "messages").Select(x => Message(sourceName, x)),
@@ -62,6 +104,8 @@ public sealed class YamlProtocolDefinitionImporter
             Sequence(sourceName, root, "customParameters").Select(x => CustomParameter(sourceName, x)),
             Sequence(sourceName, root, "customEnumerations").Select(x => CustomEnumeration(sourceName, x)));
     }
+
+    private static ProtocolDefinition Empty(string sourceName) => new(sourceName, null, [], [], [], []);
 
     private static ProtocolNamespaceDefinition Namespace(string source, YamlNode node)
     {

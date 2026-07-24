@@ -19,9 +19,10 @@ internal sealed class C1G2LockOpSpecResultCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2LockResultType Result = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2LockResultType>(reader.ReadByte());
         ushort OpSpecID = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2LockOpSpecResult(
             Result,
@@ -47,9 +48,10 @@ internal sealed class C1G2LockOpSpecResultCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.Result, "Result"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.Result, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUInt16(parameter.OpSpecID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

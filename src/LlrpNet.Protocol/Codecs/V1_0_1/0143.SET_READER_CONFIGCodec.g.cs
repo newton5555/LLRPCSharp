@@ -20,64 +20,75 @@ internal sealed class SET_READER_CONFIGCodec : global::LlrpNet.Protocol.Codecs.L
         GeneratedCodecRuntime.ValidateVersion(header.Version, 1);
         var version = header.Version;
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool ResetToFactoryDefault = reader.ReadBoolean();
         reader.ReadReservedBits(7);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.ReaderEventNotificationSpec? ReaderEventNotificationSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 244, false, 0U, 0U))
         {
             ReaderEventNotificationSpec = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ReaderEventNotificationSpec>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var AntennaPropertiesItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaProperties>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 221, false, 0U, 0U))
         {
             AntennaPropertiesItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaProperties>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(AntennaPropertiesItems.Count, 0, "AntennaPropertiesItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         var AntennaConfigurationItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaConfiguration>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 222, false, 0U, 0U))
         {
             AntennaConfigurationItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaConfiguration>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(AntennaConfigurationItems.Count, 0, "AntennaConfigurationItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROReportSpec? ROReportSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 237, false, 0U, 0U))
         {
             ROReportSpec = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ROReportSpec>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.AccessReportSpec? AccessReportSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 239, false, 0U, 0U))
         {
             AccessReportSpec = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.AccessReportSpec>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.KeepaliveSpec? KeepaliveSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 220, false, 0U, 0U))
         {
             KeepaliveSpec = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.KeepaliveSpec>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var GPOWriteDataItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.GPOWriteData>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 219, false, 0U, 0U))
         {
             GPOWriteDataItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.GPOWriteData>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(GPOWriteDataItems.Count, 0, "GPOWriteDataItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         var GPIPortCurrentStateItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.GPIPortCurrentState>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 225, false, 0U, 0U))
         {
             GPIPortCurrentStateItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.GPIPortCurrentState>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(GPIPortCurrentStateItems.Count, 0, "GPIPortCurrentStateItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.EventsAndReports? EventsAndReports = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 226, false, 0U, 0U))
         {
             EventsAndReports = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.EventsAndReports>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Messages.V1_0_1.SET_READER_CONFIG(
             header.MessageId,
@@ -203,49 +214,60 @@ internal sealed class SET_READER_CONFIGCodec : global::LlrpNet.Protocol.Codecs.L
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(message.ResetToFactoryDefault);
         wireWriter.WriteReservedBits(7);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (message.ReaderEventNotificationSpec is not null)
         {
             offset += registry.EncodeParameter(version, message.ReaderEventNotificationSpec, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in message.AntennaPropertiesItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in message.AntennaConfigurationItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.ROReportSpec is not null)
         {
             offset += registry.EncodeParameter(version, message.ROReportSpec, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.AccessReportSpec is not null)
         {
             offset += registry.EncodeParameter(version, message.AccessReportSpec, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.KeepaliveSpec is not null)
         {
             offset += registry.EncodeParameter(version, message.KeepaliveSpec, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in message.GPOWriteDataItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in message.GPIPortCurrentStateItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.EventsAndReports is not null)
         {
             offset += registry.EncodeParameter(version, message.EventsAndReports, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in message.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

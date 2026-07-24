@@ -19,8 +19,9 @@ internal sealed class EPC_96Codec : global::LlrpNet.Protocol.Codecs.LlrpParamete
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::System.ReadOnlyMemory<byte> EPC = reader.ReadU96();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.EPC_96(
             EPC);
@@ -45,8 +46,9 @@ internal sealed class EPC_96Codec : global::LlrpNet.Protocol.Codecs.LlrpParamete
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteU96(parameter.EPC);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

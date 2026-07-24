@@ -19,9 +19,10 @@ internal sealed class ROReportSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpPa
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.ROReportTriggerType ROReportTrigger = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.ROReportTriggerType>(reader.ReadByte());
         ushort N = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector? TagReportContentSelector = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 238, false, 0U, 0U))
         {
@@ -31,12 +32,14 @@ internal sealed class ROReportSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpPa
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'TagReportContentSelector' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ROReportSpec(
             ROReportTrigger,
@@ -83,14 +86,17 @@ internal sealed class ROReportSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpPa
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.ROReportTrigger, "ROReportTrigger"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.ROReportTrigger, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUInt16(parameter.N);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.TagReportContentSelector!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

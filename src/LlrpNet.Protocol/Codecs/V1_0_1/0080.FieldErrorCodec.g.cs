@@ -19,9 +19,10 @@ internal sealed class FieldErrorCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort FieldNum = reader.ReadUInt16();
         global::LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode ErrorCode = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode>(reader.ReadUInt16());
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.FieldError(
             FieldNum,
@@ -47,9 +48,10 @@ internal sealed class FieldErrorCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.FieldNum);
         GeneratedCodecRuntime.ValidateEnum(parameter.ErrorCode, "ErrorCode"); wireWriter.WriteUInt16(checked((ushort)global::System.Convert.ToUInt64(parameter.ErrorCode, global::System.Globalization.CultureInfo.InvariantCulture)));
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

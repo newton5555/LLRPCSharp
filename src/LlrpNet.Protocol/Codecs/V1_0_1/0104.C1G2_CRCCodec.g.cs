@@ -19,8 +19,9 @@ internal sealed class C1G2_CRCCodec : global::LlrpNet.Protocol.Codecs.LlrpParame
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort CRC = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2_CRC(
             CRC);
@@ -45,8 +46,9 @@ internal sealed class C1G2_CRCCodec : global::LlrpNet.Protocol.Codecs.LlrpParame
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.CRC);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

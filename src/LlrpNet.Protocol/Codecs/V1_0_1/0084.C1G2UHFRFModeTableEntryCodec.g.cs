@@ -19,6 +19,7 @@ internal sealed class C1G2UHFRFModeTableEntryCodec : global::LlrpNet.Protocol.Co
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint ModeIdentifier = reader.ReadUInt32();
         global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2DRValue DRValue = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2DRValue>(reader.ReadBits(1));
         bool EPCHAGTCConformance = reader.ReadBoolean();
@@ -31,7 +32,7 @@ internal sealed class C1G2UHFRFModeTableEntryCodec : global::LlrpNet.Protocol.Co
         uint MinTariValue = reader.ReadUInt32();
         uint MaxTariValue = reader.ReadUInt32();
         uint StepTariValue = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2UHFRFModeTableEntry(
             ModeIdentifier,
@@ -66,6 +67,7 @@ internal sealed class C1G2UHFRFModeTableEntryCodec : global::LlrpNet.Protocol.Co
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.ModeIdentifier);
         GeneratedCodecRuntime.ValidateEnum(parameter.DRValue, "DRValue"); wireWriter.WriteBits(global::System.Convert.ToUInt64(parameter.DRValue, global::System.Globalization.CultureInfo.InvariantCulture), 1);
         wireWriter.WriteBoolean(parameter.EPCHAGTCConformance);
@@ -78,7 +80,7 @@ internal sealed class C1G2UHFRFModeTableEntryCodec : global::LlrpNet.Protocol.Co
         wireWriter.WriteUInt32(parameter.MinTariValue);
         wireWriter.WriteUInt32(parameter.MaxTariValue);
         wireWriter.WriteUInt32(parameter.StepTariValue);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

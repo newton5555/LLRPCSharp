@@ -19,13 +19,14 @@ internal sealed class C1G2UHFRFModeTableCodec : global::LlrpNet.Protocol.Codecs.
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         var C1G2UHFRFModeTableEntryItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2UHFRFModeTableEntry>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 329, false, 0U, 0U))
         {
             C1G2UHFRFModeTableEntryItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2UHFRFModeTableEntry>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(C1G2UHFRFModeTableEntryItems.Count, 1, "C1G2UHFRFModeTableEntryItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2UHFRFModeTable(
             C1G2UHFRFModeTableEntryItems);
@@ -63,11 +64,12 @@ internal sealed class C1G2UHFRFModeTableCodec : global::LlrpNet.Protocol.Codecs.
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.C1G2UHFRFModeTableEntryItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

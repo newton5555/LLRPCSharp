@@ -19,9 +19,10 @@ internal sealed class IdentificationCodec : global::LlrpNet.Protocol.Codecs.Llrp
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.IdentificationType IDType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.IdentificationType>(reader.ReadByte());
         global::System.ReadOnlyMemory<byte> ReaderID = reader.ReadByteVector();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.Identification(
             IDType,
@@ -48,9 +49,10 @@ internal sealed class IdentificationCodec : global::LlrpNet.Protocol.Codecs.Llrp
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.IDType, "IDType"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.IDType, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteByteVector(parameter.ReaderID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

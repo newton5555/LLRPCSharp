@@ -19,9 +19,10 @@ internal sealed class AntennaEventCodec : global::LlrpNet.Protocol.Codecs.LlrpPa
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.AntennaEventType EventType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.AntennaEventType>(reader.ReadByte());
         ushort AntennaID = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaEvent(
             EventType,
@@ -47,9 +48,10 @@ internal sealed class AntennaEventCodec : global::LlrpNet.Protocol.Codecs.LlrpPa
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.EventType, "EventType"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.EventType, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUInt16(parameter.AntennaID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,11 +19,12 @@ internal sealed class C1G2TagInventoryMaskCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         byte MB = (byte)reader.ReadBits(2);
         reader.ReadReservedBits(6);
         ushort Pointer = reader.ReadUInt16();
         global::System.Collections.Generic.IReadOnlyList<bool> TagMask = reader.ReadBitVector();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryMask(
             MB,
@@ -51,11 +52,12 @@ internal sealed class C1G2TagInventoryMaskCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBits(parameter.MB, 2);
         wireWriter.WriteReservedBits(6);
         wireWriter.WriteUInt16(parameter.Pointer);
         wireWriter.WriteBitVector(parameter.TagMask);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

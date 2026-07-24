@@ -19,14 +19,16 @@ internal sealed class PeriodicTriggerValueCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint Offset = reader.ReadUInt32();
         uint Period = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.UTCTimestamp? UTCTimestamp = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 128, false, 0U, 0U))
         {
             UTCTimestamp = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.UTCTimestamp>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.PeriodicTriggerValue(
             Offset,
@@ -58,13 +60,15 @@ internal sealed class PeriodicTriggerValueCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.Offset);
         wireWriter.WriteUInt32(parameter.Period);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (parameter.UTCTimestamp is not null)
         {
             offset += registry.EncodeParameter(version, parameter.UTCTimestamp, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

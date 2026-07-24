@@ -20,7 +20,7 @@ internal sealed class GET_READER_CAPABILITIES_RESPONSECodec : global::LlrpNet.Pr
         GeneratedCodecRuntime.ValidateVersion(header.Version, 1);
         var version = header.Version;
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         global::LlrpNet.Protocol.Parameters.V1_0_1.LLRPStatus? LLRPStatus = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 287, false, 0U, 0U))
         {
@@ -30,32 +30,38 @@ internal sealed class GET_READER_CAPABILITIES_RESPONSECodec : global::LlrpNet.Pr
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'LLRPStatus' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.GeneralDeviceCapabilities? GeneralDeviceCapabilities = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 137, false, 0U, 0U))
         {
             GeneralDeviceCapabilities = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.GeneralDeviceCapabilities>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.LLRPCapabilities? LLRPCapabilities = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 142, false, 0U, 0U))
         {
             LLRPCapabilities = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.LLRPCapabilities>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.RegulatoryCapabilities? RegulatoryCapabilities = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 143, false, 0U, 0U))
         {
             RegulatoryCapabilities = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.RegulatoryCapabilities>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolLLRPCapabilities? AirProtocolLLRPCapabilities = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 327, false, 0U, 0U))
         {
             AirProtocolLLRPCapabilities = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolLLRPCapabilities>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES_RESPONSE(
             header.MessageId,
@@ -125,28 +131,34 @@ internal sealed class GET_READER_CAPABILITIES_RESPONSECodec : global::LlrpNet.Pr
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         offset += registry.EncodeParameter(version, message.LLRPStatus!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.GeneralDeviceCapabilities is not null)
         {
             offset += registry.EncodeParameter(version, message.GeneralDeviceCapabilities, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.LLRPCapabilities is not null)
         {
             offset += registry.EncodeParameter(version, message.LLRPCapabilities, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.RegulatoryCapabilities is not null)
         {
             offset += registry.EncodeParameter(version, message.RegulatoryCapabilities, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (message.AirProtocolLLRPCapabilities is not null)
         {
             offset += registry.EncodeParameter(version, message.AirProtocolLLRPCapabilities, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in message.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

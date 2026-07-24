@@ -19,8 +19,9 @@ internal sealed class AccessReportSpecCodec : global::LlrpNet.Protocol.Codecs.Ll
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.AccessReportTriggerType AccessReportTrigger = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.AccessReportTriggerType>(reader.ReadByte());
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AccessReportSpec(
             AccessReportTrigger);
@@ -45,8 +46,9 @@ internal sealed class AccessReportSpecCodec : global::LlrpNet.Protocol.Codecs.Ll
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.AccessReportTrigger, "AccessReportTrigger"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.AccessReportTrigger, global::System.Globalization.CultureInfo.InvariantCulture)));
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

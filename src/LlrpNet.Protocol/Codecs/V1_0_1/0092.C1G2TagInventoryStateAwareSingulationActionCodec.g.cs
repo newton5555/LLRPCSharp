@@ -19,10 +19,11 @@ internal sealed class C1G2TagInventoryStateAwareSingulationActionCodec : global:
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareI I = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareI>(reader.ReadBits(1));
         global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareS S = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareS>(reader.ReadBits(1));
         reader.ReadReservedBits(6);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryStateAwareSingulationAction(
             I,
@@ -48,10 +49,11 @@ internal sealed class C1G2TagInventoryStateAwareSingulationActionCodec : global:
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.I, "I"); wireWriter.WriteBits(global::System.Convert.ToUInt64(parameter.I, global::System.Globalization.CultureInfo.InvariantCulture), 1);
         GeneratedCodecRuntime.ValidateEnum(parameter.S, "S"); wireWriter.WriteBits(global::System.Convert.ToUInt64(parameter.S, global::System.Globalization.CultureInfo.InvariantCulture), 1);
         wireWriter.WriteReservedBits(6);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

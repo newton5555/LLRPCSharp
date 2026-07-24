@@ -19,6 +19,7 @@ internal sealed class LLRPCapabilitiesCodec : global::LlrpNet.Protocol.Codecs.Ll
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool CanDoRFSurvey = reader.ReadBoolean();
         bool CanReportBufferFillWarning = reader.ReadBoolean();
         bool SupportsClientRequestOpSpec = reader.ReadBoolean();
@@ -32,7 +33,7 @@ internal sealed class LLRPCapabilitiesCodec : global::LlrpNet.Protocol.Codecs.Ll
         uint MaxNumInventoryParameterSpecsPerAISpec = reader.ReadUInt32();
         uint MaxNumAccessSpecs = reader.ReadUInt32();
         uint MaxNumOpSpecsPerAccessSpec = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.LLRPCapabilities(
             CanDoRFSurvey,
@@ -68,6 +69,7 @@ internal sealed class LLRPCapabilitiesCodec : global::LlrpNet.Protocol.Codecs.Ll
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(parameter.CanDoRFSurvey);
         wireWriter.WriteBoolean(parameter.CanReportBufferFillWarning);
         wireWriter.WriteBoolean(parameter.SupportsClientRequestOpSpec);
@@ -81,7 +83,7 @@ internal sealed class LLRPCapabilitiesCodec : global::LlrpNet.Protocol.Codecs.Ll
         wireWriter.WriteUInt32(parameter.MaxNumInventoryParameterSpecsPerAISpec);
         wireWriter.WriteUInt32(parameter.MaxNumAccessSpecs);
         wireWriter.WriteUInt32(parameter.MaxNumOpSpecsPerAccessSpec);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,8 +19,9 @@ internal sealed class ReportBufferLevelWarningEventCodec : global::LlrpNet.Proto
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         byte ReportBufferPercentageFull = reader.ReadByte();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ReportBufferLevelWarningEvent(
             ReportBufferPercentageFull);
@@ -45,8 +46,9 @@ internal sealed class ReportBufferLevelWarningEventCodec : global::LlrpNet.Proto
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteByte(parameter.ReportBufferPercentageFull);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

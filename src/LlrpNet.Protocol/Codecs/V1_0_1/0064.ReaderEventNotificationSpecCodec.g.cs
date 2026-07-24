@@ -19,13 +19,14 @@ internal sealed class ReaderEventNotificationSpecCodec : global::LlrpNet.Protoco
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         var EventNotificationStateItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.EventNotificationState>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 245, false, 0U, 0U))
         {
             EventNotificationStateItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.EventNotificationState>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(EventNotificationStateItems.Count, 1, "EventNotificationStateItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ReaderEventNotificationSpec(
             EventNotificationStateItems);
@@ -63,11 +64,12 @@ internal sealed class ReaderEventNotificationSpecCodec : global::LlrpNet.Protoco
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.EventNotificationStateItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

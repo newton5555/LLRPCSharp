@@ -19,13 +19,14 @@ internal sealed class AccessSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint AccessSpecID = reader.ReadUInt32();
         ushort AntennaID = reader.ReadUInt16();
         global::LlrpNet.Protocol.Enumerations.V1_0_1.AirProtocols ProtocolID = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.AirProtocols>(reader.ReadByte());
         global::LlrpNet.Protocol.Enumerations.V1_0_1.AccessSpecState CurrentState = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.AccessSpecState>(reader.ReadBits(1));
         reader.ReadReservedBits(7);
         uint ROSpecID = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.AccessSpecStopTrigger? AccessSpecStopTrigger = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 208, false, 0U, 0U))
         {
@@ -35,6 +36,7 @@ internal sealed class AccessSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'AccessSpecStopTrigger' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.AccessCommand? AccessCommand = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 209, false, 0U, 0U))
         {
@@ -44,17 +46,20 @@ internal sealed class AccessSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'AccessCommand' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.AccessReportSpec? AccessReportSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 239, false, 0U, 0U))
         {
             AccessReportSpec = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.AccessReportSpec>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AccessSpec(
             AccessSpecID,
@@ -117,23 +122,28 @@ internal sealed class AccessSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.AccessSpecID);
         wireWriter.WriteUInt16(parameter.AntennaID);
         GeneratedCodecRuntime.ValidateEnum(parameter.ProtocolID, "ProtocolID"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.ProtocolID, global::System.Globalization.CultureInfo.InvariantCulture)));
         GeneratedCodecRuntime.ValidateEnum(parameter.CurrentState, "CurrentState"); wireWriter.WriteBits(global::System.Convert.ToUInt64(parameter.CurrentState, global::System.Globalization.CultureInfo.InvariantCulture), 1);
         wireWriter.WriteReservedBits(7);
         wireWriter.WriteUInt32(parameter.ROSpecID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.AccessSpecStopTrigger!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         offset += registry.EncodeParameter(version, parameter.AccessCommand!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.AccessReportSpec is not null)
         {
             offset += registry.EncodeParameter(version, parameter.AccessReportSpec, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

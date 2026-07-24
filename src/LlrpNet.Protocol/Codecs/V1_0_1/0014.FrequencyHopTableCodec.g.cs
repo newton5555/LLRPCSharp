@@ -19,10 +19,11 @@ internal sealed class FrequencyHopTableCodec : global::LlrpNet.Protocol.Codecs.L
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         byte HopTableID = reader.ReadByte();
         reader.ReadReservedBits(8);
         global::System.Collections.Generic.IReadOnlyList<uint> Frequency = reader.ReadUInt32Vector();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyHopTable(
             HopTableID,
@@ -49,10 +50,11 @@ internal sealed class FrequencyHopTableCodec : global::LlrpNet.Protocol.Codecs.L
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteByte(parameter.HopTableID);
         wireWriter.WriteReservedBits(8);
         wireWriter.WriteUInt32Vector(parameter.Frequency);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

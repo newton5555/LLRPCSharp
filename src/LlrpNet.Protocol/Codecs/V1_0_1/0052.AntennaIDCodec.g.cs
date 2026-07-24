@@ -19,8 +19,9 @@ internal sealed class AntennaIDCodec : global::LlrpNet.Protocol.Codecs.LlrpParam
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort AntennaID_2 = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaID(
             AntennaID_2);
@@ -45,8 +46,9 @@ internal sealed class AntennaIDCodec : global::LlrpNet.Protocol.Codecs.LlrpParam
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.AntennaID_2);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

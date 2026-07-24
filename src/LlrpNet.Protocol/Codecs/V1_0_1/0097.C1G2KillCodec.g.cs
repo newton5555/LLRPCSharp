@@ -19,9 +19,10 @@ internal sealed class C1G2KillCodec : global::LlrpNet.Protocol.Codecs.LlrpParame
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort OpSpecID = reader.ReadUInt16();
         uint KillPassword = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2Kill(
             OpSpecID,
@@ -47,9 +48,10 @@ internal sealed class C1G2KillCodec : global::LlrpNet.Protocol.Codecs.LlrpParame
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.OpSpecID);
         wireWriter.WriteUInt32(parameter.KillPassword);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

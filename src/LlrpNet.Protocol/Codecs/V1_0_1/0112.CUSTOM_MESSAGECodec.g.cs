@@ -20,10 +20,11 @@ internal sealed class CUSTOM_MESSAGECodec : global::LlrpNet.Protocol.Codecs.Llrp
         GeneratedCodecRuntime.ValidateVersion(header.Version, 1);
         var version = header.Version;
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint VendorIdentifier = reader.ReadUInt32();
         byte MessageSubtype = reader.ReadByte();
         global::System.ReadOnlyMemory<byte> Data = reader.ReadBytesToEnd();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Messages.V1_0_1.CUSTOM_MESSAGE(
             header.MessageId,
@@ -52,10 +53,11 @@ internal sealed class CUSTOM_MESSAGECodec : global::LlrpNet.Protocol.Codecs.Llrp
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(message.VendorIdentifier);
         wireWriter.WriteByte(message.MessageSubtype);
         wireWriter.WriteBytesToEnd(message.Data);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

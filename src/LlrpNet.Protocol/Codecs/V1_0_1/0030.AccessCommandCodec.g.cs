@@ -19,7 +19,7 @@ internal sealed class AccessCommandCodec : global::LlrpNet.Protocol.Codecs.LlrpP
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolTagSpec? AirProtocolTagSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 338, false, 0U, 0U))
         {
@@ -29,18 +29,21 @@ internal sealed class AccessCommandCodec : global::LlrpNet.Protocol.Codecs.LlrpP
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required choice 'AirProtocolTagSpec' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var AccessCommandOpSpecItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && (GeneratedCodecRuntime.IsNextParameter(payload[offset..], 341, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 342, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 343, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 344, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 346, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 347, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 210, false, 0U, 0U)))
         {
             AccessCommandOpSpecItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(AccessCommandOpSpecItems.Count, 1, "AccessCommandOpSpecItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AccessCommand(
             AirProtocolTagSpec!,
@@ -99,16 +102,19 @@ internal sealed class AccessCommandCodec : global::LlrpNet.Protocol.Codecs.LlrpP
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         offset += registry.EncodeParameter(version, parameter.AirProtocolTagSpec!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.AccessCommandOpSpecItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

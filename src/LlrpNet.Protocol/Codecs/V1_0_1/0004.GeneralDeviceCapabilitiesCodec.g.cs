@@ -19,6 +19,7 @@ internal sealed class GeneralDeviceCapabilitiesCodec : global::LlrpNet.Protocol.
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort MaxNumberOfAntennaSupported = reader.ReadUInt16();
         bool CanSetAntennaProperties = reader.ReadBoolean();
         bool HasUTCClockCapability = reader.ReadBoolean();
@@ -26,19 +27,21 @@ internal sealed class GeneralDeviceCapabilitiesCodec : global::LlrpNet.Protocol.
         uint DeviceManufacturerName = reader.ReadUInt32();
         uint ModelName = reader.ReadUInt32();
         string ReaderFirmwareVersion = reader.ReadUtf8();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         var ReceiveSensitivityTableEntryItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.ReceiveSensitivityTableEntry>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 139, false, 0U, 0U))
         {
             ReceiveSensitivityTableEntryItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ReceiveSensitivityTableEntry>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(ReceiveSensitivityTableEntryItems.Count, 1, "ReceiveSensitivityTableEntryItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         var PerAntennaReceiveSensitivityRangeItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.PerAntennaReceiveSensitivityRange>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 149, false, 0U, 0U))
         {
             PerAntennaReceiveSensitivityRangeItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.PerAntennaReceiveSensitivityRange>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(PerAntennaReceiveSensitivityRangeItems.Count, 0, "PerAntennaReceiveSensitivityRangeItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.GPIOCapabilities? GPIOCapabilities = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 141, false, 0U, 0U))
         {
@@ -48,12 +51,14 @@ internal sealed class GeneralDeviceCapabilitiesCodec : global::LlrpNet.Protocol.
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'GPIOCapabilities' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var PerAntennaAirProtocolItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.PerAntennaAirProtocol>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 140, false, 0U, 0U))
         {
             PerAntennaAirProtocolItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.PerAntennaAirProtocol>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(PerAntennaAirProtocolItems.Count, 1, "PerAntennaAirProtocolItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.GeneralDeviceCapabilities(
             MaxNumberOfAntennaSupported,
@@ -133,6 +138,7 @@ internal sealed class GeneralDeviceCapabilitiesCodec : global::LlrpNet.Protocol.
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.MaxNumberOfAntennaSupported);
         wireWriter.WriteBoolean(parameter.CanSetAntennaProperties);
         wireWriter.WriteBoolean(parameter.HasUTCClockCapability);
@@ -140,20 +146,24 @@ internal sealed class GeneralDeviceCapabilitiesCodec : global::LlrpNet.Protocol.
         wireWriter.WriteUInt32(parameter.DeviceManufacturerName);
         wireWriter.WriteUInt32(parameter.ModelName);
         wireWriter.WriteUtf8(parameter.ReaderFirmwareVersion);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.ReceiveSensitivityTableEntryItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.PerAntennaReceiveSensitivityRangeItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         offset += registry.EncodeParameter(version, parameter.GPIOCapabilities!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.PerAntennaAirProtocolItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,10 +19,11 @@ internal sealed class EventNotificationStateCodec : global::LlrpNet.Protocol.Cod
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.NotificationEventType EventType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.NotificationEventType>(reader.ReadUInt16());
         bool NotificationState = reader.ReadBoolean();
         reader.ReadReservedBits(7);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.EventNotificationState(
             EventType,
@@ -48,10 +49,11 @@ internal sealed class EventNotificationStateCodec : global::LlrpNet.Protocol.Cod
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.EventType, "EventType"); wireWriter.WriteUInt16(checked((ushort)global::System.Convert.ToUInt64(parameter.EventType, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteBoolean(parameter.NotificationState);
         wireWriter.WriteReservedBits(7);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

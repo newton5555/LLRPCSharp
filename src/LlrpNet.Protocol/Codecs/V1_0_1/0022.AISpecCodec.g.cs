@@ -19,8 +19,9 @@ internal sealed class AISpecCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::System.Collections.Generic.IReadOnlyList<ushort> AntennaIDs = reader.ReadUInt16Vector();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.AISpecStopTrigger? AISpecStopTrigger = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 184, false, 0U, 0U))
         {
@@ -30,18 +31,21 @@ internal sealed class AISpecCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'AISpecStopTrigger' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var InventoryParameterSpecItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.InventoryParameterSpec>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 186, false, 0U, 0U))
         {
             InventoryParameterSpecItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.InventoryParameterSpec>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(InventoryParameterSpecItems.Count, 1, "InventoryParameterSpecItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AISpec(
             AntennaIDs,
@@ -102,17 +106,21 @@ internal sealed class AISpecCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16Vector(parameter.AntennaIDs);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.AISpecStopTrigger!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.InventoryParameterSpecItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,8 +19,9 @@ internal sealed class LLRPConfigurationStateValueCodec : global::LlrpNet.Protoco
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint LLRPConfigurationStateValue_2 = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.LLRPConfigurationStateValue(
             LLRPConfigurationStateValue_2);
@@ -45,8 +46,9 @@ internal sealed class LLRPConfigurationStateValueCodec : global::LlrpNet.Protoco
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.LLRPConfigurationStateValue_2);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

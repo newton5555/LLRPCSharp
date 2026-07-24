@@ -19,7 +19,7 @@ internal sealed class ConnectionCloseEventCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ConnectionCloseEvent();
     }
@@ -43,7 +43,7 @@ internal sealed class ConnectionCloseEventCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

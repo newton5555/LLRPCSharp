@@ -19,19 +19,22 @@ internal sealed class LLRPStatusCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode StatusCode = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode>(reader.ReadUInt16());
         string ErrorDescription = reader.ReadUtf8();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.FieldError? FieldError = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 288, false, 0U, 0U))
         {
             FieldError = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.FieldError>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ParameterError? ParameterError = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 289, false, 0U, 0U))
         {
             ParameterError = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ParameterError>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.LLRPStatus(
             StatusCode,
@@ -70,17 +73,20 @@ internal sealed class LLRPStatusCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.StatusCode, "StatusCode"); wireWriter.WriteUInt16(checked((ushort)global::System.Convert.ToUInt64(parameter.StatusCode, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUtf8(parameter.ErrorDescription);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (parameter.FieldError is not null)
         {
             offset += registry.EncodeParameter(version, parameter.FieldError, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ParameterError is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ParameterError, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

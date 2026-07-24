@@ -19,10 +19,11 @@ internal sealed class ROSpecEventCodec : global::LlrpNet.Protocol.Codecs.LlrpPar
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecEventType EventType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecEventType>(reader.ReadByte());
         uint ROSpecID = reader.ReadUInt32();
         uint PreemptingROSpecID = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecEvent(
             EventType,
@@ -49,10 +50,11 @@ internal sealed class ROSpecEventCodec : global::LlrpNet.Protocol.Codecs.LlrpPar
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.EventType, "EventType"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.EventType, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUInt32(parameter.ROSpecID);
         wireWriter.WriteUInt32(parameter.PreemptingROSpecID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,20 +19,23 @@ internal sealed class RegulatoryCapabilitiesCodec : global::LlrpNet.Protocol.Cod
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort CountryCode = reader.ReadUInt16();
         global::LlrpNet.Protocol.Enumerations.V1_0_1.CommunicationsStandard CommunicationsStandard = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.CommunicationsStandard>(reader.ReadUInt16());
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.UHFBandCapabilities? UHFBandCapabilities = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 144, false, 0U, 0U))
         {
             UHFBandCapabilities = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.UHFBandCapabilities>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.RegulatoryCapabilities(
             CountryCode,
@@ -78,17 +81,20 @@ internal sealed class RegulatoryCapabilitiesCodec : global::LlrpNet.Protocol.Cod
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.CountryCode);
         GeneratedCodecRuntime.ValidateEnum(parameter.CommunicationsStandard, "CommunicationsStandard"); wireWriter.WriteUInt16(checked((ushort)global::System.Convert.ToUInt64(parameter.CommunicationsStandard, global::System.Globalization.CultureInfo.InvariantCulture)));
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (parameter.UHFBandCapabilities is not null)
         {
             offset += registry.EncodeParameter(version, parameter.UHFBandCapabilities, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

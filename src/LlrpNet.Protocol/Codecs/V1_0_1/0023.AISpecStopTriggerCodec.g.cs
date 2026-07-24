@@ -19,19 +19,22 @@ internal sealed class AISpecStopTriggerCodec : global::LlrpNet.Protocol.Codecs.L
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.AISpecStopTriggerType AISpecStopTriggerType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.AISpecStopTriggerType>(reader.ReadByte());
         uint DurationTrigger = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.GPITriggerValue? GPITriggerValue = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 181, false, 0U, 0U))
         {
             GPITriggerValue = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.GPITriggerValue>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.TagObservationTrigger? TagObservationTrigger = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 185, false, 0U, 0U))
         {
             TagObservationTrigger = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.TagObservationTrigger>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AISpecStopTrigger(
             AISpecStopTriggerType,
@@ -69,17 +72,20 @@ internal sealed class AISpecStopTriggerCodec : global::LlrpNet.Protocol.Codecs.L
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.AISpecStopTriggerType, "AISpecStopTriggerType"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.AISpecStopTriggerType, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteUInt32(parameter.DurationTrigger);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (parameter.GPITriggerValue is not null)
         {
             offset += registry.EncodeParameter(version, parameter.GPITriggerValue, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.TagObservationTrigger is not null)
         {
             offset += registry.EncodeParameter(version, parameter.TagObservationTrigger, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

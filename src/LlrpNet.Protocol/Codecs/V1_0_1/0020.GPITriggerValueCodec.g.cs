@@ -19,11 +19,12 @@ internal sealed class GPITriggerValueCodec : global::LlrpNet.Protocol.Codecs.Llr
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort GPIPortNum = reader.ReadUInt16();
         bool GPIEvent = reader.ReadBoolean();
         reader.ReadReservedBits(7);
         uint Timeout = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.GPITriggerValue(
             GPIPortNum,
@@ -50,11 +51,12 @@ internal sealed class GPITriggerValueCodec : global::LlrpNet.Protocol.Codecs.Llr
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.GPIPortNum);
         wireWriter.WriteBoolean(parameter.GPIEvent);
         wireWriter.WriteReservedBits(7);
         wireWriter.WriteUInt32(parameter.Timeout);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

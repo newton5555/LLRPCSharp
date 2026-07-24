@@ -19,13 +19,14 @@ internal sealed class UHFBandCapabilitiesCodec : global::LlrpNet.Protocol.Codecs
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         var TransmitPowerLevelTableEntryItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.TransmitPowerLevelTableEntry>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 145, false, 0U, 0U))
         {
             TransmitPowerLevelTableEntryItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.TransmitPowerLevelTableEntry>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(TransmitPowerLevelTableEntryItems.Count, 1, "TransmitPowerLevelTableEntryItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyInformation? FrequencyInformation = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 146, false, 0U, 0U))
         {
@@ -35,12 +36,14 @@ internal sealed class UHFBandCapabilitiesCodec : global::LlrpNet.Protocol.Codecs
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'FrequencyInformation' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var AirProtocolUHFRFModeTableItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolUHFRFModeTable>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 328, false, 0U, 0U))
         {
             AirProtocolUHFRFModeTableItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolUHFRFModeTable>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(AirProtocolUHFRFModeTableItems.Count, 1, "AirProtocolUHFRFModeTableItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.UHFBandCapabilities(
             TransmitPowerLevelTableEntryItems,
@@ -99,16 +102,19 @@ internal sealed class UHFBandCapabilitiesCodec : global::LlrpNet.Protocol.Codecs
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.TransmitPowerLevelTableEntryItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         offset += registry.EncodeParameter(version, parameter.FrequencyInformation!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.AirProtocolUHFRFModeTableItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

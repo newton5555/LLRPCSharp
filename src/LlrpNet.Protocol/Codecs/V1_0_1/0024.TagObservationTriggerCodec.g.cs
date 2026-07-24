@@ -19,13 +19,14 @@ internal sealed class TagObservationTriggerCodec : global::LlrpNet.Protocol.Code
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.TagObservationTriggerType TriggerType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.TagObservationTriggerType>(reader.ReadByte());
         reader.ReadReservedBits(8);
         ushort NumberOfTags = reader.ReadUInt16();
         ushort NumberOfAttempts = reader.ReadUInt16();
         ushort T = reader.ReadUInt16();
         uint Timeout = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.TagObservationTrigger(
             TriggerType,
@@ -54,13 +55,14 @@ internal sealed class TagObservationTriggerCodec : global::LlrpNet.Protocol.Code
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.TriggerType, "TriggerType"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.TriggerType, global::System.Globalization.CultureInfo.InvariantCulture)));
         wireWriter.WriteReservedBits(8);
         wireWriter.WriteUInt16(parameter.NumberOfTags);
         wireWriter.WriteUInt16(parameter.NumberOfAttempts);
         wireWriter.WriteUInt16(parameter.T);
         wireWriter.WriteUInt32(parameter.Timeout);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

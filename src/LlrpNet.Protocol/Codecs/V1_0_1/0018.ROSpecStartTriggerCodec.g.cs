@@ -19,18 +19,21 @@ internal sealed class ROSpecStartTriggerCodec : global::LlrpNet.Protocol.Codecs.
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType ROSpecStartTriggerType = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType>(reader.ReadByte());
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.PeriodicTriggerValue? PeriodicTriggerValue = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 180, false, 0U, 0U))
         {
             PeriodicTriggerValue = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.PeriodicTriggerValue>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.GPITriggerValue? GPITriggerValue = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 181, false, 0U, 0U))
         {
             GPITriggerValue = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.GPITriggerValue>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecStartTrigger(
             ROSpecStartTriggerType,
@@ -67,16 +70,19 @@ internal sealed class ROSpecStartTriggerCodec : global::LlrpNet.Protocol.Codecs.
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.ROSpecStartTriggerType, "ROSpecStartTriggerType"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.ROSpecStartTriggerType, global::System.Globalization.CultureInfo.InvariantCulture)));
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (parameter.PeriodicTriggerValue is not null)
         {
             offset += registry.EncodeParameter(version, parameter.PeriodicTriggerValue, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.GPITriggerValue is not null)
         {
             offset += registry.EncodeParameter(version, parameter.GPITriggerValue, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

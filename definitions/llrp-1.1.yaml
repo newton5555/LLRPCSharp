@@ -1,0 +1,460 @@
+# LLRP 1.1 (protocol version 2) delta over the LLRP 1.0.1 XML baseline.
+# The generator receives the baseline through --base. New wire types are at the root;
+# complete replacements of existing definitions are contained in overrides.
+messages:
+  - name: GET_SUPPORTED_VERSION
+    typeNumber: 46
+    required: true
+    members: []
+  - name: GET_SUPPORTED_VERSION_RESPONSE
+    typeNumber: 56
+    required: true
+    members:
+      - parameter:
+          type: LLRPStatus
+          cardinality: "1"
+      - field:
+          name: CurrentVersion
+          type: u8
+      - field:
+          name: SupportedVersion
+          type: u8
+  - name: SET_PROTOCOL_VERSION
+    typeNumber: 47
+    required: true
+    responseType: SET_PROTOCOL_VERSION_RESPONSE
+    members:
+      - field:
+          name: ProtocolVersion
+          type: u8
+  - name: SET_PROTOCOL_VERSION_RESPONSE
+    typeNumber: 57
+    required: true
+    members:
+      - parameter:
+          type: LLRPStatus
+          cardinality: "1"
+
+parameters:
+  - name: LoopSpec
+    typeNumber: 355
+    required: true
+    members:
+      - field:
+          name: LoopCount
+          type: u32
+  - name: SpecLoopEvent
+    typeNumber: 356
+    required: true
+    members:
+      - field:
+          name: ROSpecID
+          type: u32
+      - field:
+          name: LoopCount
+          type: u32
+  - name: C1G2Recommission
+    typeNumber: 357
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: KillPassword
+          type: u32
+      - reserved: 5
+      - field:
+          name: ThreeSB
+          type: u1
+      - field:
+          name: TwoSB
+          type: u1
+      - field:
+          name: LSB
+          type: u1
+  - name: C1G2BlockPermalock
+    typeNumber: 358
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: MB
+          type: u2
+      - reserved: 6
+      - field:
+          name: BlockPointer
+          type: u16
+      - field:
+          name: BlockMask
+          type: u16v
+          format: Hex
+  - name: C1G2GetBlockPermalockStatus
+    typeNumber: 359
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: MB
+          type: u2
+      - reserved: 6
+      - field:
+          name: BlockPointer
+          type: u16
+      - field:
+          name: BlockRange
+          type: u16
+  - name: C1G2RecommissionOpSpecResult
+    typeNumber: 360
+    required: false
+    members:
+      - field:
+          name: Result
+          type: u8
+          enumeration: C1G2RecommissionResultType
+      - field:
+          name: OpSpecID
+          type: u16
+  - name: C1G2BlockPermalockOpSpecResult
+    typeNumber: 361
+    required: false
+    members:
+      - field:
+          name: Result
+          type: u8
+          enumeration: C1G2BlockPermalockResultType
+      - field:
+          name: OpSpecID
+          type: u16
+  - name: C1G2GetBlockPermalockStatusOpSpecResult
+    typeNumber: 362
+    required: false
+    members:
+      - field:
+          name: Result
+          type: u8
+          enumeration: C1G2GetBlockPermalockStatusResultType
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: PermalockStatus
+          type: u16v
+          format: Hex
+  - name: MaximumReceiveSensitivity
+    typeNumber: 363
+    required: true
+    members:
+      - field:
+          name: MaximumSensitivityValue
+          type: s16
+  - name: RFSurveyFrequencyCapabilities
+    typeNumber: 365
+    required: true
+    members:
+      - field:
+          name: MinimumFrequency
+          type: u32
+      - field:
+          name: MaximumFrequency
+          type: u32
+
+enumerations:
+  - name: C1G2RecommissionResultType
+    entries:
+      - name: Success
+        value: 0
+      - name: Zero_Kill_Password_Error
+        value: 1
+      - name: Insufficient_Power_To_Perform_Recommission_Operation
+        value: 2
+      - name: Nonspecific_Tag_Error
+        value: 3
+      - name: No_Response_From_Tag
+        value: 4
+      - name: Nonspecific_Reader_Error
+        value: 5
+      - name: Incorrect_Password_Error
+        value: 6
+  - name: C1G2BlockPermalockResultType
+    entries:
+      - name: Success
+        value: 0
+      - name: Insufficient_Power_To_Perform_Block_Permalock_Operation
+        value: 1
+      - name: Nonspecific_Tag_Error
+        value: 2
+      - name: No_Response_From_Tag
+        value: 3
+      - name: Nonspecific_Reader_Error
+        value: 4
+      - name: Incorrect_Password_Error
+        value: 5
+      - name: Tag_Memory_Overrun_Error
+        value: 6
+  - name: C1G2GetBlockPermalockStatusResultType
+    entries:
+      - name: Success
+        value: 0
+      - name: Nonspecific_Tag_Error
+        value: 1
+      - name: No_Response_From_Tag
+        value: 2
+      - name: Nonspecific_Reader_Error
+        value: 3
+      - name: Incorrect_Password_Error
+        value: 4
+      - name: Tag_Memory_Overrun_Error
+        value: 5
+
+overrides:
+  parameters:
+    - name: GeneralDeviceCapabilities
+      typeNumber: 137
+      required: true
+      members:
+        - field:
+            name: MaxNumberOfAntennaSupported
+            type: u16
+        - field:
+            name: CanSetAntennaProperties
+            type: u1
+        - field:
+            name: HasUTCClockCapability
+            type: u1
+        - reserved: 14
+        - field:
+            name: DeviceManufacturerName
+            type: u32
+        - field:
+            name: ModelName
+            type: u32
+        - field:
+            name: ReaderFirmwareVersion
+            type: utf8v
+            format: UTF8
+        - parameter:
+            type: ReceiveSensitivityTableEntry
+            cardinality: 1-N
+        - parameter:
+            type: PerAntennaReceiveSensitivityRange
+            cardinality: 0-N
+        - parameter:
+            type: GPIOCapabilities
+            cardinality: "1"
+        - parameter:
+            type: PerAntennaAirProtocol
+            cardinality: 1-N
+        - parameter:
+            type: MaximumReceiveSensitivity
+            cardinality: 0-1
+    - name: UHFBandCapabilities
+      typeNumber: 144
+      required: true
+      members:
+        - parameter:
+            type: TransmitPowerLevelTableEntry
+            cardinality: 1-N
+        - parameter:
+            type: FrequencyInformation
+            cardinality: "1"
+        - choice:
+            type: AirProtocolUHFRFModeTable
+            cardinality: 1-N
+        - parameter:
+            type: RFSurveyFrequencyCapabilities
+            cardinality: 0-1
+    - name: ReaderEventNotificationData
+      typeNumber: 246
+      required: true
+      members:
+        - choice:
+            type: Timestamp
+            cardinality: "1"
+        - parameter:
+            type: HoppingEvent
+            cardinality: 0-1
+        - parameter:
+            type: GPIEvent
+            cardinality: 0-1
+        - parameter:
+            type: ROSpecEvent
+            cardinality: 0-1
+        - parameter:
+            type: ReportBufferLevelWarningEvent
+            cardinality: 0-1
+        - parameter:
+            type: ReportBufferOverflowErrorEvent
+            cardinality: 0-1
+        - parameter:
+            type: ReaderExceptionEvent
+            cardinality: 0-1
+        - parameter:
+            type: RFSurveyEvent
+            cardinality: 0-1
+        - parameter:
+            type: AISpecEvent
+            cardinality: 0-1
+        - parameter:
+            type: AntennaEvent
+            cardinality: 0-1
+        - parameter:
+            type: ConnectionAttemptEvent
+            cardinality: 0-1
+        - parameter:
+            type: ConnectionCloseEvent
+            cardinality: 0-1
+        - parameter:
+            type: SpecLoopEvent
+            cardinality: 0-1
+        - parameter:
+            type: Custom
+            cardinality: 0-N
+    - name: C1G2LLRPCapabilities
+      typeNumber: 327
+      required: true
+      members:
+        - field:
+            name: CanSupportBlockErase
+            type: u1
+        - field:
+            name: CanSupportBlockWrite
+            type: u1
+        - field:
+            name: CanSupportBlockPermalock
+            type: u1
+        - field:
+            name: CanSupportTagRecommissioning
+            type: u1
+        - field:
+            name: CanSupportUMIMethod2
+            type: u1
+        - field:
+            name: CanSupportXPC
+            type: u1
+        - reserved: 2
+        - field:
+            name: MaxNumSelectFiltersPerQuery
+            type: u16
+  enumerations:
+    - name: StatusCode
+      entries:
+        - name: M_Success
+          value: 0
+        - name: M_ParameterError
+          value: 100
+        - name: M_FieldError
+          value: 101
+        - name: M_UnexpectedParameter
+          value: 102
+        - name: M_MissingParameter
+          value: 103
+        - name: M_DuplicateParameter
+          value: 104
+        - name: M_OverflowParameter
+          value: 105
+        - name: M_OverflowField
+          value: 106
+        - name: M_UnknownParameter
+          value: 107
+        - name: M_UnknownField
+          value: 108
+        - name: M_UnsupportedMessage
+          value: 109
+        - name: M_UnsupportedVersion
+          value: 110
+        - name: M_UnsupportedParameter
+          value: 111
+        - name: M_UnexpectedMessage
+          value: 112
+        - name: P_ParameterError
+          value: 200
+        - name: P_FieldError
+          value: 201
+        - name: P_UnexpectedParameter
+          value: 202
+        - name: P_MissingParameter
+          value: 203
+        - name: P_DuplicateParameter
+          value: 204
+        - name: P_OverflowParameter
+          value: 205
+        - name: P_OverflowField
+          value: 206
+        - name: P_UnknownParameter
+          value: 207
+        - name: P_UnknownField
+          value: 208
+        - name: P_UnsupportedParameter
+          value: 209
+        - name: A_Invalid
+          value: 300
+        - name: A_OutOfRange
+          value: 301
+        - name: R_DeviceError
+          value: 401
+  choices:
+    - name: SpecParameter
+      parameterTypes:
+        - AISpec
+        - RFSurveySpec
+        - LoopSpec
+        - Custom
+    - name: AccessCommandOpSpec
+      parameterTypes:
+        - C1G2Read
+        - C1G2Write
+        - C1G2Kill
+        - C1G2Recommission
+        - C1G2Lock
+        - C1G2BlockErase
+        - C1G2BlockWrite
+        - C1G2BlockPermalock
+        - C1G2GetBlockPermalockStatus
+        - ClientRequestOpSpec
+        - Custom
+    - name: AccessCommandOpSpecResult
+      parameterTypes:
+        - C1G2ReadOpSpecResult
+        - C1G2WriteOpSpecResult
+        - C1G2KillOpSpecResult
+        - C1G2RecommissionOpSpecResult
+        - C1G2LockOpSpecResult
+        - C1G2BlockEraseOpSpecResult
+        - C1G2BlockWriteOpSpecResult
+        - C1G2BlockPermalockOpSpecResult
+        - C1G2GetBlockPermalockStatusOpSpecResult
+        - ClientRequestOpSpecResult
+        - Custom
+    - name: C1G2OpSpec
+      parameterTypes:
+        - C1G2Read
+        - C1G2Write
+        - C1G2Kill
+        - C1G2Recommission
+        - C1G2Lock
+        - C1G2BlockErase
+        - C1G2BlockWrite
+        - C1G2BlockPermalock
+        - C1G2GetBlockPermalockStatus
+    - name: AirProtocolOpSpec
+      parameterTypes:
+        - C1G2Read
+        - C1G2Write
+        - C1G2Kill
+        - C1G2Recommission
+        - C1G2Lock
+        - C1G2BlockErase
+        - C1G2BlockWrite
+        - C1G2BlockPermalock
+        - C1G2GetBlockPermalockStatus

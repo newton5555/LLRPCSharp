@@ -19,31 +19,36 @@ internal sealed class C1G2InventoryCommandCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool TagInventoryStateAware = reader.ReadBoolean();
         reader.ReadReservedBits(7);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         var C1G2FilterItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2Filter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 331, false, 0U, 0U))
         {
             C1G2FilterItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2Filter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(C1G2FilterItems.Count, 0, "C1G2FilterItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2RFControl? C1G2RFControl = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 335, false, 0U, 0U))
         {
             C1G2RFControl = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2RFControl>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2SingulationControl? C1G2SingulationControl = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 336, false, 0U, 0U))
         {
             C1G2SingulationControl = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2SingulationControl>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2InventoryCommand(
             TagInventoryStateAware,
@@ -108,25 +113,30 @@ internal sealed class C1G2InventoryCommandCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(parameter.TagInventoryStateAware);
         wireWriter.WriteReservedBits(7);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.C1G2FilterItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.C1G2RFControl is not null)
         {
             offset += registry.EncodeParameter(version, parameter.C1G2RFControl, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.C1G2SingulationControl is not null)
         {
             offset += registry.EncodeParameter(version, parameter.C1G2SingulationControl, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

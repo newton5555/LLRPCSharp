@@ -19,7 +19,7 @@ internal sealed class ROBoundarySpecCodec : global::LlrpNet.Protocol.Codecs.Llrp
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecStartTrigger? ROSpecStartTrigger = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 179, false, 0U, 0U))
         {
@@ -29,6 +29,7 @@ internal sealed class ROBoundarySpecCodec : global::LlrpNet.Protocol.Codecs.Llrp
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'ROSpecStartTrigger' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecStopTrigger? ROSpecStopTrigger = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 182, false, 0U, 0U))
         {
@@ -38,6 +39,7 @@ internal sealed class ROBoundarySpecCodec : global::LlrpNet.Protocol.Codecs.Llrp
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'ROSpecStopTrigger' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ROBoundarySpec(
             ROSpecStartTrigger!,
@@ -75,9 +77,11 @@ internal sealed class ROBoundarySpecCodec : global::LlrpNet.Protocol.Codecs.Llrp
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         offset += registry.EncodeParameter(version, parameter.ROSpecStartTrigger!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         offset += registry.EncodeParameter(version, parameter.ROSpecStopTrigger!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

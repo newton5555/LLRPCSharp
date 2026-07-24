@@ -19,10 +19,11 @@ internal sealed class CustomCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint VendorIdentifier = reader.ReadUInt32();
         uint ParameterSubtype = reader.ReadUInt32();
         global::System.ReadOnlyMemory<byte> Data = reader.ReadBytesToEnd();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.Custom(
             VendorIdentifier,
@@ -50,10 +51,11 @@ internal sealed class CustomCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.VendorIdentifier);
         wireWriter.WriteUInt32(parameter.ParameterSubtype);
         wireWriter.WriteBytesToEnd(parameter.Data);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

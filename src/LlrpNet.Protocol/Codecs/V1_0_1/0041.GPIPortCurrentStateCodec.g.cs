@@ -19,11 +19,12 @@ internal sealed class GPIPortCurrentStateCodec : global::LlrpNet.Protocol.Codecs
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort GPIPortNum = reader.ReadUInt16();
         bool Config = reader.ReadBoolean();
         reader.ReadReservedBits(7);
         global::LlrpNet.Protocol.Enumerations.V1_0_1.GPIPortState State = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.GPIPortState>(reader.ReadByte());
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.GPIPortCurrentState(
             GPIPortNum,
@@ -50,11 +51,12 @@ internal sealed class GPIPortCurrentStateCodec : global::LlrpNet.Protocol.Codecs
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.GPIPortNum);
         wireWriter.WriteBoolean(parameter.Config);
         wireWriter.WriteReservedBits(7);
         GeneratedCodecRuntime.ValidateEnum(parameter.State, "State"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.State, global::System.Globalization.CultureInfo.InvariantCulture)));
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

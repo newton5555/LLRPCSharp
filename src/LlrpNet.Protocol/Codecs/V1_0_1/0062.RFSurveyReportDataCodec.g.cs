@@ -19,29 +19,33 @@ internal sealed class RFSurveyReportDataCodec : global::LlrpNet.Protocol.Codecs.
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecID? ROSpecID = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 9, false, 0U, 0U))
         {
             ROSpecID = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecID>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.SpecIndex? SpecIndex = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 14, false, 0U, 0U))
         {
             SpecIndex = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.SpecIndex>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var FrequencyRSSILevelEntryItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyRSSILevelEntry>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 243, false, 0U, 0U))
         {
             FrequencyRSSILevelEntryItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyRSSILevelEntry>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(FrequencyRSSILevelEntryItems.Count, 1, "FrequencyRSSILevelEntryItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.RFSurveyReportData(
             ROSpecID,
@@ -105,23 +109,27 @@ internal sealed class RFSurveyReportDataCodec : global::LlrpNet.Protocol.Codecs.
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         if (parameter.ROSpecID is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ROSpecID, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.SpecIndex is not null)
         {
             offset += registry.EncodeParameter(version, parameter.SpecIndex, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.FrequencyRSSILevelEntryItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,11 +19,12 @@ internal sealed class C1G2LLRPCapabilitiesCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool CanSupportBlockErase = reader.ReadBoolean();
         bool CanSupportBlockWrite = reader.ReadBoolean();
         reader.ReadReservedBits(6);
         ushort MaxNumSelectFiltersPerQuery = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2LLRPCapabilities(
             CanSupportBlockErase,
@@ -50,11 +51,12 @@ internal sealed class C1G2LLRPCapabilitiesCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(parameter.CanSupportBlockErase);
         wireWriter.WriteBoolean(parameter.CanSupportBlockWrite);
         wireWriter.WriteReservedBits(6);
         wireWriter.WriteUInt16(parameter.MaxNumSelectFiltersPerQuery);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

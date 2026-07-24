@@ -22,7 +22,9 @@ llrp-2.0-delta.yaml
 新定义使用 `typeNumber` 与 `cardinality`，其中 cardinality 只能是 `1`、`0-1`、`1-N` 或 `0-N`。
 YAML Loader 与 XML Importer 都输出同一个 `ProtocolDefinition`，后续 Validator 与 Generator 不因输入格式分支。
 
-每个 YAML 文件应聚焦于单个协议版本或单个扩展。后续的版本 Delta 合成会显式传入依赖定义做符号解析，禁止静默合并重复的 wire identity。
+每个 YAML 文件应聚焦于单个协议版本或单个扩展。版本 Delta 使用 `--base` 显式合成：
+基线定义与 YAML 的新增定义会合成为一个完整的 `ProtocolDefinition` 后再校验和生成。
+新增项若与基线同名会被拒绝，避免静默改变 wire identity；替换既有定义必须使用后续加入的显式 override 格式。
 
 可重复生成入口：
 
@@ -32,6 +34,15 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
   --root-namespace LlrpNet.Protocol --version-namespace V1_0_1 `
   --protocol-version 1 --dependency definitions/llrp-1.0.1.xml `
   --registry-module-name MyExtensionProtocolModule --codecs --verify
+```
+
+1.1 这类标准增量以 1.0.1 XML 为基线：
+
+```powershell
+dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
+  --input definitions/llrp-1.1.yaml --base definitions/imports/xml/llrp-1.0.1/llrp-1.0.1.xml `
+  --output src/LlrpNet.Protocol --root-namespace LlrpNet.Protocol `
+  --version-namespace V1_1 --protocol-version 2 --registry-module-name Llrp11ProtocolModule --codecs
 ```
 
 不带 `--verify` 时只写入缺失或内容变化的 `.g.cs` 文件，并使用 UTF-8 BOM；`--verify` 不写文件，适合 CI 检查生成资产已提交。

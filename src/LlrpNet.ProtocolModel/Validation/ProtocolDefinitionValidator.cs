@@ -486,7 +486,6 @@ public sealed class ProtocolDefinitionValidator
     {
         var fieldNames = new HashSet<string>(StringComparer.Ordinal);
         long fixedBitOffset = 0;
-        bool sawNestedMember = false;
         for (int index = 0; index < members.Count; index++)
         {
             ProtocolMemberDefinition member = members[index];
@@ -494,15 +493,6 @@ public sealed class ProtocolDefinitionValidator
             switch (member)
             {
                 case FieldDefinition field:
-                    if (sawNestedMember)
-                    {
-                        AddError(
-                            diagnostics,
-                            "LLRPM023",
-                            location,
-                            "Fields and reserved bits must precede parameter and choice members.");
-                    }
-
                     if (string.IsNullOrWhiteSpace(field.Name))
                     {
                         AddError(diagnostics, "LLRPM008", location, "A field name cannot be empty.");
@@ -572,15 +562,6 @@ public sealed class ProtocolDefinitionValidator
                     break;
 
                 case ReservedBitsDefinition reserved:
-                    if (sawNestedMember)
-                    {
-                        AddError(
-                            diagnostics,
-                            "LLRPM023",
-                            location,
-                            "Fields and reserved bits must precede parameter and choice members.");
-                    }
-
                     if (reserved.BitCount <= 0)
                     {
                         AddError(diagnostics, "LLRPM014", location, "Reserved bit count must be positive.");
@@ -592,7 +573,6 @@ public sealed class ProtocolDefinitionValidator
                 case ParameterReferenceDefinition parameter:
                     ValidateOctetBoundary(fixedBitOffset, location, diagnostics);
                     fixedBitOffset = 0;
-                    sawNestedMember = true;
                     if (requireFixedLength)
                     {
                         AddError(diagnostics, "LLRPM015", location, "TV parameters cannot contain nested parameters.");
@@ -614,7 +594,6 @@ public sealed class ProtocolDefinitionValidator
                 case ChoiceReferenceDefinition choice:
                     ValidateOctetBoundary(fixedBitOffset, location, diagnostics);
                     fixedBitOffset = 0;
-                    sawNestedMember = true;
                     if (requireFixedLength)
                     {
                         AddError(diagnostics, "LLRPM017", location, "TV parameters cannot contain a choice.");

@@ -19,6 +19,7 @@ internal sealed class TagReportContentSelectorCodec : global::LlrpNet.Protocol.C
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool EnableROSpecID = reader.ReadBoolean();
         bool EnableSpecIndex = reader.ReadBoolean();
         bool EnableInventoryParameterSpecID = reader.ReadBoolean();
@@ -30,13 +31,14 @@ internal sealed class TagReportContentSelectorCodec : global::LlrpNet.Protocol.C
         bool EnableTagSeenCount = reader.ReadBoolean();
         bool EnableAccessSpecID = reader.ReadBoolean();
         reader.ReadReservedBits(6);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         var AirProtocolEPCMemorySelectorItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolEPCMemorySelector>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 348, false, 0U, 0U))
         {
             AirProtocolEPCMemorySelectorItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolEPCMemorySelector>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(AirProtocolEPCMemorySelectorItems.Count, 0, "AirProtocolEPCMemorySelectorItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector(
             EnableROSpecID,
@@ -84,6 +86,7 @@ internal sealed class TagReportContentSelectorCodec : global::LlrpNet.Protocol.C
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(parameter.EnableROSpecID);
         wireWriter.WriteBoolean(parameter.EnableSpecIndex);
         wireWriter.WriteBoolean(parameter.EnableInventoryParameterSpecID);
@@ -95,11 +98,12 @@ internal sealed class TagReportContentSelectorCodec : global::LlrpNet.Protocol.C
         wireWriter.WriteBoolean(parameter.EnableTagSeenCount);
         wireWriter.WriteBoolean(parameter.EnableAccessSpecID);
         wireWriter.WriteReservedBits(6);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.AirProtocolEPCMemorySelectorItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

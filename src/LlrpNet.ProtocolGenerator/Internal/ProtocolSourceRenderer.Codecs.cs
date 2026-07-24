@@ -311,7 +311,9 @@ internal sealed partial class ProtocolSourceRenderer
         string? messageIdExpression)
     {
         writer.WriteLine($"var reader = new GeneratedWireReader({sourceName});");
+        writer.WriteLine("int offset = 0;");
         int propertyIndex = 0;
+        bool hasFieldSegment = false;
         foreach (ProtocolMemberDefinition member in members)
         {
             switch (member)
@@ -320,20 +322,16 @@ internal sealed partial class ProtocolSourceRenderer
                     GeneratedProperty fieldProperty = properties[propertyIndex++];
                     writer.WriteLine(
                         $"{fieldProperty.Type} {fieldProperty.Name} = {GetFieldDecodeExpression(field, fieldProperty.Type)};");
+                    hasFieldSegment = true;
                     break;
 
                 case ReservedBitsDefinition reserved:
                     writer.WriteLine($"reader.ReadReservedBits({reserved.BitCount.ToString(CultureInfo.InvariantCulture)});");
+                    hasFieldSegment = true;
                     break;
-            }
-        }
 
-        writer.WriteLine("int offset = reader.BytePosition;");
-        foreach (ProtocolMemberDefinition member in members)
-        {
-            switch (member)
-            {
                 case ParameterReferenceDefinition parameter:
+                    FlushDecodeFieldSegment(writer, sourceName, ref hasFieldSegment);
                     GeneratedProperty parameterProperty = properties[propertyIndex++];
                     WriteReferenceDecode(
                         writer,
@@ -341,9 +339,11 @@ internal sealed partial class ProtocolSourceRenderer
                         parameterProperty,
                         sourceName,
                         isChoice: false);
+                    writer.WriteLine($"reader = new GeneratedWireReader({sourceName}[offset..]);");
                     break;
 
                 case ChoiceReferenceDefinition choice:
+                    FlushDecodeFieldSegment(writer, sourceName, ref hasFieldSegment);
                     GeneratedProperty choiceProperty = properties[propertyIndex++];
                     WriteReferenceDecode(
                         writer,
@@ -351,10 +351,12 @@ internal sealed partial class ProtocolSourceRenderer
                         choiceProperty,
                         sourceName,
                         isChoice: true);
+                    writer.WriteLine($"reader = new GeneratedWireReader({sourceName}[offset..]);");
                     break;
             }
         }
 
+        FlushDecodeFieldSegment(writer, sourceName, ref hasFieldSegment);
         writer.WriteLine($"GeneratedCodecRuntime.ValidateDecodedEnd(offset, {sourceName}.Length);");
         var arguments = new List<string>();
         if (messageIdExpression is not null)
@@ -613,6 +615,17 @@ internal sealed partial class ProtocolSourceRenderer
         writer.WriteLine("}");
     }
 
+    private static void FlushDecodeFieldSegment(CodeWriter writer, string sourceName, ref bool hasFieldSegment)
+    {
+        if (!hasFieldSegment)
+        {
+            return;
+        }
+
+        writer.WriteLine("offset += reader.BytePosition;");
+        hasFieldSegment = false;
+    }
+
     private void WriteReferenceMatchValidation(
         CodeWriter writer,
         ProtocolMemberDefinition member,
@@ -662,6 +675,8 @@ internal sealed partial class ProtocolSourceRenderer
         IReadOnlyList<GeneratedProperty> properties)
     {
         int propertyIndex = properties.Count > 0 && string.Equals(properties[0].Name, "MessageId", StringComparison.Ordinal) ? 1 : 0;
+        bool hasFieldSegment = false;
+        writer.WriteLine("int offset = 0;");
         foreach (ProtocolMemberDefinition member in members)
         {
             switch (member)
@@ -671,40 +686,40 @@ internal sealed partial class ProtocolSourceRenderer
                     writer.WriteLine(GetFieldEncodeStatement(
                         field,
                         $"{valueName}.{fieldProperty.Name}"));
+                    hasFieldSegment = true;
                     break;
 
                 case ReservedBitsDefinition reserved:
                     writer.WriteLine(
                         $"wireWriter.WriteReservedBits({reserved.BitCount.ToString(CultureInfo.InvariantCulture)});");
+                    hasFieldSegment = true;
                     break;
-            }
-        }
 
-        writer.WriteLine("int offset = wireWriter.BytePosition;");
-        foreach (ProtocolMemberDefinition member in members)
-        {
-            switch (member)
-            {
                 case ParameterReferenceDefinition parameter:
+                    FlushEncodeFieldSegment(writer, ref hasFieldSegment);
                     GeneratedProperty parameterProperty = properties[propertyIndex++];
                     WriteReferenceEncode(
                         writer,
                         parameter.Cardinality,
                         parameterProperty,
                         valueName);
+                    writer.WriteLine("wireWriter = new GeneratedWireWriter(destination[offset..]);");
                     break;
 
                 case ChoiceReferenceDefinition choice:
+                    FlushEncodeFieldSegment(writer, ref hasFieldSegment);
                     GeneratedProperty choiceProperty = properties[propertyIndex++];
                     WriteReferenceEncode(
                         writer,
                         choice.Cardinality,
                         choiceProperty,
                         valueName);
+                    writer.WriteLine("wireWriter = new GeneratedWireWriter(destination[offset..]);");
                     break;
             }
         }
 
+        FlushEncodeFieldSegment(writer, ref hasFieldSegment);
         writer.WriteLine("if (offset != destination.Length)");
         writer.WriteLine("{");
         using (writer.Indent())
@@ -789,6 +804,17 @@ internal sealed partial class ProtocolSourceRenderer
             1 => expressions[0],
             _ => $"({string.Join(" || ", expressions)})",
         };
+    }
+
+    private static void FlushEncodeFieldSegment(CodeWriter writer, ref bool hasFieldSegment)
+    {
+        if (!hasFieldSegment)
+        {
+            return;
+        }
+
+        writer.WriteLine("offset += wireWriter.BytePosition;");
+        hasFieldSegment = false;
     }
 
     private string GetReferenceParameterMatchExpression(

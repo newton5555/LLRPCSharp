@@ -19,9 +19,10 @@ internal sealed class EventsAndReportsCodec : global::LlrpNet.Protocol.Codecs.Ll
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool HoldEventsAndReportsUponReconnect = reader.ReadBoolean();
         reader.ReadReservedBits(7);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.EventsAndReports(
             HoldEventsAndReportsUponReconnect);
@@ -46,9 +47,10 @@ internal sealed class EventsAndReportsCodec : global::LlrpNet.Protocol.Codecs.Ll
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(parameter.HoldEventsAndReportsUponReconnect);
         wireWriter.WriteReservedBits(7);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

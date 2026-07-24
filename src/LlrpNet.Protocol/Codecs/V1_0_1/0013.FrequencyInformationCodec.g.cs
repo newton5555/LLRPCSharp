@@ -19,20 +19,23 @@ internal sealed class FrequencyInformationCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool Hopping = reader.ReadBoolean();
         reader.ReadReservedBits(7);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         var FrequencyHopTableItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyHopTable>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 147, false, 0U, 0U))
         {
             FrequencyHopTableItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyHopTable>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(FrequencyHopTableItems.Count, 0, "FrequencyHopTableItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.FixedFrequencyTable? FixedFrequencyTable = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 148, false, 0U, 0U))
         {
             FixedFrequencyTable = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.FixedFrequencyTable>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.FrequencyInformation(
             Hopping,
@@ -77,17 +80,20 @@ internal sealed class FrequencyInformationCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(parameter.Hopping);
         wireWriter.WriteReservedBits(7);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.FrequencyHopTableItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.FixedFrequencyTable is not null)
         {
             offset += registry.EncodeParameter(version, parameter.FixedFrequencyTable, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

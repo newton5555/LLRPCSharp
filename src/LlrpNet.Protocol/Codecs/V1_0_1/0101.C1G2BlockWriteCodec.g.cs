@@ -19,13 +19,14 @@ internal sealed class C1G2BlockWriteCodec : global::LlrpNet.Protocol.Codecs.Llrp
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort OpSpecID = reader.ReadUInt16();
         uint AccessPassword = reader.ReadUInt32();
         byte MB = (byte)reader.ReadBits(2);
         reader.ReadReservedBits(6);
         ushort WordPointer = reader.ReadUInt16();
         global::System.Collections.Generic.IReadOnlyList<ushort> WriteData = reader.ReadUInt16Vector();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2BlockWrite(
             OpSpecID,
@@ -55,13 +56,14 @@ internal sealed class C1G2BlockWriteCodec : global::LlrpNet.Protocol.Codecs.Llrp
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.OpSpecID);
         wireWriter.WriteUInt32(parameter.AccessPassword);
         wireWriter.WriteBits(parameter.MB, 2);
         wireWriter.WriteReservedBits(6);
         wireWriter.WriteUInt16(parameter.WordPointer);
         wireWriter.WriteUInt16Vector(parameter.WriteData);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

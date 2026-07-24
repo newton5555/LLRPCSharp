@@ -20,7 +20,7 @@ internal sealed class ADD_ACCESSSPECCodec : global::LlrpNet.Protocol.Codecs.Llrp
         GeneratedCodecRuntime.ValidateVersion(header.Version, 1);
         var version = header.Version;
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         global::LlrpNet.Protocol.Parameters.V1_0_1.AccessSpec? AccessSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 207, false, 0U, 0U))
         {
@@ -30,6 +30,7 @@ internal sealed class ADD_ACCESSSPECCodec : global::LlrpNet.Protocol.Codecs.Llrp
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'AccessSpec' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Messages.V1_0_1.ADD_ACCESSSPEC(
             header.MessageId,
@@ -61,8 +62,9 @@ internal sealed class ADD_ACCESSSPECCodec : global::LlrpNet.Protocol.Codecs.Llrp
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         offset += registry.EncodeParameter(version, message.AccessSpec!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

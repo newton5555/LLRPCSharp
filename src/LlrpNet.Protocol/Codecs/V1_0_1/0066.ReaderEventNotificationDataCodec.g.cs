@@ -19,7 +19,7 @@ internal sealed class ReaderEventNotificationDataCodec : global::LlrpNet.Protoco
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         global::LlrpNet.Protocol.Choices.V1_0_1.ITimestamp? Timestamp = null;
         if (offset < payload.Length && (GeneratedCodecRuntime.IsNextParameter(payload[offset..], 128, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 129, false, 0U, 0U)))
         {
@@ -29,67 +29,80 @@ internal sealed class ReaderEventNotificationDataCodec : global::LlrpNet.Protoco
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required choice 'Timestamp' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.HoppingEvent? HoppingEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 247, false, 0U, 0U))
         {
             HoppingEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.HoppingEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.GPIEvent? GPIEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 248, false, 0U, 0U))
         {
             GPIEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.GPIEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecEvent? ROSpecEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 249, false, 0U, 0U))
         {
             ROSpecEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpecEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ReportBufferLevelWarningEvent? ReportBufferLevelWarningEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 250, false, 0U, 0U))
         {
             ReportBufferLevelWarningEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ReportBufferLevelWarningEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ReportBufferOverflowErrorEvent? ReportBufferOverflowErrorEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 251, false, 0U, 0U))
         {
             ReportBufferOverflowErrorEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ReportBufferOverflowErrorEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ReaderExceptionEvent? ReaderExceptionEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 252, false, 0U, 0U))
         {
             ReaderExceptionEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ReaderExceptionEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.RFSurveyEvent? RFSurveyEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 253, false, 0U, 0U))
         {
             RFSurveyEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.RFSurveyEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.AISpecEvent? AISpecEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 254, false, 0U, 0U))
         {
             AISpecEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.AISpecEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaEvent? AntennaEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 255, false, 0U, 0U))
         {
             AntennaEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ConnectionAttemptEvent? ConnectionAttemptEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 256, false, 0U, 0U))
         {
             ConnectionAttemptEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ConnectionAttemptEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ConnectionCloseEvent? ConnectionCloseEvent = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 257, false, 0U, 0U))
         {
             ConnectionCloseEvent = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ConnectionCloseEvent>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var CustomItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U))
         {
             CustomItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(CustomItems.Count, 0, "CustomItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ReaderEventNotificationData(
             Timestamp!,
@@ -200,56 +213,69 @@ internal sealed class ReaderEventNotificationDataCodec : global::LlrpNet.Protoco
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         offset += registry.EncodeParameter(version, parameter.Timestamp!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.HoppingEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.HoppingEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.GPIEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.GPIEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ROSpecEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ROSpecEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ReportBufferLevelWarningEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ReportBufferLevelWarningEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ReportBufferOverflowErrorEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ReportBufferOverflowErrorEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ReaderExceptionEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ReaderExceptionEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.RFSurveyEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.RFSurveyEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.AISpecEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.AISpecEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.AntennaEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.AntennaEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ConnectionAttemptEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ConnectionAttemptEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ConnectionCloseEvent is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ConnectionCloseEvent, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.CustomItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,10 +19,11 @@ internal sealed class C1G2EPCMemorySelectorCodec : global::LlrpNet.Protocol.Code
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         bool EnableCRC = reader.ReadBoolean();
         bool EnablePCBits = reader.ReadBoolean();
         reader.ReadReservedBits(6);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2EPCMemorySelector(
             EnableCRC,
@@ -48,10 +49,11 @@ internal sealed class C1G2EPCMemorySelectorCodec : global::LlrpNet.Protocol.Code
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteBoolean(parameter.EnableCRC);
         wireWriter.WriteBoolean(parameter.EnablePCBits);
         wireWriter.WriteReservedBits(6);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

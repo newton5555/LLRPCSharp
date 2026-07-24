@@ -19,24 +19,28 @@ internal sealed class AntennaConfigurationCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort AntennaID = reader.ReadUInt16();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.RFReceiver? RFReceiver = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 223, false, 0U, 0U))
         {
             RFReceiver = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.RFReceiver>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.RFTransmitter? RFTransmitter = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 224, false, 0U, 0U))
         {
             RFTransmitter = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.RFTransmitter>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var AirProtocolInventoryCommandSettingsItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolInventoryCommandSettings>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 330, false, 0U, 0U))
         {
             AirProtocolInventoryCommandSettingsItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolInventoryCommandSettings>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(AirProtocolInventoryCommandSettingsItems.Count, 0, "AirProtocolInventoryCommandSettingsItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.AntennaConfiguration(
             AntennaID,
@@ -87,20 +91,24 @@ internal sealed class AntennaConfigurationCodec : global::LlrpNet.Protocol.Codec
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.AntennaID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (parameter.RFReceiver is not null)
         {
             offset += registry.EncodeParameter(version, parameter.RFReceiver, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.RFTransmitter is not null)
         {
             offset += registry.EncodeParameter(version, parameter.RFTransmitter, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.AirProtocolInventoryCommandSettingsItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

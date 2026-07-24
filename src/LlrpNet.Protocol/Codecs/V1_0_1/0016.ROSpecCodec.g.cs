@@ -19,10 +19,11 @@ internal sealed class ROSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint ROSpecID = reader.ReadUInt32();
         byte Priority = reader.ReadByte();
         global::LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecState CurrentState = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecState>(reader.ReadByte());
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROBoundarySpec? ROBoundarySpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 178, false, 0U, 0U))
         {
@@ -32,17 +33,20 @@ internal sealed class ROSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'ROBoundarySpec' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var SpecParameterItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
         while (offset < payload.Length && (GeneratedCodecRuntime.IsNextParameter(payload[offset..], 183, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 187, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 1023, false, 0U, 0U)))
         {
             SpecParameterItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.ILlrpParameter>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(SpecParameterItems.Count, 1, "SpecParameterItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROReportSpec? ROReportSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 237, false, 0U, 0U))
         {
             ROReportSpec = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.ROReportSpec>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpec(
             ROSpecID,
@@ -96,19 +100,23 @@ internal sealed class ROSpecCodec : global::LlrpNet.Protocol.Codecs.LlrpParamete
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.ROSpecID);
         wireWriter.WriteByte(parameter.Priority);
         GeneratedCodecRuntime.ValidateEnum(parameter.CurrentState, "CurrentState"); wireWriter.WriteByte(checked((byte)global::System.Convert.ToUInt64(parameter.CurrentState, global::System.Globalization.CultureInfo.InvariantCulture)));
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.ROBoundarySpec!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.SpecParameterItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.ROReportSpec is not null)
         {
             offset += registry.EncodeParameter(version, parameter.ROReportSpec, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -20,7 +20,7 @@ internal sealed class ADD_ROSPECCodec : global::LlrpNet.Protocol.Codecs.LlrpMess
         GeneratedCodecRuntime.ValidateVersion(header.Version, 1);
         var version = header.Version;
         var reader = new GeneratedWireReader(payload);
-        int offset = reader.BytePosition;
+        int offset = 0;
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpec? ROSpec = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 177, false, 0U, 0U))
         {
@@ -30,6 +30,7 @@ internal sealed class ADD_ROSPECCodec : global::LlrpNet.Protocol.Codecs.LlrpMess
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'ROSpec' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC(
             header.MessageId,
@@ -61,8 +62,9 @@ internal sealed class ADD_ROSPECCodec : global::LlrpNet.Protocol.Codecs.LlrpMess
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
-        int offset = wireWriter.BytePosition;
+        int offset = 0;
         offset += registry.EncodeParameter(version, message.ROSpec!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

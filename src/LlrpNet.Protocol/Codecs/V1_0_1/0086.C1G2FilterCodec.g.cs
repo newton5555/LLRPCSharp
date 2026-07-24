@@ -19,9 +19,10 @@ internal sealed class C1G2FilterCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TruncateAction T = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TruncateAction>(reader.ReadBits(2));
         reader.ReadReservedBits(6);
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryMask? C1G2TagInventoryMask = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 332, false, 0U, 0U))
         {
@@ -31,16 +32,19 @@ internal sealed class C1G2FilterCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'C1G2TagInventoryMask' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryStateAwareFilterAction? C1G2TagInventoryStateAwareFilterAction = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 333, false, 0U, 0U))
         {
             C1G2TagInventoryStateAwareFilterAction = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryStateAwareFilterAction>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryStateUnawareFilterAction? C1G2TagInventoryStateUnawareFilterAction = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 334, false, 0U, 0U))
         {
             C1G2TagInventoryStateUnawareFilterAction = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2TagInventoryStateUnawareFilterAction>(registry, version, payload, ref offset);
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2Filter(
             T,
@@ -84,18 +88,22 @@ internal sealed class C1G2FilterCodec : global::LlrpNet.Protocol.Codecs.LlrpPara
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.T, "T"); wireWriter.WriteBits(global::System.Convert.ToUInt64(parameter.T, global::System.Globalization.CultureInfo.InvariantCulture), 2);
         wireWriter.WriteReservedBits(6);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.C1G2TagInventoryMask!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.C1G2TagInventoryStateAwareFilterAction is not null)
         {
             offset += registry.EncodeParameter(version, parameter.C1G2TagInventoryStateAwareFilterAction, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (parameter.C1G2TagInventoryStateUnawareFilterAction is not null)
         {
             offset += registry.EncodeParameter(version, parameter.C1G2TagInventoryStateUnawareFilterAction, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

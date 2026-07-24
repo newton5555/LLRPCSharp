@@ -19,15 +19,17 @@ internal sealed class C1G2LockCodec : global::LlrpNet.Protocol.Codecs.LlrpParame
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         ushort OpSpecID = reader.ReadUInt16();
         uint AccessPassword = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         var C1G2LockPayloadItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2LockPayload>();
         while (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 345, false, 0U, 0U))
         {
             C1G2LockPayloadItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2LockPayload>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(C1G2LockPayloadItems.Count, 1, "C1G2LockPayloadItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.C1G2Lock(
             OpSpecID,
@@ -67,13 +69,15 @@ internal sealed class C1G2LockCodec : global::LlrpNet.Protocol.Codecs.LlrpParame
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt16(parameter.OpSpecID);
         wireWriter.WriteUInt32(parameter.AccessPassword);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.C1G2LockPayloadItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

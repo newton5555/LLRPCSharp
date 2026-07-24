@@ -19,8 +19,9 @@ internal sealed class FixedFrequencyTableCodec : global::LlrpNet.Protocol.Codecs
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         global::System.Collections.Generic.IReadOnlyList<uint> Frequency = reader.ReadUInt32Vector();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.FixedFrequencyTable(
             Frequency);
@@ -46,8 +47,9 @@ internal sealed class FixedFrequencyTableCodec : global::LlrpNet.Protocol.Codecs
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32Vector(parameter.Frequency);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

@@ -19,8 +19,9 @@ internal sealed class ClientRequestResponseCodec : global::LlrpNet.Protocol.Code
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint AccessSpecID = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.EPCData? EPCData = null;
         if (offset < payload.Length && GeneratedCodecRuntime.IsNextParameter(payload[offset..], 241, false, 0U, 0U))
         {
@@ -30,12 +31,14 @@ internal sealed class ClientRequestResponseCodec : global::LlrpNet.Protocol.Code
         {
             throw GeneratedCodecRuntime.InvalidSequence("Required parameter 'EPCData' is missing.");
         }
+        reader = new GeneratedWireReader(payload[offset..]);
         var AirProtocolOpSpecItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolOpSpec>();
         while (offset < payload.Length && (GeneratedCodecRuntime.IsNextParameter(payload[offset..], 341, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 342, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 343, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 344, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 346, false, 0U, 0U) || GeneratedCodecRuntime.IsNextParameter(payload[offset..], 347, false, 0U, 0U)))
         {
             AirProtocolOpSpecItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolOpSpec>(registry, version, payload, ref offset));
         }
         GeneratedCodecRuntime.ValidateRequiredCount(AirProtocolOpSpecItems.Count, 0, "AirProtocolOpSpecItems");
+        reader = new GeneratedWireReader(payload[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_0_1.ClientRequestResponse(
             AccessSpecID,
@@ -81,13 +84,16 @@ internal sealed class ClientRequestResponseCodec : global::LlrpNet.Protocol.Code
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(parameter.AccessSpecID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.EPCData!, destination[offset..]);
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.AirProtocolOpSpecItems)
         {
             offset += registry.EncodeParameter(version, nested, destination[offset..]);
         }
+        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

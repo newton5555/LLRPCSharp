@@ -18,7 +18,11 @@ public static class Program
         try
         {
             Options options = Options.Parse(args);
-            ProtocolDefinition definition = Import(options.InputPath);
+            ProtocolDefinitionDelta delta = ImportDelta(options.InputPath);
+            ProtocolDefinition definition = options.BaselinePath is null
+                ? RequireStandalone(delta)
+                : ProtocolDefinitionMerger.Merge(Import(options.BaselinePath), delta.Additions, delta.Overrides);
+
             ProtocolDefinition[] dependencies = options.DependencyPaths.Select(Import).ToArray();
             ProtocolGenerationResult result = new ProtocolSourceGenerator().Generate(
                 definition,
@@ -62,6 +66,23 @@ public static class Program
             _ => throw new ArgumentException("The input definition must have a .xml, .yaml, or .yml extension.", nameof(inputPath)),
         };
     }
+
+    private static ProtocolDefinitionDelta ImportDelta(string inputPath)
+    {
+        return Path.GetExtension(inputPath).ToLowerInvariant() switch
+        {
+            ".xml" => new ProtocolDefinitionDelta(Import(inputPath), EmptyDefinition(inputPath)),
+            ".yaml" or ".yml" => new YamlProtocolDefinitionImporter().ImportDelta(inputPath),
+            _ => throw new ArgumentException("The input definition must have a .xml, .yaml, or .yml extension.", nameof(inputPath)),
+        };
+    }
+
+    private static ProtocolDefinition RequireStandalone(ProtocolDefinitionDelta delta) =>
+        delta.HasOverrides
+            ? throw new ArgumentException("A definition with overrides requires --base.")
+            : delta.Additions;
+
+    private static ProtocolDefinition EmptyDefinition(string sourceName) => new(sourceName, null, [], [], [], []);
 
     private static int WriteSources(Options options, IReadOnlyList<GeneratedSourceFile> sources)
     {
@@ -108,6 +129,7 @@ public static class Program
         string RootNamespace,
         string VersionNamespace,
         int ProtocolVersion,
+        string? BaselinePath,
         IReadOnlyList<string> DependencyPaths,
         string? RegistryModuleName,
         bool GenerateCodecs,
@@ -145,7 +167,7 @@ public static class Program
                     continue;
                 }
 
-                if (argument is not ("--input" or "--output" or "--root-namespace" or "--version-namespace" or "--protocol-version" or "--registry-module-name") || index + 1 >= args.Length)
+                if (argument is not ("--input" or "--output" or "--root-namespace" or "--version-namespace" or "--protocol-version" or "--registry-module-name" or "--base") || index + 1 >= args.Length)
                 {
                     throw Usage();
                 }
@@ -170,6 +192,12 @@ public static class Program
                 }
             }
 
+            values.TryGetValue("--base", out string? baseline);
+            if (baseline is not null && !File.Exists(baseline))
+            {
+                throw new ArgumentException($"Baseline definition does not exist: {baseline}.");
+            }
+
             string output = Required(values, "--output");
             string rootNamespace = Required(values, "--root-namespace");
             string versionNamespace = Required(values, "--version-namespace");
@@ -180,7 +208,7 @@ public static class Program
             }
 
             values.TryGetValue("--registry-module-name", out string? registryModuleName);
-            return new Options(input, output, rootNamespace, versionNamespace, protocolVersion, dependencies, registryModuleName, codecs, verify);
+            return new Options(input, output, rootNamespace, versionNamespace, protocolVersion, baseline, dependencies, registryModuleName, codecs, verify);
         }
 
         private static string Required(IReadOnlyDictionary<string, string> values, string name)
@@ -190,7 +218,7 @@ public static class Program
 
         private static ArgumentException Usage() => new(
             "Usage: --input <definition.xml|yaml> --output <directory> --root-namespace <namespace> " +
-            "--version-namespace <V1_0_1> --protocol-version <1|2|3> [--dependency <definition>]... " +
-            "[--registry-module-name <name>] [--codecs] [--verify]");
+            "--version-namespace <V1_0_1> --protocol-version <1|2|3> [--base <definition>] " +
+            "[--dependency <definition>]... [--registry-module-name <name>] [--codecs] [--verify]");
     }
 }

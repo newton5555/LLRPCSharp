@@ -20,8 +20,9 @@ internal sealed class DELETE_ROSPECCodec : global::LlrpNet.Protocol.Codecs.LlrpM
         GeneratedCodecRuntime.ValidateVersion(header.Version, 1);
         var version = header.Version;
         var reader = new GeneratedWireReader(payload);
+        int offset = 0;
         uint ROSpecID = reader.ReadUInt32();
-        int offset = reader.BytePosition;
+        offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC(
             header.MessageId,
@@ -47,8 +48,9 @@ internal sealed class DELETE_ROSPECCodec : global::LlrpNet.Protocol.Codecs.LlrpM
         GeneratedCodecRuntime.ValidateDestination(destination, expectedLength);
         destination.Clear();
         var wireWriter = new GeneratedWireWriter(destination);
+        int offset = 0;
         wireWriter.WriteUInt32(message.ROSpecID);
-        int offset = wireWriter.BytePosition;
+        offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");
