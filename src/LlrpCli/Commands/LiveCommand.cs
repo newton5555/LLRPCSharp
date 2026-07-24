@@ -27,6 +27,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     private readonly IAnsiConsole _console;
     private LlrpReader? _reader;
     private DelegateFrameObserver? _observer;
+    private CancellationTokenSource? _inventoryCancellation;
+    private Task? _inventoryPumpTask;
     private string? _currentHost;
     private int _currentPort = 5084;
 
@@ -99,6 +101,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     case "caps":
                         HandleCaps();
                         break;
+                    case "inventory":
+                        await HandleInventoryAsync(tokens, cancellationToken);
+                        break;
                     case "frames":
                         HandleFrames(tokens);
                         break;
@@ -148,6 +153,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (_reader is not null)
         {
+            await StopInventoryAsync(CancellationToken.None);
             await _reader.DisposeAsync();
             _reader = null;
         }
@@ -182,6 +188,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     {
         if (_reader is not null)
         {
+            await StopInventoryAsync(CancellationToken.None);
             await _reader.DisposeAsync();
             _reader = null;
         }
@@ -238,6 +245,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             return;
         }
 
+        await StopInventoryAsync(cancellationToken);
         await _reader.DisconnectAsync(cancellationToken);
         await _reader.DisposeAsync();
         _reader = null;
@@ -335,6 +343,125 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
             _console.WriteLine();
+        }
+    }
+
+    private async Task HandleInventoryAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        if (_reader is null || !_reader.IsConnected)
+        {
+            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
+            return;
+        }
+
+        if (tokens.Length < 2)
+        {
+            _console.MarkupLine("[red]Usage:[/] inventory start [antenna-id] | stop | status");
+            return;
+        }
+
+        switch (tokens[1].ToLowerInvariant())
+        {
+            case "start":
+            {
+                if (_inventoryPumpTask is { IsCompleted: false })
+                {
+                    _console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
+                    return;
+                }
+
+                ushort antennaId = 0;
+                if (tokens.Length >= 3 && !ushort.TryParse(tokens[2], out antennaId))
+                {
+                    _console.MarkupLine("[red]Antenna identifier must be an unsigned 16-bit integer.[/]");
+                    return;
+                }
+
+                var settings = new ReaderSettings
+                {
+                    AntennaIds = [antennaId],
+                };
+                await _reader.StartAsync(settings, cancellationToken);
+
+                var inventoryCancellation = new CancellationTokenSource();
+                _inventoryCancellation = inventoryCancellation;
+                _inventoryPumpTask = PumpTagReportsAsync(_reader, inventoryCancellation.Token);
+                string scope = antennaId == 0 ? "all antennas" : $"antenna {antennaId}";
+                _console.MarkupLine($"[bold springgreen2]✔ SDK-managed inventory started for {scope}.[/]");
+                break;
+            }
+
+            case "stop":
+                await StopInventoryAsync(cancellationToken);
+                _console.MarkupLine("[bold springgreen2]✔ SDK-managed inventory stopped.[/]");
+                break;
+
+            case "status":
+                _console.MarkupLine(
+                    _reader.OperationState == ReaderOperationState.Inventorying
+                        ? "[springgreen2]SDK-managed inventory is running.[/]"
+                        : $"[yellow]SDK-managed inventory is not running (state: {_reader.OperationState}).[/]");
+                break;
+
+            default:
+                _console.MarkupLine("[red]Usage:[/] inventory start [antenna-id] | stop | status");
+                break;
+        }
+    }
+
+    private async Task StopInventoryAsync(CancellationToken cancellationToken)
+    {
+        CancellationTokenSource? inventoryCancellation = _inventoryCancellation;
+        Task? inventoryPumpTask = _inventoryPumpTask;
+        _inventoryCancellation = null;
+        _inventoryPumpTask = null;
+
+        inventoryCancellation?.Cancel();
+        try
+        {
+            if (_reader?.IsConnected == true && _reader.OperationState == ReaderOperationState.Inventorying)
+            {
+                await _reader.StopAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            if (inventoryPumpTask is not null)
+            {
+                try
+                {
+                    await inventoryPumpTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (inventoryCancellation?.IsCancellationRequested == true)
+                {
+                    // Stopping inventory owns cancellation of the report pump.
+                }
+            }
+
+            inventoryCancellation?.Dispose();
+        }
+    }
+
+    private async Task PumpTagReportsAsync(LlrpReader reader, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (TagReport report in reader.ReadTagReportsAsync(cancellationToken))
+            {
+                string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
+                string antenna = report.AntennaId?.ToString() ?? "-";
+                string rssi = report.PeakRssi?.ToString() ?? "-";
+                _console.MarkupLine(
+                    $"[cyan1]TAG[/] EPC=[bold]{epc}[/] Antenna={antenna} RSSI={rssi}");
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The inventory command explicitly stopped the report stream.
+        }
+        catch (Exception exception)
+        {
+            _console.MarkupLine($"[red]Inventory report stream failed:[/] {Markup.Escape(exception.Message)}");
         }
     }
 
