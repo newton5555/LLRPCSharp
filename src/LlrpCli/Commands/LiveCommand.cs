@@ -728,7 +728,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             Style = Style.Parse("cyan1")
         };
         _console.Write(rule);
-        _console.MarkupLine("[grey]Type [cyan1]connect <host> [port] --llrp 1.0.1[/] to force LLRP 1.0.1, or [cyan1]help[/] for commands.[/]");
+        _console.MarkupLine("[grey]Type [cyan1]connect <host> [[port]] --llrp 1.0.1[/] to force LLRP 1.0.1, or [cyan1]help[/] for commands.[/]");
         _console.WriteLine();
     }
 
@@ -738,7 +738,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddColumn("[bold grey70]Command[/]");
         table.AddColumn("[bold grey70]Description[/]");
 
-        table.AddRow("[cyan1]connect <host> [port] [--llrp auto|1.0.1|1.1][/]", "Connect to an LLRP Reader");
+        table.AddRow("[cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]][/]", "Connect to an LLRP Reader");
         table.AddRow("[cyan1]disconnect[/]", "Disconnect current Reader session");
         table.AddRow("[cyan1]status[/]", "Show current connection status and metadata");
         table.AddRow("[cyan1]caps[/]", "Display Reader capabilities");
