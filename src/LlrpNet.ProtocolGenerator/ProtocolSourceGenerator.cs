@@ -110,7 +110,7 @@ public sealed class ProtocolSourceGenerator
         if (options.GenerateCodecs)
         {
             renderedSources = renderedSources.Concat(
-                renderer.RenderCodecs(definition, options.ProtocolVersionValue));
+                renderer.RenderCodecs(definition, options.ProtocolVersionValue, options.RegistryModuleName));
         }
 
         IReadOnlyList<GeneratedSourceFile> sources = renderedSources

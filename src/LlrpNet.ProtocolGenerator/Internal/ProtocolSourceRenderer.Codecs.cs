@@ -8,7 +8,8 @@ internal sealed partial class ProtocolSourceRenderer
 {
     public IReadOnlyList<GeneratedSourceFile> RenderCodecs(
         ProtocolDefinition definition,
-        byte protocolVersionValue)
+        byte protocolVersionValue,
+        string? registryModuleName)
     {
         var sources = new List<GeneratedSourceFile>
         {
@@ -43,7 +44,7 @@ internal sealed partial class ProtocolSourceRenderer
             index++;
         }
 
-        sources.Add(RenderRegistryModule(definition, protocolVersionValue));
+        sources.Add(RenderRegistryModule(definition, protocolVersionValue, registryModuleName));
         return sources;
     }
 
@@ -1009,9 +1010,12 @@ internal sealed partial class ProtocolSourceRenderer
 
     private GeneratedSourceFile RenderRegistryModule(
         ProtocolDefinition definition,
-        byte protocolVersionValue)
+        byte protocolVersionValue,
+        string? registryModuleName)
     {
-        string moduleIdentifier = CSharpIdentifier.Normalize($"{versionNamespace}ProtocolModule", "ProtocolModule");
+        string moduleIdentifier = CSharpIdentifier.Normalize(
+            string.IsNullOrWhiteSpace(registryModuleName) ? $"{versionNamespace}ProtocolModule" : registryModuleName,
+            "ProtocolModule");
         var writer = CreateWriter("Registry");
         writer.WriteLine("/// <summary>Registers generated protocol codecs in dependency-safe order.</summary>");
         writer.WriteLine($"public static class {moduleIdentifier}");

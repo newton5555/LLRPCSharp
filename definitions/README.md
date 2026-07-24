@@ -29,11 +29,14 @@ YAML Loader 与 XML Importer 都输出同一个 `ProtocolDefinition`，后续 Va
 ```powershell
 dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
   --input definitions/my-extension.yaml --output src/MyExtension.Protocol `
-  --root-namespace MyExtension.Protocol --version-namespace V1_0_1 `
-  --protocol-version 1 --codecs --verify
+  --root-namespace LlrpNet.Protocol --version-namespace V1_0_1 `
+  --protocol-version 1 --dependency definitions/llrp-1.0.1.xml `
+  --registry-module-name MyExtensionProtocolModule --codecs --verify
 ```
 
 不带 `--verify` 时只写入缺失或内容变化的 `.g.cs` 文件，并使用 UTF-8 BOM；`--verify` 不写文件，适合 CI 检查生成资产已提交。
+扩展定义以基础协议作为 `--dependency`，只生成扩展自身的类型；扩展应使用与基础协议相同的
+`--root-namespace`，并指定不与标准模块冲突的 `--registry-module-name`。
 
 在定义格式和导入器完成前，不创建占位的伪协议数据。
 

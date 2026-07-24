@@ -24,4 +24,9 @@ public sealed record ProtocolGenerationOptions
     /// Gets the numeric LLRP version value accepted and registered by generated codecs.
     /// </summary>
     public byte ProtocolVersionValue { get; init; } = 1;
+
+    /// <summary>
+    /// Gets an optional registry module class name. When omitted, the version-derived standard module name is used.
+    /// </summary>
+    public string? RegistryModuleName { get; init; }
 }
