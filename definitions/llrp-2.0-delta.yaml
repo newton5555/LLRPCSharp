@@ -1,0 +1,368 @@
+# LLRP 2.0 (header version 3) incremental definition over LLRP 1.1.
+# Wire layouts are transcribed from LLRP 2.0, section 16.3 and tables 5-6.
+# This file intentionally contains only 2.0 additions/replacements; compose it after
+# llrp-1.1.yaml with the generator's repeatable --base option.
+parameters:
+  - name: CryptoResponse
+    typeNumber: 290
+    required: false
+    members:
+      - field:
+          name: RespBitLen
+          type: u16
+      - field:
+          name: Message
+          type: u1v
+  - name: C1G2UntraceableOpSpecResult
+    typeNumber: 364
+    required: false
+    members:
+      - field:
+          name: Result
+          type: u8
+      - field:
+          name: OpSpecID
+          type: u16
+  - name: C1G2XPCW1
+    typeNumber: 19
+    required: false
+    members:
+      - field: { name: XPC_W1, type: u16 }
+  - name: C1G2XPCW2
+    typeNumber: 20
+    required: false
+    members:
+      - field: { name: XPC_W2, type: u16 }
+  - name: C1G2Challenge
+    typeNumber: 366
+    required: false
+    members:
+      - reserved: 6
+      - field:
+          name: L
+          type: u1
+      - field:
+          name: E
+          type: u1
+      - field:
+          name: CSI
+          type: u8
+      - field:
+          name: MsgLen
+          type: u16
+      - field:
+          name: Message
+          type: u1v
+      - field:
+          name: ExtendOnTime
+          type: u32
+  - name: C1G2Authenticate
+    typeNumber: 367
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: S
+          type: u1
+      - field:
+          name: L
+          type: u1
+      - reserved: 6
+      - field:
+          name: CSI
+          type: u8
+      - field:
+          name: MsgLen
+          type: u16
+      - field:
+          name: Message
+          type: u1v
+  - name: C1G2AuthComm
+    typeNumber: 368
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: L
+          type: u1
+      - reserved: 7
+      - field:
+          name: MsgLen
+          type: u16
+      - field:
+          name: Message
+          type: u1v
+  - name: C1G2SecureComm
+    typeNumber: 369
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: S
+          type: u1
+      - field:
+          name: L
+          type: u1
+      - reserved: 6
+      - field:
+          name: MsgLen
+          type: u16
+      - field:
+          name: Message
+          type: u1v
+  - name: C1G2ReadBuffer
+    typeNumber: 370
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: WordPtr
+          type: u16
+      - field:
+          name: NumBits
+          type: u16
+  - name: C1G2KeyUpdate
+    typeNumber: 372
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: S
+          type: u1
+      - field:
+          name: L
+          type: u1
+      - reserved: 6
+      - field:
+          name: KeyID
+          type: u16
+      - field:
+          name: MsgLen
+          type: u16
+      - field:
+          name: Message
+          type: u1v
+  - name: C1G2TagPrivilege
+    typeNumber: 373
+    required: false
+    members:
+      - field:
+          name: OpSpecID
+          type: u16
+      - field:
+          name: AccessPassword
+          type: u32
+      - field:
+          name: S
+          type: u1
+      - field:
+          name: L
+          type: u1
+      - field:
+          name: A
+          type: u1
+      - field:
+          name: T
+          type: u1
+      - reserved: 4
+      - field:
+          name: KeyID
+          type: u16
+      - field:
+          name: Privilege
+          type: u16
+  - name: C1G2AuthenticateOpSpecResult
+    typeNumber: 374
+    required: false
+    members:
+      - field: { name: Result, type: u8 }
+      - field: { name: OpSpecID, type: u16 }
+      - field: { name: RespBitLen, type: u16 }
+      - field: { name: Response, type: u1v }
+  - name: C1G2AuthCommOpSpecResult
+    typeNumber: 375
+    required: false
+    members:
+      - field: { name: Result, type: u8 }
+      - field: { name: OpSpecID, type: u16 }
+      - field: { name: RespBitLen, type: u16 }
+      - field: { name: Response, type: u1v }
+  - name: C1G2SecureCommOpSpecResult
+    typeNumber: 376
+    required: false
+    members:
+      - field: { name: Result, type: u8 }
+      - field: { name: OpSpecID, type: u16 }
+      - field: { name: RespBitLen, type: u16 }
+      - field: { name: Response, type: u1v }
+  - name: C1G2ReadBufferOpSpecResult
+    typeNumber: 377
+    required: false
+    members:
+      - field: { name: Result, type: u8 }
+      - field: { name: OpSpecID, type: u16 }
+      - field: { name: RespBitLen, type: u16 }
+      - field: { name: Response, type: u1v }
+  - name: C1G2KeyUpdateOpSpecResult
+    typeNumber: 378
+    required: false
+    members:
+      - field: { name: Result, type: u8 }
+      - field: { name: OpSpecID, type: u16 }
+      - field: { name: RespBitLen, type: u16 }
+      - field: { name: Response, type: u1v }
+  - name: C1G2TagPrivilegeOpSpecResult
+    typeNumber: 379
+    required: false
+    members:
+      - field: { name: Result, type: u8 }
+      - field: { name: OpSpecID, type: u16 }
+      - reserved: 7
+      - field: { name: T, type: u1 }
+      - field: { name: KeyID, type: u16 }
+      - field: { name: Privilege, type: u16 }
+  - name: C1G2Untraceable
+    typeNumber: 380
+    required: false
+    members:
+      - field: { name: OpSpecID, type: u16 }
+      - field: { name: AccessPassword, type: u32 }
+      - field: { name: U, type: u1 }
+      - reserved: 1
+      # The current native model supports U1/U2 bit fields. These six consecutive
+      # bits are the standard's EPC[5:0] field, preserved most-significant first.
+      - field: { name: EPCBit5, type: u1 }
+      - field: { name: EPCBit4, type: u1 }
+      - field: { name: EPCBit3, type: u1 }
+      - field: { name: EPCBit2, type: u1 }
+      - field: { name: EPCBit1, type: u1 }
+      - field: { name: EPCBit0, type: u1 }
+      - field: { name: TID, type: u2 }
+      - field: { name: User, type: u1 }
+      - field: { name: Range, type: u2 }
+      - reserved: 3
+  - name: ExtendOnTime
+    typeNumber: 381
+    required: false
+    members:
+      - field: { name: Time, type: u32 }
+
+overrides:
+  parameters:
+    - name: C1G2LLRPCapabilities
+      typeNumber: 327
+      required: true
+      members:
+        - field: { name: CanSupportBlockErase, type: u1 }
+        - field: { name: CanSupportBlockWrite, type: u1 }
+        - field: { name: CanSupportBlockPermalock, type: u1 }
+        - field: { name: CanSupportTagRecommissioning, type: u1 }
+        - field: { name: CanSupportUMIMethod2, type: u1 }
+        - field: { name: CanSupportXPC, type: u1 }
+        - reserved: 2
+        - field: { name: MaxNumSelectFiltersPerQuery, type: u16 }
+        - field: { name: CanSupportUntraceable, type: u1 }
+        - field: { name: CanSupportChallenge, type: u1 }
+        - field: { name: CanSupportAuthenticate, type: u1 }
+        - field: { name: CanSupportAuthComm, type: u1 }
+        - field: { name: CanSupportSecureComm, type: u1 }
+        - field: { name: CanSupportKeyUpdate, type: u1 }
+        - field: { name: CanSupportTagPrivilege, type: u1 }
+        - field: { name: CanSupportReadBuffer, type: u1 }
+        - field: { name: CanSupportExtendedPowerOnPeriod, type: u1 }
+        - reserved: 7
+    - name: C1G2InventoryCommand
+      typeNumber: 330
+      required: true
+      members:
+        - field: { name: TagInventoryStateAware, type: u1 }
+        - reserved: 7
+        - parameter: { type: C1G2Filter, cardinality: 0-N }
+        - parameter: { type: C1G2RFControl, cardinality: 0-1 }
+        - parameter: { type: C1G2SingulationControl, cardinality: 0-1 }
+        - parameter: { type: C1G2Challenge, cardinality: 0-N }
+        - parameter: { type: Custom, cardinality: 0-N }
+    - name: C1G2Filter
+      typeNumber: 331
+      required: true
+      members:
+        - field: { name: T, type: u2, enumeration: C1G2TruncateAction }
+        - reserved: 6
+        - parameter: { type: C1G2TagInventoryMask, cardinality: "1" }
+        - parameter: { type: C1G2TagInventoryStateAwareFilterAction, cardinality: 0-1 }
+        - parameter: { type: C1G2TagInventoryStateUnawareFilterAction, cardinality: 0-1 }
+        - parameter: { type: ExtendOnTime, cardinality: 0-1 }
+    - name: TagReportContentSelector
+      typeNumber: 238
+      required: true
+      members:
+        - field: { name: EnableROSpecID, type: u1 }
+        - field: { name: EnableSpecIndex, type: u1 }
+        - field: { name: EnableInventoryParameterSpecID, type: u1 }
+        - field: { name: EnableAntennaID, type: u1 }
+        - field: { name: EnableChannelIndex, type: u1 }
+        - field: { name: EnablePeakRSSI, type: u1 }
+        - field: { name: EnableFirstSeenTimestamp, type: u1 }
+        - field: { name: EnableLastSeenTimestamp, type: u1 }
+        - field: { name: EnableTagSeenCount, type: u1 }
+        - field: { name: EnableAccessSpecID, type: u1 }
+        - field: { name: EnableCryptoResponse, type: u1 }
+        - reserved: 5
+        - choice: { type: AirProtocolEPCMemorySelector, cardinality: 0-N }
+    - name: TagReportData
+      typeNumber: 240
+      required: true
+      members:
+        - choice: { type: EPCParameter, cardinality: "1" }
+        - parameter: { type: ROSpecID, cardinality: 0-1 }
+        - parameter: { type: SpecIndex, cardinality: 0-1 }
+        - parameter: { type: InventoryParameterSpecID, cardinality: 0-1 }
+        - parameter: { type: AntennaID, cardinality: 0-1 }
+        - parameter: { type: PeakRSSI, cardinality: 0-1 }
+        - parameter: { type: ChannelIndex, cardinality: 0-1 }
+        - parameter: { type: FirstSeenTimestampUTC, cardinality: 0-1 }
+        - parameter: { type: FirstSeenTimestampUptime, cardinality: 0-1 }
+        - parameter: { type: LastSeenTimestampUTC, cardinality: 0-1 }
+        - parameter: { type: LastSeenTimestampUptime, cardinality: 0-1 }
+        - parameter: { type: TagSeenCount, cardinality: 0-1 }
+        - choice: { type: AirProtocolTagData, cardinality: 0-N }
+        - parameter: { type: AccessSpecID, cardinality: 0-1 }
+        - choice: { type: AccessCommandOpSpecResult, cardinality: 0-N }
+        - parameter: { type: CryptoResponse, cardinality: 0-1 }
+        - parameter: { type: Custom, cardinality: 0-N }
+  choices:
+    - name: AirProtocolTagData
+      parameterTypes: [C1G2_PC, C1G2_CRC, C1G2XPCW1, C1G2XPCW2]
+    - name: AccessCommandOpSpec
+      parameterTypes: [C1G2Read, C1G2Write, C1G2Kill, C1G2Recommission, C1G2Lock, C1G2BlockErase, C1G2BlockWrite, C1G2BlockPermalock, C1G2GetBlockPermalockStatus, C1G2Untraceable, C1G2Authenticate, C1G2AuthComm, C1G2SecureComm, C1G2ReadBuffer, C1G2KeyUpdate, C1G2TagPrivilege, ClientRequestOpSpec, Custom]
+    - name: AccessCommandOpSpecResult
+      parameterTypes: [C1G2ReadOpSpecResult, C1G2WriteOpSpecResult, C1G2KillOpSpecResult, C1G2RecommissionOpSpecResult, C1G2LockOpSpecResult, C1G2BlockEraseOpSpecResult, C1G2BlockWriteOpSpecResult, C1G2BlockPermalockOpSpecResult, C1G2GetBlockPermalockStatusOpSpecResult, C1G2UntraceableOpSpecResult, C1G2AuthenticateOpSpecResult, C1G2AuthCommOpSpecResult, C1G2SecureCommOpSpecResult, C1G2ReadBufferOpSpecResult, C1G2KeyUpdateOpSpecResult, C1G2TagPrivilegeOpSpecResult, ClientRequestOpSpecResult, Custom]
+    - name: C1G2OpSpec
+      parameterTypes: [C1G2Read, C1G2Write, C1G2Kill, C1G2Recommission, C1G2Lock, C1G2BlockErase, C1G2BlockWrite, C1G2BlockPermalock, C1G2GetBlockPermalockStatus, C1G2Untraceable, C1G2Authenticate, C1G2AuthComm, C1G2SecureComm, C1G2ReadBuffer, C1G2KeyUpdate, C1G2TagPrivilege]
+    - name: AirProtocolOpSpec
+      parameterTypes: [C1G2Read, C1G2Write, C1G2Kill, C1G2Recommission, C1G2Lock, C1G2BlockErase, C1G2BlockWrite, C1G2BlockPermalock, C1G2GetBlockPermalockStatus, C1G2Untraceable, C1G2Authenticate, C1G2AuthComm, C1G2SecureComm, C1G2ReadBuffer, C1G2KeyUpdate, C1G2TagPrivilege]

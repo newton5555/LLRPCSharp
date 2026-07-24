@@ -22,8 +22,9 @@ llrp-2.0-delta.yaml
 新定义使用 `typeNumber` 与 `cardinality`，其中 cardinality 只能是 `1`、`0-1`、`1-N` 或 `0-N`。
 YAML Loader 与 XML Importer 都输出同一个 `ProtocolDefinition`，后续 Validator 与 Generator 不因输入格式分支。
 
-每个 YAML 文件应聚焦于单个协议版本或单个扩展。版本 Delta 使用 `--base` 显式合成：
-基线定义与 YAML 的新增定义会合成为一个完整的 `ProtocolDefinition` 后再校验和生成。
+每个 YAML 文件应聚焦于单个协议版本或单个扩展。版本 Delta 使用可重复的 `--base` 显式合成：
+第一个基线是完整定义，后续基线按顺序作为 Delta 合并；再将输入 Delta 合成为一个完整的
+`ProtocolDefinition` 后校验和生成。
 新增项若与基线同名会被拒绝，避免静默改变 wire identity；替换既有定义必须使用后续加入的显式 override 格式。
 
 可重复生成入口：
@@ -34,6 +35,17 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
   --root-namespace LlrpNet.Protocol --version-namespace V1_0_1 `
   --protocol-version 1 --dependency definitions/llrp-1.0.1.xml `
   --registry-module-name MyExtensionProtocolModule --codecs --verify
+```
+
+2.0 以 1.0.1 XML 与 1.1 Delta 的合成模型为基线：
+
+```powershell
+dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
+  --input definitions/llrp-2.0-delta.yaml `
+  --base definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
+  --base definitions/llrp-1.1.yaml `
+  --output src/LlrpNet.Protocol --root-namespace LlrpNet.Protocol `
+  --version-namespace V2_0 --protocol-version 3 --registry-module-name Llrp20StandardModule --codecs
 ```
 
 1.1 这类标准增量以 1.0.1 XML 为基线：

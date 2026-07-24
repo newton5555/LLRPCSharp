@@ -19,9 +19,7 @@ public static class Program
         {
             Options options = Options.Parse(args);
             ProtocolDefinitionDelta delta = ImportDelta(options.InputPath);
-            ProtocolDefinition definition = options.BaselinePath is null
-                ? RequireStandalone(delta)
-                : ProtocolDefinitionMerger.Merge(Import(options.BaselinePath), delta.Additions, delta.Overrides);
+            ProtocolDefinition definition = BuildDefinition(options.BaselinePaths, delta);
 
             ProtocolDefinition[] dependencies = options.DependencyPaths.Select(Import).ToArray();
             ProtocolGenerationResult result = new ProtocolSourceGenerator().Generate(
@@ -82,6 +80,28 @@ public static class Program
             ? throw new ArgumentException("A definition with overrides requires --base.")
             : delta.Additions;
 
+    private static ProtocolDefinition BuildDefinition(
+        IReadOnlyList<string> baselinePaths,
+        ProtocolDefinitionDelta input)
+    {
+        if (baselinePaths.Count == 0)
+        {
+            return RequireStandalone(input);
+        }
+
+        ProtocolDefinition definition = Import(baselinePaths[0]);
+        foreach (string baselinePath in baselinePaths.Skip(1))
+        {
+            ProtocolDefinitionDelta baseline = ImportDelta(baselinePath);
+            definition = ProtocolDefinitionMerger.Merge(
+                definition,
+                baseline.Additions,
+                baseline.Overrides);
+        }
+
+        return ProtocolDefinitionMerger.Merge(definition, input.Additions, input.Overrides);
+    }
+
     private static ProtocolDefinition EmptyDefinition(string sourceName) => new(sourceName, null, [], [], [], []);
 
     private static int WriteSources(Options options, IReadOnlyList<GeneratedSourceFile> sources)
@@ -129,7 +149,7 @@ public static class Program
         string RootNamespace,
         string VersionNamespace,
         int ProtocolVersion,
-        string? BaselinePath,
+        IReadOnlyList<string> BaselinePaths,
         IReadOnlyList<string> DependencyPaths,
         string? RegistryModuleName,
         bool GenerateCodecs,
@@ -138,6 +158,7 @@ public static class Program
         public static Options Parse(string[] args)
         {
             var values = new Dictionary<string, string>(StringComparer.Ordinal);
+            var baselines = new List<string>();
             var dependencies = new List<string>();
             bool codecs = false;
             bool verify = false;
@@ -167,7 +188,18 @@ public static class Program
                     continue;
                 }
 
-                if (argument is not ("--input" or "--output" or "--root-namespace" or "--version-namespace" or "--protocol-version" or "--registry-module-name" or "--base") || index + 1 >= args.Length)
+                if (argument == "--base")
+                {
+                    if (index + 1 >= args.Length)
+                    {
+                        throw Usage();
+                    }
+
+                    baselines.Add(args[++index]);
+                    continue;
+                }
+
+                if (argument is not ("--input" or "--output" or "--root-namespace" or "--version-namespace" or "--protocol-version" or "--registry-module-name") || index + 1 >= args.Length)
                 {
                     throw Usage();
                 }
@@ -192,10 +224,12 @@ public static class Program
                 }
             }
 
-            values.TryGetValue("--base", out string? baseline);
-            if (baseline is not null && !File.Exists(baseline))
+            foreach (string baseline in baselines)
             {
-                throw new ArgumentException($"Baseline definition does not exist: {baseline}.");
+                if (!File.Exists(baseline))
+                {
+                    throw new ArgumentException($"Baseline definition does not exist: {baseline}.");
+                }
             }
 
             string output = Required(values, "--output");
@@ -208,7 +242,7 @@ public static class Program
             }
 
             values.TryGetValue("--registry-module-name", out string? registryModuleName);
-            return new Options(input, output, rootNamespace, versionNamespace, protocolVersion, baseline, dependencies, registryModuleName, codecs, verify);
+            return new Options(input, output, rootNamespace, versionNamespace, protocolVersion, baselines, dependencies, registryModuleName, codecs, verify);
         }
 
         private static string Required(IReadOnlyDictionary<string, string> values, string name)
@@ -218,7 +252,7 @@ public static class Program
 
         private static ArgumentException Usage() => new(
             "Usage: --input <definition.xml|yaml> --output <directory> --root-namespace <namespace> " +
-            "--version-namespace <V1_0_1> --protocol-version <1|2|3> [--base <definition>] " +
+            "--version-namespace <V1_0_1> --protocol-version <1|2|3> [--base <definition>]... " +
             "[--dependency <definition>]... [--registry-module-name <name>] [--codecs] [--verify]");
     }
 }
