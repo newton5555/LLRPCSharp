@@ -142,6 +142,15 @@ public sealed class LlrpReaderBuilder
         return this;
     }
 
+    /// <summary>Controls automatic negotiation or forces a specific supported LLRP version.</summary>
+    /// <param name="policy">The protocol version selection policy.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderBuilder WithProtocolVersionPolicy(LlrpProtocolVersionPolicy policy)
+    {
+        _optionsBuilder.WithProtocolVersionPolicy(policy);
+        return this;
+    }
+
     /// <summary>Enables bounded automatic reconnect after an unexpected connected-session failure.</summary>
     /// <param name="options">The retry policy to use.</param>
     /// <returns>This builder.</returns>

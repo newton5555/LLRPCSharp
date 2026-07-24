@@ -19,7 +19,7 @@ public static class CommandCatalog
 {
     public static IReadOnlyList<CommandSpec> Commands { get; } =
     [
-        new("connect", "connect [host] [port]", "Connect to an LLRP Reader."),
+        new("connect", "connect [host] [port] [--llrp auto|1.0.1|1.1]", "Connect to an LLRP Reader."),
         new("disconnect", "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", "status", "Show current connection status and metadata."),
         new("caps", "caps", "Query Reader capabilities.", RequiresConnection: true),

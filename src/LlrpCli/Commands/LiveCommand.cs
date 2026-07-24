@@ -20,6 +20,11 @@ public sealed class LiveSettings : CommandSettings
     [Description("Optional TCP port for automatic connection.")]
     [DefaultValue(5084)]
     public int Port { get; init; } = 5084;
+
+    [CommandOption("--llrp <VERSION>")]
+    [Description("Protocol version policy for automatic connection: auto, 1.0.1, or 1.1.")]
+    [DefaultValue("auto")]
+    public string LlrpVersion { get; init; } = "auto";
 }
 
 public sealed class LiveCommand : AsyncCommand<LiveSettings>
@@ -45,7 +50,14 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (!string.IsNullOrWhiteSpace(settings.Host))
         {
-            await ConnectToReaderAsync(settings.Host, settings.Port, cancellationToken);
+            if (!ProtocolVersionPolicyParser.TryParse(settings.LlrpVersion, out LlrpProtocolVersionPolicy policy))
+            {
+                _console.MarkupLine("[bold red]✖ Invalid LLRP version:[/] use auto, 1.0.1, or 1.1.");
+            }
+            else
+            {
+                await ConnectToReaderAsync(settings.Host, settings.Port, policy, cancellationToken);
+            }
         }
 
         using var editor = new TerminalLineEditor();
@@ -137,7 +149,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     default:
                         if (tokens.Length == 1 && (verb.Contains('.') || verb == "localhost" || verb == "127.0.0.1"))
                         {
-                            await ConnectToReaderAsync(tokens[0], 5084, cancellationToken);
+                            await ConnectToReaderAsync(
+                                tokens[0],
+                                5084,
+                                LlrpProtocolVersionPolicy.Auto,
+                                cancellationToken);
                         }
                         else
                         {
@@ -178,16 +194,38 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         else
         {
             host = tokens[1];
-            if (tokens.Length >= 3 && int.TryParse(tokens[2], out int parsedPort))
+            int nextToken = 2;
+            if (tokens.Length > nextToken && int.TryParse(tokens[nextToken], out int parsedPort))
             {
                 port = parsedPort;
+                nextToken++;
             }
+
+            LlrpProtocolVersionPolicy policy = LlrpProtocolVersionPolicy.Auto;
+            if (tokens.Length == nextToken + 2 && tokens[nextToken].Equals("--llrp", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!ProtocolVersionPolicyParser.TryParse(tokens[nextToken + 1], out policy))
+                {
+                    throw new CliUsageException("LLRP version must be auto, 1.0.1, or 1.1.");
+                }
+            }
+            else if (tokens.Length != nextToken)
+            {
+                throw new CliUsageException("Usage: connect <host> [port] [--llrp auto|1.0.1|1.1]");
+            }
+
+            await ConnectToReaderAsync(host, port, policy, cancellationToken);
+            return;
         }
 
-        await ConnectToReaderAsync(host, port, cancellationToken);
+        await ConnectToReaderAsync(host, port, LlrpProtocolVersionPolicy.Auto, cancellationToken);
     }
 
-    private async Task ConnectToReaderAsync(string host, int port, CancellationToken cancellationToken)
+    private async Task ConnectToReaderAsync(
+        string host,
+        int port,
+        LlrpProtocolVersionPolicy protocolVersionPolicy,
+        CancellationToken cancellationToken)
     {
         if (_reader is not null)
         {
@@ -204,6 +242,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             .WithPort(port)
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
             .WithFrameObserver(_observer)
+            .WithProtocolVersionPolicy(protocolVersionPolicy)
             .Build();
 
         try
@@ -689,7 +728,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             Style = Style.Parse("cyan1")
         };
         _console.Write(rule);
-        _console.MarkupLine("[grey]Type [cyan1]connect <host>[/] to establish reader connection, or [cyan1]help[/] for commands.[/]");
+        _console.MarkupLine("[grey]Type [cyan1]connect <host> [port] --llrp 1.0.1[/] to force LLRP 1.0.1, or [cyan1]help[/] for commands.[/]");
         _console.WriteLine();
     }
 
@@ -699,7 +738,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddColumn("[bold grey70]Command[/]");
         table.AddColumn("[bold grey70]Description[/]");
 
-        table.AddRow("[cyan1]connect <host> [port][/]", "Connect to an LLRP Reader");
+        table.AddRow("[cyan1]connect <host> [port] [--llrp auto|1.0.1|1.1][/]", "Connect to an LLRP Reader");
         table.AddRow("[cyan1]disconnect[/]", "Disconnect current Reader session");
         table.AddRow("[cyan1]status[/]", "Show current connection status and metadata");
         table.AddRow("[cyan1]caps[/]", "Display Reader capabilities");

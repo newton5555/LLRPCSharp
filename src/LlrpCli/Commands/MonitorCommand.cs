@@ -24,6 +24,11 @@ public sealed class MonitorSettings : CommandSettings
     [Description("Monitoring duration in seconds (0 = run until Ctrl+C).")]
     [DefaultValue(30)]
     public int DurationSeconds { get; init; } = 30;
+
+    [CommandOption("--llrp <VERSION>")]
+    [Description("Protocol version policy: auto, 1.0.1, or 1.1.")]
+    [DefaultValue("auto")]
+    public string LlrpVersion { get; init; } = "auto";
 }
 
 public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
@@ -39,12 +44,19 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, MonitorSettings settings, CancellationToken cancellationToken)
     {
+        if (!ProtocolVersionPolicyParser.TryParse(settings.LlrpVersion, out LlrpProtocolVersionPolicy policy))
+        {
+            _console.MarkupLine("[bold red]✖ Invalid LLRP version:[/] use auto, 1.0.1, or 1.1.");
+            return 2;
+        }
+
         _console.MarkupLine($"[grey]Starting LLRP Frame Monitor on[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
 
         var observer = new ConsoleFrameObserver(_console);
         await using LlrpReader reader = LlrpReader.CreateBuilder(settings.Host)
             .WithPort(settings.Port)
             .WithFrameObserver(observer)
+            .WithProtocolVersionPolicy(policy)
             .Build();
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

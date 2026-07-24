@@ -15,6 +15,11 @@ public sealed class ConnectSettings : CommandSettings
     [Description("TCP port of the LLRP Reader.")]
     [DefaultValue(5084)]
     public int Port { get; init; } = 5084;
+
+    [CommandOption("--llrp <VERSION>")]
+    [Description("Protocol version policy: auto, 1.0.1, or 1.1.")]
+    [DefaultValue("auto")]
+    public string LlrpVersion { get; init; } = "auto";
 }
 
 public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
@@ -30,11 +35,18 @@ public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, ConnectSettings settings, CancellationToken cancellationToken)
     {
+        if (!ProtocolVersionPolicyParser.TryParse(settings.LlrpVersion, out LlrpProtocolVersionPolicy policy))
+        {
+            _console.MarkupLine("[bold red]✖ Invalid LLRP version:[/] use auto, 1.0.1, or 1.1.");
+            return 2;
+        }
+
         _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
 
         await using LlrpReader reader = LlrpReader.CreateBuilder(settings.Host)
             .WithPort(settings.Port)
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
+            .WithProtocolVersionPolicy(policy)
             .Build();
 
         try

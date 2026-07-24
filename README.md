@@ -32,6 +32,16 @@ await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")
 await reader.ConnectAsync();
 ```
 
+默认使用 `LlrpProtocolVersionPolicy.Auto` 协商 1.0.1 与 1.1。对于收到高版本协商报文即断开连接的旧设备，可显式跳过探测：
+
+```csharp
+await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")
+    .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+    .Build();
+```
+
+CLI 对应选项为 `connect <host> --llrp 1.0.1`，或 `monitor <host> --llrp 1.0.1`。
+
 离线协议诊断不需要连接设备：
 
 ```powershell

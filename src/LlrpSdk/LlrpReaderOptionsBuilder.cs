@@ -26,6 +26,7 @@ public sealed class LlrpReaderOptionsBuilder
     private int _incomingMessageCapacity = LlrpReaderOptions.DefaultIncomingMessageCapacity;
     private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
     private ILlrpFrameObserver _frameObserver = NullLlrpFrameObserver.Instance;
+    private LlrpProtocolVersionPolicy _protocolVersionPolicy = LlrpProtocolVersionPolicy.Auto;
     private LlrpAutomaticReconnectOptions? _automaticReconnect;
     private LlrpTransportFactory? _transportFactory;
     private readonly List<ILlrpProtocolModule> _protocolModules = [];
@@ -172,6 +173,15 @@ public sealed class LlrpReaderOptionsBuilder
         return this;
     }
 
+    /// <summary>Controls automatic negotiation or forces a specific supported LLRP version.</summary>
+    /// <param name="policy">The protocol version selection policy.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderOptionsBuilder WithProtocolVersionPolicy(LlrpProtocolVersionPolicy policy)
+    {
+        _protocolVersionPolicy = policy;
+        return this;
+    }
+
     /// <summary>Enables bounded automatic reconnect after an unexpected connected-session failure.</summary>
     /// <param name="options">The retry policy to use.</param>
     /// <returns>This builder.</returns>
@@ -234,6 +244,7 @@ public sealed class LlrpReaderOptionsBuilder
             _incomingMessageCapacity,
             _loggerFactory,
             _frameObserver,
+            _protocolVersionPolicy,
             _automaticReconnect,
             _transportFactory,
             _protocolModules,
@@ -294,6 +305,14 @@ public sealed class LlrpReaderOptionsBuilder
                 nameof(_incomingMessageCapacity),
                 _incomingMessageCapacity,
                 "The incoming message capacity must be positive.");
+        }
+
+        if (!Enum.IsDefined(_protocolVersionPolicy))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_protocolVersionPolicy),
+                _protocolVersionPolicy,
+                "The protocol version policy is not supported.");
         }
 
         string? duplicateModuleId = _protocolModules

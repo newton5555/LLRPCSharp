@@ -34,6 +34,7 @@ public sealed class LlrpReaderOptions
         int incomingMessageCapacity,
         ILoggerFactory loggerFactory,
         ILlrpFrameObserver frameObserver,
+        LlrpProtocolVersionPolicy protocolVersionPolicy,
         LlrpAutomaticReconnectOptions? automaticReconnect,
         LlrpTransportFactory? transportFactory,
         IEnumerable<ILlrpProtocolModule> protocolModules,
@@ -49,6 +50,7 @@ public sealed class LlrpReaderOptions
         IncomingMessageCapacity = incomingMessageCapacity;
         LoggerFactory = loggerFactory;
         FrameObserver = frameObserver;
+        ProtocolVersionPolicy = protocolVersionPolicy;
         AutomaticReconnect = automaticReconnect;
         TransportFactory = transportFactory ?? CreateTcpTransport;
         ProtocolModules = Array.AsReadOnly(protocolModules.ToArray());
@@ -100,6 +102,9 @@ public sealed class LlrpReaderOptions
     /// Gets the exact-frame observer used by the default TCP transport.
     /// </summary>
     public ILlrpFrameObserver FrameObserver { get; }
+
+    /// <summary>Gets the policy used to negotiate or force the LLRP protocol version.</summary>
+    public LlrpProtocolVersionPolicy ProtocolVersionPolicy { get; }
 
     /// <summary>Gets the opt-in automatic reconnect policy, or <see langword="null"/> when disabled.</summary>
     public LlrpAutomaticReconnectOptions? AutomaticReconnect { get; }

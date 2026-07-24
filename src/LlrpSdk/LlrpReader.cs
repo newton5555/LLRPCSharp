@@ -1125,6 +1125,15 @@ public sealed class LlrpReader : IAsyncDisposable
 
     private async Task NegotiateProtocolVersionAsync(CancellationToken cancellationToken)
     {
+        if (Options.ProtocolVersionPolicy == LlrpProtocolVersionPolicy.Force101)
+        {
+            _logger.LogDebug(
+                "Reader {ConnectionId} is configured to use LLRP 1.0.1 without version negotiation.",
+                ConnectionId);
+            return;
+        }
+
+        bool requireVersion11 = Options.ProtocolVersionPolicy == LlrpProtocolVersionPolicy.Force11;
         var getSupportedVersion = new V11Messages.GET_SUPPORTED_VERSION(_messageIds.Next());
         V11Messages.GET_SUPPORTED_VERSION_RESPONSE supported;
         try
@@ -1136,7 +1145,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 MatchesGetSupportedVersionResponse,
                 LlrpProtocolVersion.Version11).ConfigureAwait(false);
         }
-        catch (LlrpReaderOperationException exception) when (exception.StatusCode == 110)
+        catch (LlrpReaderOperationException exception) when (exception.StatusCode == 110 && !requireVersion11)
         {
             _logger.LogDebug(
                 "Reader {ConnectionId} rejected LLRP 1.1 negotiation; retaining LLRP 1.0.1.",
@@ -1155,6 +1164,12 @@ public sealed class LlrpReader : IAsyncDisposable
 
         if (supported.SupportedVersion < (byte)LlrpProtocolVersion.Version11)
         {
+            if (requireVersion11)
+            {
+                throw new NotSupportedException(
+                    $"Reader {ConnectionId} supports LLRP through {supported.SupportedVersion}, but LLRP 1.1 was required.");
+            }
+
             _logger.LogDebug(
                 "Reader {ConnectionId} supports LLRP through {SupportedVersion}; retaining LLRP 1.0.1.",
                 ConnectionId,
