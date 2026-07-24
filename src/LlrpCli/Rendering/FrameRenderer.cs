@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text;
 using Spectre.Console;
 using LlrpNet.Core.Diagnostics;

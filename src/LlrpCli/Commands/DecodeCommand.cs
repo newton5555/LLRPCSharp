@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Text.Json;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -23,12 +23,14 @@ public sealed class DecodeSettings : CommandSettings
 public sealed class DecodeCommand : Command<DecodeSettings>
 {
     private readonly IAnsiConsole _console;
+    private readonly TextWriter _output;
 
-    public DecodeCommand() : this(AnsiConsole.Console) { }
+    public DecodeCommand() : this(AnsiConsole.Console, Console.Out) { }
 
-    public DecodeCommand(IAnsiConsole console)
+    public DecodeCommand(IAnsiConsole console, TextWriter output)
     {
         _console = console ?? AnsiConsole.Console;
+        _output = output ?? TextWriter.Null;
     }
 
     protected override int Execute(CommandContext context, DecodeSettings settings, CancellationToken cancellationToken)
@@ -49,7 +51,7 @@ public sealed class DecodeCommand : Command<DecodeSettings>
                 rawHex = Convert.ToHexString(frame),
             };
 
-            _console.WriteLine(JsonSerializer.Serialize(decoded));
+            _output.WriteLine(JsonSerializer.Serialize(decoded));
         }
         else
         {

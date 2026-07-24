@@ -1,4 +1,4 @@
-using LlrpNet.Core.Diagnostics;
+﻿using LlrpNet.Core.Diagnostics;
 
 namespace LlrpCli.Terminal;
 

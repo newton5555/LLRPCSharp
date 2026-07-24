@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpNet.Core.Protocol;
@@ -33,7 +33,7 @@ public sealed class LlrpCliApplication
             Ansi = AnsiSupport.No,
         });
 
-        var app = new CommandApp(new TypeRegistrar(console));
+        var app = new CommandApp(new TypeRegistrar(console, output));
         app.SetDefaultCommand<LiveCommand>()
             .WithDescription("Launch interactive live LLRP session.");
 
@@ -90,15 +90,15 @@ public sealed class LlrpCliApplication
         }
     }
 
-    private sealed class TypeRegistrar(IAnsiConsole console) : ITypeRegistrar
+    private sealed class TypeRegistrar(IAnsiConsole console, TextWriter output) : ITypeRegistrar
     {
         public void Register(Type service, Type implementation) { }
         public void RegisterInstance(Type service, object implementation) { }
         public void RegisterLazy(Type service, Func<object> factory) { }
-        public ITypeResolver Build() => new TypeResolver(console);
+        public ITypeResolver Build() => new TypeResolver(console, output);
     }
 
-    private sealed class TypeResolver(IAnsiConsole console) : ITypeResolver
+    private sealed class TypeResolver(IAnsiConsole console, TextWriter output) : ITypeResolver
     {
         public object? Resolve(Type? type)
         {
@@ -109,6 +109,10 @@ public sealed class LlrpCliApplication
             if (type == typeof(IAnsiConsole))
             {
                 return console;
+            }
+            if (type == typeof(TextWriter))
+            {
+                return output;
             }
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
             {
@@ -121,6 +125,10 @@ public sealed class LlrpCliApplication
             }
             try
             {
+                if (type.GetConstructor(new[] { typeof(IAnsiConsole), typeof(TextWriter) }) != null)
+                {
+                    return Activator.CreateInstance(type, console, output);
+                }
                 if (type.GetConstructor(new[] { typeof(IAnsiConsole) }) != null)
                 {
                     return Activator.CreateInstance(type, console);

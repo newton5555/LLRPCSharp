@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;

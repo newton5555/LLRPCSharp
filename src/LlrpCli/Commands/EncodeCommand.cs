@@ -1,9 +1,11 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Parameters;
 using LlrpCli.Rendering;
 
 namespace LlrpCli.Commands;
@@ -66,15 +68,15 @@ public sealed class EncodeCommand : Command<EncodeSettings>
     {
         return messageName.ToLowerInvariant() switch
         {
-            "keepalive" => new Keepalive(messageId),
-            "keepalive-ack" => new KeepaliveAck(messageId),
-            "get-reader-capabilities" => new GetReaderCapabilities(messageId, requestedData),
-            "get-rospecs" => new GetRoSpecs(messageId),
-            "delete-rospec" => new DeleteRoSpec(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "start-rospec" => new StartRoSpec(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "stop-rospec" => new StopRoSpec(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "enable-rospec" => new EnableRoSpec(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "disable-rospec" => new DisableRoSpec(messageId, RequireRoSpecId(roSpecId, messageName)),
+            "keepalive" => new KEEPALIVE(messageId),
+            "keepalive-ack" => new KEEPALIVE_ACK(messageId),
+            "get-reader-capabilities" => new GET_READER_CAPABILITIES(messageId, requestedData, Array.Empty<ILlrpParameter>()),
+            "get-rospecs" => new GET_ROSPECS(messageId),
+            "delete-rospec" => new DELETE_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
+            "start-rospec" => new START_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
+            "stop-rospec" => new STOP_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
+            "enable-rospec" => new ENABLE_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
+            "disable-rospec" => new DISABLE_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
             _ => throw new CliUsageException($"The encode message '{messageName}' is not supported."),
         };
     }

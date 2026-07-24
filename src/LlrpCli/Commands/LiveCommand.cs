@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpNet.Core.Protocol;
@@ -484,15 +484,18 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         ILlrpMessage message = msgName.ToLowerInvariant() switch
         {
-            "keepalive" => new LlrpNet.Protocol.Messages.V1_0_1.Keepalive(msgId),
-            "keepalive-ack" => new LlrpNet.Protocol.Messages.V1_0_1.KeepaliveAck(msgId),
-            "get-reader-capabilities" => new LlrpNet.Protocol.Messages.V1_0_1.GetReaderCapabilities(msgId, LlrpNet.Protocol.Messages.V1_0_1.GetReaderCapabilitiesRequestedData.All),
-            "get-rospecs" => new LlrpNet.Protocol.Messages.V1_0_1.GetRoSpecs(msgId),
-            "delete-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DeleteRoSpec(msgId, roSpecId ?? 1),
-            "start-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.StartRoSpec(msgId, roSpecId ?? 1),
-            "stop-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.StopRoSpec(msgId, roSpecId ?? 1),
-            "enable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.EnableRoSpec(msgId, roSpecId ?? 1),
-            "disable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DisableRoSpec(msgId, roSpecId ?? 1),
+            "keepalive" => new LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE(msgId),
+            "keepalive-ack" => new LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE_ACK(msgId),
+            "get-reader-capabilities" => new LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES(
+                msgId,
+                LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderCapabilitiesRequestedData.All,
+                Array.Empty<LlrpNet.Protocol.Parameters.ILlrpParameter>()),
+            "get-rospecs" => new LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS(msgId),
+            "delete-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC(msgId, roSpecId ?? 1),
+            "start-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC(msgId, roSpecId ?? 1),
+            "stop-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC(msgId, roSpecId ?? 1),
+            "enable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC(msgId, roSpecId ?? 1),
+            "disable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC(msgId, roSpecId ?? 1),
             _ => throw new CliUsageException($"Encode message '{msgName}' is not supported."),
         };
 

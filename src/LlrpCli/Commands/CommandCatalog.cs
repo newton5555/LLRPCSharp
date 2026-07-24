@@ -1,4 +1,4 @@
-namespace LlrpCli.Commands;
+﻿namespace LlrpCli.Commands;
 
 public sealed record CommandSpec(
     string Name,

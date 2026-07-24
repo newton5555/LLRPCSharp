@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
@@ -75,7 +75,7 @@ public static class Helpers
     public static LlrpCodecRegistry CreateRegistry()
     {
         var registry = new LlrpCodecRegistry();
-        Llrp101StandardModule.Register(registry);
+        LlrpNet.Protocol.Registry.V1_0_1.V1_0_1ProtocolModule.Register(registry);
         return registry;
     }
 }
