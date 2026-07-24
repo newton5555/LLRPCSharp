@@ -1,4 +1,5 @@
 ﻿using System.Runtime.ExceptionServices;
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Session;
@@ -19,14 +20,18 @@ namespace LlrpSdk;
 public sealed class LlrpReader : IAsyncDisposable
 {
     private readonly Channel<ILlrpMessage> _messages;
+    private readonly Channel<TagReport> _tagReports;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+    private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly ILogger<LlrpReader> _logger;
     private readonly LlrpMessageIdGenerator _messageIds = new();
     private readonly LlrpCodecRegistry _registry;
     private readonly LlrpSession _session;
     private CancellationTokenSource? _pumpCancellation;
     private Task? _pumpTask;
+    private ReaderSettings? _currentSettings;
     private ReaderMetadataSnapshot? _metadata;
+    private uint? _managedInventoryRoSpecId;
     private int _connectionState = (int)ReaderConnectionState.Disconnected;
     private int _operationState = (int)ReaderOperationState.Idle;
     private int _disposed;
@@ -51,6 +56,14 @@ public sealed class LlrpReader : IAsyncDisposable
 
         Options = options;
         _messages = Channel.CreateBounded<ILlrpMessage>(new BoundedChannelOptions(
+            options.IncomingMessageCapacity)
+        {
+            AllowSynchronousContinuations = false,
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleReader = false,
+            SingleWriter = true,
+        });
+        _tagReports = Channel.CreateBounded<TagReport>(new BoundedChannelOptions(
             options.IncomingMessageCapacity)
         {
             AllowSynchronousContinuations = false,
@@ -124,6 +137,11 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Gets capabilities from the current initialized connection, or <see langword="null"/> while disconnected or faulted.
     /// </summary>
     public ReaderCapabilities? Capabilities => Volatile.Read(ref _metadata)?.Capabilities;
+
+    /// <summary>
+    /// Gets the settings for the currently managed inventory operation, or <see langword="null"/> when idle.
+    /// </summary>
+    public ReaderSettings? CurrentSettings => Volatile.Read(ref _currentSettings);
 
     /// <summary>
     /// Gets the ROSpec resource service for this reader.
@@ -268,7 +286,7 @@ public sealed class LlrpReader : IAsyncDisposable
             {
                 await StopPumpAsync().ConfigureAwait(false);
                 await _session.DisconnectAsync().ConfigureAwait(false);
-                Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+                ResetManagedInventoryState();
                 AddTransition(transitions, ReaderConnectionState.Disconnected);
             }
             catch (Exception exception)
@@ -374,6 +392,167 @@ public sealed class LlrpReader : IAsyncDisposable
         return _messages.Reader.ReadAllAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Asynchronously reads version-independent tag observations projected from reader access reports.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels this enumeration without disconnecting the reader.</param>
+    /// <returns>A channel-backed asynchronous sequence that remains open across explicit reconnects.</returns>
+    /// <remarks>
+    /// Multiple simultaneous enumerators compete for observations. Callers needing fan-out should distribute the
+    /// sequence in their application. Raw LLRP messages remain independently available through
+    /// <see cref="ReadMessagesAsync(CancellationToken)"/>.
+    /// </remarks>
+    public IAsyncEnumerable<TagReport> ReadTagReportsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return _tagReports.Reader.ReadAllAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Compiles and starts one SDK-managed inventory operation.
+    /// </summary>
+    /// <param name="settings">The version-independent inventory intent to apply.</param>
+    /// <param name="cancellationToken">Cancels the resource operations before inventory becomes active.</param>
+    /// <returns>A task that completes after the reader accepts the managed ROSpec.</returns>
+    /// <remarks>
+    /// The current baseline compiles settings to LLRP 1.0.1. The public method does not expose generated protocol
+    /// types, allowing later protocol adapters to compile the same intent for another negotiated version.
+    /// </remarks>
+    public async Task StartAsync(
+        ReaderSettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        EnsureProtocolAvailable();
+
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureProtocolAvailable();
+            if (OperationState != ReaderOperationState.Idle)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot start managed inventory while the reader operation state is {OperationState}.");
+            }
+
+            Volatile.Write(ref _operationState, (int)ReaderOperationState.Starting);
+            bool added = false;
+            bool enabled = false;
+            try
+            {
+                global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpec roSpec =
+                    Llrp101InventoryCompiler.Compile(settings);
+                await RoSpecs.AddAsync(roSpec, cancellationToken).ConfigureAwait(false);
+                added = true;
+                await RoSpecs.EnableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
+                enabled = true;
+                await RoSpecs.StartAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
+
+                _managedInventoryRoSpecId = settings.RoSpecId;
+                Volatile.Write(ref _currentSettings, settings);
+                Volatile.Write(ref _operationState, (int)ReaderOperationState.Inventorying);
+            }
+            catch
+            {
+                if (enabled)
+                {
+                    await TryManagedInventoryCleanupAsync(
+                        settings.RoSpecId,
+                        stop: true,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                else if (added)
+                {
+                    await TryDeleteManagedInventoryAsync(settings.RoSpecId, CancellationToken.None).ConfigureAwait(false);
+                }
+
+                ResetManagedInventoryState();
+                throw;
+            }
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Stops and removes the current SDK-managed inventory ROSpec.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the resource operations.</param>
+    /// <returns>A task that completes after the managed ROSpec is removed.</returns>
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureProtocolAvailable();
+
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureProtocolAvailable();
+            if (OperationState == ReaderOperationState.Idle)
+            {
+                return;
+            }
+
+            if (OperationState != ReaderOperationState.Inventorying || _managedInventoryRoSpecId is not uint roSpecId)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot stop managed inventory while the reader operation state is {OperationState}.");
+            }
+
+            Volatile.Write(ref _operationState, (int)ReaderOperationState.Stopping);
+            try
+            {
+                await StopManagedInventoryAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                ResetManagedInventoryState();
+            }
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Starts managed inventory and yields version-independent tag observations until the enumeration ends.
+    /// </summary>
+    /// <param name="settings">The inventory intent, or <see langword="null"/> to use the default settings.</param>
+    /// <param name="cancellationToken">Cancels inventory enumeration and then requests managed inventory cleanup.</param>
+    /// <returns>An asynchronous sequence of observed tags.</returns>
+    public async IAsyncEnumerable<TagReport> InventoryAsync(
+        ReaderSettings? settings = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await StartAsync(settings ?? new ReaderSettings(), cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await foreach (TagReport report in ReadTagReportsAsync(cancellationToken))
+            {
+                yield return report;
+            }
+        }
+        finally
+        {
+            if (IsConnected && OperationState == ReaderOperationState.Inventorying)
+            {
+                try
+                {
+                    await StopAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogWarning(
+                        exception,
+                        "Failed to stop SDK-managed inventory while completing an inventory enumeration for reader {ConnectionId}",
+                        ConnectionId);
+                }
+            }
+        }
+    }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
@@ -403,9 +582,10 @@ public sealed class LlrpReader : IAsyncDisposable
                 failure = exception;
             }
 
-            Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+            ResetManagedInventoryState();
             AddTransition(transitions, ReaderConnectionState.Disconnected, failure);
             _messages.Writer.TryComplete(failure);
+            _tagReports.Writer.TryComplete(failure);
         }
         finally
         {
@@ -591,6 +771,19 @@ public sealed class LlrpReader : IAsyncDisposable
                             .ConfigureAwait(false);
                     }
 
+                    if (message is global::LlrpNet.Protocol.Messages.V1_0_1.RO_ACCESS_REPORT accessReport)
+                    {
+                        foreach (TagReport tagReport in Llrp101TagReportTranslator.Translate(accessReport))
+                        {
+                            if (!_tagReports.Writer.TryWrite(tagReport))
+                            {
+                                throw new LlrpReaderBackpressureException(
+                                    ConnectionId,
+                                    Options.IncomingMessageCapacity);
+                            }
+                        }
+                    }
+
                     if (!_messages.Writer.TryWrite(message))
                     {
                         throw new LlrpReaderBackpressureException(
@@ -651,7 +844,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
             _pumpCancellation = null;
             _pumpTask = null;
-            Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+            ResetManagedInventoryState();
             InvalidateMetadata();
             AddTransition(transitions, ReaderConnectionState.Faulted, failure);
             try
@@ -753,6 +946,77 @@ public sealed class LlrpReader : IAsyncDisposable
             throw new InvalidOperationException(
                 $"The LLRP reader is not ready for protocol operations; current state is {ConnectionState}.");
         }
+    }
+
+    private void ResetManagedInventoryState()
+    {
+        _managedInventoryRoSpecId = null;
+        Volatile.Write(ref _currentSettings, null);
+        Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+    }
+
+    private async Task StopManagedInventoryAsync(uint roSpecId, CancellationToken cancellationToken)
+    {
+        Exception? failure = null;
+        try
+        {
+            await RoSpecs.StopAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+
+        try
+        {
+            await RoSpecs.DisableAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            failure ??= exception;
+        }
+
+        try
+        {
+            await RoSpecs.DeleteAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            failure ??= exception;
+        }
+
+        if (failure is not null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+    }
+
+    private async Task TryManagedInventoryCleanupAsync(uint roSpecId, bool stop, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (stop)
+            {
+                await StopManagedInventoryAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await RoSpecs.DeleteAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to clean up SDK-managed inventory ROSpec {RoSpecId} on reader {ConnectionId}",
+                roSpecId,
+                ConnectionId);
+        }
+    }
+
+    private Task TryDeleteManagedInventoryAsync(uint roSpecId, CancellationToken cancellationToken)
+    {
+        return TryManagedInventoryCleanupAsync(roSpecId, stop: false, cancellationToken);
     }
 
     private bool MatchesTypedResponse<TResponse>(
