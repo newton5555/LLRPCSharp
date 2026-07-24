@@ -100,8 +100,8 @@ public sealed class LlrpReader : IAsyncDisposable
                     LlrpUnsolicitedFrameOverflowPolicy.FaultConnection,
             },
             options.LoggerFactory);
-        RoSpecs = new RoSpecService(this, _messageIds, _registry);
-        AccessSpecs = new AccessSpecService(this, _messageIds, _registry);
+        RoSpecs = new RoSpecService(this, _protocolAdapter, _messageIds);
+        AccessSpecs = new AccessSpecService(this, _protocolAdapter, _messageIds);
         Protocol = new ReaderProtocolAccess(this);
     }
 

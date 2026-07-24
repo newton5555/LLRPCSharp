@@ -15,4 +15,74 @@ internal interface ILlrpProtocolAdapter
     public ILlrpParameter CompileInventory(ReaderSettings settings);
 
     public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message);
+
+    public Task AddRoSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        ILlrpParameter roSpec,
+        CancellationToken cancellationToken);
+
+    public Task DeleteRoSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint roSpecId,
+        CancellationToken cancellationToken);
+
+    public Task EnableRoSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint roSpecId,
+        CancellationToken cancellationToken);
+
+    public Task DisableRoSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint roSpecId,
+        CancellationToken cancellationToken);
+
+    public Task StartRoSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint roSpecId,
+        CancellationToken cancellationToken);
+
+    public Task StopRoSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint roSpecId,
+        CancellationToken cancellationToken);
+
+    public Task<IReadOnlyList<ILlrpParameter>> GetRoSpecsAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken);
+
+    public Task AddAccessSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        ILlrpParameter accessSpec,
+        CancellationToken cancellationToken);
+
+    public Task DeleteAccessSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint accessSpecId,
+        CancellationToken cancellationToken);
+
+    public Task EnableAccessSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint accessSpecId,
+        CancellationToken cancellationToken);
+
+    public Task DisableAccessSpecAsync(
+        LlrpReader reader,
+        uint messageId,
+        uint accessSpecId,
+        CancellationToken cancellationToken);
+
+    public Task<IReadOnlyList<ILlrpParameter>> GetAccessSpecsAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken);
 }
