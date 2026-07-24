@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LlrpNet.ProtocolGenerator\LlrpNet.ProtocolGenerator.csproj" />
+    <ProjectReference Include="..\LlrpNet.ProtocolModel\LlrpNet.ProtocolModel.csproj" />
+  </ItemGroup>
+</Project>

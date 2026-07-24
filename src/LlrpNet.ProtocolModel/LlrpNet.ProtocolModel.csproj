@@ -2,5 +2,8 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
-</Project>
 
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+</Project>

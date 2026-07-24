@@ -4,6 +4,7 @@
     <Project Path="src/LlrpNet.Core/LlrpNet.Core.csproj" />
     <Project Path="src/LlrpNet.Protocol/LlrpNet.Protocol.csproj" />
     <Project Path="src/LlrpNet.ProtocolGenerator/LlrpNet.ProtocolGenerator.csproj" />
+    <Project Path="src/LlrpNet.ProtocolGenerator.Tool/LlrpNet.ProtocolGenerator.Tool.csproj" />
     <Project Path="src/LlrpNet.ProtocolModel/LlrpNet.ProtocolModel.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Abstractions/LlrpSdk.Extensions.Abstractions.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj" />

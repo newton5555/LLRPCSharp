@@ -1,0 +1,65 @@
+# Native LLRP YAML definition format (complete shape example, not a protocol input).
+# XML imports and YAML sources normalize into the same ProtocolDefinition model.
+namespace:
+  prefix: llrp
+  uri: https://www.llrp.org/example/xml
+  schemaLocation: https://www.llrp.org/example/schema.xsd
+messages:
+  - name: EXAMPLE_REQUEST
+    typeNumber: 1
+    required: true
+    responseType: EXAMPLE_RESPONSE
+    members:
+      - field:
+          name: RequestedData
+          type: u8
+          enumeration: ExampleRequestedData
+      - parameter:
+          type: ExampleParameter
+          cardinality: 0-N
+  - name: EXAMPLE_RESPONSE
+    typeNumber: 2
+    required: true
+    members: []
+parameters:
+  - name: ExampleParameter
+    typeNumber: 128
+    required: false
+    members:
+      - reserved: 8
+      - field:
+          name: Value
+          type: u16
+enumerations:
+  - name: ExampleRequestedData
+    entries:
+      - name: All
+        value: 0
+choices:
+  - name: ExampleChoice
+    parameterTypes:
+      - ExampleParameter
+vendors:
+  - name: ExampleVendor
+    vendorId: 1234
+customMessages:
+  - name: ExampleVendorRequest
+    vendor: ExampleVendor
+    subtype: 1
+    namespace: llrp
+    members: []
+customParameters:
+  - name: ExampleVendorParameter
+    vendor: ExampleVendor
+    subtype: 1
+    namespace: llrp
+    members: []
+    allowedIn:
+      - type: EXAMPLE_REQUEST
+        cardinality: 0-N
+customEnumerations:
+  - name: ExampleVendorMode
+    namespace: llrp
+    entries:
+      - name: Default
+        value: 0

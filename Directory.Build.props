@@ -10,8 +10,7 @@
     <Deterministic>true</Deterministic>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel' AND '$(MSBuildProjectName)' != 'LlrpNet.Core' AND '$(MSBuildProjectName)' != 'LlrpNet.Protocol' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.Core.Tests'">
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tool' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel' AND '$(MSBuildProjectName)' != 'LlrpNet.Core' AND '$(MSBuildProjectName)' != 'LlrpNet.Protocol' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.Core.Tests'">
     <Compile Include="$(MSBuildThisFileDirectory)src\LlrpNet.Protocol\GlobalAliases.cs" Link="Properties\GlobalAliases.g.cs" />
   </ItemGroup>
 </Project>
-
