@@ -33,6 +33,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private ReaderMetadataSnapshot? _metadata;
     private uint? _managedInventoryRoSpecId;
     private int _connectionState = (int)ReaderConnectionState.Disconnected;
+    private int _managedStateIsSynchronized = 1;
     private int _operationState = (int)ReaderOperationState.Idle;
     private int _disposed;
 
@@ -143,6 +144,16 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Gets the settings for the currently managed inventory operation, or <see langword="null"/> when idle.
     /// </summary>
     public ReaderSettings? CurrentSettings => Volatile.Read(ref _currentSettings);
+
+    /// <summary>
+    /// Gets a value indicating whether SDK-managed resource state is known after the most recent raw protocol call.
+    /// </summary>
+    /// <remarks>
+    /// A successful call through <see cref="Protocol"/> may change reader state outside the SDK's managed services.
+    /// Call <see cref="SynchronizeStateAsync(CancellationToken)"/> before resuming a managed operation when this
+    /// property is <see langword="false"/>.
+    /// </remarks>
+    public bool IsManagedStateSynchronized => Volatile.Read(ref _managedStateIsSynchronized) != 0;
 
     /// <summary>
     /// Gets the ROSpec resource service for this reader.
@@ -419,6 +430,33 @@ public sealed class LlrpReader : IAsyncDisposable
     }
 
     /// <summary>
+    /// Queries reader-managed resources after raw protocol access invalidated the SDK's local state assumptions.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the synchronization queries.</param>
+    /// <returns>A task that completes after standard ROSpec and AccessSpec state has been queried.</returns>
+    /// <remarks>
+    /// Synchronization deliberately does not recreate a previous high-level inventory operation. If raw access changed
+    /// a resource, the application must explicitly establish the next desired managed state.
+    /// </remarks>
+    public async Task SynchronizeStateAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureProtocolAvailable();
+
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureProtocolAvailable();
+            await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            Volatile.Write(ref _managedStateIsSynchronized, 1);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    /// <summary>
     /// Compiles and starts one SDK-managed inventory operation.
     /// </summary>
     /// <param name="settings">The version-independent inventory intent to apply.</param>
@@ -439,6 +477,7 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureProtocolAvailable();
+            EnsureManagedStateSynchronized();
             if (OperationState != ReaderOperationState.Idle)
             {
                 throw new InvalidOperationException(
@@ -626,6 +665,17 @@ public sealed class LlrpReader : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
+    internal async Task<TResponse> TransactFromRawProtocolAsync<TResponse>(
+        ILlrpMessage request,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+        where TResponse : class, ILlrpMessage
+    {
+        TResponse response = await TransactAsync<TResponse>(request, timeout, cancellationToken).ConfigureAwait(false);
+        InvalidateManagedStateAfterRawProtocolAccess();
+        return response;
+    }
+
     private async Task<TResponse> TransactSessionAsync<TResponse>(
         ILlrpMessage request,
         TimeSpan? timeout,
@@ -674,7 +724,16 @@ public sealed class LlrpReader : IAsyncDisposable
         await _session.SendFrameAsync(frame, cancellationToken).ConfigureAwait(false);
     }
 
-    internal Task<ReadOnlyMemory<byte>> TransactRawAsync(
+    internal async Task SendFromRawProtocolAsync<TMessage>(
+        TMessage message,
+        CancellationToken cancellationToken)
+        where TMessage : ILlrpMessage
+    {
+        await SendAsync(message, cancellationToken).ConfigureAwait(false);
+        InvalidateManagedStateAfterRawProtocolAccess();
+    }
+
+    internal async Task<ReadOnlyMemory<byte>> TransactRawAsync(
         ReadOnlyMemory<byte> requestFrame,
         LlrpResponseMatcher responseMatcher,
         TimeSpan? timeout,
@@ -682,11 +741,13 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(responseMatcher);
         EnsureProtocolAvailable();
-        return _session.TransactAsync(
+        ReadOnlyMemory<byte> response = await _session.TransactAsync(
             requestFrame,
             responseMatcher,
             timeout,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+        InvalidateManagedStateAfterRawProtocolAccess();
+        return response;
     }
 
     internal async Task SendRawAsync(
@@ -695,6 +756,7 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         EnsureProtocolAvailable();
         await _session.SendFrameAsync(frame, cancellationToken).ConfigureAwait(false);
+        InvalidateManagedStateAfterRawProtocolAccess();
     }
 
     private void StartPump()
@@ -956,6 +1018,22 @@ public sealed class LlrpReader : IAsyncDisposable
             throw new InvalidOperationException(
                 $"The LLRP reader is not ready for protocol operations; current state is {ConnectionState}.");
         }
+    }
+
+    private void EnsureManagedStateSynchronized()
+    {
+        if (!IsManagedStateSynchronized)
+        {
+            throw new InvalidOperationException(
+                "SDK-managed reader state is unknown after raw protocol access. " +
+                $"Call {nameof(SynchronizeStateAsync)} before starting a managed operation.");
+        }
+    }
+
+    private void InvalidateManagedStateAfterRawProtocolAccess()
+    {
+        ResetManagedInventoryState();
+        Volatile.Write(ref _managedStateIsSynchronized, 0);
     }
 
     private void ResetManagedInventoryState()

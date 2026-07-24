@@ -19,7 +19,7 @@ internal sealed class ReaderProtocolAccess : IReaderProtocolAccess
         CancellationToken cancellationToken = default)
         where TResponse : class, ILlrpMessage
     {
-        return _reader.TransactAsync<TResponse>(request, timeout, cancellationToken);
+        return _reader.TransactFromRawProtocolAsync<TResponse>(request, timeout, cancellationToken);
     }
 
     public Task SendAsync<TMessage>(
@@ -27,7 +27,7 @@ internal sealed class ReaderProtocolAccess : IReaderProtocolAccess
         CancellationToken cancellationToken = default)
         where TMessage : ILlrpMessage
     {
-        return _reader.SendAsync(message, cancellationToken);
+        return _reader.SendFromRawProtocolAsync(message, cancellationToken);
     }
 
     public Task<ReadOnlyMemory<byte>> TransactRawAsync(
