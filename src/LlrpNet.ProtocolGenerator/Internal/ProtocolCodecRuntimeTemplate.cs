@@ -1,4 +1,4 @@
-namespace LlrpNet.ProtocolGenerator.Internal;
+﻿namespace LlrpNet.ProtocolGenerator.Internal;
 
 internal static class ProtocolCodecRuntimeTemplate
 {
@@ -110,7 +110,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 var values = new TEnum[count];
                 for (int index = 0; index < values.Length; index++)
                 {
-                    values[index] = (TEnum)global::System.Enum.ToObject(typeof(TEnum), ReadBits(1));
+                    values[index] = GeneratedCodecRuntime.ReadEnum<TEnum>(ReadBits(1));
                 }
 
                 ReadVectorPadding(count);
@@ -130,7 +130,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 var values = new TEnum[count];
                 for (int index = 0; index < values.Length; index++)
                 {
-                    values[index] = (TEnum)global::System.Enum.ToObject(typeof(TEnum), ReadByte());
+                    values[index] = GeneratedCodecRuntime.ReadEnum<TEnum>(ReadByte());
                 }
 
                 return values;
@@ -155,7 +155,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 var values = new TEnum[count];
                 for (int index = 0; index < values.Length; index++)
                 {
-                    values[index] = (TEnum)global::System.Enum.ToObject(typeof(TEnum), ReadUInt16());
+                    values[index] = GeneratedCodecRuntime.ReadEnum<TEnum>(ReadUInt16());
                 }
 
                 return values;
@@ -180,7 +180,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 var values = new TEnum[count];
                 for (int index = 0; index < values.Length; index++)
                 {
-                    values[index] = (TEnum)global::System.Enum.ToObject(typeof(TEnum), ReadUInt32());
+                    values[index] = GeneratedCodecRuntime.ReadEnum<TEnum>(ReadUInt32());
                 }
 
                 return values;
@@ -347,6 +347,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 WriteUInt16((ushort)values.Count);
                 foreach (TEnum value in values)
                 {
+                    GeneratedCodecRuntime.ValidateEnum(value, nameof(values));
                     WriteBits(global::System.Convert.ToUInt64(value, global::System.Globalization.CultureInfo.InvariantCulture), 1);
                 }
 
@@ -367,6 +368,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 WriteUInt16((ushort)values.Count);
                 foreach (TEnum value in values)
                 {
+                    GeneratedCodecRuntime.ValidateEnum(value, nameof(values));
                     WriteByte(checked((byte)global::System.Convert.ToUInt64(value, global::System.Globalization.CultureInfo.InvariantCulture)));
                 }
             }
@@ -388,6 +390,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 WriteUInt16((ushort)values.Count);
                 foreach (TEnum value in values)
                 {
+                    GeneratedCodecRuntime.ValidateEnum(value, nameof(values));
                     WriteUInt16(checked((ushort)global::System.Convert.ToUInt64(value, global::System.Globalization.CultureInfo.InvariantCulture)));
                 }
             }
@@ -409,6 +412,7 @@ internal static class ProtocolCodecRuntimeTemplate
                 WriteUInt16((ushort)values.Count);
                 foreach (TEnum value in values)
                 {
+                    GeneratedCodecRuntime.ValidateEnum(value, nameof(values));
                     WriteUInt32(checked((uint)global::System.Convert.ToUInt64(value, global::System.Globalization.CultureInfo.InvariantCulture)));
                 }
             }
@@ -541,6 +545,30 @@ internal static class ProtocolCodecRuntimeTemplate
                 return checked(2 + length);
             }
 
+            public static TEnum ReadEnum<TEnum>(object rawValue)
+                where TEnum : struct, global::System.Enum
+            {
+                TEnum value = (TEnum)global::System.Enum.ToObject(typeof(TEnum), rawValue);
+                if (!global::System.Enum.IsDefined(value))
+                {
+                    throw InvalidSequence($"Undefined {typeof(TEnum).Name} value '{rawValue}'.");
+                }
+
+                return value;
+            }
+
+            public static void ValidateEnum<TEnum>(TEnum value, string memberName)
+                where TEnum : struct, global::System.Enum
+            {
+                if (!global::System.Enum.IsDefined(value))
+                {
+                    throw new global::System.ArgumentOutOfRangeException(
+                        memberName,
+                        value,
+                        $"Undefined {typeof(TEnum).Name} value.");
+                }
+            }
+
             public static bool IsNextParameter(
                 global::System.ReadOnlySpan<byte> source,
                 ushort expectedType,
@@ -571,6 +599,35 @@ internal static class ProtocolCodecRuntimeTemplate
                 uint actualVendor = global::System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(source[4..]);
                 uint actualSubtype = global::System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(source[8..]);
                 return actualVendor == vendorId && actualSubtype == subtype;
+            }
+
+            public static bool IsParameterMatch(
+                global::LlrpNet.Protocol.Registry.LlrpCodecRegistry registry,
+                global::LlrpNet.Core.Protocol.LlrpProtocolVersion version,
+                global::LlrpNet.Protocol.Parameters.ILlrpParameter parameter,
+                ushort expectedType,
+                bool matchCustomMetadata,
+                uint vendorId,
+                uint subtype)
+            {
+                global::LlrpNet.Protocol.Registry.LlrpParameterWireIdentity identity =
+                    registry.GetParameterWireIdentity(version, parameter);
+                return identity.ParameterType == expectedType
+                    && (!matchCustomMetadata
+                        || (identity.VendorId == vendorId && identity.ParameterSubtype == subtype));
+            }
+
+            public static void ValidateParameterMatch(
+                global::LlrpNet.Protocol.Parameters.ILlrpParameter parameter,
+                string memberName,
+                bool matches)
+            {
+                if (!matches)
+                {
+                    throw new global::System.ArgumentException(
+                        $"Parameter '{parameter.GetType().FullName}' is not valid for member '{memberName}'.",
+                        memberName);
+                }
             }
 
             public static T DecodeParameter<T>(

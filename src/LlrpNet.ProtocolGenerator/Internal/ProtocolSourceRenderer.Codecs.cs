@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using LlrpNet.ProtocolGenerator.Generation;
 using LlrpNet.ProtocolModel.Definitions;
 
@@ -13,7 +13,7 @@ internal sealed partial class ProtocolSourceRenderer
         var sources = new List<GeneratedSourceFile>
         {
             new(
-                "Codecs/0000.GeneratedCodecRuntime.g.cs",
+                $"Codecs/{versionNamespace}/0000.GeneratedCodecRuntime.g.cs",
                 GeneratedSourceKind.CodecRuntime,
                 ProtocolCodecRuntimeTemplate.Render(rootNamespace, versionNamespace)),
         };
@@ -52,9 +52,11 @@ internal sealed partial class ProtocolSourceRenderer
         int index,
         byte protocolVersionValue)
     {
-        string modelType = Qualify("Messages", symbols.GetMessage(message.Name));
+        string modelIdentifier = symbols.GetMessage(message.Name);
+        string modelType = Qualify("Messages", modelIdentifier);
         string codecIdentifier = symbols.GetMessageCodec(message.Name);
-        var allocator = new CSharpIdentifierAllocator(["MessageId", "TypeNumber"]);
+        var allocator = new CSharpIdentifierAllocator(
+            [modelIdentifier, "MessageId", "TypeNumber", "MessageType"]);
         List<GeneratedProperty> properties = CreateProperties(message.Members, allocator);
         var writer = CreateWriter("Codecs");
         WriteCodecClassStart(
@@ -87,10 +89,11 @@ internal sealed partial class ProtocolSourceRenderer
         int index,
         byte protocolVersionValue)
     {
-        string modelType = Qualify("Messages", symbols.GetMessage(message.Name));
+        string modelIdentifier = symbols.GetMessage(message.Name);
+        string modelType = Qualify("Messages", modelIdentifier);
         string codecIdentifier = symbols.GetMessageCodec(message.Name);
         var allocator = new CSharpIdentifierAllocator(
-            ["MessageId", "TypeNumber", "VendorIdentifier", "Subtype"]);
+            [modelIdentifier, "MessageId", "TypeNumber", "MessageType", "VendorIdentifier", "Subtype"]);
         List<GeneratedProperty> properties = CreateProperties(message.Members, allocator);
         var writer = CreateWriter("Codecs");
         WriteCodecClassStart(
@@ -139,9 +142,10 @@ internal sealed partial class ProtocolSourceRenderer
         int index,
         byte protocolVersionValue)
     {
-        string modelType = Qualify("Parameters", symbols.GetParameter(parameter.Name));
+        string modelIdentifier = symbols.GetParameter(parameter.Name);
+        string modelType = Qualify("Parameters", modelIdentifier);
         string codecIdentifier = symbols.GetParameterCodec(parameter.Name);
-        var allocator = new CSharpIdentifierAllocator(["TypeNumber"]);
+        var allocator = new CSharpIdentifierAllocator([modelIdentifier, "TypeNumber", "ParameterType"]);
         List<GeneratedProperty> properties = CreateProperties(parameter.Members, allocator);
         var writer = CreateWriter("Codecs");
         WriteCodecClassStart(
@@ -180,9 +184,10 @@ internal sealed partial class ProtocolSourceRenderer
         int index,
         byte protocolVersionValue)
     {
-        string modelType = Qualify("Parameters", symbols.GetParameter(parameter.Name));
+        string modelIdentifier = symbols.GetParameter(parameter.Name);
+        string modelType = Qualify("Parameters", modelIdentifier);
         string codecIdentifier = symbols.GetParameterCodec(parameter.Name);
-        var allocator = new CSharpIdentifierAllocator(["TypeNumber", "VendorIdentifier", "Subtype"]);
+        var allocator = new CSharpIdentifierAllocator([modelIdentifier, "TypeNumber", "ParameterType", "VendorIdentifier", "Subtype"]);
         List<GeneratedProperty> properties = CreateProperties(parameter.Members, allocator);
         var writer = CreateWriter("Codecs");
         WriteCodecClassStart(
@@ -512,7 +517,7 @@ internal sealed partial class ProtocolSourceRenderer
         IReadOnlyList<GeneratedProperty> properties)
     {
         writer.WriteLine($"int length = {GetFixedFieldLength(members).ToString(CultureInfo.InvariantCulture)};");
-        int propertyIndex = 0;
+        int propertyIndex = properties.Count > 0 && string.Equals(properties[0].Name, "MessageId", StringComparison.Ordinal) ? 1 : 0;
         foreach (ProtocolMemberDefinition member in members)
         {
             switch (member)
@@ -533,6 +538,7 @@ internal sealed partial class ProtocolSourceRenderer
                     GeneratedProperty parameterProperty = properties[propertyIndex++];
                     WriteReferenceLength(
                         writer,
+                        parameter,
                         parameter.Cardinality,
                         parameterProperty,
                         valueName);
@@ -542,6 +548,7 @@ internal sealed partial class ProtocolSourceRenderer
                     GeneratedProperty choiceProperty = properties[propertyIndex++];
                     WriteReferenceLength(
                         writer,
+                        choice,
                         choice.Cardinality,
                         choiceProperty,
                         valueName);
@@ -552,8 +559,9 @@ internal sealed partial class ProtocolSourceRenderer
         writer.WriteLine("return length;");
     }
 
-    private static void WriteReferenceLength(
+    private void WriteReferenceLength(
         CodeWriter writer,
+        ProtocolMemberDefinition member,
         Cardinality cardinality,
         GeneratedProperty property,
         string valueName)
@@ -567,6 +575,7 @@ internal sealed partial class ProtocolSourceRenderer
             writer.WriteLine("{");
             using (writer.Indent())
             {
+                WriteReferenceMatchValidation(writer, member, "nested", property.Name);
                 writer.WriteLine("length = checked(length + registry.GetEncodedParameterLength(version, nested));");
             }
 
@@ -585,6 +594,7 @@ internal sealed partial class ProtocolSourceRenderer
             }
 
             writer.WriteLine("}");
+            WriteReferenceMatchValidation(writer, member, $"{access}!", property.Name);
             writer.WriteLine(
                 $"length = checked(length + registry.GetEncodedParameterLength(version, {access}!));");
             return;
@@ -594,11 +604,23 @@ internal sealed partial class ProtocolSourceRenderer
         writer.WriteLine("{");
         using (writer.Indent())
         {
+            WriteReferenceMatchValidation(writer, member, access, property.Name);
             writer.WriteLine(
                 $"length = checked(length + registry.GetEncodedParameterLength(version, {access}));");
         }
 
         writer.WriteLine("}");
+    }
+
+    private void WriteReferenceMatchValidation(
+        CodeWriter writer,
+        ProtocolMemberDefinition member,
+        string parameterExpression,
+        string memberName)
+    {
+        string matchExpression = GetReferenceParameterMatchExpression(member, parameterExpression);
+        writer.WriteLine(
+            $"GeneratedCodecRuntime.ValidateParameterMatch({parameterExpression}, \"{EscapeStringLiteral(memberName)}\", {matchExpression});");
     }
 
     private static void WriteRepeatedCardinalityValidation(
@@ -638,7 +660,7 @@ internal sealed partial class ProtocolSourceRenderer
         IReadOnlyList<ProtocolMemberDefinition> members,
         IReadOnlyList<GeneratedProperty> properties)
     {
-        int propertyIndex = 0;
+        int propertyIndex = properties.Count > 0 && string.Equals(properties[0].Name, "MessageId", StringComparison.Ordinal) ? 1 : 0;
         foreach (ProtocolMemberDefinition member in members)
         {
             switch (member)
@@ -752,19 +774,7 @@ internal sealed partial class ProtocolSourceRenderer
         ProtocolMemberDefinition member,
         string sourceName)
     {
-        IEnumerable<ParameterWireIdentity> identities = member switch
-        {
-            ParameterReferenceDefinition parameter =>
-                [symbols.GetParameterWireIdentity(parameter.ParameterType)],
-            ChoiceReferenceDefinition choice => choiceDefinitions[choice.ChoiceType]
-                .ParameterTypes
-                .Where(parameterName =>
-                    !canonicalTrailingEnvelopeChoices.Contains(choice.ChoiceType)
-                    || !symbols.IsEnvelopeParameter(parameterName))
-                .Select(symbols.GetParameterWireIdentity),
-            _ => throw new InvalidOperationException("A generated reference must be a parameter or choice."),
-        };
-        string[] expressions = identities
+        string[] expressions = GetReferenceWireIdentities(member)
             .Select(identity =>
                 $"GeneratedCodecRuntime.IsNextParameter({sourceName}[offset..], " +
                 $"{identity.TypeNumber.ToString(CultureInfo.InvariantCulture)}, " +
@@ -780,21 +790,57 @@ internal sealed partial class ProtocolSourceRenderer
         };
     }
 
+    private string GetReferenceParameterMatchExpression(
+        ProtocolMemberDefinition member,
+        string parameterExpression)
+    {
+        string[] expressions = GetReferenceWireIdentities(member)
+            .Select(identity =>
+                $"GeneratedCodecRuntime.IsParameterMatch(registry, version, {parameterExpression}, " +
+                $"{identity.TypeNumber.ToString(CultureInfo.InvariantCulture)}, " +
+                $"{identity.MatchCustomMetadata.ToString().ToLowerInvariant()}, " +
+                $"{identity.VendorId.ToString(CultureInfo.InvariantCulture)}U, " +
+                $"{identity.Subtype.ToString(CultureInfo.InvariantCulture)}U)")
+            .ToArray();
+        return expressions.Length switch
+        {
+            0 => "false",
+            1 => expressions[0],
+            _ => $"({string.Join(" || ", expressions)})",
+        };
+    }
+
+    private IEnumerable<ParameterWireIdentity> GetReferenceWireIdentities(ProtocolMemberDefinition member)
+    {
+        return member switch
+        {
+            ParameterReferenceDefinition parameter =>
+                [symbols.GetParameterWireIdentity(parameter.ParameterType)],
+            ChoiceReferenceDefinition choice => choiceDefinitions[choice.ChoiceType]
+                .ParameterTypes
+                .Where(parameterName =>
+                    !canonicalTrailingEnvelopeChoices.Contains(choice.ChoiceType)
+                    || !symbols.IsEnvelopeParameter(parameterName))
+                .Select(symbols.GetParameterWireIdentity),
+            _ => throw new InvalidOperationException("A generated reference must be a parameter or choice."),
+        };
+    }
+
     private string GetFieldDecodeExpression(FieldDefinition field, string propertyType)
     {
         if (field.Enumeration is not null)
         {
             return field.FieldType switch
             {
-                ProtocolFieldType.U1 => $"({propertyType})reader.ReadBits(1)",
-                ProtocolFieldType.U2 => $"({propertyType})reader.ReadBits(2)",
-                ProtocolFieldType.S8 => $"({propertyType})reader.ReadSByte()",
-                ProtocolFieldType.U8 => $"({propertyType})reader.ReadByte()",
-                ProtocolFieldType.S16 => $"({propertyType})reader.ReadInt16()",
-                ProtocolFieldType.U16 => $"({propertyType})reader.ReadUInt16()",
-                ProtocolFieldType.S32 => $"({propertyType})reader.ReadInt32()",
-                ProtocolFieldType.U32 => $"({propertyType})reader.ReadUInt32()",
-                ProtocolFieldType.U64 => $"({propertyType})reader.ReadUInt64()",
+                ProtocolFieldType.U1 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadBits(1))",
+                ProtocolFieldType.U2 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadBits(2))",
+                ProtocolFieldType.S8 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadSByte())",
+                ProtocolFieldType.U8 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadByte())",
+                ProtocolFieldType.S16 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadInt16())",
+                ProtocolFieldType.U16 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadUInt16())",
+                ProtocolFieldType.S32 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadInt32())",
+                ProtocolFieldType.U32 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadUInt32())",
+                ProtocolFieldType.U64 => $"GeneratedCodecRuntime.ReadEnum<{propertyType}>(reader.ReadUInt64())",
                 ProtocolFieldType.U1Vector =>
                     $"reader.ReadEnumBitVector<{GetEnumerationElementType(field)}>()",
                 ProtocolFieldType.U8Vector =>
@@ -834,7 +880,7 @@ internal sealed partial class ProtocolSourceRenderer
     {
         if (field.Enumeration is not null)
         {
-            return field.FieldType switch
+            string statement = field.FieldType switch
             {
                 ProtocolFieldType.U1 =>
                     $"wireWriter.WriteBits(global::System.Convert.ToUInt64({access}, global::System.Globalization.CultureInfo.InvariantCulture), 1);",
@@ -861,6 +907,12 @@ internal sealed partial class ProtocolSourceRenderer
                 _ => throw new InvalidOperationException(
                     $"Enumeration field type '{field.FieldType}' is not supported by generated codecs."),
             };
+            return field.FieldType is ProtocolFieldType.U1Vector
+                or ProtocolFieldType.U8Vector
+                or ProtocolFieldType.U16Vector
+                or ProtocolFieldType.U32Vector
+                ? statement
+                : $"GeneratedCodecRuntime.ValidateEnum({access}, \"{EscapeStringLiteral(field.Name)}\"); {statement}";
         }
 
         return field.FieldType switch
@@ -1015,7 +1067,7 @@ internal sealed partial class ProtocolSourceRenderer
 
         writer.WriteLine("}");
         return new GeneratedSourceFile(
-            $"Registry/{CSharpIdentifier.WithoutEscapePrefix(moduleIdentifier)}.g.cs",
+            $"Registry/{versionNamespace}/{CSharpIdentifier.WithoutEscapePrefix(moduleIdentifier)}.g.cs",
             GeneratedSourceKind.RegistryModule,
             writer.ToString());
     }

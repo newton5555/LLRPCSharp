@@ -137,7 +137,8 @@ internal sealed partial class ProtocolSourceRenderer
     private GeneratedSourceFile RenderMessage(MessageDefinition message, int index)
     {
         string identifier = symbols.GetMessage(message.Name);
-        var allocator = new CSharpIdentifierAllocator(["MessageId", "TypeNumber"]);
+        var allocator = new CSharpIdentifierAllocator(
+            [identifier, "MessageId", "TypeNumber", "MessageType"]);
         List<GeneratedProperty> properties =
         [
             new GeneratedProperty("uint", "MessageId", "The common LLRP message identifier.", Definition: null),
@@ -153,6 +154,7 @@ internal sealed partial class ProtocolSourceRenderer
         using (writer.Indent())
         {
             writer.WriteLine($"public const ushort TypeNumber = {message.TypeNumber.ToString(CultureInfo.InvariantCulture)};");
+            writer.WriteLine("public const ushort MessageType = TypeNumber;");
         }
 
         writer.WriteLine("}");
@@ -163,7 +165,7 @@ internal sealed partial class ProtocolSourceRenderer
     {
         string identifier = symbols.GetMessage(message.Name);
         var allocator = new CSharpIdentifierAllocator(
-            ["MessageId", "TypeNumber", "VendorIdentifier", "Subtype"]);
+            [identifier, "MessageId", "TypeNumber", "MessageType", "VendorIdentifier", "Subtype"]);
         List<GeneratedProperty> properties =
         [
             new GeneratedProperty("uint", "MessageId", "The common LLRP message identifier.", Definition: null),
@@ -179,6 +181,7 @@ internal sealed partial class ProtocolSourceRenderer
         using (writer.Indent())
         {
             writer.WriteLine("public const ushort TypeNumber = 1023;");
+            writer.WriteLine("public const ushort MessageType = TypeNumber;");
             writer.WriteLine($"public const uint VendorIdentifier = {symbols.GetVendorId(message.Vendor).ToString(CultureInfo.InvariantCulture)}U;");
             writer.WriteLine($"public const byte Subtype = {message.Subtype.ToString(CultureInfo.InvariantCulture)};");
         }
@@ -190,7 +193,7 @@ internal sealed partial class ProtocolSourceRenderer
     private GeneratedSourceFile RenderParameter(ParameterDefinition parameter, int index)
     {
         string identifier = symbols.GetParameter(parameter.Name);
-        var allocator = new CSharpIdentifierAllocator(["TypeNumber"]);
+        var allocator = new CSharpIdentifierAllocator([identifier, "TypeNumber", "ParameterType"]);
         List<GeneratedProperty> properties = CreateProperties(parameter.Members, allocator);
         List<string> interfaces = GetParameterInterfaces(parameter.Name);
         var writer = CreateWriter("Parameters");
@@ -203,6 +206,10 @@ internal sealed partial class ProtocolSourceRenderer
         using (writer.Indent())
         {
             writer.WriteLine($"public const ushort TypeNumber = {parameter.TypeNumber.ToString(CultureInfo.InvariantCulture)};");
+            if (!properties.Any(p => p.Name.StartsWith("ParameterType", StringComparison.Ordinal)))
+            {
+                writer.WriteLine($"public const ushort ParameterType = {parameter.TypeNumber.ToString(CultureInfo.InvariantCulture)};");
+            }
         }
 
         writer.WriteLine("}");
@@ -212,7 +219,7 @@ internal sealed partial class ProtocolSourceRenderer
     private GeneratedSourceFile RenderCustomParameter(CustomParameterDefinition parameter, int index)
     {
         string identifier = symbols.GetParameter(parameter.Name);
-        var allocator = new CSharpIdentifierAllocator(["TypeNumber", "VendorIdentifier", "Subtype"]);
+        var allocator = new CSharpIdentifierAllocator([identifier, "TypeNumber", "ParameterType", "VendorIdentifier", "Subtype"]);
         List<GeneratedProperty> properties = CreateProperties(parameter.Members, allocator);
         List<string> interfaces = GetParameterInterfaces(parameter.Name);
         foreach (AllowedInDefinition allowed in parameter.AllowedIn)
@@ -256,7 +263,7 @@ internal sealed partial class ProtocolSourceRenderer
         return writer;
     }
 
-    private static GeneratedSourceFile CreateSource(
+    private GeneratedSourceFile CreateSource(
         string category,
         int index,
         string identifier,
@@ -264,7 +271,7 @@ internal sealed partial class ProtocolSourceRenderer
         CodeWriter writer)
     {
         string fileIdentifier = CSharpIdentifier.WithoutEscapePrefix(identifier);
-        string hintName = $"{category}/{index.ToString("D4", CultureInfo.InvariantCulture)}.{fileIdentifier}.g.cs";
+        string hintName = $"{category}/{versionNamespace}/{index.ToString("D4", CultureInfo.InvariantCulture)}.{fileIdentifier}.g.cs";
         return new GeneratedSourceFile(hintName, kind, writer.ToString());
     }
 
