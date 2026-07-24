@@ -458,7 +458,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             throw new LlrpReaderOperationException(
                 request.GetType().Name,
-                errorMessage.Status);
+                errorMessage.LLRPStatus);
         }
 
         if (response.GetType() != typeof(TResponse))
@@ -697,7 +697,8 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         var request = new GetReaderCapabilities(
             _messageIds.Next(),
-            GetReaderCapabilitiesRequestedData.All);
+            GetReaderCapabilitiesRequestedData.All,
+            CustomItems: []);
         GetReaderCapabilitiesResponse response;
         try
         {
@@ -715,14 +716,14 @@ public sealed class LlrpReader : IAsyncDisposable
                 exception);
         }
 
-        if (response.Status.StatusCode != LlrpStatusCode.MSuccess)
+        if (response.LLRPStatus.StatusCode != LlrpStatusCode.M_Success)
         {
-            throw new LlrpReaderOperationException("GET_READER_CAPABILITIES", response.Status);
+            throw new LlrpReaderOperationException("GET_READER_CAPABILITIES", response.LLRPStatus);
         }
 
-        GeneralDeviceCapabilities[] generalCapabilities = response.Parameters
-            .OfType<GeneralDeviceCapabilities>()
-            .ToArray();
+        GeneralDeviceCapabilities[] generalCapabilities = response.GeneralDeviceCapabilities is null
+            ? Array.Empty<GeneralDeviceCapabilities>()
+            : [response.GeneralDeviceCapabilities];
         if (generalCapabilities.Length != 1)
         {
             throw new LlrpReaderInitializationException(

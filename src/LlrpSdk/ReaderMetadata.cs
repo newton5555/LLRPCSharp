@@ -52,11 +52,18 @@ public sealed class ReaderCapabilities
 
         MaxNumberOfAntennas = generalDeviceCapabilities.MaxNumberOfAntennaSupported;
         CanSetAntennaProperties = generalDeviceCapabilities.CanSetAntennaProperties;
-        HasUtcClockCapability = generalDeviceCapabilities.HasUtcClockCapability;
-        GeneralDeviceParameters = generalDeviceCapabilities.Parameters;
+        HasUtcClockCapability = generalDeviceCapabilities.HasUTCClockCapability;
+        ILlrpParameter[] generalDeviceParams =
+        [
+            .. generalDeviceCapabilities.ReceiveSensitivityTableEntryItems,
+            .. generalDeviceCapabilities.PerAntennaReceiveSensitivityRangeItems,
+            generalDeviceCapabilities.GPIOCapabilities,
+            .. generalDeviceCapabilities.PerAntennaAirProtocolItems,
+        ];
+        GeneralDeviceParameters = Array.AsReadOnly(generalDeviceParams);
         RawResponse = rawResponse;
         _additionalParameters = Array.AsReadOnly(
-            rawResponse.Parameters
+            rawResponse.CustomItems
                 .Where(parameter => !ReferenceEquals(parameter, generalDeviceCapabilities))
                 .ToArray());
     }

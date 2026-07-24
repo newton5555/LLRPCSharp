@@ -4,6 +4,7 @@ using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
+using ROSpec = LlrpNet.Protocol.Parameters.V1_0_1.ROSpec;
 
 namespace LlrpSdk;
 
@@ -30,11 +31,18 @@ internal sealed class RoSpecService : IRoSpecService
     {
         ArgumentNullException.ThrowIfNull(roSpec);
         ValidateRoSpecForRequest(roSpec);
-        var request = new AddRoSpec(_messageIds.Next(), roSpec);
+        if (roSpec is not ROSpec typedRoSpec)
+        {
+            throw new ArgumentException(
+                $"The supplied ROSpec must be an instance of {nameof(ROSpec)} for the negotiated protocol version.",
+                nameof(roSpec));
+        }
+
+        var request = new AddRoSpec(_messageIds.Next(), typedRoSpec);
         AddRoSpecResponse response = await _reader
             .TransactAsync<AddRoSpecResponse>(request, timeout: null, cancellationToken)
             .ConfigureAwait(false);
-        EnsureSuccess("ADD_ROSPEC", response.Status);
+        EnsureSuccess("ADD_ROSPEC", response.LLRPStatus);
     }
 
     public async Task DeleteAsync(
@@ -45,7 +53,7 @@ internal sealed class RoSpecService : IRoSpecService
         DeleteRoSpecResponse response = await _reader
             .TransactAsync<DeleteRoSpecResponse>(request, timeout: null, cancellationToken)
             .ConfigureAwait(false);
-        EnsureSuccess("DELETE_ROSPEC", response.Status);
+        EnsureSuccess("DELETE_ROSPEC", response.LLRPStatus);
     }
 
     public async Task EnableAsync(
@@ -56,7 +64,7 @@ internal sealed class RoSpecService : IRoSpecService
         EnableRoSpecResponse response = await _reader
             .TransactAsync<EnableRoSpecResponse>(request, timeout: null, cancellationToken)
             .ConfigureAwait(false);
-        EnsureSuccess("ENABLE_ROSPEC", response.Status);
+        EnsureSuccess("ENABLE_ROSPEC", response.LLRPStatus);
     }
 
     public async Task DisableAsync(
@@ -67,7 +75,7 @@ internal sealed class RoSpecService : IRoSpecService
         DisableRoSpecResponse response = await _reader
             .TransactAsync<DisableRoSpecResponse>(request, timeout: null, cancellationToken)
             .ConfigureAwait(false);
-        EnsureSuccess("DISABLE_ROSPEC", response.Status);
+        EnsureSuccess("DISABLE_ROSPEC", response.LLRPStatus);
     }
 
     public async Task StartAsync(
@@ -78,7 +86,7 @@ internal sealed class RoSpecService : IRoSpecService
         StartRoSpecResponse response = await _reader
             .TransactAsync<StartRoSpecResponse>(request, timeout: null, cancellationToken)
             .ConfigureAwait(false);
-        EnsureSuccess("START_ROSPEC", response.Status);
+        EnsureSuccess("START_ROSPEC", response.LLRPStatus);
     }
 
     public async Task StopAsync(
@@ -89,7 +97,7 @@ internal sealed class RoSpecService : IRoSpecService
         StopRoSpecResponse response = await _reader
             .TransactAsync<StopRoSpecResponse>(request, timeout: null, cancellationToken)
             .ConfigureAwait(false);
-        EnsureSuccess("STOP_ROSPEC", response.Status);
+        EnsureSuccess("STOP_ROSPEC", response.LLRPStatus);
     }
 
     public async Task<IReadOnlyList<ILlrpParameter>> GetAllAsync(
@@ -99,9 +107,9 @@ internal sealed class RoSpecService : IRoSpecService
         GetRoSpecsResponse response = await _reader
             .TransactAsync<GetRoSpecsResponse>(request, timeout: null, cancellationToken)
             .ConfigureAwait(false);
-        EnsureSuccess("GET_ROSPECS", response.Status);
+        EnsureSuccess("GET_ROSPECS", response.LLRPStatus);
 
-        ILlrpParameter[] roSpecs = response.RoSpecs.ToArray();
+        ILlrpParameter[] roSpecs = response.ROSpecItems.Cast<ILlrpParameter>().ToArray();
         foreach (ILlrpParameter roSpec in roSpecs)
         {
             ValidateRoSpecFromResponse(roSpec);
@@ -161,7 +169,7 @@ internal sealed class RoSpecService : IRoSpecService
 
     private static void EnsureSuccess(string operation, LlrpStatus status)
     {
-        if (status.StatusCode != LlrpStatusCode.MSuccess)
+        if (status.StatusCode != LlrpStatusCode.M_Success)
         {
             throw new LlrpReaderOperationException(operation, status);
         }
