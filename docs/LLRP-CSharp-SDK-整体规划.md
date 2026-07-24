@@ -379,6 +379,8 @@ public sealed class LlrpReader : IAsyncDisposable
 
 连接、配置、Start/Stop、盘点流及常用标签访问直接放在设备根对象上。ROSpec/AccessSpec 通过稳定服务暴露。第一阶段标签访问逐步覆盖 Read、Write、Lock、Kill；组合操作统一走 `ExecuteTagAccessAsync`；LLRP 2.0 Authenticate/Untraceable 后续加入。
 
+截至 2026-07-24，已实现的 M3/M4 基线为：`StartAsync(ReaderSettings)`、`StopAsync()`、`InventoryAsync(ReaderSettings?)`、`ReadTagReportsAsync()`、`CurrentSettings`、`RoSpecs`、`AccessSpecs`、`IsManagedStateSynchronized` 和 `SynchronizeStateAsync()`。`ApplySettingsAsync`、`QuerySettingsAsync`、标签访问、事件化 TagReport 与 Extension 集合仍为后续 API；它们不能被表中的草案签名误解为当前已可调用。
+
 ## 11. Managed / Raw 与状态同步
 
 高级方法、`RoSpecs` 和 `AccessSpecs` 属于 Managed 模式，SDK 管理资源 ID、设备状态、配置缓存和期望状态。`Protocol` 属于 Raw 模式，调用者可以发送任何消息，但 SDK 无法保证缓存仍有效。
@@ -387,6 +389,8 @@ public sealed class LlrpReader : IAsyncDisposable
 - 下一次 Managed 操作前自动或显式执行 `SynchronizeStateAsync()`；
 - 无法可靠查询的状态明确标记为未知，不能假装缓存仍有效；
 - CLI 的原始消息命令遵守相同规则。
+
+当前实现采用保守策略：`reader.Protocol` 的成功 Typed/Raw 发送或事务完成后，将 `IsManagedStateSynchronized` 置为 `false` 并清除本地托管盘点状态；后续 `StartAsync` 要求先调用 `SynchronizeStateAsync()`。同步会查询 ROSpec 与 AccessSpec，但不会猜测或自动恢复之前的高级盘点意图；应用必须明确建立下一份期望配置。
 
 ## 12. CLI 规划与依赖边界
 
