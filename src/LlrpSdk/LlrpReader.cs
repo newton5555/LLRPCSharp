@@ -10,6 +10,7 @@ using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace LlrpSdk;
@@ -75,6 +76,11 @@ public sealed class LlrpReader : IAsyncDisposable
         _logger = options.LoggerFactory.CreateLogger<LlrpReader>();
         _registry = new LlrpCodecRegistry();
         Llrp101StandardModule.Register(_registry);
+        foreach (ILlrpProtocolModule protocolModule in options.ProtocolModules)
+        {
+            protocolModule.Register(_registry);
+        }
+
         foreach (Action<LlrpCodecRegistry> configureProtocol in options.ProtocolConfigurations)
         {
             configureProtocol(_registry);

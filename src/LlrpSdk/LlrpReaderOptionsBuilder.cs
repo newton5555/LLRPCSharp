@@ -3,6 +3,7 @@ using LlrpNet.Core.Frames;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Transport;
 using LlrpNet.Protocol.Registry;
+using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -26,6 +27,7 @@ public sealed class LlrpReaderOptionsBuilder
     private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
     private ILlrpFrameObserver _frameObserver = NullLlrpFrameObserver.Instance;
     private LlrpTransportFactory? _transportFactory;
+    private readonly List<ILlrpProtocolModule> _protocolModules = [];
     private readonly List<Action<LlrpCodecRegistry>> _protocolConfigurations = [];
 
     /// <summary>
@@ -169,6 +171,27 @@ public sealed class LlrpReaderOptionsBuilder
     }
 
     /// <summary>
+    /// Registers a cohesive protocol module before the reader can connect.
+    /// </summary>
+    /// <param name="module">The standard, vendor, or customer protocol module.</param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Modules run after the built-in standard module and before low-level <see cref="ConfigureProtocol"/> callbacks.
+    /// Duplicate module identifiers and conflicting codec registrations fail while the reader is being built.
+    /// </remarks>
+    public LlrpReaderOptionsBuilder UseProtocolModule(ILlrpProtocolModule module)
+    {
+        ArgumentNullException.ThrowIfNull(module);
+        if (string.IsNullOrWhiteSpace(module.Id))
+        {
+            throw new ArgumentException("A protocol module must have a non-empty identifier.", nameof(module));
+        }
+
+        _protocolModules.Add(module);
+        return this;
+    }
+
+    /// <summary>
     /// Validates the accumulated values and creates immutable reader options.
     /// </summary>
     /// <returns>The immutable options.</returns>
@@ -186,6 +209,7 @@ public sealed class LlrpReaderOptionsBuilder
             _loggerFactory,
             _frameObserver,
             _transportFactory,
+            _protocolModules,
             _protocolConfigurations);
     }
 
@@ -242,6 +266,16 @@ public sealed class LlrpReaderOptionsBuilder
                 nameof(_incomingMessageCapacity),
                 _incomingMessageCapacity,
                 "The incoming message capacity must be positive.");
+        }
+
+        string? duplicateModuleId = _protocolModules
+            .GroupBy(static module => module.Id, StringComparer.Ordinal)
+            .FirstOrDefault(static group => group.Count() > 1)
+            ?.Key;
+        if (duplicateModuleId is not null)
+        {
+            throw new InvalidOperationException(
+                $"Protocol module identifier '{duplicateModuleId}' was configured more than once.");
         }
     }
 }

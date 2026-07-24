@@ -1,5 +1,6 @@
 ﻿using LlrpNet.Core.Diagnostics;
 using LlrpNet.Protocol.Registry;
+using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace LlrpSdk;
@@ -138,6 +139,15 @@ public sealed class LlrpReaderBuilder
     public LlrpReaderBuilder ConfigureProtocol(Action<LlrpCodecRegistry> configuration)
     {
         _optionsBuilder.ConfigureProtocol(configuration);
+        return this;
+    }
+
+    /// <summary>Registers a standard, vendor, or customer protocol module before connection.</summary>
+    /// <param name="module">The module that registers its codecs with the reader-owned registry.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderBuilder UseProtocolModule(ILlrpProtocolModule module)
+    {
+        _optionsBuilder.UseProtocolModule(module);
         return this;
     }
 

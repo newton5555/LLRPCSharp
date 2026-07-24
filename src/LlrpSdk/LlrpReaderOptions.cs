@@ -2,6 +2,7 @@
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Transport;
 using LlrpNet.Protocol.Registry;
+using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace LlrpSdk;
@@ -34,6 +35,7 @@ public sealed class LlrpReaderOptions
         ILoggerFactory loggerFactory,
         ILlrpFrameObserver frameObserver,
         LlrpTransportFactory? transportFactory,
+        IEnumerable<ILlrpProtocolModule> protocolModules,
         IEnumerable<Action<LlrpCodecRegistry>> protocolConfigurations)
     {
         Host = host;
@@ -46,6 +48,7 @@ public sealed class LlrpReaderOptions
         LoggerFactory = loggerFactory;
         FrameObserver = frameObserver;
         TransportFactory = transportFactory ?? CreateTcpTransport;
+        ProtocolModules = Array.AsReadOnly(protocolModules.ToArray());
         ProtocolConfigurations = Array.AsReadOnly(protocolConfigurations.ToArray());
     }
 
@@ -98,6 +101,9 @@ public sealed class LlrpReaderOptions
     /// Gets the transport factory. A custom factory is useful for alternate transports and deterministic tests.
     /// </summary>
     public LlrpTransportFactory TransportFactory { get; }
+
+    /// <summary>Gets protocol modules registered before the reader connects.</summary>
+    public IReadOnlyList<ILlrpProtocolModule> ProtocolModules { get; }
 
     internal IReadOnlyList<Action<LlrpCodecRegistry>> ProtocolConfigurations { get; }
 
