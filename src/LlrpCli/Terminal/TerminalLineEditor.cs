@@ -246,12 +246,12 @@ public sealed class TerminalLineEditor : IDisposable
             Console.Write("\u001b[1A\r");
         }
 
+        Console.Write("\r");
         int targetColumn = rawPrompt.Length + cursor;
         if (targetColumn > 0)
         {
             Console.Write($"\u001b[{targetColumn}C");
         }
-
     }
 
     private static void CommitLine(string prompt, StringBuilder buffer, bool assistRendered)

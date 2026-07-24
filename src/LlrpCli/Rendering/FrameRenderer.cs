@@ -171,14 +171,23 @@ public static class FrameRenderer
             if (value is System.Collections.IEnumerable enumerable and not string and not byte[])
             {
                 var listNode = parentNode.AddNode($"[deepskyblue1]{Markup.Escape(propName)}[/] [grey](collection)[/]");
+                int index = 0;
                 foreach (object item in enumerable)
                 {
                     if (item is null)
                     {
                         continue;
                     }
-                    var itemNode = listNode.AddNode($"[green]{Markup.Escape(item.GetType().Name)}[/]");
-                    BuildObjectTree(itemNode, item, depth + 1);
+
+                    if (item.GetType().IsPrimitive || item is Enum || item is string)
+                    {
+                        listNode.AddNode($"[grey]{Markup.Escape($"[{index++}]:")}[/] [white]{Markup.Escape(item.ToString() ?? string.Empty)}[/]");
+                    }
+                    else
+                    {
+                        var itemNode = listNode.AddNode($"[green]{Markup.Escape(item.GetType().Name)}[/]");
+                        BuildObjectTree(itemNode, item, depth + 1);
+                    }
                 }
             }
             else if (value.GetType().Assembly == typeof(LlrpMessageHeader).Assembly
