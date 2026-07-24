@@ -142,6 +142,15 @@ public sealed class LlrpReaderBuilder
         return this;
     }
 
+    /// <summary>Enables bounded automatic reconnect after an unexpected connected-session failure.</summary>
+    /// <param name="options">The retry policy to use.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderBuilder WithAutomaticReconnect(LlrpAutomaticReconnectOptions options)
+    {
+        _optionsBuilder.WithAutomaticReconnect(options);
+        return this;
+    }
+
     /// <summary>Registers a standard, vendor, or customer protocol module before connection.</summary>
     /// <param name="module">The module that registers its codecs with the reader-owned registry.</param>
     /// <returns>This builder.</returns>

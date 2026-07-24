@@ -22,6 +22,7 @@ public sealed class LlrpReader : IAsyncDisposable
 {
     private readonly Channel<ILlrpMessage> _messages;
     private readonly Channel<TagReport> _tagReports;
+    private readonly object _automaticReconnectGate = new();
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly ILogger<LlrpReader> _logger;
@@ -31,6 +32,8 @@ public sealed class LlrpReader : IAsyncDisposable
     private readonly LlrpSession _session;
     private CancellationTokenSource? _pumpCancellation;
     private Task? _pumpTask;
+    private CancellationTokenSource? _automaticReconnectCancellation;
+    private Task? _automaticReconnectTask;
     private ReaderSettings? _currentSettings;
     private ReaderMetadataSnapshot? _metadata;
     private uint? _managedInventoryRoSpecId;
@@ -218,6 +221,7 @@ public sealed class LlrpReader : IAsyncDisposable
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
+        CancelAutomaticReconnect();
         var transitions = new List<StateTransition>();
         Exception? reportedError = null;
 
@@ -301,6 +305,7 @@ public sealed class LlrpReader : IAsyncDisposable
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
+        CancelAutomaticReconnect();
         var transitions = new List<StateTransition>();
         Exception? reportedError = null;
 
@@ -350,9 +355,20 @@ public sealed class LlrpReader : IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancels either lifecycle operation.</param>
     /// <returns>A task representing both lifecycle operations.</returns>
-    public async Task ReconnectAsync(CancellationToken cancellationToken = default)
+    public Task ReconnectAsync(CancellationToken cancellationToken = default)
+    {
+        return ReconnectAsync(cancellationToken, cancelAutomaticReconnect: true);
+    }
+
+    private async Task ReconnectAsync(
+        CancellationToken cancellationToken,
+        bool cancelAutomaticReconnect)
     {
         ThrowIfDisposed();
+        if (cancelAutomaticReconnect)
+        {
+            CancelAutomaticReconnect();
+        }
         var transitions = new List<StateTransition>();
         Exception? reportedError = null;
 
@@ -622,6 +638,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        CancelAutomaticReconnect();
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
@@ -913,6 +930,7 @@ public sealed class LlrpReader : IAsyncDisposable
         Exception failure)
     {
         var transitions = new List<StateTransition>();
+        bool scheduleAutomaticReconnect = false;
         try
         {
             await _lifecycleLock.WaitAsync(cancellation.Token).ConfigureAwait(false);
@@ -935,6 +953,7 @@ public sealed class LlrpReader : IAsyncDisposable
             ResetManagedInventoryState();
             InvalidateMetadata();
             AddTransition(transitions, ReaderConnectionState.Faulted, failure);
+            scheduleAutomaticReconnect = Options.AutomaticReconnect is not null;
             try
             {
                 await _session.DisconnectAsync().ConfigureAwait(false);
@@ -956,6 +975,98 @@ public sealed class LlrpReader : IAsyncDisposable
             {
                 PublishError(failure);
             }
+        }
+
+        if (scheduleAutomaticReconnect)
+        {
+            StartAutomaticReconnect();
+        }
+    }
+
+    private void StartAutomaticReconnect()
+    {
+        LlrpAutomaticReconnectOptions? options = Options.AutomaticReconnect;
+        if (options is null || Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
+        lock (_automaticReconnectGate)
+        {
+            if (_automaticReconnectTask is not null)
+            {
+                return;
+            }
+
+            var cancellation = new CancellationTokenSource();
+            _automaticReconnectCancellation = cancellation;
+            _automaticReconnectTask = RunAutomaticReconnectAsync(cancellation, options);
+        }
+    }
+
+    private async Task RunAutomaticReconnectAsync(
+        CancellationTokenSource cancellation,
+        LlrpAutomaticReconnectOptions options)
+    {
+        try
+        {
+            for (int attempt = 1; attempt <= options.MaximumAttempts; attempt++)
+            {
+                await Task.Delay(options.GetDelay(attempt), cancellation.Token).ConfigureAwait(false);
+                if (ConnectionState != ReaderConnectionState.Faulted)
+                {
+                    return;
+                }
+
+                try
+                {
+                    await ReconnectAsync(cancellation.Token, cancelAutomaticReconnect: false).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "LLRP reader session {ConnectionId} reconnected automatically on attempt {Attempt}",
+                        ConnectionId,
+                        attempt);
+                    return;
+                }
+                catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogWarning(
+                        exception,
+                        "Automatic reconnect attempt {Attempt} of {MaximumAttempts} failed for LLRP reader {ConnectionId}",
+                        attempt,
+                        options.MaximumAttempts,
+                        ConnectionId);
+                }
+            }
+
+            _logger.LogError(
+                "Automatic reconnect exhausted {MaximumAttempts} attempts for LLRP reader {ConnectionId}",
+                options.MaximumAttempts,
+                ConnectionId);
+        }
+        finally
+        {
+            lock (_automaticReconnectGate)
+            {
+                if (ReferenceEquals(_automaticReconnectCancellation, cancellation))
+                {
+                    _automaticReconnectCancellation = null;
+                    _automaticReconnectTask = null;
+                }
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelAutomaticReconnect()
+    {
+        lock (_automaticReconnectGate)
+        {
+            _automaticReconnectCancellation?.Cancel();
         }
     }
 

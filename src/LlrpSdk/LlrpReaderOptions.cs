@@ -34,6 +34,7 @@ public sealed class LlrpReaderOptions
         int incomingMessageCapacity,
         ILoggerFactory loggerFactory,
         ILlrpFrameObserver frameObserver,
+        LlrpAutomaticReconnectOptions? automaticReconnect,
         LlrpTransportFactory? transportFactory,
         IEnumerable<ILlrpProtocolModule> protocolModules,
         IEnumerable<Action<LlrpCodecRegistry>> protocolConfigurations)
@@ -47,6 +48,7 @@ public sealed class LlrpReaderOptions
         IncomingMessageCapacity = incomingMessageCapacity;
         LoggerFactory = loggerFactory;
         FrameObserver = frameObserver;
+        AutomaticReconnect = automaticReconnect;
         TransportFactory = transportFactory ?? CreateTcpTransport;
         ProtocolModules = Array.AsReadOnly(protocolModules.ToArray());
         ProtocolConfigurations = Array.AsReadOnly(protocolConfigurations.ToArray());
@@ -96,6 +98,9 @@ public sealed class LlrpReaderOptions
     /// Gets the exact-frame observer used by the default TCP transport.
     /// </summary>
     public ILlrpFrameObserver FrameObserver { get; }
+
+    /// <summary>Gets the opt-in automatic reconnect policy, or <see langword="null"/> when disabled.</summary>
+    public LlrpAutomaticReconnectOptions? AutomaticReconnect { get; }
 
     /// <summary>
     /// Gets the transport factory. A custom factory is useful for alternate transports and deterministic tests.

@@ -26,6 +26,7 @@ public sealed class LlrpReaderOptionsBuilder
     private int _incomingMessageCapacity = LlrpReaderOptions.DefaultIncomingMessageCapacity;
     private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
     private ILlrpFrameObserver _frameObserver = NullLlrpFrameObserver.Instance;
+    private LlrpAutomaticReconnectOptions? _automaticReconnect;
     private LlrpTransportFactory? _transportFactory;
     private readonly List<ILlrpProtocolModule> _protocolModules = [];
     private readonly List<Action<LlrpCodecRegistry>> _protocolConfigurations = [];
@@ -170,6 +171,15 @@ public sealed class LlrpReaderOptionsBuilder
         return this;
     }
 
+    /// <summary>Enables bounded automatic reconnect after an unexpected connected-session failure.</summary>
+    /// <param name="options">The retry policy to use.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderOptionsBuilder WithAutomaticReconnect(LlrpAutomaticReconnectOptions options)
+    {
+        _automaticReconnect = options ?? throw new ArgumentNullException(nameof(options));
+        return this;
+    }
+
     /// <summary>
     /// Registers a cohesive protocol module before the reader can connect.
     /// </summary>
@@ -208,6 +218,7 @@ public sealed class LlrpReaderOptionsBuilder
             _incomingMessageCapacity,
             _loggerFactory,
             _frameObserver,
+            _automaticReconnect,
             _transportFactory,
             _protocolModules,
             _protocolConfigurations);
