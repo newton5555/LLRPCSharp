@@ -30,7 +30,6 @@ public sealed class TerminalLineEditor : IDisposable
         }
 
         bool previousControlMode = Console.TreatControlCAsInput;
-        bool hasAssistLine = assistProvider is not null;
         bool assistRendered = false;
 
         try
@@ -43,12 +42,14 @@ public sealed class TerminalLineEditor : IDisposable
             string? preTabPrefix = null;
 
             var assist = GetAssist(assistProvider, buffer.ToString(), cursor);
-            Redraw(prompt, buffer, cursor, assist, assistRendered, hasAssistLine);
-            assistRendered = hasAssistLine;
+            bool renderAssistLine = ShouldRenderAssistLine(assist);
+            Redraw(prompt, buffer, cursor, assist, assistRendered, renderAssistLine);
+            assistRendered = renderAssistLine;
 
             while (true)
             {
                 ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+                bool redraw = false;
 
                 if (key.Key != ConsoleKey.Tab)
                 {
@@ -76,6 +77,7 @@ public sealed class TerminalLineEditor : IDisposable
                 {
                     buffer.Clear();
                     cursor = 0;
+                    redraw = true;
                 }
                 else if (key.Key == ConsoleKey.Tab && assist.Candidates.Count > 0)
                 {
@@ -101,18 +103,22 @@ public sealed class TerminalLineEditor : IDisposable
                     }
 
                     cursor = buffer.Length;
+                    redraw = true;
                 }
                 else if (key.Key == ConsoleKey.Backspace && cursor > 0)
                 {
                     buffer.Remove(--cursor, 1);
+                    redraw = true;
                 }
                 else if (key.Key == ConsoleKey.Delete && cursor < buffer.Length)
                 {
                     buffer.Remove(cursor, 1);
+                    redraw = true;
                 }
                 else if (key.Key == ConsoleKey.LeftArrow && cursor > 0)
                 {
                     cursor--;
+                    redraw = true;
                 }
                 else if (key.Key == ConsoleKey.RightArrow)
                 {
@@ -120,10 +126,12 @@ public sealed class TerminalLineEditor : IDisposable
                     {
                         buffer.Append(assist.GhostSuffix);
                         cursor = buffer.Length;
+                        redraw = true;
                     }
                     else if (cursor < buffer.Length)
                     {
                         cursor++;
+                        redraw = true;
                     }
                 }
                 else if (key.Key == ConsoleKey.UpArrow && _history.Count > 0)
@@ -134,6 +142,7 @@ public sealed class TerminalLineEditor : IDisposable
                         buffer.Clear();
                         buffer.Append(_history[historyIndex]);
                         cursor = buffer.Length;
+                        redraw = true;
                     }
                 }
                 else if (key.Key == ConsoleKey.DownArrow && _history.Count > 0)
@@ -150,16 +159,24 @@ public sealed class TerminalLineEditor : IDisposable
                         historyIndex = _history.Count;
                         buffer.Clear();
                         cursor = 0;
+                        redraw = true;
                     }
                 }
                 else if (!char.IsControl(key.KeyChar))
                 {
                     buffer.Insert(cursor++, key.KeyChar);
+                    redraw = true;
+                }
+
+                if (!redraw)
+                {
+                    continue;
                 }
 
                 assist = GetAssist(assistProvider, buffer.ToString(), cursor);
-                Redraw(prompt, buffer, cursor, assist, assistRendered, hasAssistLine);
-                assistRendered = hasAssistLine;
+                renderAssistLine = ShouldRenderAssistLine(assist);
+                Redraw(prompt, buffer, cursor, assist, assistRendered, renderAssistLine);
+                assistRendered = renderAssistLine;
             }
         }
         finally
@@ -188,6 +205,12 @@ public sealed class TerminalLineEditor : IDisposable
         }
     }
 
+    private static bool ShouldRenderAssistLine(Commands.InputAssist assist)
+    {
+        return !string.IsNullOrEmpty(assist.GhostSuffix) &&
+            !string.IsNullOrWhiteSpace(assist.Hint);
+    }
+
     private static void Redraw(
         string prompt,
         StringBuilder buffer,
@@ -196,9 +219,6 @@ public sealed class TerminalLineEditor : IDisposable
         bool clearAssistLine,
         bool renderAssistLine)
     {
-        // Hide cursor during redrawing to eliminate flickering
-        Console.Write("\u001b[?25l");
-
         ClearEditor(clearAssistLine);
 
         string rawPrompt = CleanMarkup(prompt);
@@ -232,19 +252,15 @@ public sealed class TerminalLineEditor : IDisposable
             Console.Write($"\u001b[{targetColumn}C");
         }
 
-        // Restore visible cursor
-        Console.Write("\u001b[?25h");
     }
 
     private static void CommitLine(string prompt, StringBuilder buffer, bool assistRendered)
     {
-        Console.Write("\u001b[?25l");
         ClearEditor(assistRendered);
         string rawPrompt = CleanMarkup(prompt);
         Console.Write(rawPrompt);
         Console.Write(buffer.ToString());
         Console.WriteLine();
-        Console.Write("\u001b[?25h");
     }
 
     private static void ClearEditor(bool hasAssistLine)

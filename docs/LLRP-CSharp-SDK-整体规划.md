@@ -434,6 +434,8 @@ ReaderSettings、Settings Compiler、ROSpec Managed 服务、Start/Stop/Inventor
 
 AccessSpec Managed 服务、CLI 连接/配置/盘点/资源/Raw 命令、离线协议工具，以及 Managed/Raw 缓存失效与同步。
 
+截至 2026-07-24：`AccessSpecs` 已通过版本 Adapter 提供 Add/Delete/Enable/Disable/GetAll；交互 CLI 已提供连接、能力、盘点、ROSpec/AccessSpec 管理、帧查看和离线 encode/decode/validate/inspect。终端编辑器只在输入状态变化时重绘，候选提示按需显示，避免每键清屏和光标闪烁。在线 Raw 发送/事务命令、Settings 的查询/应用，以及 AccessSpec 的高层构造命令仍是 M4 后续工作；Raw 修改后必须通过 `SynchronizeStateAsync()` 恢复托管状态同步。
+
 ### M5：协议定义与生成系统
 
 旧 XML Importer、YAML Loader、ProtocolModel、Validator、C# / Codec / Registry Generator，并将 1.0.1 定义接入回归。

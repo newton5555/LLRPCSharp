@@ -398,7 +398,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (tokens.Length < 2)
         {
-            _console.MarkupLine("[red]Usage:[/] inventory start [antenna-id] | stop | status");
+            _console.MarkupLine("[red]Usage:[/] inventory start [[antenna-id]] | stop | status");
             return;
         }
 
@@ -446,7 +446,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 break;
 
             default:
-                _console.MarkupLine("[red]Usage:[/] inventory start [antenna-id] | stop | status");
+                _console.MarkupLine("[red]Usage:[/] inventory start [[antenna-id]] | stop | status");
                 break;
         }
     }
@@ -517,7 +517,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (tokens.Length < 2)
         {
-            _console.MarkupLine("[red]Usage:[/] rospec list|enable|disable|start|stop|delete [id]");
+            _console.MarkupLine("[red]Usage:[/] rospec list|enable|disable|start|stop|delete [[id]]");
             return;
         }
 
@@ -592,7 +592,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (tokens.Length < 2)
         {
-            _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [id]");
+            _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [[id]]");
             return;
         }
 
@@ -626,7 +626,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 _console.MarkupLine($"[bold springgreen2]✔ AccessSpec {accessSpecId} Deleted![/]");
                 break;
             default:
-                _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [id]");
+                _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [[id]]");
                 break;
         }
     }
@@ -676,7 +676,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     {
         if (tokens.Length < 2)
         {
-            _console.MarkupLine("[red]Usage:[/] encode <message-name> [--message-id ID] [--rospec-id ID]");
+            _console.MarkupLine("[red]Usage:[/] encode <message-name> [[--message-id ID]] [[--rospec-id ID]]");
             return;
         }
 
@@ -742,8 +742,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("[cyan1]disconnect[/]", "Disconnect current Reader session");
         table.AddRow("[cyan1]status[/]", "Show current connection status and metadata");
         table.AddRow("[cyan1]caps[/]", "Display Reader capabilities");
-        table.AddRow("[cyan1]frames [count][/]", "Show recent captured LLRP message frames");
+        table.AddRow("[cyan1]frames [[count]][/]", "Show recent captured LLRP message frames");
         table.AddRow("[cyan1]rospec list|enable|disable|start|stop|delete[/]", "Manage ROSpecs");
+        table.AddRow("[cyan1]accessspec list|enable|disable|delete [[id]][/]", "Manage AccessSpecs");
         table.AddRow("[cyan1]inspect <hex>[/]", "Inspect raw hex LLRP header");
         table.AddRow("[cyan1]decode <hex>[/]", "Decode raw hex into parameter tree");
         table.AddRow("[cyan1]validate <hex>[/]", "Validate LLRP frame integrity");
