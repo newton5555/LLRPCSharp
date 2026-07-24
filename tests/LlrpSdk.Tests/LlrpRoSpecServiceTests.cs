@@ -99,7 +99,7 @@ public sealed class LlrpRoSpecServiceTests
                 await Assert.ThrowsAsync<LlrpReaderOperationException>(invoke);
 
             Assert.Equal(operation, exception.Operation);
-            Assert.Equal(StatusCode.M_ParameterError, exception.StatusCode);
+            Assert.Equal((ushort)StatusCode.M_ParameterError, exception.StatusCode);
             Assert.Equal("reader rejected ROSpec operation", exception.ErrorDescription);
         }
     }
@@ -133,7 +133,7 @@ public sealed class LlrpRoSpecServiceTests
                 reader.RoSpecs.DeleteAsync(7, timeout.Token));
 
         Assert.Equal("DELETE_ROSPEC", exception.Operation);
-        Assert.Equal(StatusCode.M_UnsupportedMessage, exception.StatusCode);
+        Assert.Equal((ushort)StatusCode.M_UnsupportedMessage, exception.StatusCode);
         Assert.Equal("DELETE_ROSPEC is unavailable", exception.ErrorDescription);
     }
 

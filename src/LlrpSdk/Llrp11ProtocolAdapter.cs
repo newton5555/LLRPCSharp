@@ -1,23 +1,24 @@
 ﻿using LlrpNet.Core.Protocol;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
+using LlrpNet.Protocol.Enumerations.V1_1;
 using LlrpNet.Protocol.Messages;
-using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Messages.V1_1;
 using LlrpNet.Protocol.Parameters;
-using LlrpNet.Protocol.Parameters.V1_0_1;
+using LlrpNet.Protocol.Parameters.V1_1;
 using LlrpNet.Protocol.Registry;
-using LlrpNet.Protocol.Registry.V1_0_1;
+using LlrpNet.Protocol.Registry.V1_1;
+using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
 
 namespace LlrpSdk;
 
-/// <summary>LLRP 1.0.1 implementation of the SDK protocol-adapter boundary.</summary>
-internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
+/// <summary>LLRP 1.1 implementation of the SDK protocol-adapter boundary.</summary>
+internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
 {
-    public LlrpProtocolVersion Version => LlrpProtocolVersion.Version101;
+    public LlrpProtocolVersion Version => LlrpProtocolVersion.Version11;
 
     public void RegisterStandardCodecs(LlrpCodecRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(registry);
-        Llrp101StandardModule.Register(registry);
+        Llrp11StandardModule.Register(registry);
     }
 
     public async Task<ReaderMetadataSnapshot> InitializeAsync(
@@ -27,7 +28,7 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
     {
         GET_READER_CAPABILITIES_RESPONSE response = await reader
             .TransactDuringInitializationAsync<GET_READER_CAPABILITIES_RESPONSE>(
-                new GET_READER_CAPABILITIES(messageId, GetReaderCapabilitiesRequestedData.All, []),
+                new GET_READER_CAPABILITIES(messageId, V11Enumerations.GetReaderCapabilitiesRequestedData.All, []),
                 cancellationToken,
                 MatchesCapabilitiesResponse)
             .ConfigureAwait(false);
@@ -35,7 +36,7 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
 
         GeneralDeviceCapabilities general = response.GeneralDeviceCapabilities ??
             throw new LlrpReaderInitializationException(
-                "A successful LLRP 1.0.1 GET_READER_CAPABILITIES(All) response must contain " +
+                "A successful LLRP 1.1 GET_READER_CAPABILITIES(All) response must contain " +
                 "exactly one GeneralDeviceCapabilities parameter.");
         ILlrpParameter[] generalParameters =
         [
@@ -43,6 +44,9 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
             .. general.PerAntennaReceiveSensitivityRangeItems,
             general.GPIOCapabilities,
             .. general.PerAntennaAirProtocolItems,
+            .. (general.MaximumReceiveSensitivity is null
+                ? Array.Empty<ILlrpParameter>()
+                : [general.MaximumReceiveSensitivity]),
         ];
         return new ReaderMetadataSnapshot(
             new ReaderIdentity(general.DeviceManufacturerName, general.ModelName, general.ReaderFirmwareVersion),
@@ -55,10 +59,10 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
                 response.CustomItems));
     }
 
-    public ILlrpParameter CompileInventory(ReaderSettings settings) => Llrp101InventoryCompiler.Compile(settings);
+    public ILlrpParameter CompileInventory(ReaderSettings settings) => Llrp11InventoryCompiler.Compile(settings);
 
     public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message) =>
-        message is RO_ACCESS_REPORT report ? Llrp101TagReportTranslator.Translate(report) : [];
+        message is RO_ACCESS_REPORT report ? Llrp11TagReportTranslator.Translate(report) : [];
 
     public async Task AddRoSpecAsync(LlrpReader reader, uint messageId, ILlrpParameter roSpec, CancellationToken cancellationToken)
     {
@@ -154,17 +158,17 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
 
     private static ROSpec RequireRoSpec(ILlrpParameter parameter) => parameter as ROSpec ??
         throw new ArgumentException(
-            "The supplied ROSpec must be generated for LLRP 1.0.1 parameter type 177.",
+            "The supplied ROSpec must be generated for LLRP 1.1 parameter type 177.",
             nameof(parameter));
 
     private static AccessSpec RequireAccessSpec(ILlrpParameter parameter) => parameter as AccessSpec ??
         throw new ArgumentException(
-            "The supplied AccessSpec must be generated for LLRP 1.0.1 parameter type 207.",
+            "The supplied AccessSpec must be generated for LLRP 1.1 parameter type 207.",
             nameof(parameter));
 
     private static void EnsureSuccess(string operation, LLRPStatus status)
     {
-        if (status.StatusCode != StatusCode.M_Success)
+        if (status.StatusCode != V11Enumerations.StatusCode.M_Success)
         {
             throw new LlrpReaderOperationException(
                 operation,

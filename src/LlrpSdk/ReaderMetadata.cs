@@ -1,9 +1,8 @@
 ﻿namespace LlrpSdk;
 
 using System.Collections.ObjectModel;
-using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Parameters;
-using LlrpNet.Protocol.Parameters.V1_0_1;
 
 /// <summary>
 /// Represents immutable identity information queried from a connected reader.
@@ -44,28 +43,23 @@ public sealed class ReaderCapabilities
     private readonly ReadOnlyCollection<ILlrpParameter> _additionalParameters;
 
     internal ReaderCapabilities(
-        GeneralDeviceCapabilities generalDeviceCapabilities,
-        GetReaderCapabilitiesResponse rawResponse)
+        ushort maxNumberOfAntennas,
+        bool canSetAntennaProperties,
+        bool hasUtcClockCapability,
+        IEnumerable<ILlrpParameter> generalDeviceParameters,
+        ILlrpMessage rawResponse,
+        IEnumerable<ILlrpParameter> additionalParameters)
     {
-        ArgumentNullException.ThrowIfNull(generalDeviceCapabilities);
+        ArgumentNullException.ThrowIfNull(generalDeviceParameters);
         ArgumentNullException.ThrowIfNull(rawResponse);
+        ArgumentNullException.ThrowIfNull(additionalParameters);
 
-        MaxNumberOfAntennas = generalDeviceCapabilities.MaxNumberOfAntennaSupported;
-        CanSetAntennaProperties = generalDeviceCapabilities.CanSetAntennaProperties;
-        HasUtcClockCapability = generalDeviceCapabilities.HasUTCClockCapability;
-        ILlrpParameter[] generalDeviceParams =
-        [
-            .. generalDeviceCapabilities.ReceiveSensitivityTableEntryItems,
-            .. generalDeviceCapabilities.PerAntennaReceiveSensitivityRangeItems,
-            generalDeviceCapabilities.GPIOCapabilities,
-            .. generalDeviceCapabilities.PerAntennaAirProtocolItems,
-        ];
-        GeneralDeviceParameters = Array.AsReadOnly(generalDeviceParams);
+        MaxNumberOfAntennas = maxNumberOfAntennas;
+        CanSetAntennaProperties = canSetAntennaProperties;
+        HasUtcClockCapability = hasUtcClockCapability;
+        GeneralDeviceParameters = Array.AsReadOnly(generalDeviceParameters.ToArray());
         RawResponse = rawResponse;
-        _additionalParameters = Array.AsReadOnly(
-            rawResponse.CustomItems
-                .Where(parameter => !ReferenceEquals(parameter, generalDeviceCapabilities))
-                .ToArray());
+        _additionalParameters = Array.AsReadOnly(additionalParameters.ToArray());
     }
 
     /// <summary>
@@ -96,5 +90,10 @@ public sealed class ReaderCapabilities
     /// <summary>
     /// Gets the immutable decoded response retained for forward-compatible access to all capability data.
     /// </summary>
-    public GetReaderCapabilitiesResponse RawResponse { get; }
+    public ILlrpMessage RawResponse { get; }
 }
+
+/// <summary>Internal normalized metadata returned by a version-specific protocol adapter.</summary>
+internal sealed record ReaderMetadataSnapshot(
+    ReaderIdentity Identity,
+    ReaderCapabilities Capabilities);

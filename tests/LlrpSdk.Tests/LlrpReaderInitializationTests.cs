@@ -60,14 +60,16 @@ public sealed class LlrpReaderInitializationTests
         Assert.Equal(12_345U, decodedAdditional.VendorId);
         Assert.Equal(7U, decodedAdditional.Subtype);
         Assert.Equal(new byte[] { 0x30 }, decodedAdditional.Data.ToArray());
-        Assert.Single(capabilities.RawResponse.CustomItems);
+        GET_READER_CAPABILITIES_RESPONSE rawResponse =
+            Assert.IsType<GET_READER_CAPABILITIES_RESPONSE>(capabilities.RawResponse);
+        Assert.Single(rawResponse.CustomItems);
 
         byte[] request = transport.SentFrames.Single(static frame =>
             LlrpMessageHeader.Decode(frame).MessageType == GetReaderCapabilities.MessageType);
         LlrpMessageHeader requestHeader = LlrpMessageHeader.Decode(request);
         Assert.NotEqual(0U, requestHeader.MessageId);
         Assert.Equal((byte)GetReaderCapabilitiesRequestedData.All, request[LlrpMessageHeader.EncodedLength]);
-        Assert.Equal(requestHeader.MessageId, capabilities.RawResponse.MessageId);
+        Assert.Equal(requestHeader.MessageId, rawResponse.MessageId);
     }
 
     [Fact]
@@ -87,7 +89,7 @@ public sealed class LlrpReaderInitializationTests
             await Assert.ThrowsAsync<LlrpReaderOperationException>(() => reader.ConnectAsync(timeout.Token));
 
         Assert.Equal("GET_READER_CAPABILITIES", exception.Operation);
-        Assert.Equal(StatusCode.M_ParameterError, exception.StatusCode);
+        Assert.Equal((ushort)StatusCode.M_ParameterError, exception.StatusCode);
         Assert.Equal("capabilities rejected", exception.ErrorDescription);
         Assert.Contains(nameof(StatusCode.M_ParameterError), exception.Message, StringComparison.Ordinal);
         Assert.Equal(ReaderConnectionState.Faulted, reader.ConnectionState);

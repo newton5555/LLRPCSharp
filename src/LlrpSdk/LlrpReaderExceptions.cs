@@ -2,7 +2,7 @@
 
 namespace LlrpSdk;
 
-using LlrpNet.Protocol.Parameters.V1_0_1;
+using LlrpNet.Protocol.Parameters;
 
 /// <summary>
 /// Indicates that a correlated response decoded successfully but had a different CLR message type than requested.
@@ -92,18 +92,26 @@ public sealed class LlrpReaderConnectionException : IOException
 public sealed class LlrpReaderOperationException : Exception
 {
     /// <summary>
-    /// Initializes a reader operation exception from the exact returned status.
+    /// Initializes a reader operation exception from a normalized LLRP status.
     /// </summary>
     /// <param name="operation">The logical reader operation.</param>
-    /// <param name="status">The non-success LLRP status.</param>
-    public LlrpReaderOperationException(string operation, LlrpStatus status)
-        : base(CreateMessage(operation, status))
+    /// <param name="statusCode">The non-success LLRP status code.</param>
+    /// <param name="errorDescription">The reader-provided error description.</param>
+    /// <param name="rawStatus">The exact versioned status parameter.</param>
+    public LlrpReaderOperationException(
+        string operation,
+        ushort statusCode,
+        string errorDescription,
+        ILlrpParameter rawStatus)
+        : base(CreateMessage(operation, statusCode, errorDescription))
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
-        ArgumentNullException.ThrowIfNull(status);
+        ArgumentNullException.ThrowIfNull(rawStatus);
 
         Operation = operation;
-        Status = status;
+        StatusCode = statusCode;
+        ErrorDescription = errorDescription ?? string.Empty;
+        RawStatus = rawStatus;
     }
 
     /// <summary>
@@ -112,30 +120,31 @@ public sealed class LlrpReaderOperationException : Exception
     public string Operation { get; }
 
     /// <summary>
-    /// Gets the exact returned LLRP status, including nested error parameters.
+    /// Gets the exact versioned status parameter, including nested error parameters.
     /// </summary>
-    public LlrpStatus Status { get; }
+    public ILlrpParameter RawStatus { get; }
 
     /// <summary>
     /// Gets the standard LLRP status code.
     /// </summary>
-    public LlrpStatusCode StatusCode => Status.StatusCode;
+    public ushort StatusCode { get; }
 
     /// <summary>
     /// Gets the reader-provided error description.
     /// </summary>
-    public string ErrorDescription => Status.ErrorDescription;
+    public string ErrorDescription { get; }
 
-    private static string CreateMessage(string operation, LlrpStatus status)
+    private static string CreateMessage(string operation, ushort statusCode, string errorDescription)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
-        ArgumentNullException.ThrowIfNull(status);
-
-        string description = string.IsNullOrWhiteSpace(status.ErrorDescription)
+        string description = string.IsNullOrWhiteSpace(errorDescription)
             ? "No error description was supplied."
-            : status.ErrorDescription;
+            : errorDescription;
+        string statusName = Enum.GetName(
+            typeof(LlrpNet.Protocol.Enumerations.V1_1.StatusCode),
+            (long)statusCode) ?? "Unknown";
         return $"Reader operation {operation} failed with LLRP status " +
-            $"{status.StatusCode} ({(ushort)status.StatusCode}): {description}";
+            $"{statusName} ({statusCode}): {description}";
     }
 }
 

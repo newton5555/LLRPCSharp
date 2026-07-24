@@ -12,6 +12,11 @@ internal interface ILlrpProtocolAdapter
 
     public void RegisterStandardCodecs(LlrpCodecRegistry registry);
 
+    public Task<ReaderMetadataSnapshot> InitializeAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken);
+
     public ILlrpParameter CompileInventory(ReaderSettings settings);
 
     public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message);

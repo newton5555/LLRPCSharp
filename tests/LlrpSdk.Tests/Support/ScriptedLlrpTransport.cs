@@ -3,6 +3,7 @@ using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Transport;
 using LlrpNet.Protocol.Messages.V1_0_1;
+using V11Messages = LlrpNet.Protocol.Messages.V1_1;
 
 namespace LlrpSdk.Tests.Support;
 
@@ -80,7 +81,11 @@ internal sealed class ScriptedLlrpTransport : ILlrpTransport
         await _sentFrames.Writer.WriteAsync(copy, cancellationToken).ConfigureAwait(false);
 
         LlrpMessageHeader header = LlrpMessageHeader.Decode(copy);
-        if (AutoRespondToCapabilities && header.MessageType == GetReaderCapabilities.MessageType)
+        if (header.MessageType == V11Messages.GET_SUPPORTED_VERSION.MessageType)
+        {
+            EnqueueFrame(LlrpTestFrames.UnsupportedVersionResponse(header.MessageId));
+        }
+        else if (AutoRespondToCapabilities && header.MessageType == GetReaderCapabilities.MessageType)
         {
             byte[]? response = CapabilityResponseFactory is null
                 ? LlrpTestFrames.CapabilitiesResponse(header.MessageId)

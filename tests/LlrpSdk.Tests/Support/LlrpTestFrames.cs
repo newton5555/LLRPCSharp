@@ -10,6 +10,10 @@ using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using LlrpNet.Protocol.Registry.V1_1;
+using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
+using V11Messages = LlrpNet.Protocol.Messages.V1_1;
+using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
 internal static class LlrpTestFrames
 {
@@ -156,10 +160,24 @@ internal static class LlrpTestFrames
             new ErrorMessage(messageId, status));
     }
 
+    public static byte[] UnsupportedVersionResponse(uint messageId)
+    {
+        return Registry.EncodeMessage(
+            LlrpProtocolVersion.Version11,
+            new V11Messages.ERROR_MESSAGE(
+                messageId,
+                new V11Parameters.LLRPStatus(
+                    V11Enumerations.StatusCode.M_UnsupportedVersion,
+                    string.Empty,
+                    null,
+                    null)));
+    }
+
     private static LlrpCodecRegistry CreateRegistry()
     {
         var registry = new LlrpCodecRegistry();
         Llrp101StandardModule.Register(registry);
+        Llrp11StandardModule.Register(registry);
         return registry;
     }
 }

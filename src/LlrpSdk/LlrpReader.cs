@@ -12,6 +12,8 @@ using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+using V11Messages = LlrpNet.Protocol.Messages.V1_1;
 
 namespace LlrpSdk;
 
@@ -29,7 +31,8 @@ public sealed class LlrpReader : IAsyncDisposable
     private readonly LlrpMessageIdGenerator _messageIds = new();
     private readonly ReaderExtensionCollection _extensions = new();
     private readonly LlrpCodecRegistry _registry;
-    private readonly ILlrpProtocolAdapter _protocolAdapter;
+    private readonly IReadOnlyDictionary<LlrpProtocolVersion, ILlrpProtocolAdapter> _protocolAdapters;
+    private ILlrpProtocolAdapter _protocolAdapter;
     private readonly LlrpSession _session;
     private CancellationTokenSource? _pumpCancellation;
     private Task? _pumpTask;
@@ -80,8 +83,17 @@ public sealed class LlrpReader : IAsyncDisposable
         });
         _logger = options.LoggerFactory.CreateLogger<LlrpReader>();
         _registry = new LlrpCodecRegistry();
-        _protocolAdapter = new Llrp101ProtocolAdapter();
-        _protocolAdapter.RegisterStandardCodecs(_registry);
+        var protocolAdapters = new ILlrpProtocolAdapter[]
+        {
+            new Llrp101ProtocolAdapter(),
+            new Llrp11ProtocolAdapter(),
+        };
+        _protocolAdapters = protocolAdapters.ToDictionary(adapter => adapter.Version);
+        _protocolAdapter = _protocolAdapters[LlrpProtocolVersion.Version101];
+        foreach (ILlrpProtocolAdapter protocolAdapter in protocolAdapters)
+        {
+            protocolAdapter.RegisterStandardCodecs(_registry);
+        }
         foreach (ILlrpProtocolModule protocolModule in options.ProtocolModules)
         {
             protocolModule.Register(_registry);
@@ -104,8 +116,8 @@ public sealed class LlrpReader : IAsyncDisposable
                     LlrpUnsolicitedFrameOverflowPolicy.FaultConnection,
             },
             options.LoggerFactory);
-        RoSpecs = new RoSpecService(this, _protocolAdapter, _messageIds);
-        AccessSpecs = new AccessSpecService(this, _protocolAdapter, _messageIds);
+        RoSpecs = new RoSpecService(this, GetProtocolAdapter, _messageIds);
+        AccessSpecs = new AccessSpecService(this, GetProtocolAdapter, _messageIds);
         Protocol = new ReaderProtocolAccess(this);
         Extensions = _extensions;
     }
@@ -135,13 +147,9 @@ public sealed class LlrpReader : IAsyncDisposable
         ConnectionState == ReaderConnectionState.Ready && _session.IsConnected;
 
     /// <summary>
-    /// Gets the protocol version used by the initial session baseline.
+    /// Gets the protocol version selected for the current connection.
     /// </summary>
-    /// <remarks>
-    /// Version negotiation is an M2 follow-up. Until then the standard registry and typed encoder are fixed to
-    /// LLRP 1.0.1 and this property always returns <see cref="LlrpProtocolVersion.Version101"/>.
-    /// </remarks>
-    public LlrpProtocolVersion NegotiatedVersion => _protocolAdapter.Version;
+    public LlrpProtocolVersion NegotiatedVersion => GetProtocolAdapter().Version;
 
     /// <summary>
     /// Gets the identity from the current initialized connection, or <see langword="null"/> while disconnected or faulted.
@@ -240,6 +248,7 @@ public sealed class LlrpReader : IAsyncDisposable
             }
 
             InvalidateMetadata();
+            SelectProtocolAdapter(LlrpProtocolVersion.Version101);
 
             if (ConnectionState == ReaderConnectionState.Ready)
             {
@@ -264,6 +273,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
                 StartPump();
                 AddTransition(transitions, ReaderConnectionState.Negotiating);
+                await NegotiateProtocolVersionAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 ActivateReaderExtensions();
@@ -383,6 +393,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             ThrowIfDisposed();
             InvalidateMetadata();
+            SelectProtocolAdapter(LlrpProtocolVersion.Version101);
             AddTransition(transitions, ReaderConnectionState.Reconnecting);
             try
             {
@@ -399,6 +410,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
                 StartPump();
                 AddTransition(transitions, ReaderConnectionState.Negotiating);
+                await NegotiateProtocolVersionAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 ActivateReaderExtensions();
@@ -530,7 +542,7 @@ public sealed class LlrpReader : IAsyncDisposable
             try
             {
                 ILlrpParameter roSpec =
-                    _protocolAdapter.CompileInventory(settings);
+                    GetProtocolAdapter().CompileInventory(settings);
                 await RoSpecs.AddAsync(roSpec, cancellationToken).ConfigureAwait(false);
                 added = true;
                 await RoSpecs.EnableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
@@ -721,12 +733,13 @@ public sealed class LlrpReader : IAsyncDisposable
         ILlrpMessage request,
         TimeSpan? timeout,
         CancellationToken cancellationToken,
-        LlrpResponseMatcher? responseMatcher = null)
+        LlrpResponseMatcher? responseMatcher = null,
+        LlrpProtocolVersion? protocolVersion = null)
         where TResponse : class, ILlrpMessage
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        byte[] requestFrame = _registry.EncodeMessage(NegotiatedVersion, request);
+        byte[] requestFrame = _registry.EncodeMessage(protocolVersion ?? NegotiatedVersion, request);
         ReadOnlyMemory<byte> responseFrame = await _session
             .TransactAsync(
                 requestFrame,
@@ -735,11 +748,9 @@ public sealed class LlrpReader : IAsyncDisposable
                 cancellationToken)
             .ConfigureAwait(false);
         ILlrpMessage response = _registry.DecodeMessage(responseFrame.Span);
-        if (response is ErrorMessage errorMessage)
+        if (TryCreateOperationException(request.GetType().Name, response, out LlrpReaderOperationException? error))
         {
-            throw new LlrpReaderOperationException(
-                request.GetType().Name,
-                errorMessage.LLRPStatus);
+            throw error!;
         }
 
         if (response.GetType() != typeof(TResponse))
@@ -751,6 +762,19 @@ public sealed class LlrpReader : IAsyncDisposable
         }
 
         return (TResponse)response;
+    }
+
+    internal Task<TResponse> TransactDuringInitializationAsync<TResponse>(
+        ILlrpMessage request,
+        CancellationToken cancellationToken,
+        LlrpResponseMatcher? responseMatcher = null)
+        where TResponse : class, ILlrpMessage
+    {
+        return TransactSessionAsync<TResponse>(
+            request,
+            Options.RequestTimeout,
+            cancellationToken,
+            responseMatcher);
     }
 
     internal async Task SendAsync<TMessage>(
@@ -874,17 +898,24 @@ public sealed class LlrpReader : IAsyncDisposable
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     ILlrpMessage message = _registry.DecodeMessage(frame.Span);
-                    if (message is Keepalive keepalive)
+                    if (message is V101Messages.KEEPALIVE or V11Messages.KEEPALIVE)
                     {
+                        ILlrpMessage acknowledgementMessage = NegotiatedVersion switch
+                        {
+                            LlrpProtocolVersion.Version101 => new V101Messages.KEEPALIVE_ACK(message.MessageId),
+                            LlrpProtocolVersion.Version11 => new V11Messages.KEEPALIVE_ACK(message.MessageId),
+                            _ => throw new NotSupportedException(
+                                $"No KEEPALIVE_ACK encoder is available for LLRP {NegotiatedVersion}."),
+                        };
                         byte[] acknowledgement = _registry.EncodeMessage(
                             NegotiatedVersion,
-                            new KeepaliveAck(keepalive.MessageId));
+                            acknowledgementMessage);
                         await _session
                             .SendFrameAsync(acknowledgement, cancellationToken)
                             .ConfigureAwait(false);
                     }
 
-                    foreach (TagReport tagReport in _protocolAdapter.TranslateTagReports(message))
+                    foreach (TagReport tagReport in GetProtocolAdapter().TranslateTagReports(message))
                     {
                         if (!_tagReports.Writer.TryWrite(tagReport))
                         {
@@ -1092,51 +1123,96 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private async Task InitializeReaderAsync(CancellationToken cancellationToken)
+    private async Task NegotiateProtocolVersionAsync(CancellationToken cancellationToken)
     {
-        var request = new GetReaderCapabilities(
-            _messageIds.Next(),
-            GetReaderCapabilitiesRequestedData.All,
-            CustomItems: []);
-        GetReaderCapabilitiesResponse response;
+        var getSupportedVersion = new V11Messages.GET_SUPPORTED_VERSION(_messageIds.Next());
+        V11Messages.GET_SUPPORTED_VERSION_RESPONSE supported;
         try
         {
-            response = await TransactSessionAsync<GetReaderCapabilitiesResponse>(
-                request,
+            supported = await TransactSessionAsync<V11Messages.GET_SUPPORTED_VERSION_RESPONSE>(
+                getSupportedVersion,
                 Options.RequestTimeout,
                 cancellationToken,
-                MatchesCapabilitiesResponse).ConfigureAwait(false);
+                MatchesGetSupportedVersionResponse,
+                LlrpProtocolVersion.Version11).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (exception.StatusCode == 110)
+        {
+            _logger.LogDebug(
+                "Reader {ConnectionId} rejected LLRP 1.1 negotiation; retaining LLRP 1.0.1.",
+                ConnectionId);
+            return;
+        }
+
+        if (supported.LLRPStatus.StatusCode != LlrpNet.Protocol.Enumerations.V1_1.StatusCode.M_Success)
+        {
+            throw new LlrpReaderOperationException(
+                "GET_SUPPORTED_VERSION",
+                checked((ushort)supported.LLRPStatus.StatusCode),
+                supported.LLRPStatus.ErrorDescription,
+                supported.LLRPStatus);
+        }
+
+        if (supported.SupportedVersion < (byte)LlrpProtocolVersion.Version11)
+        {
+            _logger.LogDebug(
+                "Reader {ConnectionId} supports LLRP through {SupportedVersion}; retaining LLRP 1.0.1.",
+                ConnectionId,
+                supported.SupportedVersion);
+            return;
+        }
+
+        var setProtocolVersion = new V11Messages.SET_PROTOCOL_VERSION(
+            _messageIds.Next(),
+            (byte)LlrpProtocolVersion.Version11);
+        V11Messages.SET_PROTOCOL_VERSION_RESPONSE setResponse =
+            await TransactSessionAsync<V11Messages.SET_PROTOCOL_VERSION_RESPONSE>(
+                setProtocolVersion,
+                Options.RequestTimeout,
+                cancellationToken,
+                MatchesSetProtocolVersionResponse,
+                LlrpProtocolVersion.Version11).ConfigureAwait(false);
+        if (setResponse.LLRPStatus.StatusCode != LlrpNet.Protocol.Enumerations.V1_1.StatusCode.M_Success)
+        {
+            throw new LlrpReaderOperationException(
+                "SET_PROTOCOL_VERSION",
+                checked((ushort)setResponse.LLRPStatus.StatusCode),
+                setResponse.LLRPStatus.ErrorDescription,
+                setResponse.LLRPStatus);
+        }
+
+        SelectProtocolAdapter(LlrpProtocolVersion.Version11);
+        _logger.LogDebug("Reader {ConnectionId} negotiated LLRP 1.1.", ConnectionId);
+    }
+
+    private ILlrpProtocolAdapter GetProtocolAdapter() => Volatile.Read(ref _protocolAdapter);
+
+    private void SelectProtocolAdapter(LlrpProtocolVersion version)
+    {
+        if (!_protocolAdapters.TryGetValue(version, out ILlrpProtocolAdapter? adapter))
+        {
+            throw new NotSupportedException($"No SDK protocol adapter is available for LLRP {version}.");
+        }
+
+        Volatile.Write(ref _protocolAdapter, adapter);
+    }
+
+    private async Task InitializeReaderAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            ReaderMetadataSnapshot metadata = await GetProtocolAdapter()
+                .InitializeAsync(this, _messageIds.Next(), cancellationToken)
+                .ConfigureAwait(false);
+            Volatile.Write(ref _metadata, metadata);
         }
         catch (LlrpProtocolException exception)
         {
             throw new LlrpReaderInitializationException(
                 "The GET_READER_CAPABILITIES(All) response could not be decoded into a valid " +
-                "LLRP 1.0.1 capability model.",
+                $"LLRP {NegotiatedVersion} capability model.",
                 exception);
         }
-
-        if (response.LLRPStatus.StatusCode != LlrpStatusCode.M_Success)
-        {
-            throw new LlrpReaderOperationException("GET_READER_CAPABILITIES", response.LLRPStatus);
-        }
-
-        GeneralDeviceCapabilities[] generalCapabilities = response.GeneralDeviceCapabilities is null
-            ? Array.Empty<GeneralDeviceCapabilities>()
-            : [response.GeneralDeviceCapabilities];
-        if (generalCapabilities.Length != 1)
-        {
-            throw new LlrpReaderInitializationException(
-                "A successful GET_READER_CAPABILITIES(All) response must contain exactly one " +
-                $"GeneralDeviceCapabilities parameter, but received {generalCapabilities.Length}.");
-        }
-
-        GeneralDeviceCapabilities general = generalCapabilities[0];
-        var identity = new ReaderIdentity(
-            general.DeviceManufacturerName,
-            general.ModelName,
-            general.ReaderFirmwareVersion);
-        var capabilities = new ReaderCapabilities(general, response);
-        Volatile.Write(ref _metadata, new ReaderMetadataSnapshot(identity, capabilities));
     }
 
     private void InvalidateMetadata()
@@ -1275,7 +1351,7 @@ public sealed class LlrpReader : IAsyncDisposable
         ReadOnlyMemory<byte> frame)
         where TResponse : class, ILlrpMessage
     {
-        if (header.MessageType == ErrorMessage.MessageType)
+        if (header.MessageType == 100)
         {
             return true;
         }
@@ -1290,11 +1366,47 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private static bool MatchesCapabilitiesResponse(
+    private static bool MatchesGetSupportedVersionResponse(
         LlrpMessageHeader header,
         ReadOnlyMemory<byte> frame)
     {
-        return header.MessageType is GetReaderCapabilitiesResponse.MessageType or ErrorMessage.MessageType;
+        return header.MessageType is V11Messages.GET_SUPPORTED_VERSION_RESPONSE.MessageType or 100;
+    }
+
+    private static bool MatchesSetProtocolVersionResponse(
+        LlrpMessageHeader header,
+        ReadOnlyMemory<byte> frame)
+    {
+        return header.MessageType is V11Messages.SET_PROTOCOL_VERSION_RESPONSE.MessageType or 100;
+    }
+
+    private static bool TryCreateOperationException(
+        string operation,
+        ILlrpMessage response,
+        out LlrpReaderOperationException? exception)
+    {
+        if (response is V101Messages.ERROR_MESSAGE v101Error)
+        {
+            exception = new LlrpReaderOperationException(
+                operation,
+                checked((ushort)v101Error.LLRPStatus.StatusCode),
+                v101Error.LLRPStatus.ErrorDescription,
+                v101Error.LLRPStatus);
+            return true;
+        }
+
+        if (response is V11Messages.ERROR_MESSAGE v11Error)
+        {
+            exception = new LlrpReaderOperationException(
+                operation,
+                checked((ushort)v11Error.LLRPStatus.StatusCode),
+                v11Error.LLRPStatus.ErrorDescription,
+                v11Error.LLRPStatus);
+            return true;
+        }
+
+        exception = null;
+        return false;
     }
 
     private void AddTransition(
@@ -1375,7 +1487,4 @@ public sealed class LlrpReader : IAsyncDisposable
         ReaderConnectionState CurrentState,
         Exception? Error);
 
-    private sealed record ReaderMetadataSnapshot(
-        ReaderIdentity Identity,
-        ReaderCapabilities Capabilities);
 }

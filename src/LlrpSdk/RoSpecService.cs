@@ -7,12 +7,12 @@ namespace LlrpSdk;
 internal sealed class RoSpecService : IRoSpecService
 {
     private readonly LlrpMessageIdGenerator messageIds;
-    private readonly ILlrpProtocolAdapter protocolAdapter;
+    private readonly Func<ILlrpProtocolAdapter> protocolAdapter;
     private readonly LlrpReader reader;
 
     public RoSpecService(
         LlrpReader reader,
-        ILlrpProtocolAdapter protocolAdapter,
+        Func<ILlrpProtocolAdapter> protocolAdapter,
         LlrpMessageIdGenerator messageIds)
     {
         this.reader = reader ?? throw new ArgumentNullException(nameof(reader));
@@ -23,24 +23,24 @@ internal sealed class RoSpecService : IRoSpecService
     public Task AddAsync(ILlrpParameter roSpec, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(roSpec);
-        return protocolAdapter.AddRoSpecAsync(reader, messageIds.Next(), roSpec, cancellationToken);
+        return protocolAdapter().AddRoSpecAsync(reader, messageIds.Next(), roSpec, cancellationToken);
     }
 
     public Task DeleteAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter.DeleteRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        protocolAdapter().DeleteRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
 
     public Task EnableAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter.EnableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        protocolAdapter().EnableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
 
     public Task DisableAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter.DisableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        protocolAdapter().DisableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
 
     public Task StartAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter.StartRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        protocolAdapter().StartRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
 
     public Task StopAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter.StopRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        protocolAdapter().StopRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
 
     public Task<IReadOnlyList<ILlrpParameter>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        protocolAdapter.GetRoSpecsAsync(reader, messageIds.Next(), cancellationToken);
+        protocolAdapter().GetRoSpecsAsync(reader, messageIds.Next(), cancellationToken);
 }
