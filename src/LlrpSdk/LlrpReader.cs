@@ -92,6 +92,7 @@ public sealed class LlrpReader : IAsyncDisposable
             },
             options.LoggerFactory);
         RoSpecs = new RoSpecService(this, _messageIds, _registry);
+        AccessSpecs = new AccessSpecService(this, _messageIds, _registry);
         Protocol = new ReaderProtocolAccess(this);
     }
 
@@ -151,6 +152,15 @@ public sealed class LlrpReader : IAsyncDisposable
     /// directly to the reader without maintaining a local resource cache.
     /// </remarks>
     public IRoSpecService RoSpecs { get; }
+
+    /// <summary>
+    /// Gets the AccessSpec resource service for this reader.
+    /// </summary>
+    /// <remarks>
+    /// Operations are available only while the reader is <see cref="ReaderConnectionState.Ready"/> and are sent
+    /// directly to the reader without maintaining a local resource cache.
+    /// </remarks>
+    public IAccessSpecService AccessSpecs { get; }
 
     /// <summary>
     /// Gets typed and exact-frame protocol access for this reader.
