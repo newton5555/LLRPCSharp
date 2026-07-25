@@ -22,9 +22,7 @@ dotnet build LLRPCSharp.slnx --no-restore
 dotnet test LLRPCSharp.slnx --no-build
 ```
 
-Known status as of 2026-07-24: the solution build is blocked by duplicate
-generated Impinj types in `src/LlrpSdk.Extensions.Impinj`. See `docs/status.md`
-before treating build failure as a new regression.
+Known status as of 2026-07-25: the solution build passes cleanly with zero errors across all projects. See `docs/status.md` for current details.
 
 ## Do Not Hand Edit Generated Code
 

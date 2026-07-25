@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
     <ProjectReference Include="..\LlrpSdk\LlrpSdk.csproj" />
+    <ProjectReference Include="..\LlrpSdk.Extensions.Impinj\LlrpSdk.Extensions.Impinj.csproj" />
   </ItemGroup>
 </Project>
 

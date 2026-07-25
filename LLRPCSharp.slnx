@@ -19,6 +19,7 @@
     <Project Path="tests/LlrpNet.ProtocolGenerator.Tests/LlrpNet.ProtocolGenerator.Tests.csproj" />
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
+    <Project Path="tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj" />
   </Folder>
   <Folder Name="/docs/">
     <File Path="docs/README.md" />

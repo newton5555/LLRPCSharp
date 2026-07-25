@@ -1,7 +1,9 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpSdk;
+
+using LlrpSdk.Extensions.Impinj;
 
 namespace LlrpCli.Commands;
 
@@ -47,6 +49,7 @@ public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
             .WithPort(settings.Port)
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
             .WithProtocolVersionPolicy(policy)
+            .UseImpinj()
             .Build();
 
         try

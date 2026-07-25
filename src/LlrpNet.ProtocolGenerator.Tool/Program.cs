@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using LlrpNet.ProtocolGenerator;
 using LlrpNet.ProtocolGenerator.Generation;
 using LlrpNet.ProtocolModel.Definitions;
@@ -109,6 +109,8 @@ public static class Program
     {
         string outputRoot = Path.GetFullPath(options.OutputPath);
         int changed = 0;
+        var validTargetPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (GeneratedSourceFile source in sources)
         {
             string relativePath = source.HintName.Replace('/', Path.DirectorySeparatorChar);
@@ -117,6 +119,8 @@ public static class Program
             {
                 throw new InvalidOperationException($"Generated source path escapes the output directory: {source.HintName}.");
             }
+
+            validTargetPaths.Add(targetPath);
 
             string expected = source.SourceText.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
             if (File.Exists(targetPath) && File.ReadAllText(targetPath) == expected)
@@ -139,6 +143,26 @@ public static class Program
 
             Directory.CreateDirectory(directory);
             File.WriteAllText(targetPath, expected, Utf8Bom);
+        }
+
+        if (Directory.Exists(outputRoot))
+        {
+            foreach (string existingFile in Directory.EnumerateFiles(outputRoot, "*.g.cs", SearchOption.AllDirectories))
+            {
+                string fullPath = Path.GetFullPath(existingFile);
+                if (!validTargetPaths.Contains(fullPath))
+                {
+                    changed++;
+                    if (options.Verify)
+                    {
+                        Console.Error.WriteLine($"Orphan generated source found: {fullPath}");
+                    }
+                    else
+                    {
+                        File.Delete(fullPath);
+                    }
+                }
+            }
         }
 
         return options.Verify && changed != 0 ? throw new InvalidOperationException("Generated sources are not up to date.") : changed;
