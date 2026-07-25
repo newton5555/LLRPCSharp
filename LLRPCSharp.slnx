@@ -24,17 +24,21 @@
   <Folder Name="/docs/">
     <File Path="docs/README.md" />
     <File Path="docs/showcase.md" />
+    <File Path="docs/showcase.zh.md" />
     <File Path="docs/status.md" />
     <File Path="docs/roadmap.md" />
   </Folder>
   <Folder Name="/docs/adr/">
     <File Path="docs/adr/README.md" />
     <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
+    <File Path="docs/adr/0002-reader-extension-active-initialization.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
     <File Path="docs/architecture/overview.md" />
+    <File Path="docs/architecture/overview.zh.md" />
     <File Path="docs/architecture/source-structure.md" />
     <File Path="docs/architecture/protocol-extension-guide.md" />
+    <File Path="docs/architecture/protocol-extension-guide.zh.md" />
   </Folder>
   <Folder Name="/docs/images/">
     <File Path="docs/images/llrpcsharp_infographic.png" />
@@ -42,6 +46,9 @@
   </Folder>
   <Folder Name="/docs/references/">
     <File Path="docs/references/README.md" />
+  </Folder>
+  <Folder Name="/docs/references/standards/">
+    <File Path="docs/references/standards/README.md" />
   </Folder>
   <Folder Name="/definitions/">
     <File Path="definitions/README.md" />
@@ -75,5 +82,6 @@
     <File Path="global.json" />
     <File Path="AGENTS.md" />
     <File Path="README.md" />
+    <File Path="README.zh.md" />
   </Folder>
 </Solution>

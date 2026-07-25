@@ -1,25 +1,26 @@
-# 文档索引
+# Documentation Index
 
-这里汇总项目设计、架构说明、决策记录和资料来源。根目录 `README.md` 保持面向使用者的快速入口；更细的工程背景放在本目录。
+This directory contains project status, planning, architecture notes, decision records, and source references. The root [README.md](../README.md) is the user-facing entry point; this index is for deeper engineering context.
 
-## 当前事实源
+## Current Truth
 
-- [当前状态](status.md)：已经实现、尚未实现、当前构建阻塞。开发和 agent 判断当前能力时先看这里。
-- [路线图](roadmap.md)：下一步开发顺序和任务拆分。
-- [Agent Guide](../AGENTS.md)：给自动化 coding agent 的仓库规则、生成边界和常用入口。
+- [Current status](status.md): implemented capabilities, missing work, and current build status.
+- [Roadmap](roadmap.md): development order and planned work.
+- [Agent Guide](../AGENTS.md): repository rules and entry points for coding agents.
 
-## 项目与架构
+## Project And Architecture
 
-- [架构与能力图谱](showcase.md)
-- [架构总览](architecture/overview.md)
-- [源码结构](architecture/source-structure.md)
-- [协议扩展指南](architecture/protocol-extension-guide.md)
+- [Architecture and capability map](showcase.md) ([中文](showcase.zh.md))
+- [Architecture overview](architecture/overview.md) ([中文](architecture/overview.zh.md))
+- [Source structure](architecture/source-structure.md)
+- [Protocol extension guide](architecture/protocol-extension-guide.md) ([中文](architecture/protocol-extension-guide.zh.md))
 
-## 决策记录
+## Decision Records
 
-- [ADR 目录](adr/README.md)
+- [ADR index](adr/README.md)
 - [ADR 0001: Structured logging and frame observation](adr/0001-structured-logging-and-frame-observation.md)
+- [ADR 0002: Reader extension active initialization](adr/0002-reader-extension-active-initialization.md)
 
-## 资料来源
+## References
 
-- [协议资料来源](references/README.md)
+- [Protocol source references](references/README.md)

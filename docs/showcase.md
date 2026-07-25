@@ -1,45 +1,46 @@
-# LLRPCSharp 项目架构与能力图谱
+# LLRPCSharp Architecture and Capability Map
 
-本文是 LLRPCSharp 的项目展示文档，用于快速说明项目定位、架构边界和当前能力。当前真实实现状态以 [status.md](status.md) 为准，后续计划以 [roadmap.md](roadmap.md) 为准。
+[中文](showcase.zh.md)
 
-## 项目信息图
+This showcase explains the project positioning, architecture boundaries, and current capabilities of LLRPCSharp. The exact implementation status is tracked in [status.md](status.md), and planned work is tracked in [roadmap.md](roadmap.md).
+
+## Infographic
 
 ![LLRPCSharp Architecture and Capabilities Infographic](images/llrpcsharp_infographic.png)
 
-## 核心架构优势
+## Architecture Advantages
 
-### 1. 现代化 .NET 底座
+### 1. Modern .NET Foundation
 
-- **异步会话与分发模型**：底层会话、传输和事件分发围绕现代 .NET 异步模式构建，便于在长连接读写器场景下处理持续报文流。
-- **面向低分配的协议边界**：传输和协议解析边界尽量使用 `ReadOnlyMemory<byte>` 等内存友好类型，降低报文处理过程中的不必要复制。
+- **Async session and dispatch model**: The transport, session, and event dispatch layers use modern .NET async patterns for continuous reader message streams.
+- **Low-allocation protocol boundaries**: Transport and protocol parsing boundaries prefer memory-friendly types such as `ReadOnlyMemory<byte>` to reduce unnecessary copying.
 
-### 2. 干净的适配器边界
+### 2. Clean Adapter Boundary
 
-- **协议版本隔离**：LLRP 1.0.1 与 LLRP 1.1 通过 `ILlrpProtocolAdapter` 实现隔离；LLRP 2.0 定义已入库，Adapter 仍在规划中。
-- **版本无关的上层入口**：应用层优先面对 `LlrpReader`、`ReaderSettings`、ROSpec 和 AccessSpec 服务等托管 API，减少业务代码直接拼装协议报文的需要。
+- **Version isolation**: LLRP 1.0.1 and 1.1 are isolated behind `ILlrpProtocolAdapter`; LLRP 2.0 definitions are present, while the adapter is still planned.
+- **Version-neutral application entry points**: Application code works primarily with managed APIs such as `LlrpReader`, `ReaderSettings`, ROSpec services, and AccessSpec services instead of hand-assembling versioned protocol messages.
 
-### 3. 可插拔的厂商扩展系统
+### 3. Pluggable Reader Extensions
 
-- **厂商扩展注册**：例如 Impinj 扩展可通过 `UseImpinj()` 接入生成的强类型 Codec 资产和扩展模块。
-- **低侵入性扩展模型**：标准 LLRP 能力与厂商扩展保持分层，未启用厂商扩展时可继续使用通用 LLRP 驱动路径。
+- **Vendor extension registration**: Impinj support can be enabled through `UseImpinj()`, which registers generated strongly typed codec assets and extension modules.
+- **Low-intrusion extension model**: Standard LLRP behavior remains layered away from vendor extensions, so the generic LLRP path remains available when extensions are not enabled.
 
-## 核心项目能力
+## Project Capabilities
 
-### 1. 会话生命周期管理
+### 1. Session Lifecycle Management
 
-- **连接与版本协商**：支持 LLRP 1.1 自动协商，并可按策略强制 1.0.1 或 1.1。
-- **有限自动重连**：提供 `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`，用于意外断线后的重连基线。重连后的 ROSpec、AccessSpec 和托管盘点状态恢复仍属于后续增强方向。
-- **托管状态同步**：Raw Protocol 操作后会使托管状态失效，可通过 `SynchronizeStateAsync()` 恢复到可继续 Managed 操作的状态。
+- **Connection and version negotiation**: Supports automatic LLRP 1.1 negotiation, with policy-based forcing of 1.0.1 or 1.1.
+- **Limited automatic reconnect**: Provides `LlrpAutomaticReconnectOptions` and `WithAutomaticReconnect(...)` as a reconnect baseline after unexpected disconnects. Restoring desired ROSpec, AccessSpec, and managed inventory state after reconnect is still future work.
+- **Managed state synchronization**: Raw Protocol operations invalidate managed state; `SynchronizeStateAsync()` can restore a state where managed operations may continue.
 
-### 2. 进阶资源控制
+### 2. Advanced Resource Control
 
-- **ROSpec 生命周期服务**：`reader.RoSpecs` 提供 Add、Delete、Enable、Disable、Start、Stop、GetAll 等操作。
-- **AccessSpec 生命周期服务**：`reader.AccessSpecs` 提供 Add、Delete、Enable、Disable、GetAll 等操作。
-- **盘点入口**：`StartAsync`、`StopAsync`、`InventoryAsync`、`ReadTagReportsAsync` 和 `TagsReported` 构成当前托管盘点基线。
+- **ROSpec lifecycle service**: `reader.RoSpecs` provides Add, Delete, Enable, Disable, Start, Stop, and GetAll operations.
+- **AccessSpec lifecycle service**: `reader.AccessSpecs` provides Add, Delete, Enable, Disable, and GetAll operations.
+- **Inventory entry points**: `StartAsync`, `StopAsync`, `InventoryAsync`, `ReadTagReportsAsync`, and `TagsReported` form the current managed inventory baseline.
 
-### 3. CLI 诊断与互操作套件
+### 3. CLI Diagnostics and Interop
 
-- **在线诊断**：`LlrpCli` 支持连接、监控和 Live Shell，用于快速观察设备交互。
-- **离线协议工具**：支持 `inspect`、`decode`、`encode`，可在不连接设备的情况下检查 LLRP 报文。
-- **原始帧观测**：`ILlrpFrameObserver` 和 `LlrpFrameJournal` 可在 Transport/Session 边界记录完整 TX/RX 帧，便于 Hex 诊断、审计和互操作分析。
-
+- **Online diagnostics**: `LlrpCli` supports connect, monitor, and live shell workflows for observing reader interactions.
+- **Offline protocol tools**: `inspect`, `decode`, and `encode` inspect LLRP messages without a connected reader.
+- **Raw frame observation**: `ILlrpFrameObserver` and `LlrpFrameJournal` can capture complete TX/RX frames at the Transport/Session boundary for hex diagnostics, auditing, and interoperability analysis.

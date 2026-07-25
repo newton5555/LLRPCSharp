@@ -1,4 +1,5 @@
-# 可回归测试数据
+# Regression Test Data
 
-这里仅保存可提交、已脱敏并带有预期结果的测试资产：标准帧、非法/截断帧、清洗后的抓包、协议版本差异样例和互操作场景。每份数据应能追溯到来源说明，但不得包含设备密码、客户标识或其他敏感信息。
+This directory contains only commit-safe, sanitized test assets with expected results: standard frames, malformed or truncated frames, scrubbed captures, protocol-version samples, and interoperability scenarios.
 
+Each asset should be traceable to its source notes, but must not include access passwords, customer identifiers, or other sensitive data.

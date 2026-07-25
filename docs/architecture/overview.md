@@ -1,75 +1,77 @@
-# 架构总览
+# Architecture Overview
 
-本文说明 LLRP C# SDK 的长期设计边界。当前实现状态见 [`../status.md`](../status.md)，开发顺序见 [`../roadmap.md`](../roadmap.md)。
+[中文](overview.zh.md)
 
-## 项目定位
+This document describes the long-term architecture boundaries of the LLRP C# SDK. For the current implementation status, see [`../status.md`](../status.md). For development order, see [`../roadmap.md`](../roadmap.md).
 
-本项目是一套现代化 .NET LLRP 开发套件，而不只是二进制编解码库。
+## Project Positioning
+
+This project is a modern .NET LLRP development kit, not just a binary codec library.
 
 ![LLRPCSharp Architecture Overview](../images/llrpcsharp_infographic.png)
 
-核心产品是 `LlrpSdk.LlrpReader`：一个代表单台 RFID 读写器的设备会话对象，负责连接、协议协商、初始化、盘点、资源管理、报文诊断和扩展生命周期。
+The main product surface is `LlrpSdk.LlrpReader`: a device session object for one RFID reader. It owns connection management, protocol negotiation, initialization, inventory, resource management, message diagnostics, and extension lifecycle.
 
 ```text
-应用 / CLI
+Application / CLI
     |
     v
 LlrpSdk.LlrpReader
-    |-- 高频业务能力：Connect、Start、Stop、Inventory
-    |-- 进阶资源服务：RoSpecs、AccessSpecs
-    |-- 原始协议入口：Protocol
-    |-- 扩展入口：Extensions
+    |-- High-level operations: Connect, Start, Stop, Inventory
+    |-- Advanced resource services: RoSpecs, AccessSpecs
+    |-- Raw protocol entry point: Protocol
+    |-- Extension entry point: Extensions
     v
-LlrpNet.Core + LlrpNet.Protocol + 扩展协议模块
+LlrpNet.Core + LlrpNet.Protocol + extension protocol modules
     v
-TCP / LLRP 二进制协议 / 真实或虚拟读写器
+TCP / LLRP binary protocol / real or virtual readers
 ```
 
-## 核心原则
+## Core Principles
 
-- 一个 `LlrpReader` 对应一台读写器，不继承 TCP Client，也不向应用泄漏内部 Session/Manager。
-- 普通业务面对版本无关的高级模型；版本化 Message/Parameter 只属于协议层、进阶资源层和诊断场景。
-- CLI 是 SDK 的真实消费方。在线设备操作复用 `LlrpReader`，离线 encode/decode/inspect 使用协议层。
-- 手写核心逻辑与生成协议资产分离。生成资产提交到仓库，但不手工维护。
-- 未知标准类型或 Custom 类型应尽量保留为 Raw/Unknown，不能轻易破坏标准报文解析。
-- 厂商能力通过 Protocol Module 和 Reader Extension 两阶段接入，避免核心 SDK 反向依赖具体厂商。
+- One `LlrpReader` represents one reader. It does not inherit from a TCP client and does not expose internal sessions or managers to applications.
+- Common application code uses version-neutral high-level models. Versioned Message/Parameter types belong to the protocol layer, advanced resource layer, and diagnostics.
+- The CLI is a real SDK consumer. Online device operations reuse `LlrpReader`; offline encode/decode/inspect operations use the protocol layer.
+- Handwritten core logic is separated from generated protocol assets. Generated assets are committed but not manually maintained.
+- Unknown standard or custom wire types should be preserved as Raw/Unknown where possible, instead of breaking standard message parsing.
+- Vendor capabilities enter through two stages: Protocol Modules and Reader Extensions. The core SDK must not depend backward on a specific vendor.
 
-## 模块边界
+## Module Boundaries
 
-| 模块 | 职责 |
+| Module | Responsibility |
 |---|---|
-| `LlrpNet.Core` | TCP 生命周期、帧切分、事务匹配、超时取消、原始帧观测。 |
-| `LlrpNet.Protocol` | 版本化消息/参数/枚举、Codec、Registry、Unknown/Raw 类型。 |
-| `LlrpNet.ProtocolModel` | 机器可读协议定义模型、XML/YAML 导入和校验输入。 |
-| `LlrpNet.ProtocolGenerator` | 从协议定义生成 C# 类型、Codec 和 Registry Module。 |
-| `LlrpSdk` | `LlrpReader`、状态机、高级盘点、资源服务、版本 Adapter、扩展生命周期。 |
-| `LlrpCli` | SDK 的命令行使用者、诊断入口和回归辅助工具。 |
-| `LlrpVirtualReader` | 本地虚拟读写器，用于无硬件开发、互操作和故障场景测试。 |
+| `LlrpNet.Core` | TCP lifecycle, frame splitting, transaction matching, timeout/cancellation, and raw frame observation. |
+| `LlrpNet.Protocol` | Versioned messages, parameters, enumerations, codecs, registries, and Unknown/Raw types. |
+| `LlrpNet.ProtocolModel` | Machine-readable protocol definition model plus XML/YAML import and validation inputs. |
+| `LlrpNet.ProtocolGenerator` | C# type, codec, and registry module generation from protocol definitions. |
+| `LlrpSdk` | `LlrpReader`, state machine, high-level inventory, resource services, version adapters, and extension lifecycle. |
+| `LlrpCli` | Command-line SDK consumer, diagnostics entry point, and regression helper. |
+| `LlrpVirtualReader` | Local virtual reader for hardware-free development, interoperability, and fault-scenario testing. |
 
-## 能力分层
+## Capability Layers
 
-| 层次 | 入口 | 使用者 | 版本化协议类型可见性 |
+| Layer | Entry Point | Users | Versioned Type Visibility |
 |---|---|---|---|
-| 高级能力 | `LlrpReader.ConnectAsync`、`StartAsync`、`StopAsync`、`InventoryAsync` | 普通应用、常规 CLI | 不可见 |
-| 进阶资源 | `reader.RoSpecs`、`reader.AccessSpecs` | 集成开发、资源管理 CLI、协议测试 | 参数模型可见 |
-| 原始协议 | `reader.Protocol` | 协议专家、诊断工具、未封装功能 | 可见 |
-| 协议库 | `LlrpCodecRegistry`、生成模型、Codec | 离线工具、扩展模块、SDK 内部 | 可见 |
-| Core | Transport、Session、Frame Observer | SDK/Protocol 内部 | 不可见 |
+| High-level operations | `LlrpReader.ConnectAsync`, `StartAsync`, `StopAsync`, `InventoryAsync` | Applications and regular CLI workflows | Hidden |
+| Advanced resources | `reader.RoSpecs`, `reader.AccessSpecs` | Integration code, resource-management CLI, protocol tests | Parameter models visible |
+| Raw protocol | `reader.Protocol` | Protocol experts, diagnostics tools, unwrapped features | Visible |
+| Protocol library | `LlrpCodecRegistry`, generated models, codecs | Offline tools, extension modules, SDK internals | Visible |
+| Core | Transport, Session, Frame Observer | SDK/Protocol internals | Hidden |
 
-## 版本与扩展策略
+## Version And Extension Strategy
 
-LLRP 版本差异由 `ILlrpProtocolAdapter` 屏蔽。业务层面对统一的 `LlrpReader` 和高级模型，Adapter 负责将资源操作、盘点编译和报告翻译映射到具体协议版本。
+LLRP version differences are hidden behind `ILlrpProtocolAdapter`. Business code uses `LlrpReader` and high-level models, while adapters map resource operations, inventory compilation, and report translation to a specific protocol version.
 
-扩展分成两个生命周期：
+Extensions use two lifecycle stages:
 
-- Protocol Module：连接前注册 Custom Message/Parameter、Codec 和类型映射。
-- Reader Extension：标准初始化后按 Manufacturer/Model/Firmware/ProtocolVersion 匹配并激活厂商能力。
+- Protocol Module: registers Custom Message/Parameter types, codecs, and type mappings before connection.
+- Reader Extension: matches and activates vendor capabilities after standard initialization using Manufacturer, Model, Firmware, and ProtocolVersion.
 
-同一 wire identity 的 Codec 冲突必须失败，不能静默覆盖。同一非空互斥组的多个 Reader Extension 同时匹配时，应拒绝连接或要求显式选择。
+Codec conflicts for the same wire identity must fail rather than silently overwrite. If multiple Reader Extensions in the same non-empty exclusivity group match, connection should be rejected or require explicit selection.
 
-## 设计约束
+## Design Constraints
 
-- 不建设图形化上位机作为当前阶段目标。
-- 不把规划中的 API 当作当前 API；当前能力以 `docs/status.md` 为准。
-- 不手写生成目录下的 `.g.cs`。
-- 不让 Raw Protocol 操作悄悄污染 Managed 状态；Raw 改变设备状态后必须失效缓存并要求同步。
+- A graphical reader management application is not a current-phase goal.
+- Planned APIs must not be described as current APIs; `docs/status.md` is the source of truth for current capabilities.
+- Do not hand-edit generated `.g.cs` files.
+- Raw Protocol operations must not silently corrupt managed state. If a raw operation changes device state, managed caches must be invalidated and synchronization required.
