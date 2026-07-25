@@ -6,6 +6,8 @@
 
 本项目是一套现代化 .NET LLRP 开发套件，而不只是二进制编解码库。
 
+![LLRPCSharp Architecture Overview](../images/llrpcsharp_infographic.png)
+
 核心产品是 `LlrpSdk.LlrpReader`：一个代表单台 RFID 读写器的设备会话对象，负责连接、协议协商、初始化、盘点、资源管理、报文诊断和扩展生命周期。
 
 ```text
