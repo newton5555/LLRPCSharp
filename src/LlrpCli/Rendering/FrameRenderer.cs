@@ -200,42 +200,44 @@ public static class FrameRenderer
             }
             else if (value is System.Collections.IEnumerable enumerable and not string and not byte[])
             {
-                var listNode = parentNode.AddNode($"[deepskyblue1]{Markup.Escape(propName)}[/] [grey](collection)[/]");
-                int index = 0;
-                const int maxPrimitiveItems = 20;
-                bool truncated = false;
-
-                foreach (object item in enumerable)
+                object[] items = enumerable.Cast<object>().Where(x => x is not null).ToArray();
+                if (items.Length == 0)
                 {
-                    if (item is null)
-                    {
-                        continue;
-                    }
-
-                    if (item.GetType().IsPrimitive || item is Enum || item is string)
-                    {
-                        if (index >= maxPrimitiveItems)
-                        {
-                            truncated = true;
-                            index++;
-                            continue;
-                        }
-                        listNode.AddNode($"[grey]{Markup.Escape($"[{index++}]:")}[/] [white]{Markup.Escape(item.ToString() ?? string.Empty)}[/]");
-                    }
-                    else
-                    {
-                        var itemNode = listNode.AddNode($"[green]{Markup.Escape(item.GetType().Name)}[/]");
-                        BuildObjectTree(itemNode, item, depth + 1);
-                    }
+                    parentNode.AddNode($"[grey70]{Markup.Escape(propName)}:[/] [grey](empty collection)[/]");
                 }
-
-                if (truncated)
+                else
                 {
-                    listNode.AddNode($"[grey]... (+ {index - maxPrimitiveItems} more items)[/]");
+                    var listNode = parentNode.AddNode($"[deepskyblue1]{Markup.Escape(propName)}[/] [grey]({items.Length} items)[/]");
+                    int index = 0;
+                    const int maxPrimitiveItems = 20;
+                    bool truncated = false;
+
+                    foreach (object item in items)
+                    {
+                        if (item.GetType().IsPrimitive || item is Enum || item is string)
+                        {
+                            if (index >= maxPrimitiveItems)
+                            {
+                                truncated = true;
+                                index++;
+                                continue;
+                            }
+                            listNode.AddNode($"[grey]{Markup.Escape($"[{index++}]:")}[/] [white]{Markup.Escape(item.ToString() ?? string.Empty)}[/]");
+                        }
+                        else
+                        {
+                            var itemNode = listNode.AddNode($"[green]{Markup.Escape(item.GetType().Name)}[/]");
+                            BuildObjectTree(itemNode, item, depth + 1);
+                        }
+                    }
+
+                    if (truncated)
+                    {
+                        listNode.AddNode($"[grey]... (+ {index - maxPrimitiveItems} more items)[/]");
+                    }
                 }
             }
-            else if (value.GetType().Assembly == typeof(LlrpMessageHeader).Assembly
-                || value.GetType().Assembly == typeof(LlrpTlvParameterHeader).Assembly)
+            else if (value is ILlrpParameter || value is ILlrpMessage || value.GetType().Namespace?.StartsWith("Llrp", StringComparison.Ordinal) == true)
             {
                 var childNode = parentNode.AddNode($"[deepskyblue1]{Markup.Escape(propName)}[/]: [green]{Markup.Escape(value.GetType().Name)}[/]");
                 BuildObjectTree(childNode, value, depth + 1);
