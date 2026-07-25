@@ -119,6 +119,8 @@ parameter_extensions:
 
 ## 5. 远期扩展规划：运行时动态 YAML 解释加载机制
 
+> 当前状态：本节是远期规划，不是当前 SDK API。`WithDynamicYamlExtension(...)`、`DynamicCustomParameter` 和 `DynamicYamlCodec` 当前尚未实现；当前可用模式仍是静态生成扩展程序集并注册协议模块。
+
 除了上述的静态编译模式外，为满足**“生产环境无需重新编译 DLL、直接放一个 YAML 文件即可动态接入小众/私有新设备”**的需求，项目架构预留了动态解释加载规划：
 
 ### 5.1 架构设计原理

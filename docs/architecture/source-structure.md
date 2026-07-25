@@ -1,6 +1,6 @@
 # SDK 源码结构与生成边界说明 (`src/`)
 
-> 本文档用于说明 `src//` 目录下各 SDK 子项目的职责划分、**手写核心架构**与**基于协议定义自动生成的代码**之间的边界，以及标准与厂商扩展代码生成的命名空间与目录规范。
+> 本文档用于说明 `src/` 目录下各 SDK 子项目的职责划分、**手写核心架构**与**基于协议定义自动生成的代码**之间的边界，以及标准与厂商扩展代码生成的命名空间与目录规范。当前实现状态以 [`../status.md`](../status.md) 为准。
 
 ---
 
@@ -14,7 +14,8 @@ src/
 ├── LlrpNet.ProtocolGenerator/  [手写] C# 源码生成引擎 (ProtocolSourceGenerator)
 ├── LlrpNet.Protocol/           [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
 ├── LlrpSdk.Extensions.Impinj/  [扩展/生成] Impinj 厂商私有扩展组件库与 Custom Codec 模块
-└── LlrpCli/                    [手写] 交互式终端 Shell、智能提示链与 LLRP 报文树状分析器
+├── LlrpCli/                    [手写] 交互式终端 Shell、智能提示链与 LLRP 报文树状分析器
+└── LlrpVirtualReader/          [手写] 最小 1.0.1 虚拟读写器，用于本地互操作和回归测试
 ```
 
 ---
@@ -79,6 +80,9 @@ src/
 ### 3.1 应用层 (`src/LlrpSdk/`) —— [手写]
 - **`LlrpReader`**：开发者直接调用的设备会话根对象，负责管理连接建立、断线恢复、 Keepalive 自动应答、能力协商与 ReaderIdentity / ReaderCapabilities 元数据。
 - **`RoSpecService`**：高级资源服务，提供 `reader.RoSpecs.AddAsync` / `EnableAsync` / `StartAsync` / `StopAsync` / `DeleteAsync` / `GetAllAsync` 操作。
+- **`AccessSpecService`**：进阶 AccessSpec 生命周期服务，提供 Add/Delete/Enable/Disable/GetAll；当前不是标签读写的高级业务 API。
+- **`ReaderExtensionCollection`**：维护连接后激活的 Reader Extension，负责基于设备元数据筛选和互斥检查。
+- **`LlrpAutomaticReconnectOptions`**：控制有限自动重连；当前不会恢复期望 ROSpec/AccessSpec 或托管盘点状态。
 
 ### 3.2 传输与会话层 (`src/LlrpNet.Core/`) —— [手写]
 - **`LlrpSession`**：底层的 LLRP 双向会话管理，负责并发 Request/Response 事务匹配、超时控制与取消广播。
@@ -101,6 +105,10 @@ src/
 
 ### 3.6 终端诊断工具 (`src/LlrpCli/`) —— [手写]
 - 基于 `Spectre.Console` 和 `Spectre.Console.Cli` 构建的 Live Shell，提供指令补全提示链、灰色 Ghost 后缀、平滑光标控制以及深层 LLRP 报文树状分析器。
+
+### 3.7 虚拟读写器 (`src/LlrpVirtualReader/`) —— [手写]
+- 最小 1.0.1 TCP Server，用于本地互操作和回归测试。
+- 当前支持能力查询与 ROSpec 生命周期；TagReport 生成、AccessSpec、故障注入和脚本化场景仍待补充。
 
 ---
 

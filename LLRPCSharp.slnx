@@ -20,11 +20,54 @@
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
   </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/README.md" />
+    <File Path="docs/status.md" />
+    <File Path="docs/roadmap.md" />
+  </Folder>
+  <Folder Name="/docs/adr/">
+    <File Path="docs/adr/README.md" />
+    <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
+  </Folder>
+  <Folder Name="/docs/architecture/">
+    <File Path="docs/architecture/overview.md" />
+    <File Path="docs/architecture/source-structure.md" />
+    <File Path="docs/architecture/protocol-extension-guide.md" />
+  </Folder>
+  <Folder Name="/docs/references/">
+    <File Path="docs/references/README.md" />
+  </Folder>
+  <Folder Name="/definitions/">
+    <File Path="definitions/README.md" />
+    <File Path="definitions/llrp-definition.schema.yaml" />
+    <File Path="definitions/llrp-1.1.yaml" />
+    <File Path="definitions/llrp-2.0-delta.yaml" />
+  </Folder>
+  <Folder Name="/definitions/extensions/">
+    <File Path="definitions/extensions/.gitkeep" />
+  </Folder>
+  <Folder Name="/definitions/imports/xml/">
+    <File Path="definitions/imports/xml/.gitkeep" />
+  </Folder>
+  <Folder Name="/definitions/imports/xml/llrp-1.0.1/">
+    <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml" />
+    <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0.xsd" />
+  </Folder>
+  <Folder Name="/references/">
+    <File Path="references/README.md" />
+  </Folder>
+  <Folder Name="/references/standards/">
+    <File Path="references/standards/README.md" />
+  </Folder>
+  <Folder Name="/testdata/">
+    <File Path="testdata/README.md" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="global.json" />
+    <File Path="AGENTS.md" />
     <File Path="README.md" />
   </Folder>
 </Solution>
