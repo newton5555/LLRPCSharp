@@ -1,7 +1,9 @@
-﻿using System.Globalization;
+using System.Globalization;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+
+using LlrpSdk.Extensions.Impinj;
 
 namespace LlrpCli.Commands;
 
@@ -76,6 +78,7 @@ public static class Helpers
     {
         var registry = new LlrpCodecRegistry();
         LlrpNet.Protocol.Registry.V1_0_1.V1_0_1ProtocolModule.Register(registry);
+        ImpinjProtocolModule.Instance.Register(registry);
         return registry;
     }
 }

@@ -8,6 +8,7 @@ using LlrpSdk;
 using LlrpCli.Analysis;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
+using LlrpSdk.Extensions.Impinj;
 
 namespace LlrpCli.Commands;
 
@@ -276,6 +277,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
             .WithFrameObserver(_observer)
             .WithProtocolVersionPolicy(protocolVersionPolicy)
+            .UseImpinj()
             .Build();
 
         try

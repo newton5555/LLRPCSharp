@@ -2,7 +2,6 @@ using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpSdk;
-
 using LlrpSdk.Extensions.Impinj;
 
 namespace LlrpCli.Commands;
@@ -22,6 +21,11 @@ public sealed class ConnectSettings : CommandSettings
     [Description("Protocol version policy: auto, 1.0.1, or 1.1.")]
     [DefaultValue("auto")]
     public string LlrpVersion { get; init; } = "auto";
+
+    [CommandOption("--vendor <VENDOR>")]
+    [Description("Vendor extensions mode: auto, impinj, or none.")]
+    [DefaultValue("auto")]
+    public string Vendor { get; init; } = "auto";
 }
 
 public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
@@ -45,12 +49,28 @@ public sealed class ConnectCommand : AsyncCommand<ConnectSettings>
 
         _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
 
-        await using LlrpReader reader = LlrpReader.CreateBuilder(settings.Host)
+        var builder = LlrpReader.CreateBuilder(settings.Host)
             .WithPort(settings.Port)
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
-            .WithProtocolVersionPolicy(policy)
-            .UseImpinj()
-            .Build();
+            .WithProtocolVersionPolicy(policy);
+
+        if (string.Equals(settings.Vendor, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            _console.MarkupLine("[grey]Vendor extensions:[/] [yellow]disabled (pure standard LLRP mode)[/]");
+        }
+        else if (string.Equals(settings.Vendor, "impinj", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(settings.Vendor, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.UseImpinj();
+            _console.MarkupLine("[grey]Vendor extensions:[/] [springgreen2]Impinj enabled[/]");
+        }
+        else
+        {
+            _console.MarkupLine($"[bold red]✖ Invalid vendor option:[/] '{Markup.Escape(settings.Vendor)}' (use auto, impinj, or none).");
+            return 2;
+        }
+
+        await using LlrpReader reader = builder.Build();
 
         try
         {

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpNet.Core.Diagnostics;
@@ -6,6 +6,8 @@ using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpSdk;
 using LlrpCli.Rendering;
+using LlrpCli.Terminal;
+using LlrpSdk.Extensions.Impinj;
 
 namespace LlrpCli.Commands;
 
@@ -29,6 +31,11 @@ public sealed class MonitorSettings : CommandSettings
     [Description("Protocol version policy: auto, 1.0.1, or 1.1.")]
     [DefaultValue("auto")]
     public string LlrpVersion { get; init; } = "auto";
+
+    [CommandOption("--vendor <VENDOR>")]
+    [Description("Vendor extensions mode: auto, impinj, or none.")]
+    [DefaultValue("auto")]
+    public string Vendor { get; init; } = "auto";
 }
 
 public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
@@ -52,12 +59,34 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
 
         _console.MarkupLine($"[grey]Starting LLRP Frame Monitor on[/] [cyan1]{settings.Host}:{settings.Port}[/]...");
 
-        var observer = new ConsoleFrameObserver(_console);
-        await using LlrpReader reader = LlrpReader.CreateBuilder(settings.Host)
+        var observer = new DelegateFrameObserver(frame =>
+        {
+            FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
+            _console.WriteLine();
+        });
+
+        var builder = LlrpReader.CreateBuilder(settings.Host)
             .WithPort(settings.Port)
             .WithFrameObserver(observer)
-            .WithProtocolVersionPolicy(policy)
-            .Build();
+            .WithProtocolVersionPolicy(policy);
+
+        if (string.Equals(settings.Vendor, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            _console.MarkupLine("[grey]Vendor extensions:[/] [yellow]disabled (pure standard LLRP mode)[/]");
+        }
+        else if (string.Equals(settings.Vendor, "impinj", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(settings.Vendor, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.UseImpinj();
+            _console.MarkupLine("[grey]Vendor extensions:[/] [springgreen2]Impinj enabled[/]");
+        }
+        else
+        {
+            _console.MarkupLine($"[bold red]✖ Invalid vendor option:[/] '{Markup.Escape(settings.Vendor)}' (use auto, impinj, or none).");
+            return 2;
+        }
+
+        await using LlrpReader reader = builder.Build();
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         ConsoleCancelEventHandler handler = (_, e) =>
@@ -104,38 +133,5 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
         }
 
         return 0;
-    }
-
-    private sealed class ConsoleFrameObserver(IAnsiConsole console) : ILlrpFrameObserver
-    {
-        private static readonly object ConsoleLock = new();
-
-        public ValueTask ObserveAsync(LlrpFrameObservation observation, CancellationToken cancellationToken = default)
-        {
-            byte[] frameCopy = observation.FrameBytes.ToArray();
-            bool isTx = observation.Direction == LlrpFrameDirection.Transmit;
-            string directionBadge = isTx ? "[deepskyblue1 bold]→ TX[/]" : "[springgreen2 bold]← RX[/]";
-
-            lock (ConsoleLock)
-            {
-                try
-                {
-                    LlrpMessageHeader header = LlrpMessageHeader.Decode(frameCopy);
-                    ILlrpMessage message = Helpers.CreateRegistry().DecodeMessage(frameCopy);
-
-                    console.MarkupLine($"{directionBadge}  [bold]{Markup.Escape(message.GetType().Name)}[/]  [grey]ID {header.MessageId} · {frameCopy.Length} bytes · {observation.Timestamp:HH:mm:ss.fff}[/]");
-                    FrameRenderer.RenderHexDumpPanel(frameCopy, console);
-                    console.WriteLine();
-                }
-                catch
-                {
-                    console.MarkupLine($"{directionBadge}  [grey]Raw Frame ({frameCopy.Length} bytes)[/]");
-                    FrameRenderer.RenderHexDumpPanel(frameCopy, console);
-                    console.WriteLine();
-                }
-            }
-
-            return ValueTask.CompletedTask;
-        }
     }
 }
