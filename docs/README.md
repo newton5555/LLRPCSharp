@@ -10,6 +10,7 @@
 
 ## 项目与架构
 
+- [架构与能力图谱](showcase.md)
 - [架构总览](architecture/overview.md)
 - [源码结构](architecture/source-structure.md)
 - [协议扩展指南](architecture/protocol-extension-guide.md)

@@ -1,5 +1,7 @@
 # LLRP C# SDK
 
+[![LLRPCSharp Architecture and Capabilities](docs/images/llrpcsharp_infographic.png)](docs/showcase.md)
+
 面向 .NET 的现代化 LLRP SDK。项目以 `LlrpSdk.LlrpReader` 为应用层设备会话根对象，提供 LLRP 读写器连接、协议协商、资源管理、盘点、报文诊断和协议扩展能力。
 
 当前真实实现状态见 [docs/status.md](docs/status.md)，下一步开发顺序见 [docs/roadmap.md](docs/roadmap.md)。长期架构边界见 [docs/architecture/overview.md](docs/architecture/overview.md)。
@@ -77,6 +79,7 @@ tools/         定义导入、生成、校验和测试辅助工具
 
 - [当前状态](docs/status.md)：已经实现、尚未实现、当前阻塞。
 - [路线图](docs/roadmap.md)：下一步开发顺序。
+- [架构与能力图谱](docs/showcase.md)：项目架构、能力边界和展示图。
 - [文档索引](docs/README.md)：架构、ADR、资料来源。
 - [Agent Guide](AGENTS.md)：给自动化 coding agent 的仓库规则。
 - [协议定义说明](definitions/README.md)：XML/YAML 定义与生成命令。

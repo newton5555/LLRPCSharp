@@ -23,6 +23,7 @@
   </Folder>
   <Folder Name="/docs/">
     <File Path="docs/README.md" />
+    <File Path="docs/showcase.md" />
     <File Path="docs/status.md" />
     <File Path="docs/roadmap.md" />
   </Folder>
@@ -34,6 +35,9 @@
     <File Path="docs/architecture/overview.md" />
     <File Path="docs/architecture/source-structure.md" />
     <File Path="docs/architecture/protocol-extension-guide.md" />
+  </Folder>
+  <Folder Name="/docs/images/">
+    <File Path="docs/images/llrpcsharp_infographic.png" />
   </Folder>
   <Folder Name="/docs/references/">
     <File Path="docs/references/README.md" />

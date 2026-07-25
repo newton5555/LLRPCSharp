@@ -1,0 +1,45 @@
+# LLRPCSharp 项目架构与能力图谱
+
+本文是 LLRPCSharp 的项目展示文档，用于快速说明项目定位、架构边界和当前能力。当前真实实现状态以 [status.md](status.md) 为准，后续计划以 [roadmap.md](roadmap.md) 为准。
+
+## 项目信息图
+
+![LLRPCSharp Architecture and Capabilities Infographic](images/llrpcsharp_infographic.png)
+
+## 核心架构优势
+
+### 1. 现代化 .NET 底座
+
+- **异步会话与分发模型**：底层会话、传输和事件分发围绕现代 .NET 异步模式构建，便于在长连接读写器场景下处理持续报文流。
+- **面向低分配的协议边界**：传输和协议解析边界尽量使用 `ReadOnlyMemory<byte>` 等内存友好类型，降低报文处理过程中的不必要复制。
+
+### 2. 干净的适配器边界
+
+- **协议版本隔离**：LLRP 1.0.1 与 LLRP 1.1 通过 `ILlrpProtocolAdapter` 实现隔离；LLRP 2.0 定义已入库，Adapter 仍在规划中。
+- **版本无关的上层入口**：应用层优先面对 `LlrpReader`、`ReaderSettings`、ROSpec 和 AccessSpec 服务等托管 API，减少业务代码直接拼装协议报文的需要。
+
+### 3. 可插拔的厂商扩展系统
+
+- **厂商扩展注册**：例如 Impinj 扩展可通过 `UseImpinj()` 接入生成的强类型 Codec 资产和扩展模块。
+- **低侵入性扩展模型**：标准 LLRP 能力与厂商扩展保持分层，未启用厂商扩展时可继续使用通用 LLRP 驱动路径。
+
+## 核心项目能力
+
+### 1. 会话生命周期管理
+
+- **连接与版本协商**：支持 LLRP 1.1 自动协商，并可按策略强制 1.0.1 或 1.1。
+- **有限自动重连**：提供 `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`，用于意外断线后的重连基线。重连后的 ROSpec、AccessSpec 和托管盘点状态恢复仍属于后续增强方向。
+- **托管状态同步**：Raw Protocol 操作后会使托管状态失效，可通过 `SynchronizeStateAsync()` 恢复到可继续 Managed 操作的状态。
+
+### 2. 进阶资源控制
+
+- **ROSpec 生命周期服务**：`reader.RoSpecs` 提供 Add、Delete、Enable、Disable、Start、Stop、GetAll 等操作。
+- **AccessSpec 生命周期服务**：`reader.AccessSpecs` 提供 Add、Delete、Enable、Disable、GetAll 等操作。
+- **盘点入口**：`StartAsync`、`StopAsync`、`InventoryAsync`、`ReadTagReportsAsync` 和 `TagsReported` 构成当前托管盘点基线。
+
+### 3. CLI 诊断与互操作套件
+
+- **在线诊断**：`LlrpCli` 支持连接、监控和 Live Shell，用于快速观察设备交互。
+- **离线协议工具**：支持 `inspect`、`decode`、`encode`，可在不连接设备的情况下检查 LLRP 报文。
+- **原始帧观测**：`ILlrpFrameObserver` 和 `LlrpFrameJournal` 可在 Transport/Session 边界记录完整 TX/RX 帧，便于 Hex 诊断、审计和互操作分析。
+
