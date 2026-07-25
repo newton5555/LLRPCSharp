@@ -91,6 +91,8 @@ parameter_extensions:
 
 无论增量 YAML 属于哪个场景，代码生成工具在构建期的合成流程完全一致：
 
+![LLRPCSharp Extension Pipeline](../images/vendor_extension_infographic.png)
+
 ```text
 [ 固定 XML 基线 ] (1.0.1 标准 / Impinj；原始 Impinj XML 仅作本地生成输入)
          │

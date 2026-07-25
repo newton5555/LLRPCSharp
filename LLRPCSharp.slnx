@@ -38,6 +38,7 @@
   </Folder>
   <Folder Name="/docs/images/">
     <File Path="docs/images/llrpcsharp_infographic.png" />
+    <File Path="docs/images/vendor_extension_infographic.png" />
   </Folder>
   <Folder Name="/docs/references/">
     <File Path="docs/references/README.md" />
