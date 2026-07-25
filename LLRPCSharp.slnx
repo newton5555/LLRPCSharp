@@ -22,21 +22,20 @@
   </Folder>
   <Folder Name="/docs/">
     <File Path="docs/README.md" />
-    <File Path="docs/LLRP-CSharp-SDK-整体规划.md" />
+    <File Path="docs/status.md" />
+    <File Path="docs/roadmap.md" />
   </Folder>
   <Folder Name="/docs/adr/">
     <File Path="docs/adr/README.md" />
     <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
+    <File Path="docs/architecture/overview.md" />
     <File Path="docs/architecture/source-structure.md" />
     <File Path="docs/architecture/protocol-extension-guide.md" />
   </Folder>
   <Folder Name="/docs/references/">
-    <File Path="docs/references/protocol-source-inventory.md" />
-  </Folder>
-  <Folder Name="/docs/planning/">
-    <File Path="docs/planning/source-doc-gap-next-plan.md" />
+    <File Path="docs/references/README.md" />
   </Folder>
   <Folder Name="/definitions/">
     <File Path="definitions/README.md" />
@@ -54,11 +53,21 @@
     <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml" />
     <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0.xsd" />
   </Folder>
+  <Folder Name="/references/">
+    <File Path="references/README.md" />
+  </Folder>
+  <Folder Name="/references/standards/">
+    <File Path="references/standards/README.md" />
+  </Folder>
+  <Folder Name="/testdata/">
+    <File Path="testdata/README.md" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="global.json" />
+    <File Path="AGENTS.md" />
     <File Path="README.md" />
   </Folder>
 </Solution>
