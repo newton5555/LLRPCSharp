@@ -68,3 +68,7 @@ instead, then regenerate and verify.
 - Keep `docs/roadmap.md` about future work and priority.
 - Keep `README.md` user-facing and brief.
 - Mark planned APIs clearly as planned when they appear in design documents.
+
+## Git Commit Rules
+
+- **Do Not Automatically Commit to Git**: Coding agents must not make automatic Git commits unless explicitly requested by the user. If you believe a commit is necessary, always ask the user for permission first.
