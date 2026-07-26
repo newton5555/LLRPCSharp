@@ -1,0 +1,14 @@
+# Handle line endings automatically for files detected as text
+# and leave all other files alone.
+* text=auto
+
+# Standard C# and .NET overrides
+*.cs text diff=csharp
+*.csproj text
+*.sln text eol=crlf
+*.slnx text
+*.props text
+*.targets text
+*.editorconfig text
+*.gitignore text
+*.md text
