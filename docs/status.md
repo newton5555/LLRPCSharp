@@ -53,11 +53,13 @@
 - `LlrpFrameJournal` 诊断基线。
 - `ILlrpFrameObserver` 可从底层 Transport/Session 注入完整 TX/RX 帧观测。
 
-## 未完成
-
 ### Reader 配置查询与应用
 
-规划中出现的 `QuerySettingsAsync` 与 `ApplySettingsAsync` 当前不是公开可用 API。`ReaderSettings` 目前主要用于编译托管盘点 ROSpec，不等同于完整 Reader Config 查询/应用模型。
+- `LlrpReader.QuerySettingsAsync()` 与 `ApplySettingsAsync(ReaderConfiguration)`，支持高层版、版本无关的 Keepalive、Antenna、GPI/GPO、以及事件通知配置的查询与应用。
+- 支持 LLRP 1.0.1 和 1.1 协议适配器下的映射与配置流。
+- CLI 命令行支持 `config get <HOST>` 和 `config apply <HOST> [options]` 以便快捷查询与修改 Reader 物理参数。
+
+## 未完成
 
 ### 标签访问 API
 
