@@ -1,6 +1,7 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
+using LlrpSdk.Extensions.Impinj.Messages.V1_0_1;
 
 namespace LlrpSdk.Extensions.Impinj;
 
@@ -42,6 +43,17 @@ public sealed class ImpinjReaderExtension : IReaderExtension
         ArgumentNullException.ThrowIfNull(context);
         return context.ManufacturerId == ManufacturerId &&
             context.ProtocolVersion == LlrpProtocolVersion.Version101;
+    }
+
+    /// <inheritdoc />
+    public async System.Threading.Tasks.Task InitializeConnectionAsync(
+        IReaderConnection connection,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        var enableMsg = new IMPINJ_ENABLE_EXTENSIONS(connection.NextMessageId(), []);
+        await connection.TransactAsync<IMPINJ_ENABLE_EXTENSIONS_RESPONSE>(enableMsg, timeout: null, cancellationToken)
+            .ConfigureAwait(false);
     }
 }
 

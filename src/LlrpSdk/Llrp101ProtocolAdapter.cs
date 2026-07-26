@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -20,7 +20,28 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
         Llrp101StandardModule.Register(registry);
     }
 
-    public async Task<ReaderMetadataSnapshot> InitializeAsync(
+    public async Task<ReaderIdentity> FetchIdentityAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken)
+    {
+        GET_READER_CAPABILITIES_RESPONSE response = await reader
+            .TransactDuringInitializationAsync<GET_READER_CAPABILITIES_RESPONSE>(
+                new GET_READER_CAPABILITIES(messageId, GetReaderCapabilitiesRequestedData.General_Device_Capabilities, []),
+                cancellationToken,
+                MatchesCapabilitiesResponse)
+            .ConfigureAwait(false);
+        EnsureSuccess("GET_READER_CAPABILITIES", response.LLRPStatus);
+
+        GeneralDeviceCapabilities general = response.GeneralDeviceCapabilities ??
+            throw new LlrpReaderInitializationException(
+                "A successful LLRP 1.0.1 GET_READER_CAPABILITIES(General_Device_Capabilities) response must contain " +
+                "exactly one GeneralDeviceCapabilities parameter.");
+
+        return new ReaderIdentity(general.DeviceManufacturerName, general.ModelName, general.ReaderFirmwareVersion);
+    }
+
+    public async Task<ReaderCapabilities> FetchCapabilitiesAsync(
         LlrpReader reader,
         uint messageId,
         CancellationToken cancellationToken)
@@ -44,15 +65,13 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
             general.GPIOCapabilities,
             .. general.PerAntennaAirProtocolItems,
         ];
-        return new ReaderMetadataSnapshot(
-            new ReaderIdentity(general.DeviceManufacturerName, general.ModelName, general.ReaderFirmwareVersion),
-            new ReaderCapabilities(
-                general.MaxNumberOfAntennaSupported,
-                general.CanSetAntennaProperties,
-                general.HasUTCClockCapability,
-                generalParameters,
-                response,
-                response.CustomItems));
+        return new ReaderCapabilities(
+            general.MaxNumberOfAntennaSupported,
+            general.CanSetAntennaProperties,
+            general.HasUTCClockCapability,
+            generalParameters,
+            response,
+            response.CustomItems);
     }
 
     public ILlrpParameter CompileInventory(ReaderSettings settings) => Llrp101InventoryCompiler.Compile(settings);

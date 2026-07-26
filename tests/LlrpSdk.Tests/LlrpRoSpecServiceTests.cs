@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
@@ -248,6 +248,13 @@ public sealed class LlrpRoSpecServiceTests
 
         uint messageId = LlrpMessageHeader.Decode(capabilityRequest).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(messageId));
+
+        byte[] allRequest = await transport.ReadSentFrameAsync(
+            GetReaderCapabilities.MessageType,
+            timeout.Token);
+        uint allMsgId = LlrpMessageHeader.Decode(allRequest).MessageId;
+        transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(allMsgId));
+
         await connectTask;
     }
 

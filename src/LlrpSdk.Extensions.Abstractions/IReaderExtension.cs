@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 
 namespace LlrpSdk.Extensions;
 
@@ -22,6 +22,15 @@ public interface IReaderExtension
     /// <param name="context">The immutable standard identity and negotiated-version context.</param>
     /// <returns><see langword="true"/> when the extension should activate.</returns>
     public bool Matches(ReaderExtensionMatchContext context);
+
+    /// <summary>
+    /// 当扩展匹配成功并被激活时，在获取全量能力之前调用。
+    /// 允许厂商扩展在此阶段向通道中发送初始化/启用命令。
+    /// </summary>
+    public System.Threading.Tasks.Task InitializeConnectionAsync(
+        IReaderConnection connection,
+        System.Threading.CancellationToken cancellationToken)
+        => System.Threading.Tasks.Task.CompletedTask;
 }
 
 /// <summary>Supplies standard reader identity to extension matching without exposing a reader session.</summary>

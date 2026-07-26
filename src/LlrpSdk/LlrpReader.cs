@@ -290,7 +290,6 @@ public sealed class LlrpReader : IAsyncDisposable
                 await NegotiateProtocolVersionAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
-                ActivateReaderExtensions();
                 AddTransition(transitions, ReaderConnectionState.Ready);
             }
             catch (Exception exception)
@@ -427,7 +426,6 @@ public sealed class LlrpReader : IAsyncDisposable
                 await NegotiateProtocolVersionAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
-                ActivateReaderExtensions();
                 AddTransition(transitions, ReaderConnectionState.Ready);
             }
             catch (Exception exception)
@@ -816,6 +814,26 @@ public sealed class LlrpReader : IAsyncDisposable
             Options.RequestTimeout,
             cancellationToken,
             responseMatcher);
+    }
+
+    internal async Task<TResponse> TransactDuringExtensionInitializationAsync<TResponse>(
+        ILlrpMessage request,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+        where TResponse : class, ILlrpMessage
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ThrowIfDisposed();
+        if (ConnectionState != ReaderConnectionState.Initializing)
+        {
+            throw new InvalidOperationException("Extension initialization can only occur during reader connection initialization.");
+        }
+        if (!_session.IsConnected)
+        {
+            throw new InvalidOperationException("The LLRP session is disconnected.");
+        }
+
+        return await TransactSessionAsync<TResponse>(request, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     internal async Task SendAsync<TMessage>(
@@ -1242,19 +1260,41 @@ public sealed class LlrpReader : IAsyncDisposable
         Volatile.Write(ref _protocolAdapter, adapter);
     }
 
+    internal uint NextMessageId() => _messageIds.Next();
+
     private async Task InitializeReaderAsync(CancellationToken cancellationToken)
     {
         try
         {
-            ReaderMetadataSnapshot metadata = await GetProtocolAdapter()
-                .InitializeAsync(this, _messageIds.Next(), cancellationToken)
+            ILlrpProtocolAdapter adapter = GetProtocolAdapter();
+
+            // Phase 1: Fetch lightweight identity
+            ReaderIdentity identity = await adapter
+                .FetchIdentityAsync(this, _messageIds.Next(), cancellationToken)
                 .ConfigureAwait(false);
-            Volatile.Write(ref _metadata, metadata);
+
+            // Match and activate extensions based on the identity
+            ActivateReaderExtensions(identity);
+
+            // Phase 2: Execute active extension initializers
+            var extensionConnection = new ExtensionConnection(this);
+            foreach (IReaderExtension extension in Extensions)
+            {
+                await extension.InitializeConnectionAsync(extensionConnection, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            // Phase 3: Fetch all capabilities (which will now contain custom extension parameters if enabled)
+            ReaderCapabilities capabilities = await adapter
+                .FetchCapabilitiesAsync(this, _messageIds.Next(), cancellationToken)
+                .ConfigureAwait(false);
+
+            Volatile.Write(ref _metadata, new ReaderMetadataSnapshot(identity, capabilities));
         }
         catch (LlrpProtocolException exception)
         {
             throw new LlrpReaderInitializationException(
-                "The GET_READER_CAPABILITIES(All) response could not be decoded into a valid " +
+                "The GET_READER_CAPABILITIES response could not be decoded into a valid " +
                 $"LLRP {NegotiatedVersion} capability model.",
                 exception);
         }
@@ -1266,14 +1306,13 @@ public sealed class LlrpReader : IAsyncDisposable
         _extensions.Replace([]);
     }
 
-    private void ActivateReaderExtensions()
+    private void ActivateReaderExtensions(ReaderIdentity identity)
     {
-        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ??
-            throw new InvalidOperationException("Reader extensions cannot activate before standard metadata is available.");
+        ArgumentNullException.ThrowIfNull(identity);
         var context = new ReaderExtensionMatchContext(
-            metadata.Identity.ManufacturerId,
-            metadata.Identity.ModelId,
-            metadata.Identity.FirmwareVersion,
+            identity.ManufacturerId,
+            identity.ModelId,
+            identity.FirmwareVersion,
             NegotiatedVersion);
         IReaderExtension[] activated = Options.ReaderExtensions
             .Where(extension => extension.Matches(context))
@@ -1302,6 +1341,27 @@ public sealed class LlrpReader : IAsyncDisposable
             throw new InvalidOperationException(
                 $"The LLRP reader is not ready for protocol operations; current state is {ConnectionState}.");
         }
+    }
+
+    private sealed class ExtensionConnection : IReaderConnection
+    {
+        private readonly LlrpReader _reader;
+
+        public ExtensionConnection(LlrpReader reader)
+        {
+            _reader = reader;
+        }
+
+        public Task<TResponse> TransactAsync<TResponse>(
+            ILlrpMessage request,
+            TimeSpan? timeout = null,
+            CancellationToken cancellationToken = default)
+            where TResponse : class, ILlrpMessage
+        {
+            return _reader.TransactDuringExtensionInitializationAsync<TResponse>(request, timeout, cancellationToken);
+        }
+
+        public uint NextMessageId() => _reader.NextMessageId();
     }
 
     private void EnsureManagedStateSynchronized()

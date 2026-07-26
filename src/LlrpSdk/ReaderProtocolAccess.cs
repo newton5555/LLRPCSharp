@@ -1,4 +1,4 @@
-﻿using LlrpNet.Protocol.Messages;
+using LlrpNet.Protocol.Messages;
 
 namespace LlrpSdk;
 
@@ -12,6 +12,8 @@ internal sealed class ReaderProtocolAccess : IReaderProtocolAccess
     {
         _reader = reader;
     }
+
+    public uint NextMessageId() => _reader.NextMessageId();
 
     public Task<TResponse> TransactAsync<TResponse>(
         ILlrpMessage request,

@@ -1,4 +1,5 @@
-﻿using LlrpNet.Protocol.Messages;
+using LlrpNet.Protocol.Messages;
+using LlrpSdk.Extensions;
 
 namespace LlrpSdk;
 
@@ -7,8 +8,11 @@ using LlrpNet.Core.Session;
 /// <summary>
 /// Exposes typed and exact-frame protocol operations for one connected reader.
 /// </summary>
-public interface IReaderProtocolAccess
+public interface IReaderProtocolAccess : IReaderConnection
 {
+    /// <summary>Generates the next unique message identifier for raw transactions.</summary>
+    public new uint NextMessageId();
+
     /// <summary>
     /// Encodes and sends a typed request, then decodes and validates its correlated response type.
     /// </summary>
@@ -17,7 +21,7 @@ public interface IReaderProtocolAccess
     /// <param name="timeout">An optional response timeout; <see langword="null"/> uses reader options.</param>
     /// <param name="cancellationToken">Cancels the send or pending transaction.</param>
     /// <returns>The decoded typed response.</returns>
-    public Task<TResponse> TransactAsync<TResponse>(
+    public new Task<TResponse> TransactAsync<TResponse>(
         ILlrpMessage request,
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default)

@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Registry;
@@ -12,7 +12,12 @@ internal interface ILlrpProtocolAdapter
 
     public void RegisterStandardCodecs(LlrpCodecRegistry registry);
 
-    public Task<ReaderMetadataSnapshot> InitializeAsync(
+    public Task<ReaderIdentity> FetchIdentityAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken);
+
+    public Task<ReaderCapabilities> FetchCapabilitiesAsync(
         LlrpReader reader,
         uint messageId,
         CancellationToken cancellationToken);

@@ -1,10 +1,12 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpSdk.Tests.Support;
+using LlrpNet.Protocol.Registry;
+using LlrpNet.Protocol.Registry.V1_0_1;
 
 namespace LlrpSdk.Tests;
 
@@ -64,12 +66,21 @@ public sealed class LlrpReaderInitializationTests
             Assert.IsType<GET_READER_CAPABILITIES_RESPONSE>(capabilities.RawResponse);
         Assert.Single(rawResponse.CustomItems);
 
-        byte[] request = transport.SentFrames.Single(static frame =>
-            LlrpMessageHeader.Decode(frame).MessageType == GetReaderCapabilities.MessageType);
-        LlrpMessageHeader requestHeader = LlrpMessageHeader.Decode(request);
-        Assert.NotEqual(0U, requestHeader.MessageId);
-        Assert.Equal((byte)GetReaderCapabilitiesRequestedData.All, request[LlrpMessageHeader.EncodedLength]);
-        Assert.Equal(requestHeader.MessageId, rawResponse.MessageId);
+        byte[][] requests = transport.SentFrames.Where(static frame =>
+            LlrpMessageHeader.Decode(frame).MessageType == GetReaderCapabilities.MessageType)
+            .ToArray();
+        Assert.Equal(2, requests.Length);
+
+        byte[] firstRequest = requests[0];
+        LlrpMessageHeader firstHeader = LlrpMessageHeader.Decode(firstRequest);
+        Assert.NotEqual(0U, firstHeader.MessageId);
+        Assert.Equal((byte)GetReaderCapabilitiesRequestedData.General_Device_Capabilities, firstRequest[LlrpMessageHeader.EncodedLength]);
+
+        byte[] secondRequest = requests[1];
+        LlrpMessageHeader secondHeader = LlrpMessageHeader.Decode(secondRequest);
+        Assert.NotEqual(0U, secondHeader.MessageId);
+        Assert.Equal((byte)GetReaderCapabilitiesRequestedData.All, secondRequest[LlrpMessageHeader.EncodedLength]);
+        Assert.Equal(secondHeader.MessageId, rawResponse.MessageId);
     }
 
     [Fact]
@@ -186,35 +197,57 @@ public sealed class LlrpReaderInitializationTests
         int requestCount = 0;
         var transport = new ScriptedLlrpTransport
         {
-            CapabilityResponseFactory = messageId => Interlocked.Increment(ref requestCount) == 1
-                ? LlrpTestFrames.CapabilitiesResponse(
-                    messageId,
-                    parameters:
-                    [
-                        LlrpTestFrames.GeneralCapabilities(
-                            maxNumberOfAntennas: 1,
-                            manufacturerId: 10,
-                            modelId: 11,
-                            firmwareVersion: "first"),
-                    ])
-                : null,
+            CapabilityResponseFactory = messageId =>
+            {
+                int count = Interlocked.Increment(ref requestCount);
+                if (count <= 2)
+                {
+                    return LlrpTestFrames.CapabilitiesResponse(
+                        messageId,
+                        parameters:
+                        [
+                            LlrpTestFrames.GeneralCapabilities(
+                                maxNumberOfAntennas: 1,
+                                manufacturerId: 10,
+                                modelId: 11,
+                                firmwareVersion: "first"),
+                        ]);
+                }
+                return null;
+            }
         };
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
+        await transport.ReadSentFrameAsync(GetReaderCapabilities.MessageType, timeout.Token);
         await transport.ReadSentFrameAsync(GetReaderCapabilities.MessageType, timeout.Token);
         ReaderIdentity firstIdentity = Assert.IsType<ReaderIdentity>(reader.Identity);
         ReaderCapabilities firstCapabilities = Assert.IsType<ReaderCapabilities>(reader.Capabilities);
 
         Task reconnectTask = reader.ReconnectAsync(timeout.Token);
-        byte[] secondRequest = await transport.ReadSentFrameAsync(
+        byte[] secondRequest1 = await transport.ReadSentFrameAsync(
             GetReaderCapabilities.MessageType,
             timeout.Token);
         Assert.Equal(ReaderConnectionState.Initializing, reader.ConnectionState);
         Assert.Null(reader.Identity);
         Assert.Null(reader.Capabilities);
-        uint messageId = LlrpMessageHeader.Decode(secondRequest).MessageId;
+        uint messageId1 = LlrpMessageHeader.Decode(secondRequest1).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(
-            messageId,
+            messageId1,
+            parameters:
+            [
+                LlrpTestFrames.GeneralCapabilities(
+                    maxNumberOfAntennas: 2,
+                    manufacturerId: 20,
+                    modelId: 21,
+                    firmwareVersion: "second"),
+            ]));
+
+        byte[] secondRequest2 = await transport.ReadSentFrameAsync(
+            GetReaderCapabilities.MessageType,
+            timeout.Token);
+        uint messageId2 = LlrpMessageHeader.Decode(secondRequest2).MessageId;
+        transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(
+            messageId2,
             parameters:
             [
                 LlrpTestFrames.GeneralCapabilities(
@@ -233,7 +266,7 @@ public sealed class LlrpReaderInitializationTests
         Assert.Equal(20U, secondIdentity.ManufacturerId);
         Assert.Equal("second", secondIdentity.FirmwareVersion);
         Assert.Equal(2, secondCapabilities.MaxNumberOfAntennas);
-        Assert.Equal(2, requestCount);
+        Assert.Equal(4, requestCount);
     }
 
     [Fact]
@@ -258,6 +291,13 @@ public sealed class LlrpReaderInitializationTests
 
         uint messageId = LlrpMessageHeader.Decode(request).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(messageId));
+
+        byte[] allRequest = await transport.ReadSentFrameAsync(
+            GetReaderCapabilities.MessageType,
+            timeout.Token);
+        uint allMsgId = LlrpMessageHeader.Decode(allRequest).MessageId;
+        transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(allMsgId));
+
         await connectTask;
         Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
     }
@@ -298,6 +338,78 @@ public sealed class LlrpReaderInitializationTests
             timeout.Token);
         LlrpMessageHeader acknowledgementHeader = LlrpMessageHeader.Decode(acknowledgement);
         Assert.Equal(keepalive.MessageId, acknowledgementHeader.MessageId);
+    }
+
+    [Fact]
+    public async Task Connect_WhenExtensionRegistered_ExecutesActiveInitialization()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+
+        GeneralDeviceCapabilities general = LlrpTestFrames.GeneralCapabilities(
+            manufacturerId: 12_345,
+            modelId: 67_890,
+            firmwareVersion: "fw-初始化");
+
+        transport.CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponse(
+            messageId,
+            parameters: [general]);
+
+        LlrpCodecRegistry registry = new LlrpCodecRegistry();
+        Llrp101StandardModule.Register(registry);
+
+        transport.OnSendAsync = (frame, ct) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            if (header.MessageType == EnableRoSpec.MessageType)
+            {
+                var response = new EnableRoSpecResponse(
+                    header.MessageId,
+                    new LLRPStatus(StatusCode.M_Success, string.Empty, null, null));
+                byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
+                transport.EnqueueFrame(encoded);
+            }
+            return ValueTask.CompletedTask;
+        };
+
+        var extension = new MockActiveExtension();
+        LlrpReaderBuilder builder = LlrpReader.CreateBuilder("scripted.local")
+            .WithTransportFactory(_ => transport)
+            .UseReaderExtension(extension);
+
+        await using LlrpReader reader = builder.Build();
+        await reader.ConnectAsync(timeout.Token);
+
+        var sentTypes = transport.SentFrames
+            .Select(frame => LlrpMessageHeader.Decode(frame).MessageType)
+            .Where(type => type == GetReaderCapabilities.MessageType || type == EnableRoSpec.MessageType)
+            .ToArray();
+
+        Assert.Equal(3, sentTypes.Length);
+        Assert.Equal(GetReaderCapabilities.MessageType, sentTypes[0]);
+        Assert.Equal(EnableRoSpec.MessageType, sentTypes[1]);
+        Assert.Equal(GetReaderCapabilities.MessageType, sentTypes[2]);
+    }
+
+    private sealed class MockActiveExtension : LlrpSdk.Extensions.IReaderExtension
+    {
+        public string Id => "mock-active-extension";
+        public string? MutualExclusionGroup => "reader-vendor";
+
+        public bool Matches(LlrpSdk.Extensions.ReaderExtensionMatchContext context)
+        {
+            return context.ManufacturerId == 12_345U;
+        }
+
+        public async Task InitializeConnectionAsync(
+            LlrpSdk.Extensions.IReaderConnection connection,
+            CancellationToken cancellationToken)
+        {
+            await connection.TransactAsync<EnableRoSpecResponse>(
+                new EnableRoSpec(connection.NextMessageId(), 99),
+                timeout: null,
+                cancellationToken: cancellationToken);
+        }
     }
 
     private static LlrpReader CreateReader(
