@@ -44,6 +44,7 @@
 - `IReaderExtension`、`UseReaderExtension(...)`、`reader.Extensions`。
 - `UseImpinj()` 扩展入口。
 - Reader Extension 基于 Manufacturer/Model/Firmware/ProtocolVersion 匹配，并检查互斥组冲突。
+- **两阶段能力获取与主动连接初始化 (ADR 0002)**：重构 SDK 握手连接逻辑，实现“读取基础身份 -> 匹配并激活运行对应扩展的主动初始化（如 Impinj 自动发送 `IMPINJ_ENABLE_EXTENSIONS`）-> 读取包含厂商专属能力的完整 Capability 快照”的双阶段流，解决因扩展未使能而无法查询厂商扩展能力的限制。
 
 ### 可靠性与诊断
 
