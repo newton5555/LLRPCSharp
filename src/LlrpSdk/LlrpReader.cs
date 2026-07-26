@@ -380,6 +380,41 @@ public sealed class LlrpReader : IAsyncDisposable
     }
 
     /// <summary>
+    /// Queries the current physical reader settings and configurations.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the query operation.</param>
+    /// <returns>The high-level reader configuration snapshot.</returns>
+    public async Task<ReaderConfiguration> QuerySettingsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureProtocolAvailable();
+        EnsureManagedStateSynchronized();
+
+        ILlrpProtocolAdapter adapter = GetProtocolAdapter();
+        uint messageId = _messageIds.Next();
+        return await adapter.QueryConfigurationAsync(this, messageId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Applies specific configuration settings to the physical reader.
+    /// </summary>
+    /// <param name="configuration">The settings to apply.</param>
+    /// <param name="cancellationToken">Cancels the application operation.</param>
+    /// <returns>A task representing the apply operation.</returns>
+    public async Task ApplySettingsAsync(
+        ReaderConfiguration configuration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        EnsureProtocolAvailable();
+
+        ILlrpProtocolAdapter adapter = GetProtocolAdapter();
+        uint messageId = _messageIds.Next();
+        await adapter.ApplyConfigurationAsync(this, messageId, configuration, cancellationToken).ConfigureAwait(false);
+        InvalidateManagedStateAfterRawProtocolAccess();
+    }
+
+    /// <summary>
     /// Explicitly disconnects and reconnects this reader.
     /// </summary>
     /// <param name="cancellationToken">Cancels either lifecycle operation.</param>

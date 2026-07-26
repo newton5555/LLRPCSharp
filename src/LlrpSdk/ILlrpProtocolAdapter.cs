@@ -95,4 +95,15 @@ internal interface ILlrpProtocolAdapter
         LlrpReader reader,
         uint messageId,
         CancellationToken cancellationToken);
+
+    public Task<ReaderConfiguration> QueryConfigurationAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken);
+
+    public Task ApplyConfigurationAsync(
+        LlrpReader reader,
+        uint messageId,
+        ReaderConfiguration configuration,
+        CancellationToken cancellationToken);
 }

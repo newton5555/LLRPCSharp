@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
@@ -197,4 +199,191 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
         LlrpMessageHeader header,
         ReadOnlyMemory<byte> frame) =>
         header.MessageType is GET_READER_CAPABILITIES_RESPONSE.MessageType or 100;
+
+    private static bool MatchesConfigResponse(
+        LlrpMessageHeader header,
+        ReadOnlyMemory<byte> frame) =>
+        header.MessageType is GET_READER_CONFIG_RESPONSE.MessageType or 100;
+
+    public async Task<ReaderConfiguration> QueryConfigurationAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken)
+    {
+        GET_READER_CONFIG_RESPONSE response = await reader
+            .TransactFromRawProtocolAsync<GET_READER_CONFIG_RESPONSE>(
+                new GET_READER_CONFIG(
+                    messageId,
+                    AntennaID: 0,
+                    RequestedData: GetReaderConfigRequestedData.All,
+                    GPIPortNum: 0,
+                    GPOPortNum: 0,
+                    CustomItems: []
+                ),
+                timeout: null,
+                cancellationToken: cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        EnsureSuccess("GET_READER_CONFIG", response.LLRPStatus);
+
+        var keepalive = response.KeepaliveSpec != null
+            ? new KeepaliveConfiguration
+            {
+                TriggerType = (KeepaliveTriggerType)(int)response.KeepaliveSpec.KeepaliveTriggerType,
+                IntervalMs = response.KeepaliveSpec.PeriodicTriggerValue
+            }
+            : new KeepaliveConfiguration();
+
+        var propsDict = response.AntennaPropertiesItems.ToDictionary(p => p.AntennaID);
+        var configDict = response.AntennaConfigurationItems.ToDictionary(c => c.AntennaID);
+        var antennaIds = propsDict.Keys.Union(configDict.Keys).OrderBy(id => id).ToList();
+
+        var antennas = new List<AntennaConfigurationSettings>();
+        foreach (var id in antennaIds)
+        {
+            propsDict.TryGetValue(id, out var prop);
+            configDict.TryGetValue(id, out var conf);
+
+            antennas.Add(new AntennaConfigurationSettings
+            {
+                AntennaId = id,
+                IsConnected = prop?.AntennaConnected,
+                Gain = prop?.AntennaGain,
+                TransmitPowerIndex = conf?.RFTransmitter?.TransmitPower,
+                ReceiverSensitivityIndex = conf?.RFReceiver?.ReceiverSensitivity,
+                ChannelIndex = conf?.RFTransmitter?.ChannelIndex
+            });
+        }
+
+        var gpos = response.GPOWriteDataItems.Select(g => new GpoConfiguration
+        {
+            GpoPortNumber = g.GPOPortNumber,
+            GpoData = g.GPOData
+        }).ToList();
+
+        var gpis = response.GPIPortCurrentStateItems.Select(g => new GpiStatus
+        {
+            GpiPortNumber = g.GPIPortNum,
+            Configured = g.Config,
+            State = (GpiState)(int)g.State
+        }).ToList();
+
+        var events = new EventNotificationConfiguration();
+        if (response.ReaderEventNotificationSpec != null)
+        {
+            bool GetState(NotificationEventType type) =>
+                response.ReaderEventNotificationSpec.EventNotificationStateItems
+                    .FirstOrDefault(e => e.EventType == type)?.NotificationState ?? false;
+
+            events = new EventNotificationConfiguration
+            {
+                HoppingEventEnabled = GetState(NotificationEventType.Upon_Hopping_To_Next_Channel),
+                GpiEventEnabled = GetState(NotificationEventType.GPI_Event),
+                RoSpecEventEnabled = GetState(NotificationEventType.ROSpec_Event),
+                ReportBufferWarningEnabled = GetState(NotificationEventType.Report_Buffer_Fill_Warning),
+                ReaderExceptionEventEnabled = GetState(NotificationEventType.Reader_Exception_Event),
+                RfSurveyEventEnabled = GetState(NotificationEventType.RFSurvey_Event),
+                AiSpecEventEnabled = GetState(NotificationEventType.AISpec_Event),
+                AntennaEventEnabled = GetState(NotificationEventType.Antenna_Event)
+            };
+        }
+
+        return new ReaderConfiguration
+        {
+            Keepalive = keepalive,
+            Antennas = antennas,
+            Gpos = gpos,
+            Gpis = gpis,
+            Events = events
+        };
+    }
+
+    public async Task ApplyConfigurationAsync(
+        LlrpReader reader,
+        uint messageId,
+        ReaderConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        KeepaliveSpec? keepaliveSpec = null;
+        if (configuration.Keepalive != null)
+        {
+            keepaliveSpec = new KeepaliveSpec(
+                (global::LlrpNet.Protocol.Enumerations.V1_0_1.KeepaliveTriggerType)(int)configuration.Keepalive.TriggerType,
+                configuration.Keepalive.IntervalMs
+            );
+        }
+
+        var antennaConfigs = new List<AntennaConfiguration>();
+        if (configuration.Antennas != null)
+        {
+            foreach (var item in configuration.Antennas)
+            {
+                RFTransmitter? rfTransmitter = null;
+                if (item.TransmitPowerIndex.HasValue || item.ChannelIndex.HasValue)
+                {
+                    rfTransmitter = new RFTransmitter(0, item.ChannelIndex ?? 0, item.TransmitPowerIndex ?? 0);
+                }
+
+                RFReceiver? rfReceiver = null;
+                if (item.ReceiverSensitivityIndex.HasValue)
+                {
+                    rfReceiver = new RFReceiver(item.ReceiverSensitivityIndex.Value);
+                }
+
+                antennaConfigs.Add(new AntennaConfiguration(
+                    item.AntennaId,
+                    rfReceiver,
+                    rfTransmitter,
+                    []
+                ));
+            }
+        }
+
+        ReaderEventNotificationSpec? eventNotificationSpec = null;
+        if (configuration.Events != null)
+        {
+            var stateItems = new List<EventNotificationState>
+            {
+                new(NotificationEventType.Upon_Hopping_To_Next_Channel, configuration.Events.HoppingEventEnabled),
+                new(NotificationEventType.GPI_Event, configuration.Events.GpiEventEnabled),
+                new(NotificationEventType.ROSpec_Event, configuration.Events.RoSpecEventEnabled),
+                new(NotificationEventType.Report_Buffer_Fill_Warning, configuration.Events.ReportBufferWarningEnabled),
+                new(NotificationEventType.Reader_Exception_Event, configuration.Events.ReaderExceptionEventEnabled),
+                new(NotificationEventType.RFSurvey_Event, configuration.Events.RfSurveyEventEnabled),
+                new(NotificationEventType.AISpec_Event, configuration.Events.AiSpecEventEnabled),
+                new(NotificationEventType.Antenna_Event, configuration.Events.AntennaEventEnabled)
+            };
+            eventNotificationSpec = new ReaderEventNotificationSpec(stateItems);
+        }
+
+        var gpoItems = configuration.Gpos?.Select(g => new GPOWriteData(g.GpoPortNumber, g.GpoData)).ToList() ?? [];
+
+        var message = new SET_READER_CONFIG(
+            messageId,
+            ResetToFactoryDefault: false,
+            eventNotificationSpec,
+            AntennaPropertiesItems: [],
+            AntennaConfigurationItems: antennaConfigs,
+            ROReportSpec: null,
+            AccessReportSpec: null,
+            KeepaliveSpec: keepaliveSpec,
+            GPOWriteDataItems: gpoItems,
+            GPIPortCurrentStateItems: [],
+            EventsAndReports: null,
+            CustomItems: []
+        );
+
+        SET_READER_CONFIG_RESPONSE response = await reader
+            .TransactFromRawProtocolAsync<SET_READER_CONFIG_RESPONSE>(
+                message,
+                timeout: null,
+                cancellationToken: cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        EnsureSuccess("SET_READER_CONFIG", response.LLRPStatus);
+    }
 }

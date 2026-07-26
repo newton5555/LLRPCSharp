@@ -61,6 +61,15 @@ public sealed class LlrpCliApplication
 
             config.AddCommand<MonitorCommand>("monitor")
                 .WithDescription("Connect to an LLRP Reader and stream real-time TX/RX LLRP frames.");
+
+            config.AddBranch("config", configBranch =>
+            {
+                configBranch.SetDescription("Manage reader configurations.");
+                configBranch.AddCommand<ConfigGetCommand>("get")
+                    .WithDescription("Query and display reader configuration.");
+                configBranch.AddCommand<ConfigApplyCommand>("apply")
+                    .WithDescription("Apply configuration changes to the reader.");
+            });
         });
 
         try
