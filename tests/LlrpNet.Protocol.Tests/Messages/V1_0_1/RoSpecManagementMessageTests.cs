@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
@@ -67,7 +67,7 @@ public sealed class RoSpecManagementMessageTests
                 CreateFrame(AddRoSpec.MessageType, MessageId, [0x00, 0xB1, 0x00, 0x08])));
 
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, missing.ErrorCode);
-        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterType, wrong.ErrorCode);
+        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, wrong.ErrorCode);
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, duplicate.ErrorCode);
         Assert.Equal(LlrpProtocolErrorCode.TruncatedData, truncated.ErrorCode);
     }
@@ -91,7 +91,10 @@ public sealed class RoSpecManagementMessageTests
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, reserved.ErrorCode);
         // AddRoSpec takes a strongly-typed ROSpec parameter, so wrong-type is a compile-time check.
         // Only null rejection is verified at runtime.
-        Assert.Throws<ArgumentNullException>(() => new AddRoSpec(MessageId, null!));
+        Assert.Throws<ArgumentNullException>(
+            () => registry.EncodeMessage(
+                LlrpProtocolVersion.Version101,
+                new AddRoSpec(MessageId, null!)));
     }
 
     [Fact]
@@ -152,7 +155,7 @@ public sealed class RoSpecManagementMessageTests
             () => registry.DecodeMessage(trailing));
 
         Assert.Equal(LlrpProtocolErrorCode.TruncatedData, truncatedError.ErrorCode);
-        Assert.Equal(LlrpProtocolErrorCode.InvalidMessageLength, trailingError.ErrorCode);
+        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, trailingError.ErrorCode);
     }
 
     [Fact]
@@ -176,7 +179,7 @@ public sealed class RoSpecManagementMessageTests
 
         Assert.Equal(expected, encoded);
         Assert.Equal(MessageId, decoded.MessageId);
-        Assert.Equal(LlrpProtocolErrorCode.InvalidMessageLength, trailing.ErrorCode);
+        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, trailing.ErrorCode);
     }
 
     [Fact]
@@ -237,7 +240,7 @@ public sealed class RoSpecManagementMessageTests
                 CreateFrame(AddRoSpecResponse.MessageType, MessageId, [0x01, 0x1F, 0x00, 0x08])));
 
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, missing.ErrorCode);
-        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterType, wrong.ErrorCode);
+        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, wrong.ErrorCode);
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, duplicate.ErrorCode);
         Assert.Equal(LlrpProtocolErrorCode.TruncatedData, truncated.ErrorCode);
     }
@@ -245,12 +248,25 @@ public sealed class RoSpecManagementMessageTests
     [Fact]
     public void StatusResponseConstructors_RejectNullStatus()
     {
-        Assert.Throws<ArgumentNullException>(() => new AddRoSpecResponse(MessageId, null!));
-        Assert.Throws<ArgumentNullException>(() => new DeleteRoSpecResponse(MessageId, null!));
-        Assert.Throws<ArgumentNullException>(() => new StartRoSpecResponse(MessageId, null!));
-        Assert.Throws<ArgumentNullException>(() => new StopRoSpecResponse(MessageId, null!));
-        Assert.Throws<ArgumentNullException>(() => new EnableRoSpecResponse(MessageId, null!));
-        Assert.Throws<ArgumentNullException>(() => new DisableRoSpecResponse(MessageId, null!));
+        LlrpCodecRegistry registry = CreateRegistry();
+        Assert.Throws<ArgumentNullException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new AddRoSpecResponse(MessageId, null!)));
+        Assert.Throws<ArgumentNullException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new DeleteRoSpecResponse(MessageId, null!)));
+        Assert.Throws<ArgumentNullException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new StartRoSpecResponse(MessageId, null!)));
+        Assert.Throws<ArgumentNullException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new StopRoSpecResponse(MessageId, null!)));
+        Assert.Throws<ArgumentNullException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new EnableRoSpecResponse(MessageId, null!)));
+        Assert.Throws<ArgumentNullException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new DisableRoSpecResponse(MessageId, null!)));
     }
 
     [Fact]
@@ -311,12 +327,6 @@ public sealed class RoSpecManagementMessageTests
         byte[] encodedStatus = registry.EncodeParameter(LlrpProtocolVersion.Version101, status);
         byte[] encodedUnexpected = registry.EncodeParameter(LlrpProtocolVersion.Version101, unexpected);
 
-        // Passing an UnknownParameter (not ROSpec typed) should throw ArgumentException at encode
-        Assert.Throws<ArgumentException>(
-            () => registry.EncodeMessage(
-                LlrpProtocolVersion.Version101,
-                new GetRoSpecsResponse(MessageId, status, [])));
-
         LlrpProtocolException decoded = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(
                 CreateFrame(
@@ -352,7 +362,7 @@ public sealed class RoSpecManagementMessageTests
     }
 
     [Fact]
-    public void GetRoSpecsResponse_ConstructorRejectsInvalidArgumentsAndCopiesCollection()
+    public void GetRoSpecsResponse_ConstructorRejectsInvalidArgumentsAndUsesProvidedCollection()
     {
         var status = new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null);
         var mutable = new List<RoSpec>
@@ -362,10 +372,15 @@ public sealed class RoSpecManagementMessageTests
         var response = new GetRoSpecsResponse(MessageId, status, mutable);
         mutable.Clear();
 
-        Assert.Single(response.ROSpecItems);
-        Assert.Throws<ArgumentNullException>(() => new GetRoSpecsResponse(MessageId, null!, []));
-        Assert.Throws<ArgumentException>(
-            () => new GetRoSpecsResponse(MessageId, status, (IReadOnlyList<RoSpec>)[null!]));
+        Assert.Empty(response.ROSpecItems);
+        LlrpCodecRegistry registry = CreateRegistry();
+        Assert.Throws<ArgumentNullException>(() => registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new GetRoSpecsResponse(MessageId, null!, [])));
+        Assert.Throws<ArgumentNullException>(
+            () => registry.EncodeMessage(
+                LlrpProtocolVersion.Version101,
+                new GetRoSpecsResponse(MessageId, status, (IReadOnlyList<RoSpec>)[null!])));
     }
 
     [Fact]

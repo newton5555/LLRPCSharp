@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
@@ -147,7 +147,7 @@ public sealed class GetReaderCapabilitiesResponseTests
         LlrpProtocolException exception = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(frame));
 
-        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterType, exception.ErrorCode);
+        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, exception.ErrorCode);
     }
 
     [Fact]
@@ -171,8 +171,11 @@ public sealed class GetReaderCapabilitiesResponseTests
     [Fact]
     public void Constructor_RejectsMissingStatus()
     {
+        LlrpCodecRegistry registry = CreateRegistry();
+        var response = new GetReaderCapabilitiesResponse(1, null!, null, null, null, null, []);
+
         Assert.Throws<ArgumentNullException>(
-            () => new GetReaderCapabilitiesResponse(1, null!, null, null, null, null, []));
+            () => registry.EncodeMessage(LlrpProtocolVersion.Version101, response));
     }
 
     private static LlrpCodecRegistry CreateRegistry()

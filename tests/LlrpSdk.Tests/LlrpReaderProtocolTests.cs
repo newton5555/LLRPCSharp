@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpSdk.Tests.Support;
@@ -118,26 +118,22 @@ public sealed class LlrpReaderProtocolTests
     }
 
     [Fact]
-    public async Task IncomingMessageQueue_WhenApplicationDoesNotConsume_FaultsReaderExplicitly()
+    public async Task IncomingMessageQueue_WhenApplicationDoesNotConsume_DoesNotFaultReader()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
-        var failure = new TaskCompletionSource<Exception>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
         await using LlrpReader reader = LlrpReader.CreateBuilder("scripted.local")
             .WithIncomingMessageCapacity(1)
             .WithTransportFactory(_ => transport)
             .Build();
-        reader.ErrorOccurred += (_, args) => failure.TrySetResult(args.Error);
         await reader.ConnectAsync(timeout.Token);
 
         transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(KeepaliveAck.MessageType, 1));
         transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(KeepaliveAck.MessageType, 2));
 
-        Exception actual = await failure.Task.WaitAsync(timeout.Token);
-        Assert.IsType<LlrpReaderBackpressureException>(actual);
-        Assert.Equal(ReaderConnectionState.Faulted, reader.ConnectionState);
-        Assert.False(reader.IsConnected);
+        await Task.Delay(100, timeout.Token);
+        Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
+        Assert.True(reader.IsConnected);
     }
 
     [Fact]

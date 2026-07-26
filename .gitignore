@@ -29,3 +29,4 @@ definitions/imports/xml/extensions/impinj/**
 # OS files
 .DS_Store
 Thumbs.db
+/.tmp-generated

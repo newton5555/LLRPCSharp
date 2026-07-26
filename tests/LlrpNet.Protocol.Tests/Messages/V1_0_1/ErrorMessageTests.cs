@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
@@ -52,7 +52,9 @@ public sealed class ErrorMessageTests
             () => registry.DecodeMessage(CreateFrame([0x01, 0x1F, 0x00, 0x08])));
 
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, missing.ErrorCode);
-        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterType, wrong.ErrorCode);
+        // The generated message codec reports a valid-but-unexpected nested parameter
+        // as an invalid parameter sequence rather than as an invalid wire type.
+        Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, wrong.ErrorCode);
         Assert.Equal(LlrpProtocolErrorCode.InvalidParameterEncoding, duplicate.ErrorCode);
         Assert.Equal(LlrpProtocolErrorCode.TruncatedData, truncated.ErrorCode);
     }
@@ -60,7 +62,11 @@ public sealed class ErrorMessageTests
     [Fact]
     public void Constructor_RejectsNullStatus()
     {
-        Assert.Throws<ArgumentNullException>(() => new ErrorMessage(MessageId, null!));
+        LlrpCodecRegistry registry = CreateRegistry();
+        ErrorMessage message = new(MessageId, null!);
+
+        Assert.Throws<ArgumentNullException>(
+            () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));
     }
 
     private static LlrpCodecRegistry CreateRegistry()

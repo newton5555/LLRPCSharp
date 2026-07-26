@@ -10,7 +10,8 @@ namespace LlrpNet.ProtocolGenerator.Tool;
 /// <summary>Command-line entry point for deterministic protocol source generation.</summary>
 public static class Program
 {
-    private static readonly UTF8Encoding Utf8Bom = new(encoderShouldEmitUTF8Identifier: true);
+    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+    private const string CrLf = "\r\n";
 
     /// <summary>Runs the protocol generator.</summary>
     public static int Main(string[] args)
@@ -122,7 +123,7 @@ public static class Program
 
             validTargetPaths.Add(targetPath);
 
-            string expected = source.SourceText.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
+            string expected = source.SourceText.Replace("\n", CrLf, StringComparison.Ordinal);
             if (File.Exists(targetPath) && File.ReadAllText(targetPath) == expected)
             {
                 continue;
@@ -142,7 +143,7 @@ public static class Program
             }
 
             Directory.CreateDirectory(directory);
-            File.WriteAllText(targetPath, expected, Utf8Bom);
+            File.WriteAllText(targetPath, expected, Utf8);
         }
 
         if (Directory.Exists(outputRoot))

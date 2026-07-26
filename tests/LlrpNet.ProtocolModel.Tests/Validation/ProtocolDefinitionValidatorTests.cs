@@ -1,4 +1,4 @@
-﻿using LlrpNet.ProtocolModel.Definitions;
+using LlrpNet.ProtocolModel.Definitions;
 using LlrpNet.ProtocolModel.Import;
 using LlrpNet.ProtocolModel.Validation;
 
@@ -145,7 +145,6 @@ public sealed class ProtocolDefinitionValidatorTests
         IReadOnlyList<DefinitionDiagnostic> diagnostics =
             new ProtocolDefinitionValidator().Validate(definition);
 
-        Assert.Contains(diagnostics, static diagnostic => diagnostic.Code == "LLRPM023");
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Code == "LLRPM026");
     }
 

@@ -3,7 +3,7 @@
 * text=auto
 
 # Standard C# and .NET overrides
-*.cs text diff=csharp
+*.cs text eol=crlf diff=csharp
 *.csproj text
 *.sln text eol=crlf
 *.slnx text

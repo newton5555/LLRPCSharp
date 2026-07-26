@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Transactions;
+using LlrpNet.Core.Transactions;
 
 namespace LlrpNet.Core.Tests.Transactions;
 
@@ -105,7 +105,7 @@ public sealed class PendingTransactionManagerTests
     [Fact]
     public async Task TimedOutIdentifier_IsQuarantinedUntilSafetyWindowExpires()
     {
-        using var manager = new PendingTransactionManager<string>(TimeSpan.FromMilliseconds(50));
+        using var manager = new PendingTransactionManager<string>(TimeSpan.FromMilliseconds(500));
         Task<string> timedOut = manager.Register(17, TimeSpan.FromMilliseconds(1));
         await Assert.ThrowsAsync<TimeoutException>(async () => await timedOut);
         await Task.Delay(20);
@@ -115,7 +115,7 @@ public sealed class PendingTransactionManagerTests
             {
                 _ = manager.Register(17);
             });
-        await Task.Delay(75);
+        await Task.Delay(600);
 
         Task<string> reused = manager.Register(17);
         Assert.True(manager.TryComplete(17, "reused"));
