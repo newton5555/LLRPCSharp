@@ -32,6 +32,7 @@
     <File Path="docs/adr/README.md" />
     <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
     <File Path="docs/adr/0002-reader-extension-active-initialization.md" />
+    <File Path="docs/adr/0003-reader-configuration-default-profiles.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
     <File Path="docs/architecture/overview.md" />
@@ -39,6 +40,7 @@
     <File Path="docs/architecture/source-structure.md" />
     <File Path="docs/architecture/protocol-extension-guide.md" />
     <File Path="docs/architecture/protocol-extension-guide.zh.md" />
+    <File Path="docs/architecture/cli-command-system.md" />
   </Folder>
   <Folder Name="/docs/images/">
     <File Path="docs/images/llrpcsharp_infographic.png" />

@@ -5,9 +5,9 @@
 
 ## 总结
 
-当前源码已经超过旧 README 的 M3/M5 描述：M3/M4/M6/M7/M8 都已有部分实现。下一步扩功能前，应先恢复仓库可构建状态，并把现有 1.0.1/1.1 SDK 基线固定下来。
+当前源码已经超过旧 README 的 M3/M5 描述：M3/M4/M6/M7/M8 都已有部分实现。1.0.1/1.1 SDK 基线、Reader 配置流和扩展主动初始化已经固定下来。
 
-当前最高优先级：固化 1.0.1/1.1 SDK 基线，补充单元与集成测试。
+当前最高优先级：完成版本无关的标签访问 API，并在其上接入厂商 Contributor 管道。
 
 ## 支持矩阵
 
@@ -79,7 +79,7 @@
 
 ## 当前构建状态
 
-`dotnet build LLRPCSharp.slnx --no-restore` 已通过，解决方案中所有 10 个项目（包含 `src/LlrpSdk.Extensions.Impinj`）编译零错误。
+`dotnet build LLRPCSharp.slnx --no-restore` 已通过，解决方案中所有项目（包含 `src/LlrpSdk.Extensions.Impinj`）编译零错误；当前测试基线全部通过。
 
 此前发生的 Impinj 扩展类型重复定义错误已解决：`LlrpNet.ProtocolGenerator.Tool` 已增加对输出目录孤立 `*.g.cs` 文件的检测与自动清理机制，旧编号遗留文件已全部清除。
 

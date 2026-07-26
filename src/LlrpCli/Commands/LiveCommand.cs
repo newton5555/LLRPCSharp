@@ -27,6 +27,11 @@ public sealed class LiveSettings : CommandSettings
     [Description("Protocol version policy for automatic connection: auto, 1.0.1, or 1.1.")]
     [DefaultValue("auto")]
     public string LlrpVersion { get; init; } = "auto";
+
+    [CommandOption("--vendor <VENDOR>")]
+    [Description("Vendor extensions mode for automatic connection: auto, impinj, or none.")]
+    [DefaultValue("auto")]
+    public string Vendor { get; init; } = "auto";
 }
 
 public sealed class LiveCommand : AsyncCommand<LiveSettings>
@@ -70,7 +75,14 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             }
             else
             {
-                await ConnectToReaderAsync(settings.Host, settings.Port, policy, cancellationToken);
+                if (!VendorExtensionModeParser.TryParse(settings.Vendor, out VendorExtensionMode vendorMode))
+                {
+                    _console.MarkupLine("[bold red]✖ Invalid vendor option:[/] use auto, impinj, or none.");
+                }
+                else
+                {
+                    await ConnectToReaderAsync(settings.Host, settings.Port, policy, vendorMode, cancellationToken);
+                }
             }
         }
 
@@ -176,6 +188,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                                 tokens[0],
                                 5084,
                                 LlrpProtocolVersionPolicy.Auto,
+                                VendorExtensionMode.Auto,
                                 cancellationToken);
                         }
                         else
@@ -225,29 +238,47 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             }
 
             LlrpProtocolVersionPolicy policy = LlrpProtocolVersionPolicy.Auto;
-            if (tokens.Length == nextToken + 2 && tokens[nextToken].Equals("--llrp", StringComparison.OrdinalIgnoreCase))
+            VendorExtensionMode vendorMode = VendorExtensionMode.Auto;
+            while (nextToken < tokens.Length)
             {
-                if (!ProtocolVersionPolicyParser.TryParse(tokens[nextToken + 1], out policy))
+                if (tokens[nextToken].Equals("--llrp", StringComparison.OrdinalIgnoreCase) &&
+                    nextToken + 1 < tokens.Length)
                 {
-                    throw new CliUsageException("LLRP version must be auto, 1.0.1, or 1.1.");
+                    if (!ProtocolVersionPolicyParser.TryParse(tokens[nextToken + 1], out policy))
+                    {
+                        throw new CliUsageException("LLRP version must be auto, 1.0.1, or 1.1.");
+                    }
+
+                    nextToken += 2;
+                }
+                else if (tokens[nextToken].Equals("--vendor", StringComparison.OrdinalIgnoreCase) &&
+                    nextToken + 1 < tokens.Length)
+                {
+                    if (!VendorExtensionModeParser.TryParse(tokens[nextToken + 1], out vendorMode))
+                    {
+                        throw new CliUsageException("Vendor mode must be auto, impinj, or none.");
+                    }
+
+                    nextToken += 2;
+                }
+                else
+                {
+                    throw new CliUsageException("Usage: connect <host> [port] [--llrp auto|1.0.1|1.1] [--vendor auto|impinj|none]");
                 }
             }
-            else if (tokens.Length != nextToken)
-            {
-                throw new CliUsageException("Usage: connect <host> [port] [--llrp auto|1.0.1|1.1]");
-            }
 
-            await ConnectToReaderAsync(host, port, policy, cancellationToken);
+            await ConnectToReaderAsync(host, port, policy, vendorMode, cancellationToken);
             return;
         }
 
-        await ConnectToReaderAsync(host, port, LlrpProtocolVersionPolicy.Auto, cancellationToken);
+        await ConnectToReaderAsync(host, port, LlrpProtocolVersionPolicy.Auto, VendorExtensionMode.Auto, cancellationToken);
     }
 
     private async Task ConnectToReaderAsync(
         string host,
         int port,
         LlrpProtocolVersionPolicy protocolVersionPolicy,
+        VendorExtensionMode vendorMode,
         CancellationToken cancellationToken)
     {
         if (_reader is not null)
@@ -272,13 +303,22 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{Markup.Escape(host)}:{port}[/]...");
 
-        var reader = LlrpReader.CreateBuilder(host)
+        var builder = LlrpReader.CreateBuilder(host)
             .WithPort(port)
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
             .WithFrameObserver(_observer)
-            .WithProtocolVersionPolicy(protocolVersionPolicy)
-            .UseImpinj()
-            .Build();
+            .WithProtocolVersionPolicy(protocolVersionPolicy);
+
+        if (vendorMode != VendorExtensionMode.None)
+        {
+            builder.UseImpinj();
+        }
+
+        _console.MarkupLine(vendorMode == VendorExtensionMode.None
+            ? "[grey]Vendor extensions:[/] [yellow]disabled (pure standard LLRP mode)[/]"
+            : "[grey]Vendor extensions:[/] [springgreen2]Impinj enabled[/]");
+
+        LlrpReader reader = builder.Build();
 
         try
         {
@@ -1100,7 +1140,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 1: 连接与会话状态
         table.AddRow("[bold yellow1]─── 🌐 连接与会话状态 (Connection & Status) ───[/]", "");
-        table.AddRow("  [cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]][/]", "连接到远程 RFID 读写器并完成版本协商");
+        table.AddRow("  [cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]] [[--vendor auto|impinj|none]][/]", "连接读写器并完成版本协商/厂商扩展选择");
         table.AddRow("  [cyan1]disconnect[/]", "断开当前读写器 TCP 会话");
         table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
         table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");

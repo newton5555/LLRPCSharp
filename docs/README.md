@@ -14,12 +14,14 @@ This directory contains project status, planning, architecture notes, decision r
 - [Architecture overview](architecture/overview.md) ([中文](architecture/overview.zh.md))
 - [Source structure](architecture/source-structure.md)
 - [Protocol extension guide](architecture/protocol-extension-guide.md) ([中文](architecture/protocol-extension-guide.zh.md))
+- [CLI command system and interactive assist plan](architecture/cli-command-system.md)
 
 ## Decision Records
 
 - [ADR index](adr/README.md)
 - [ADR 0001: Structured logging and frame observation](adr/0001-structured-logging-and-frame-observation.md)
 - [ADR 0002: Reader extension active initialization](adr/0002-reader-extension-active-initialization.md)
+- [ADR 0003: Reader configuration default profiles](adr/0003-reader-configuration-default-profiles.md)
 
 ## References
 

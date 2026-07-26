@@ -5,24 +5,21 @@
 
 ## 当前优先级
 
-1. 恢复构建：修复 `LlrpSdk.Extensions.Impinj` 重复生成类型。
-2. 固化当前 SDK 基线：为 1.0.1/1.1 的 Start/Stop/Inventory、ROSpec、AccessSpec、Raw sync 补足回归测试。
-3. 完成 Reader 配置查询与应用：先做最小 Reader Config 闭环，再扩展 CLI。
-4. 完成标签访问 API：以 AccessSpec 高层构造为核心，不暴露版本化 Message。
-5. 扩展 Contributor 管道：让厂商设置贡献和报告增强真正进入 SDK 高级 API。
-6. 推进 Virtual Reader：补 TagReport、AccessSpec 和故障注入，用于 CI。
-7. 接入 LLRP 2.0：在 1.0.1/1.1 基线稳定后再加入 V2 Adapter。
+1. 完成标签访问 API：以 AccessSpec 高层构造为核心，不暴露版本化 Message。
+2. 扩展 Contributor 管道：让厂商设置贡献和报告增强真正进入 SDK 高级 API。
+3. 推进 Virtual Reader：补 TagReport、AccessSpec 和故障注入，用于 CI。
+4. 接入 LLRP 2.0：在 1.0.1/1.1 基线稳定后再加入 V2 Adapter。
 
 ## 任务拆分
 
-### 1. 恢复构建
+### 1. 恢复构建（已完成）
 
 - 对 `LlrpSdk.Extensions.Impinj` 生成文件按类型名建立索引，确认重复来源。
 - 在 ProtocolModel Validator 或 Generator 写入前增加同名类型冲突诊断。
 - 明确 Impinj 原始定义中同 subtype 或同 name 的处理规则。
 - 清理重复生成输出后，重新运行 `dotnet build LLRPCSharp.slnx --no-restore`。
 
-### 2. Reader 配置查询与应用
+### 2. Reader 配置查询与应用（已完成）
 
 - 定义 `ReaderSettings` 当前范围：只表示 Inventory 设置，还是升级为完整 Reader Config 聚合模型。
 - 若保留轻量模型，新增独立的 `ReaderConfiguration` 或 `ReaderConfigSnapshot`。
@@ -55,3 +52,11 @@
 - 增加 AccessSpec 最小状态机。
 - 增加断线、超时、错误状态码、非法帧等故障注入。
 - 将 Virtual Reader 接入 CI 互操作测试。
+
+### 7. CLI 命令系统与提示链
+
+- 详细规划见 [`architecture/cli-command-system.md`](architecture/cli-command-system.md)。
+- 保留 Spectre 外层 CLI 与 Live Shell 两种宿主，建立共享命令定义和业务 Handler。
+- 让 Usage、Help、选项解析、连接状态约束和输入候选来自同一份命令元数据。
+- 提取 `LiveSessionContext`，逐步拆分 `LiveCommand` 中的连接、监控、盘点和渲染职责。
+- 在 SDK API 稳定后，将 `config` 与 `tag` 命令安全地接入 Live Shell。
