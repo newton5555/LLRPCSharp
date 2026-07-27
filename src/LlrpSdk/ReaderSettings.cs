@@ -9,6 +9,11 @@
 /// </remarks>
 public sealed record ReaderSettings
 {
+    /// <summary>Gets vendor-specific inventory options keyed by a contributor-owned stable name.</summary>
+    /// <remarks>The core SDK never interprets these values; only an active vendor extension consumes its own key.</remarks>
+    public IReadOnlyDictionary<string, object?> Extensions { get; init; } =
+        new System.Collections.ObjectModel.ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
+
     /// <summary>
     /// Gets the identifier reserved for the SDK-managed inventory ROSpec.
     /// </summary>

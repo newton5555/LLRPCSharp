@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -7,6 +8,8 @@ using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpSdk.Tests.Support;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
 namespace LlrpSdk.Tests;
 
@@ -391,6 +394,66 @@ public sealed class LlrpReaderInitializationTests
         Assert.Equal(GetReaderCapabilities.MessageType, sentTypes[2]);
     }
 
+    [Fact]
+    public async Task InventoryContributor_ReceivesInitializedIdentityCapabilitiesAndProtocolVersion()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        var extension = new CapturingInventoryExtension();
+        await using LlrpReader reader = LlrpReader.CreateBuilder("scripted.local")
+            .WithTransportFactory(_ => transport)
+            .UseReaderExtension(extension)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        MethodInfo buildInventoryCustomItems = typeof(LlrpReader).GetMethod(
+            "BuildInventoryCustomItems",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        _ = buildInventoryCustomItems.Invoke(reader, [new ReaderSettings()]);
+
+        LlrpSdk.Extensions.InventoryContributionContext context = Assert.IsType<LlrpSdk.Extensions.InventoryContributionContext>(extension.Context);
+        Assert.Equal(LlrpTestFrames.DefaultManufacturerId, context.Identity.ManufacturerId);
+        Assert.Equal(LlrpTestFrames.DefaultModelId, context.Identity.ModelId);
+        Assert.Equal(LlrpTestFrames.DefaultFirmwareVersion, context.Identity.FirmwareVersion);
+        Assert.Same(reader.Capabilities, context.Capabilities);
+        Assert.Equal(LlrpProtocolVersion.Version101, context.ProtocolVersion);
+    }
+
+    [Fact]
+    public void InventoryCompilers_PlaceContributedCustomItemsOnRoReportSpec()
+    {
+        var customItem = new RawCustomParameter(
+            LlrpProtocolVersion.Version101,
+            vendorId: 25_882,
+            subtype: 53,
+            data: [1]);
+        var settings = new ReaderSettings { RoSpecId = 1 };
+
+        var v101 = (V101Parameters.ROSpec)InvokeInventoryCompiler(
+            "LlrpSdk.Llrp101InventoryCompiler",
+            settings,
+            [customItem]);
+        var v11 = (V11Parameters.ROSpec)InvokeInventoryCompiler(
+            "LlrpSdk.Llrp11InventoryCompiler",
+            settings,
+            [customItem]);
+
+        Assert.Same(customItem, Assert.Single(v101.ROReportSpec!.CustomItems));
+        Assert.Empty(Assert.IsType<V101Parameters.AISpec>(Assert.Single(v101.SpecParameterItems)).CustomItems);
+        Assert.Same(customItem, Assert.Single(v11.ROReportSpec!.CustomItems));
+        Assert.Empty(Assert.IsType<V11Parameters.AISpec>(Assert.Single(v11.SpecParameterItems)).CustomItems);
+    }
+
+    private static ILlrpParameter InvokeInventoryCompiler(
+        string typeName,
+        ReaderSettings settings,
+        IReadOnlyList<ILlrpParameter> customItems)
+    {
+        Type compilerType = typeof(LlrpReader).Assembly.GetType(typeName, throwOnError: true)!;
+        MethodInfo compile = compilerType.GetMethod("Compile", BindingFlags.Public | BindingFlags.Static)!;
+        return Assert.IsAssignableFrom<ILlrpParameter>(compile.Invoke(null, [settings, customItems]));
+    }
+
     private sealed class MockActiveExtension : LlrpSdk.Extensions.IReaderExtension
     {
         public string Id => "mock-active-extension";
@@ -409,6 +472,25 @@ public sealed class LlrpReaderInitializationTests
                 new EnableRoSpec(connection.NextMessageId(), 99),
                 timeout: null,
                 cancellationToken: cancellationToken);
+        }
+    }
+
+    private sealed class CapturingInventoryExtension :
+        LlrpSdk.Extensions.IReaderExtension,
+        LlrpSdk.Extensions.IInventoryContributor
+    {
+        public string Id => "capturing-inventory-extension";
+        public string? MutualExclusionGroup => null;
+        public LlrpSdk.Extensions.InventoryContributionContext? Context { get; private set; }
+
+        public bool Matches(LlrpSdk.Extensions.ReaderExtensionMatchContext context) =>
+            context.ManufacturerId == LlrpTestFrames.DefaultManufacturerId;
+
+        public void Contribute(
+            LlrpSdk.Extensions.InventoryContributionContext context,
+            LlrpSdk.Extensions.InventoryExtensionBuilder extensions)
+        {
+            Context = context;
         }
     }
 

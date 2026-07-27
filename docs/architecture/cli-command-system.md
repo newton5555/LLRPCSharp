@@ -243,7 +243,7 @@ InputAssist
 |---|---|---|---|
 | `inspect/decode/validate/encode` | 支持 | 支持 | 共享解析与渲染输入模型 |
 | `connect/monitor` | 临时连接 | 会话连接 | 共享连接选项和 Vendor/LLRP 策略 |
-| `config get/apply` | 支持 | 规划支持 | 共享配置操作，Live 复用连接 |
+| `config get/apply` | 支持 | 支持 | 共享配置操作、变更解析与校验；Live 复用连接 |
 | `inventory/rospec/accessspec` | 部分或无 | 支持 | Handler 面向已有 Reader |
 | `raw/sync/frames` | 诊断入口 | 支持 | 保留明确的状态与安全提示 |
 | `tag read/write` | 规划中 | 规划中 | 先支持 dry-run/inspect，再允许执行 |
@@ -253,7 +253,7 @@ InputAssist
 ## 安全规则
 
 - `raw send/transact` 继续要求显式确认；
-- `config apply` 在 Live 中应先显示变更摘要，支持 dry-run，再确认提交；
+- `config apply` 在 Live 中先显示变更摘要，支持 `--dry-run`，写入必须显式携带 `--yes`；
 - 标签写入、锁定、Kill 等操作必须使用更高等级确认；
 - 提示链可以展示危险级别，但不能替代执行阶段校验；
 - 厂商扩展模式和协议版本必须显示在连接状态与提示上下文中。
@@ -274,19 +274,19 @@ InputAssist
 - 从定义生成 Live Help、Usage 和候选；
 - 增加命令路径、参数、选项和可用状态模型。
 
-当前状态：已开始。候选值已从多个硬编码分支收拢到 `CommandCatalog`，但 Help、Usage、外层 Spectre 注册和 Live 执行路由还没有完全由同一份结构化定义驱动。
+当前状态：Live Shell 已完成这一边界。`CommandCatalog` 为每个命令集中保存规范名称、别名、Usage、描述、连接要求、候选值和 `LiveCommandRoute`；提示链、`help <command>` 与 Live 分发均读取该目录。`help` 安全渲染目录中的 Usage，避免方括号选项被 Spectre Markup 误解析。外层 Spectre 的强类型注册仍保持独立，通用业务 Handler 与 `LiveSessionContext` 则属于后续 C3/C4。
 
 ### C3：拆分 LiveSessionContext 与 Handler
 
-- 从 `LiveCommand` 提取连接、监控和盘点上下文；
-- 将 `switch` Handler 逐步移动到独立命令处理器；
+- 已将连接、帧观察、盘点任务、监控状态和当前端点从 `LiveCommand` 提取到 `LiveSessionContext`；生命周期操作仍由 `LiveCommand` 保持，行为与输出不变。
+- 无会话依赖的 `inspect`、`decode`、`validate` 与 `encode` 已迁入 `LiveProtocolDiagnostics`；下一步将连接、监控和盘点 Handler 逐步移动到独立命令处理器；
 - 保持现有命令行为和输出兼容。
 
 ### C4：配置命令对齐
 
 - 提取 `ConfigGetCommand` / `ConfigApplyCommand` 的共享操作；
-- Live Shell 增加 `config get` 和 `config apply`；
-- 增加变更摘要、dry-run 和确认流程。
+- Live Shell 已增加 `config get/apply`，两者复用相同的配置映射与参数完整性校验；
+- 外层和 Live `config apply` 均具备基于当前设备配置的变更摘要与 `--dry-run`；Live 写入必须显式使用 `--yes`。
 
 ### C5：标签访问命令
 

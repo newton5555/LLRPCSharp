@@ -31,6 +31,7 @@ public sealed class LlrpReaderOptionsBuilder
     private LlrpTransportFactory? _transportFactory;
     private readonly List<ILlrpProtocolModule> _protocolModules = [];
     private readonly List<IReaderExtension> _readerExtensions = [];
+    private readonly List<IReaderConfigurationDefaultsProvider> _configurationDefaultsProviders = [];
     private readonly List<Action<LlrpCodecRegistry>> _protocolConfigurations = [];
 
     /// <summary>
@@ -227,6 +228,21 @@ public sealed class LlrpReaderOptionsBuilder
         return this;
     }
 
+    /// <summary>Registers a provider of safe, identity-based configuration defaults.</summary>
+    /// <param name="provider">The provider to evaluate after reader initialization.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderOptionsBuilder UseConfigurationDefaultsProvider(IReaderConfigurationDefaultsProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        if (string.IsNullOrWhiteSpace(provider.Id))
+        {
+            throw new ArgumentException("A configuration defaults provider must have a non-empty identifier.", nameof(provider));
+        }
+
+        _configurationDefaultsProviders.Add(provider);
+        return this;
+    }
+
     /// <summary>
     /// Validates the accumulated values and creates immutable reader options.
     /// </summary>
@@ -249,6 +265,7 @@ public sealed class LlrpReaderOptionsBuilder
             _transportFactory,
             _protocolModules,
             _readerExtensions,
+            _configurationDefaultsProviders,
             _protocolConfigurations);
     }
 

@@ -13,9 +13,10 @@ namespace LlrpSdk;
 /// </summary>
 internal static class Llrp11InventoryCompiler
 {
-    public static ROSpec Compile(ReaderSettings settings)
+    public static ROSpec Compile(ReaderSettings settings, IReadOnlyList<ILlrpParameter> roReportSpecCustomItems)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(roReportSpecCustomItems);
         Validate(settings);
 
         ushort[] antennaIds = settings.AntennaIds.ToArray();
@@ -49,7 +50,7 @@ internal static class Llrp11InventoryCompiler
             V11Enumerations.ROReportTriggerType.Upon_N_Tags_Or_End_Of_AISpec,
             settings.ReportEveryNTags,
             reportSelector,
-            Array.Empty<ILlrpParameter>());
+            roReportSpecCustomItems);
 
         return new ROSpec(
             settings.RoSpecId,

@@ -21,6 +21,9 @@
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/LlrpSdk.LiveSmoke/LlrpSdk.LiveSmoke.csproj" />
+  </Folder>
   <Folder Name="/docs/">
     <File Path="docs/README.md" />
     <File Path="docs/showcase.md" />
@@ -33,6 +36,7 @@
     <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
     <File Path="docs/adr/0002-reader-extension-active-initialization.md" />
     <File Path="docs/adr/0003-reader-configuration-default-profiles.md" />
+    <File Path="docs/adr/0004-reader-contributors.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
     <File Path="docs/architecture/overview.md" />
@@ -41,6 +45,10 @@
     <File Path="docs/architecture/protocol-extension-guide.md" />
     <File Path="docs/architecture/protocol-extension-guide.zh.md" />
     <File Path="docs/architecture/cli-command-system.md" />
+    <File Path="docs/architecture/llrp-ecosystem-comparison.draft.zh.md" />
+  </Folder>
+  <Folder Name="/docs/acceptance/">
+    <File Path="docs/acceptance/reader-interoperability.md" />
   </Folder>
   <Folder Name="/docs/images/">
     <File Path="docs/images/llrpcsharp_infographic.png" />

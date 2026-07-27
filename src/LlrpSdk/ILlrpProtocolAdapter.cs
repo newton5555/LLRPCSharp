@@ -22,9 +22,13 @@ internal interface ILlrpProtocolAdapter
         uint messageId,
         CancellationToken cancellationToken);
 
-    public ILlrpParameter CompileInventory(ReaderSettings settings);
+    public ILlrpParameter CompileInventory(
+        ReaderSettings settings,
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems);
 
-    public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message);
+    public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request);
+
+    public IReadOnlyList<TranslatedTagReport> TranslateTagReports(ILlrpMessage message);
 
     public Task AddRoSpecAsync(
         LlrpReader reader,
@@ -96,14 +100,16 @@ internal interface ILlrpProtocolAdapter
         uint messageId,
         CancellationToken cancellationToken);
 
-    public Task<ReaderConfiguration> QueryConfigurationAsync(
+    public Task<TranslatedReaderConfiguration> QueryConfigurationAsync(
         LlrpReader reader,
         uint messageId,
+        IReadOnlyList<ILlrpParameter> customItems,
         CancellationToken cancellationToken);
 
     public Task ApplyConfigurationAsync(
         LlrpReader reader,
         uint messageId,
         ReaderConfiguration configuration,
+        IReadOnlyList<ILlrpParameter> customItems,
         CancellationToken cancellationToken);
 }

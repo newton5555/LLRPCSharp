@@ -80,9 +80,15 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
             response.CustomItems);
     }
 
-    public ILlrpParameter CompileInventory(ReaderSettings settings) => Llrp11InventoryCompiler.Compile(settings);
+    public ILlrpParameter CompileInventory(
+        ReaderSettings settings,
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems) =>
+        Llrp11InventoryCompiler.Compile(settings, roReportSpecCustomItems);
 
-    public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message) =>
+    public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request) =>
+        Llrp11TagAccessCompiler.Compile(accessSpecId, roSpecId, request);
+
+    public IReadOnlyList<TranslatedTagReport> TranslateTagReports(ILlrpMessage message) =>
         message is RO_ACCESS_REPORT report ? Llrp11TagReportTranslator.Translate(report) : [];
 
     public async Task AddRoSpecAsync(LlrpReader reader, uint messageId, ILlrpParameter roSpec, CancellationToken cancellationToken)
@@ -209,20 +215,22 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
         ReadOnlyMemory<byte> frame) =>
         header.MessageType is GET_READER_CONFIG_RESPONSE.MessageType or 100;
 
-    public async Task<ReaderConfiguration> QueryConfigurationAsync(
+    public async Task<TranslatedReaderConfiguration> QueryConfigurationAsync(
         LlrpReader reader,
         uint messageId,
+        IReadOnlyList<ILlrpParameter> customItems,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(customItems);
         GET_READER_CONFIG_RESPONSE response = await reader
-            .TransactFromRawProtocolAsync<GET_READER_CONFIG_RESPONSE>(
+            .TransactAsync<GET_READER_CONFIG_RESPONSE>(
                 new GET_READER_CONFIG(
                     messageId,
                     AntennaID: 0,
                     RequestedData: global::LlrpNet.Protocol.Enumerations.V1_1.GetReaderConfigRequestedData.All,
                     GPIPortNum: 0,
                     GPOPortNum: 0,
-                    CustomItems: []
+                    CustomItems: customItems
                 ),
                 timeout: null,
                 cancellationToken: cancellationToken
@@ -293,23 +301,27 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
             };
         }
 
-        return new ReaderConfiguration
-        {
-            Keepalive = keepalive,
-            Antennas = antennas,
-            Gpos = gpos,
-            Gpis = gpis,
-            Events = events
-        };
+        return new TranslatedReaderConfiguration(
+            new ReaderConfiguration
+            {
+                Keepalive = keepalive,
+                Antennas = antennas,
+                Gpos = gpos,
+                Gpis = gpis,
+                Events = events
+            },
+            response.CustomItems);
     }
 
     public async Task ApplyConfigurationAsync(
         LlrpReader reader,
         uint messageId,
         ReaderConfiguration configuration,
+        IReadOnlyList<ILlrpParameter> customItems,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(customItems);
 
         KeepaliveSpec? keepaliveSpec = null;
         if (configuration.Keepalive != null)
@@ -377,7 +389,7 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
             GPOWriteDataItems: gpoItems,
             GPIPortCurrentStateItems: [],
             EventsAndReports: null,
-            CustomItems: []
+            CustomItems: customItems
         );
 
         SET_READER_CONFIG_RESPONSE response = await reader

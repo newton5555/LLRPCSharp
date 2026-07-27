@@ -6,6 +6,7 @@ This directory contains project status, planning, architecture notes, decision r
 
 - [Current status](status.md): implemented capabilities, missing work, and current build status.
 - [Roadmap](roadmap.md): development order and planned work.
+- [Final reader interoperability acceptance](acceptance/reader-interoperability.md): required real-device and virtual-reader release validation.
 - [Agent Guide](../AGENTS.md): repository rules and entry points for coding agents.
 
 ## Project And Architecture

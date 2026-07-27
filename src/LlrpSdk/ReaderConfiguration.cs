@@ -8,6 +8,10 @@ namespace LlrpSdk;
 /// </summary>
 public sealed record ReaderConfiguration
 {
+    /// <summary>Gets typed vendor configuration values projected by active settings contributors.</summary>
+    public IReadOnlyDictionary<string, object?> Extensions { get; init; } =
+        new System.Collections.ObjectModel.ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
+
     /// <summary>
     /// Gets the keepalive configuration.
     /// </summary>

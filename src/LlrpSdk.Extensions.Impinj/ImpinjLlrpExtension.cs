@@ -1,7 +1,9 @@
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
+using LlrpSdk.Extensions.Impinj.Enumerations.V1_0_1;
 using LlrpSdk.Extensions.Impinj.Messages.V1_0_1;
+using LlrpSdk.Extensions.Impinj.Parameters.V1_0_1;
 
 namespace LlrpSdk.Extensions.Impinj;
 
@@ -23,7 +25,11 @@ public sealed class ImpinjProtocolModule : ILlrpProtocolModule
 }
 
 /// <summary>Marks a connected LLRP 1.0.1 reader as an Impinj reader.</summary>
-public sealed class ImpinjReaderExtension : IReaderExtension
+public sealed class ImpinjReaderExtension :
+    IReaderExtension,
+    IReaderSettingsContributor,
+    IInventoryContributor,
+    ITagReportContributor
 {
     /// <summary>Gets the IANA manufacturer identifier assigned to Impinj.</summary>
     public const uint ManufacturerId = 25882;
@@ -54,6 +60,111 @@ public sealed class ImpinjReaderExtension : IReaderExtension
         var enableMsg = new IMPINJ_ENABLE_EXTENSIONS(connection.NextMessageId(), []);
         await connection.TransactAsync<IMPINJ_ENABLE_EXTENSIONS_RESPONSE>(enableMsg, timeout: null, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<global::LlrpNet.Protocol.Parameters.ILlrpParameter> BuildQueryParameters() =>
+    [
+        new ImpinjRequestedData(ImpinjRequestedDataType.All_Configuration, [])
+    ];
+
+    /// <inheritdoc />
+    public void ContributeQuery(ReaderSettingsContributionContext context, ReaderConfigurationExtensionBuilder extensions)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(extensions);
+
+        ImpinjSubRegulatoryRegion? region = context.CustomItems.OfType<ImpinjSubRegulatoryRegion>().FirstOrDefault();
+        ImpinjReaderTemperature? temperature = context.CustomItems.OfType<ImpinjReaderTemperature>().FirstOrDefault();
+        ImpinjLinkMonitorConfiguration? linkMonitor = context.CustomItems.OfType<ImpinjLinkMonitorConfiguration>().FirstOrDefault();
+        ImpinjReportBufferConfiguration? reportBuffer = context.CustomItems.OfType<ImpinjReportBufferConfiguration>().FirstOrDefault();
+        ImpinjAccessSpecConfiguration? accessSpec = context.CustomItems.OfType<ImpinjAccessSpecConfiguration>().FirstOrDefault();
+
+        var debounce = context.CustomItems
+            .OfType<ImpinjGPIDebounceConfiguration>()
+            .Select(static item => new ImpinjGpiDebounceSetting(item.GPIPortNum, item.GPIDebounceTimerMSec))
+            .OrderBy(static item => item.GpiPortNumber)
+            .ToArray();
+
+        extensions.Add("impinj.readerSettings", new ImpinjReaderSettings
+        {
+            RegulatoryRegion = region?.RegulatoryRegion,
+            GpiDebounce = debounce,
+            TemperatureCelsius = temperature?.Temperature,
+            LinkMonitor = linkMonitor is null
+                ? null
+                : new ImpinjLinkMonitorSettings(
+                    linkMonitor.LinkMonitorMode == ImpinjLinkMonitorMode.Enabled,
+                    linkMonitor.LinkDownThreshold),
+            ReportBufferMode = reportBuffer?.ReportBufferMode,
+            AccessSpec = accessSpec is null
+                ? null
+                : new ImpinjAccessSpecSettings(
+                    accessSpec.ImpinjBlockWriteWordCount?.WordCount,
+                    accessSpec.ImpinjOpSpecRetryCount?.RetryCount,
+                    accessSpec.ImpinjAccessSpecOrdering?.OrderingMode)
+        });
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Impinj settings are intentionally read-only until an explicit profile and restore workflow is implemented.</remarks>
+    public IReadOnlyList<global::LlrpNet.Protocol.Parameters.ILlrpParameter> BuildApplyParameters(
+        ReaderConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        return [];
+    }
+
+    /// <inheritdoc />
+    public void Contribute(InventoryContributionContext context, InventoryExtensionBuilder extensions)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(extensions);
+        if (!context.Settings.Extensions.TryGetValue(ImpinjInventoryReportOptions.ExtensionKey, out object? value) ||
+            value is null)
+        {
+            return;
+        }
+        if (value is not ImpinjInventoryReportOptions options)
+        {
+            throw new ArgumentException(
+                $"ReaderSettings.Extensions['{ImpinjInventoryReportOptions.ExtensionKey}'] must be an " +
+                $"{nameof(ImpinjInventoryReportOptions)} instance.");
+        }
+
+        var reader = new ReaderExtensionMatchContext(
+            context.Identity.ManufacturerId,
+            context.Identity.ModelId,
+            context.Identity.FirmwareVersion,
+            context.ProtocolVersion);
+        foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter item in
+            ImpinjInventoryReportConfigurator.BuildCustomItems(reader, options))
+        {
+            extensions.AddRoReportSpecCustomItem(item);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Contribute(TagReportContributionContext context, TagReportExtensionBuilder extensions)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(extensions);
+
+        foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter item in context.CustomItems)
+        {
+            switch (item)
+            {
+                case ImpinjSerializedTID serializedTid:
+                    extensions.Add("impinj.serializedTid", serializedTid.TID);
+                    break;
+                case ImpinjRFPhaseAngle phaseAngle:
+                    extensions.Add("impinj.rfPhaseAngle", phaseAngle.PhaseAngle);
+                    break;
+                case ImpinjPeakRSSI peakRssi:
+                    extensions.Add("impinj.peakRssi", peakRssi.RSSI);
+                    break;
+            }
+        }
     }
 }
 

@@ -1,12 +1,82 @@
 ﻿using System.Text.Json;
+using System.Reflection;
+using LlrpCli.Commands;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using Spectre.Console;
 
 namespace LlrpCli.Tests;
 
 public sealed class LlrpCliApplicationTests
 {
+    [Fact]
+    public void LiveHelp_RendersUsageContainingLiteralOptionPlaceholders()
+    {
+        using var output = new StringWriter();
+        IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Out = new AnsiConsoleOutput(output)
+        });
+        var command = new LiveCommand(console);
+        MethodInfo renderHelp = typeof(LiveCommand).GetMethod(
+            "RenderHelp",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        Exception? exception = Record.Exception(() => renderHelp.Invoke(command, null));
+
+        Assert.Null(exception);
+        Assert.Contains("config apply [options]", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommandCatalog_ConfigProvidesUsageAndLiveSubcommandCandidates()
+    {
+        CommandSpec config = CommandCatalog.Require("config");
+        InputAssist assist = CommandCatalog.Assist("config ", cursor: 7, isConnected: true);
+
+        Assert.Equal("config get | config apply [options] [--dry-run] --yes", config.Usage);
+        Assert.Contains("get", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void CommandCatalog_ResolvesAliasesToOneCanonicalRoute()
+    {
+        bool resolved = CommandCatalog.TryResolve("cls", isConnected: false, out CommandSpec command);
+
+        Assert.True(resolved);
+        Assert.Equal("clear", command.Name);
+        Assert.Equal(LiveCommandRoute.Clear, command.Route);
+    }
+
+    [Fact]
+    public void CommandCatalog_HidesConnectedOnlyCommandsUntilConnected()
+    {
+        Assert.False(CommandCatalog.TryResolve("config", isConnected: false, out _));
+        Assert.True(CommandCatalog.TryResolve("config", isConnected: true, out CommandSpec command));
+        Assert.Equal(LiveCommandRoute.Configuration, command.Route);
+    }
+
+    [Fact]
+    public void LiveHelp_ForConfig_RendersCatalogUsageWithoutTreatingOptionsAsMarkup()
+    {
+        using var output = new StringWriter();
+        IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Out = new AnsiConsoleOutput(output)
+        });
+        var command = new LiveCommand(console);
+        MethodInfo renderCommandHelp = typeof(LiveCommand).GetMethod(
+            "RenderCommandHelp",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        Exception? exception = Record.Exception(() => renderCommandHelp.Invoke(command, ["config"]));
+
+        Assert.Null(exception);
+        Assert.Contains("config get | config apply [options] [--dry-run] --yes", output.ToString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void HelpOption_PrintsHelp()
     {
@@ -111,6 +181,17 @@ public sealed class LlrpCliApplicationTests
 
         Assert.Equal(2, result.ExitCode);
         Assert.Contains("Unknown command", result.Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--tx-power", "1")]
+    [InlineData("--gpo-port", "1")]
+    public void ConfigApply_RejectsAmbiguousWritesBeforeConnecting(string option, string value)
+    {
+        InvocationResult result = Invoke("config", "apply", "127.0.0.1", option, value);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("Invalid configuration change", result.Output, StringComparison.Ordinal);
     }
 
     private static InvocationResult Invoke(params string[] args)

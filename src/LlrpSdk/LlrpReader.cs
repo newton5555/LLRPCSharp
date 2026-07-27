@@ -41,6 +41,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private ReaderSettings? _currentSettings;
     private ReaderMetadataSnapshot? _metadata;
     private uint? _managedInventoryRoSpecId;
+    private int _nextManagedAccessSpecId = 24000;
     private int _connectionState = (int)ReaderConnectionState.Disconnected;
     private int _managedStateIsSynchronized = 1;
     private int _operationState = (int)ReaderOperationState.Idle;
@@ -162,6 +163,75 @@ public sealed class LlrpReader : IAsyncDisposable
     public ReaderCapabilities? Capabilities => Volatile.Read(ref _metadata)?.Capabilities;
 
     /// <summary>
+    /// Returns the SDK-recommended configuration baseline for this initialized reader without sending an LLRP request.
+    /// </summary>
+    /// <remarks>
+    /// The result is neither the reader's current configuration nor its persistent configuration. It never applies
+    /// settings; callers must explicitly call <see cref="ApplySettingsAsync(ReaderConfiguration, CancellationToken)"/>
+    /// to write a configuration.
+    /// </remarks>
+    public ReaderConfiguration GetDefaultConfiguration()
+    {
+        return GetDefaultConfigurationResult().Configuration;
+    }
+
+    /// <summary>
+    /// Resolves the SDK-recommended configuration baseline and exposes the provider/profile that produced it.
+    /// </summary>
+    /// <returns>The non-writing resolved configuration and source information.</returns>
+    public ReaderConfigurationDefaultsResult GetDefaultConfigurationResult()
+    {
+        ThrowIfDisposed();
+        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
+            "Reader configuration defaults require an initialized connection.");
+        if (!IsConnected)
+        {
+            throw new InvalidOperationException("Reader configuration defaults require a ready connection.");
+        }
+
+        var context = new ReaderConfigurationProfileContext(
+            metadata.Identity,
+            metadata.Capabilities,
+            NegotiatedVersion,
+            Extensions.Select(static extension => extension.Id).ToArray());
+        IReaderConfigurationDefaultsProvider[] providers = Options.ConfigurationDefaultsProviders
+            .Concat(Extensions.OfType<IReaderConfigurationDefaultsProvider>())
+            .GroupBy(static provider => provider.Id, StringComparer.Ordinal)
+            .Select(static group => group.Count() == 1
+                ? group.Single()
+                : throw new InvalidOperationException(
+                    $"Configuration defaults provider '{group.Key}' is registered more than once for this reader."))
+            .ToArray();
+        (string ProviderId, ReaderConfigurationProfile Profile)[] profiles = providers
+            .Select(provider => (ProviderId: provider.Id, Profile: provider.GetProfile(context)))
+            .Where(static candidate => candidate.Profile is not null)
+            .Select(static candidate => (candidate.ProviderId, candidate.Profile!))
+            .ToArray();
+
+        ReaderConfiguration baseline = CreateSafeDefaultConfiguration();
+        if (profiles.Length == 0)
+        {
+            return new ReaderConfigurationDefaultsResult(baseline, null, null);
+        }
+
+        int highestPriority = profiles.Max(static candidate => candidate.Profile.Priority);
+        (string ProviderId, ReaderConfigurationProfile Profile)[] selected = profiles
+            .Where(candidate => candidate.Profile.Priority == highestPriority)
+            .ToArray();
+        if (selected.Length != 1)
+        {
+            throw new InvalidOperationException(
+                $"Configuration default profiles '{string.Join("', '", selected.Select(static candidate => candidate.Profile.Id))}' " +
+                $"all match at priority {highestPriority}.");
+        }
+
+        return new ReaderConfigurationDefaultsResult(
+            selected[0].Profile.Patch.ApplyTo(baseline),
+            selected[0].ProviderId,
+            selected[0].Profile.Id);
+    }
+
+    /// <summary>
     /// Gets the settings for the currently managed inventory operation, or <see langword="null"/> when idle.
     /// </summary>
     public ReaderSettings? CurrentSettings => Volatile.Read(ref _currentSettings);
@@ -218,7 +288,9 @@ public sealed class LlrpReader : IAsyncDisposable
     public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        return GetProtocolAdapter().TranslateTagReports(message);
+        return GetProtocolAdapter().TranslateTagReports(message)
+            .Select(ApplyTagReportContributors)
+            .ToArray();
     }
 
     /// <summary>
@@ -392,7 +464,45 @@ public sealed class LlrpReader : IAsyncDisposable
 
         ILlrpProtocolAdapter adapter = GetProtocolAdapter();
         uint messageId = _messageIds.Next();
-        return await adapter.QueryConfigurationAsync(this, messageId, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ILlrpParameter> customItems = BuildSettingsQueryParameters();
+        TranslatedReaderConfiguration translated = await adapter
+            .QueryConfigurationAsync(this, messageId, customItems, cancellationToken)
+            .ConfigureAwait(false);
+        return ApplySettingsContributors(translated);
+    }
+
+    /// <summary>
+    /// Queries the current configuration and applies a partial change in memory without writing the reader.
+    /// </summary>
+    /// <param name="patch">The explicit fields to replace.</param>
+    /// <param name="cancellationToken">Cancels the query operation.</param>
+    /// <returns>The complete configuration that would be written by <see cref="ApplyConfigurationPatchAsync"/>.</returns>
+    public async Task<ReaderConfiguration> ResolveConfigurationPatchAsync(
+        ReaderConfigurationPatch patch,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+        ReaderConfiguration current = await QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
+        return patch.ApplyTo(current);
+    }
+
+    /// <summary>
+    /// Applies an explicit partial configuration change while preserving all fields returned by the current reader query.
+    /// </summary>
+    /// <param name="patch">The explicit fields to replace.</param>
+    /// <param name="cancellationToken">Cancels either the query or apply operation.</param>
+    /// <returns>A task representing the query, merge, and apply operations.</returns>
+    /// <remarks>
+    /// This method writes the reader. Use <see cref="ResolveConfigurationPatchAsync"/> first to display or inspect
+    /// the complete resolved configuration when an application requires approval before the write.
+    /// </remarks>
+    public async Task ApplyConfigurationPatchAsync(
+        ReaderConfigurationPatch patch,
+        CancellationToken cancellationToken = default)
+    {
+        ReaderConfiguration resolved = await ResolveConfigurationPatchAsync(patch, cancellationToken)
+            .ConfigureAwait(false);
+        await ApplySettingsAsync(resolved, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -410,7 +520,10 @@ public sealed class LlrpReader : IAsyncDisposable
 
         ILlrpProtocolAdapter adapter = GetProtocolAdapter();
         uint messageId = _messageIds.Next();
-        await adapter.ApplyConfigurationAsync(this, messageId, configuration, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ILlrpParameter> customItems = BuildSettingsApplyParameters(configuration);
+        await adapter
+            .ApplyConfigurationAsync(this, messageId, configuration, customItems, cancellationToken)
+            .ConfigureAwait(false);
         InvalidateManagedStateAfterRawProtocolAccess();
     }
 
@@ -615,13 +728,12 @@ public sealed class LlrpReader : IAsyncDisposable
                     // Best-effort pre-cleanup if ROSpec already exists
                 }
 
-                ILlrpParameter roSpec =
-                    GetProtocolAdapter().CompileInventory(settings);
+                IReadOnlyList<ILlrpParameter> roReportSpecCustomItems = BuildInventoryCustomItems(settings);
+                ILlrpParameter roSpec = GetProtocolAdapter().CompileInventory(settings, roReportSpecCustomItems);
                 await RoSpecs.AddAsync(roSpec, cancellationToken).ConfigureAwait(false);
                 added = true;
                 await RoSpecs.EnableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
                 enabled = true;
-                await RoSpecs.StartAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
 
                 _managedInventoryRoSpecId = settings.RoSpecId;
                 Volatile.Write(ref _currentSettings, settings);
@@ -728,6 +840,20 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
+    /// <summary>Reads one selected tag's standard C1G2 memory through the active SDK-managed inventory operation.</summary>
+    public Task<TagAccessResult> ReadTagMemoryAsync(
+        ReadTagRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteTagAccessAsync(request, timeout, cancellationToken);
+
+    /// <summary>Writes one selected tag's standard C1G2 memory through the active SDK-managed inventory operation.</summary>
+    public Task<TagAccessResult> WriteTagMemoryAsync(
+        WriteTagRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteTagAccessAsync(request, timeout, cancellationToken);
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
@@ -777,6 +903,85 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             ExceptionDispatchInfo.Capture(failure).Throw();
         }
+    }
+
+    private async Task<TagAccessResult> ExecuteTagAccessAsync(
+        TagAccessRequest request,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        EnsureProtocolAvailable();
+        if (timeout.HasValue && timeout.Value <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout), "Tag access timeout must be positive when specified.");
+        }
+
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureProtocolAvailable();
+            if (OperationState != ReaderOperationState.Inventorying || _managedInventoryRoSpecId is not uint roSpecId)
+            {
+                throw new InvalidOperationException(
+                    "Tag access requires an active SDK-managed inventory operation. Call StartAsync before issuing tag access.");
+            }
+
+            uint accessSpecId = NextManagedAccessSpecId();
+            ILlrpParameter accessSpec = GetProtocolAdapter().CompileTagAccess(accessSpecId, roSpecId, request);
+            var completion = new TaskCompletionSource<TagAccessResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<TagReportEventArgs>? handler = null;
+            handler = (_, args) =>
+            {
+                TagReport report = args.Report;
+                if (report.AccessSpecId != accessSpecId)
+                {
+                    return;
+                }
+
+                TagAccessOperationResult? operation = report.AccessOperationResults?
+                    .FirstOrDefault(static result => result.OpSpecId == 1);
+                if (operation is not null)
+                {
+                    completion.TrySetResult(new TagAccessResult(report, operation));
+                }
+            };
+
+            TagsReported += handler;
+            bool added = false;
+            bool enabled = false;
+            try
+            {
+                await AccessSpecs.AddAsync(accessSpec, cancellationToken).ConfigureAwait(false);
+                added = true;
+                await AccessSpecs.EnableAsync(accessSpecId, cancellationToken).ConfigureAwait(false);
+                enabled = true;
+                TimeSpan effectiveTimeout = timeout ?? Options.RequestTimeout;
+                return await completion.Task.WaitAsync(effectiveTimeout, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                TagsReported -= handler;
+                if (enabled)
+                {
+                    try { await AccessSpecs.DisableAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                }
+                if (added)
+                {
+                    try { await AccessSpecs.DeleteAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                }
+            }
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    private uint NextManagedAccessSpecId()
+    {
+        int value = Interlocked.Increment(ref _nextManagedAccessSpecId);
+        return value > 0 ? (uint)value : (uint)Interlocked.Exchange(ref _nextManagedAccessSpecId, 24001);
     }
 
     internal async Task<TResponse> TransactAsync<TResponse>(
@@ -1009,8 +1214,9 @@ public sealed class LlrpReader : IAsyncDisposable
                             .ConfigureAwait(false);
                     }
 
-                    foreach (TagReport tagReport in GetProtocolAdapter().TranslateTagReports(message))
+                    foreach (TranslatedTagReport translatedReport in GetProtocolAdapter().TranslateTagReports(message))
                     {
+                        TagReport tagReport = ApplyTagReportContributors(translatedReport);
                         _tagReports.Writer.TryWrite(tagReport);
                         PublishTagReport(tagReport);
                     }
@@ -1615,6 +1821,114 @@ public sealed class LlrpReader : IAsyncDisposable
                 "A reader tag-report event subscriber failed for connection {ConnectionId}",
                 ConnectionId);
         }
+    }
+
+    private static ReaderConfiguration CreateSafeDefaultConfiguration() => new()
+    {
+        Keepalive = new KeepaliveConfiguration
+        {
+            TriggerType = KeepaliveTriggerType.None,
+            IntervalMs = 0
+        },
+        Antennas = Array.Empty<AntennaConfigurationSettings>(),
+        Gpos = Array.Empty<GpoConfiguration>(),
+        Gpis = Array.Empty<GpiStatus>(),
+        Events = new EventNotificationConfiguration()
+    };
+
+    private TagReport ApplyTagReportContributors(TranslatedTagReport translated)
+    {
+        var values = new TagReportExtensionBuilder();
+        var context = new TagReportContributionContext(translated.Report, translated.CustomItems);
+        foreach (ITagReportContributor contributor in Extensions.OfType<ITagReportContributor>())
+        {
+            contributor.Contribute(context, values);
+        }
+
+        return translated.Report with { Extensions = values.Build() };
+    }
+
+    private ReaderConfiguration ApplySettingsContributors(TranslatedReaderConfiguration translated)
+    {
+        var values = new ReaderConfigurationExtensionBuilder();
+        var context = new ReaderSettingsContributionContext(translated.Configuration, translated.CustomItems);
+        foreach (IReaderSettingsContributor contributor in GetSettingsContributors())
+        {
+            contributor.ContributeQuery(context, values);
+        }
+
+        return translated.Configuration with { Extensions = values.Build() };
+    }
+
+    private IReadOnlyList<ILlrpParameter> BuildSettingsApplyParameters(ReaderConfiguration configuration)
+    {
+        var customItems = new List<ILlrpParameter>();
+        foreach (IReaderSettingsContributor contributor in GetSettingsContributors())
+        {
+            customItems.AddRange(contributor.BuildApplyParameters(configuration));
+        }
+
+        return customItems.Count == 0 ? [] : customItems.AsReadOnly();
+    }
+
+    private IReadOnlyList<ILlrpParameter> BuildSettingsQueryParameters()
+    {
+        var customItems = new List<ILlrpParameter>();
+        foreach (IReaderSettingsContributor contributor in GetSettingsContributors())
+        {
+            customItems.AddRange(contributor.BuildQueryParameters());
+        }
+
+        return customItems.Count == 0 ? [] : customItems.AsReadOnly();
+    }
+
+    private IReadOnlyList<IReaderSettingsContributor> GetSettingsContributors()
+    {
+        IReaderSettingsContributor[] contributors = Extensions.OfType<IReaderSettingsContributor>().ToArray();
+        var contributorIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (IReaderSettingsContributor contributor in contributors)
+        {
+            if (string.IsNullOrWhiteSpace(contributor.Id))
+            {
+                throw new InvalidOperationException("A reader settings contributor must declare a non-empty Id.");
+            }
+
+            if (!contributorIds.Add(contributor.Id))
+            {
+                throw new InvalidOperationException($"More than one reader settings contributor uses Id '{contributor.Id}'.");
+            }
+        }
+
+        return contributors;
+    }
+
+    private IReadOnlyList<ILlrpParameter> BuildInventoryCustomItems(ReaderSettings settings)
+    {
+        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
+            "Inventory contributors require initialized reader metadata.");
+        var values = new InventoryExtensionBuilder();
+        var context = new InventoryContributionContext(
+            settings,
+            metadata.Identity,
+            metadata.Capabilities,
+            NegotiatedVersion);
+        var contributorIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (IInventoryContributor contributor in Extensions.OfType<IInventoryContributor>())
+        {
+            if (string.IsNullOrWhiteSpace(contributor.Id))
+            {
+                throw new InvalidOperationException("An inventory contributor must declare a non-empty Id.");
+            }
+
+            if (!contributorIds.Add(contributor.Id))
+            {
+                throw new InvalidOperationException($"More than one inventory contributor uses Id '{contributor.Id}'.");
+            }
+
+            contributor.Contribute(context, values);
+        }
+
+        return values.RoReportSpecCustomItems;
     }
 
     private void ThrowIfDisposed()

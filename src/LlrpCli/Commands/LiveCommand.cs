@@ -36,15 +36,7 @@ public sealed class LiveSettings : CommandSettings
 public sealed class LiveCommand : AsyncCommand<LiveSettings>
 {
     private readonly IAnsiConsole _console;
-    private LlrpReader? _reader;
-    private DelegateFrameObserver? _observer;
-    private CancellationTokenSource? _inventoryCancellation;
-    private Task? _inventoryPumpTask;
-    private string? _currentHost;
-    private int _currentPort = 5084;
-    private bool _isMonitoring;
-    private bool _isMonitoringTable;
-    private Action<CapturedFrame>? _monitorFrameCallback;
+    private readonly LiveSessionContext _session = new();
 
     private sealed class TagStat
     {
@@ -88,9 +80,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            bool isConnected = _reader?.IsConnected == true;
+            bool isConnected = _session.Reader?.IsConnected == true;
             string promptState = isConnected
-                ? $"[deepskyblue1 bold]📡 llrp[/] [springgreen2]({_currentHost}:{_currentPort})[/] [bold cyan]>[/]"
+                ? $"[deepskyblue1 bold]📡 llrp[/] [springgreen2]({_session.Host}:{_session.Port})[/] [bold cyan]>[/]"
                 : "[deepskyblue1 bold]📡 llrp[/] [grey](disconnected)[/] [bold cyan]>[/]";
 
             LineReadResult readResult = editor.ReadLine(
@@ -114,8 +106,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 continue;
             }
 
-            string verb = tokens[0].ToLowerInvariant();
-            if (verb is "exit" or "quit" or "q")
+            CommandSpec? command = CommandCatalog.FindCommand(tokens[0]);
+            if (command?.Route == LiveCommandRoute.Exit)
             {
                 _console.MarkupLine("[grey]Exiting live mode... Bye![/]");
                 break;
@@ -123,78 +115,79 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
             try
             {
-                switch (verb)
+                if (command is null)
                 {
-                    case "connect":
+                    await HandleUnknownInputAsync(tokens, cancellationToken);
+                }
+                else
+                {
+                    switch (command.Route)
+                    {
+                    case LiveCommandRoute.Connect:
                         await HandleConnectAsync(tokens, cancellationToken);
                         break;
-                    case "disconnect":
+                    case LiveCommandRoute.Disconnect:
                         await HandleDisconnectAsync(cancellationToken);
                         break;
-                    case "status":
+                    case LiveCommandRoute.Status:
                         HandleStatus();
                         break;
-                    case "caps":
+                    case LiveCommandRoute.Capabilities:
                         HandleCaps();
                         break;
-                    case "inventory":
+                    case LiveCommandRoute.Inventory:
                         await HandleInventoryAsync(tokens, cancellationToken);
                         break;
-                    case "monitor":
+                    case LiveCommandRoute.Monitor:
                         await HandleMonitorAsync(tokens, cancellationToken);
                         break;
-                    case "frames":
+                    case LiveCommandRoute.Frames:
                         HandleFrames(tokens);
                         break;
-                    case "rospec":
+                    case LiveCommandRoute.RoSpec:
                         await HandleRospecAsync(tokens, cancellationToken);
                         break;
-                    case "accessspec":
+                    case LiveCommandRoute.AccessSpec:
                         await HandleAccessSpecAsync(tokens, cancellationToken);
                         break;
-                    case "raw":
+                    case LiveCommandRoute.Configuration:
+                        await HandleConfigAsync(tokens, cancellationToken);
+                        break;
+                    case LiveCommandRoute.Raw:
                         await HandleRawAsync(tokens, cancellationToken);
                         break;
-                    case "sync":
+                    case LiveCommandRoute.Synchronize:
                         await HandleSynchronizeStateAsync(cancellationToken);
                         break;
-                    case "inspect":
-                        HandleInspect(tokens);
+                    case LiveCommandRoute.Inspect:
+                        LiveProtocolDiagnostics.Inspect(tokens, _console);
                         break;
-                    case "decode":
-                        HandleDecode(tokens);
+                    case LiveCommandRoute.Decode:
+                        LiveProtocolDiagnostics.Decode(tokens, _console);
                         break;
-                    case "validate":
-                        HandleValidate(tokens);
+                    case LiveCommandRoute.Validate:
+                        LiveProtocolDiagnostics.Validate(tokens, _console);
                         break;
-                    case "encode":
-                        HandleEncode(tokens);
+                    case LiveCommandRoute.Encode:
+                        LiveProtocolDiagnostics.Encode(tokens, _console);
                         break;
-                    case "clear":
-                    case "cls":
+                    case LiveCommandRoute.Clear:
                         _console.Clear();
                         RenderBanner();
                         break;
-                    case "help":
-                    case "?":
-                        RenderHelp();
-                        break;
-                    default:
-                        if (tokens.Length == 1 && (verb.Contains('.') || verb == "localhost" || verb == "127.0.0.1"))
+                    case LiveCommandRoute.Help:
+                        if (tokens.Length > 1)
                         {
-                            await ConnectToReaderAsync(
-                                new CliConnectionOptions(
-                                    tokens[0],
-                                    5084,
-                                    LlrpProtocolVersionPolicy.Auto,
-                                    VendorExtensionMode.Auto),
-                                cancellationToken);
+                            RenderCommandHelp(tokens[1]);
                         }
                         else
                         {
-                            _console.MarkupLine($"[red]Unknown command '{Markup.Escape(tokens[0])}'.[/] Type [cyan1]help[/] for available commands.");
+                            RenderHelp();
                         }
                         break;
+                    default:
+                        throw new InvalidOperationException($"Unsupported live command route '{command.Route}'.");
+                    }
                 }
             }
             catch (Exception ex)
@@ -205,14 +198,32 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _console.WriteLine();
         }
 
-        if (_reader is not null)
+        if (_session.Reader is not null)
         {
             await StopInventoryAsync(CancellationToken.None);
-            await _reader.DisposeAsync();
-            _reader = null;
+            await _session.Reader.DisposeAsync();
+            _session.Reader = null;
         }
 
         return 0;
+    }
+
+    private async Task HandleUnknownInputAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        string verb = tokens[0].ToLowerInvariant();
+        if (tokens.Length == 1 && (verb.Contains('.') || verb == "localhost" || verb == "127.0.0.1"))
+        {
+            await ConnectToReaderAsync(
+                new CliConnectionOptions(
+                    tokens[0],
+                    5084,
+                    LlrpProtocolVersionPolicy.Auto,
+                    VendorExtensionMode.Auto),
+                cancellationToken);
+            return;
+        }
+
+        _console.MarkupLine($"[red]Unknown command '{Markup.Escape(tokens[0])}'.[/] Type [cyan1]help[/] for available commands.");
     }
 
     private async Task HandleConnectAsync(string[] tokens, CancellationToken cancellationToken)
@@ -239,23 +250,23 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         CliConnectionOptions options,
         CancellationToken cancellationToken)
     {
-        if (_reader is not null)
+        if (_session.Reader is not null)
         {
             await StopInventoryAsync(CancellationToken.None);
-            await _reader.DisposeAsync();
-            _reader = null;
+            await _session.Reader.DisposeAsync();
+            _session.Reader = null;
         }
 
-        _observer = new DelegateFrameObserver(frame =>
+        _session.FrameObserver = new DelegateFrameObserver(frame =>
         {
-            if (_isMonitoring)
+            if (_session.IsMonitoring)
             {
                 FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
                 _console.WriteLine();
             }
-            if (_isMonitoringTable)
+            if (_session.IsMonitoringTable)
             {
-                _monitorFrameCallback?.Invoke(frame);
+                _session.MonitorFrameCallback?.Invoke(frame);
             }
         });
 
@@ -263,7 +274,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         var builder = options.CreateReaderBuilder()
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
-            .WithFrameObserver(_observer);
+            .WithFrameObserver(_session.FrameObserver);
 
         options.RenderVendorMode(_console);
 
@@ -272,15 +283,15 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         try
         {
             await reader.ConnectAsync(cancellationToken);
-            _reader = reader;
-            _currentHost = options.Host;
-            _currentPort = options.Port;
+            _session.Reader = reader;
+            _session.Host = options.Host;
+            _session.Port = options.Port;
             UpdateWindowTitle($"{options.Host}:{options.Port}");
 
             _console.MarkupLine("[bold springgreen2]✔ Connected successfully![/]");
             _console.WriteLine();
 
-            IReadOnlyList<CapturedFrame> frames = _observer.CapturedFrames;
+            IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
             if (frames.Count > 0)
             {
                 var rule = new Rule($"[bold cyan1]Exchanged Connection Negotiation LLRP Messages ({frames.Count})[/]");
@@ -298,8 +309,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         catch (Exception ex)
         {
             await reader.DisposeAsync();
-            _reader = null;
-            _observer = null;
+            _session.Reader = null;
+            _session.FrameObserver = null;
             UpdateWindowTitle("offline");
             _console.MarkupLine($"[bold red]✖ Connection failed:[/] {Markup.Escape(ex.Message)}");
         }
@@ -307,24 +318,24 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task HandleDisconnectAsync(CancellationToken cancellationToken)
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected to any reader.[/]");
             return;
         }
 
         await StopInventoryAsync(cancellationToken);
-        await _reader.DisconnectAsync(cancellationToken);
-        await _reader.DisposeAsync();
-        _reader = null;
-        _observer = null;
+        await _session.Reader.DisconnectAsync(cancellationToken);
+        await _session.Reader.DisposeAsync();
+        _session.Reader = null;
+        _session.FrameObserver = null;
         UpdateWindowTitle("offline");
         _console.MarkupLine("[grey]Disconnected from reader.[/]");
     }
 
     private void HandleStatus()
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Status:[/] [red]Disconnected[/]");
             return;
@@ -334,20 +345,20 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddColumn("[bold grey70]Property[/]");
         table.AddColumn("[bold grey70]Value[/]");
 
-        table.AddRow("Host", $"[cyan1]{_currentHost}:{_currentPort}[/]");
-        table.AddRow("Connection State", $"[springgreen2]{_reader.ConnectionState}[/]");
-        table.AddRow("Connection ID", $"[white]{_reader.ConnectionId}[/]");
+        table.AddRow("Host", $"[cyan1]{_session.Host}:{_session.Port}[/]");
+        table.AddRow("Connection State", $"[springgreen2]{_session.Reader.ConnectionState}[/]");
+        table.AddRow("Connection ID", $"[white]{_session.Reader.ConnectionId}[/]");
 
-        if (_reader.Identity is { } identity)
+        if (_session.Reader.Identity is { } identity)
         {
             table.AddRow("Manufacturer ID", $"[cyan1]{identity.ManufacturerId}[/]");
             table.AddRow("Model ID", $"[springgreen2]{identity.ModelId}[/]");
             table.AddRow("Firmware Version", $"[yellow]{Markup.Escape(identity.FirmwareVersion)}[/]");
         }
 
-        if (_observer != null)
+        if (_session.FrameObserver != null)
         {
-            table.AddRow("Total Captured Frames", $"[deepskyblue1]{_observer.CapturedFrames.Count}[/]");
+            table.AddRow("Total Captured Frames", $"[deepskyblue1]{_session.FrameObserver.CapturedFrames.Count}[/]");
         }
 
         var panel = new Panel(table)
@@ -359,13 +370,13 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private void HandleCaps()
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
         }
 
-        if (_reader.Capabilities is { } capabilities)
+        if (_session.Reader.Capabilities is { } capabilities)
         {
             var table = new Table();
             table.AddColumn("[bold grey70]Capability[/]");
@@ -390,7 +401,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private void HandleFrames(string[] tokens)
     {
-        if (_observer is null || _observer.CapturedFrames.Count == 0)
+        if (_session.FrameObserver is null || _session.FrameObserver.CapturedFrames.Count == 0)
         {
             _console.MarkupLine("[yellow]No frames captured yet.[/]");
             return;
@@ -402,7 +413,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             count = parsedCount;
         }
 
-        IReadOnlyList<CapturedFrame> frames = _observer.CapturedFrames;
+        IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
         var recent = frames.TakeLast(count).ToList();
 
         var rule = new Rule($"[bold cyan1]Recent {recent.Count} LLRP Message Frames[/]");
@@ -417,7 +428,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task HandleInventoryAsync(string[] tokens, CancellationToken cancellationToken)
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
@@ -433,7 +444,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             case "start":
             {
-                if (_inventoryPumpTask is { IsCompleted: false })
+                if (_session.InventoryPumpTask is { IsCompleted: false })
                 {
                     _console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
                     return;
@@ -450,11 +461,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 {
                     AntennaIds = [antennaId],
                 };
-                await _reader.StartAsync(settings, cancellationToken);
+                await _session.Reader.StartAsync(settings, cancellationToken);
 
                 var inventoryCancellation = new CancellationTokenSource();
-                _inventoryCancellation = inventoryCancellation;
-                _inventoryPumpTask = PumpTagReportsAsync(_reader, inventoryCancellation.Token);
+                _session.InventoryCancellation = inventoryCancellation;
+                _session.InventoryPumpTask = PumpTagReportsAsync(_session.Reader, inventoryCancellation.Token);
                 string scope = antennaId == 0 ? "all antennas" : $"antenna {antennaId}";
                 _console.MarkupLine($"[bold springgreen2]✔ SDK-managed inventory started for {scope}.[/]");
                 break;
@@ -467,9 +478,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
             case "status":
                 _console.MarkupLine(
-                    _reader.OperationState == ReaderOperationState.Inventorying
+                    _session.Reader.OperationState == ReaderOperationState.Inventorying
                         ? "[springgreen2]SDK-managed inventory is running.[/]"
-                        : $"[yellow]SDK-managed inventory is not running (state: {_reader.OperationState}).[/]");
+                        : $"[yellow]SDK-managed inventory is not running (state: {_session.Reader.OperationState}).[/]");
                 break;
 
             default:
@@ -480,7 +491,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task HandleMonitorAsync(string[] tokens, CancellationToken cancellationToken)
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
@@ -512,8 +523,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _console.MarkupLine("[grey]Raw Frame Mode: printing raw RX/TX frame trees and hex dumps.[/]");
             _console.WriteLine();
 
-            _isMonitoringTable = false;
-            _isMonitoring = true;
+            _session.IsMonitoringTable = false;
+            _session.IsMonitoring = true;
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken);
@@ -524,7 +535,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             }
             finally
             {
-                _isMonitoring = false;
+                _session.IsMonitoring = false;
                 _console.MarkupLine("[bold cyan1]✔ Passive frame monitoring ended.[/]");
             }
         }
@@ -534,12 +545,12 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _console.MarkupLine("[grey]Live Table Mode: aggregated unique EPC tag counts, RSSI, and antennas.[/]");
             var tagStats = new System.Collections.Concurrent.ConcurrentDictionary<string, TagStat>();
 
-            _monitorFrameCallback = frame =>
+            _session.MonitorFrameCallback = frame =>
             {
                 try
                 {
-                    ILlrpMessage msg = _reader.Registry.DecodeMessage(frame.Bytes);
-                    IReadOnlyList<TagReport> reports = _reader.TranslateTagReports(msg);
+                    ILlrpMessage msg = _session.Reader.Registry.DecodeMessage(frame.Bytes);
+                    IReadOnlyList<TagReport> reports = _session.Reader.TranslateTagReports(msg);
                     foreach (TagReport report in reports)
                     {
                         string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
@@ -574,8 +585,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 }
             };
 
-            _isMonitoringTable = true;
-            _isMonitoring = false;
+            _session.IsMonitoringTable = true;
+            _session.IsMonitoring = false;
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(seconds));
@@ -639,8 +650,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             }
             finally
             {
-                _isMonitoringTable = false;
-                _monitorFrameCallback = null;
+                _session.IsMonitoringTable = false;
+                _session.MonitorFrameCallback = null;
                 _console.MarkupLine($"[bold cyan1]✔ Live tag summary ended. Total Unique Tags: {tagStats.Count}[/]");
             }
         }
@@ -648,17 +659,17 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task StopInventoryAsync(CancellationToken cancellationToken)
     {
-        CancellationTokenSource? inventoryCancellation = _inventoryCancellation;
-        Task? inventoryPumpTask = _inventoryPumpTask;
-        _inventoryCancellation = null;
-        _inventoryPumpTask = null;
+        CancellationTokenSource? inventoryCancellation = _session.InventoryCancellation;
+        Task? inventoryPumpTask = _session.InventoryPumpTask;
+        _session.InventoryCancellation = null;
+        _session.InventoryPumpTask = null;
 
         inventoryCancellation?.Cancel();
         try
         {
-            if (_reader?.IsConnected == true && _reader.OperationState == ReaderOperationState.Inventorying)
+            if (_session.Reader?.IsConnected == true && _session.Reader.OperationState == ReaderOperationState.Inventorying)
             {
-                await _reader.StopAsync(cancellationToken).ConfigureAwait(false);
+                await _session.Reader.StopAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -704,7 +715,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task HandleRospecAsync(string[] tokens, CancellationToken cancellationToken)
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
@@ -723,38 +734,38 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             rospecId = parsedId;
         }
 
-        int startIndex = _observer?.CapturedFrames.Count ?? 0;
+        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
 
         switch (subAction)
         {
             case "list":
                 _console.MarkupLine("[grey]Querying installed ROSpecs...[/]");
-                var rospecs = await _reader.RoSpecs.GetAllAsync(cancellationToken);
+                var rospecs = await _session.Reader.RoSpecs.GetAllAsync(cancellationToken);
                 _console.MarkupLine($"[green]Found {rospecs.Count} ROSpec(s).[/]");
                 break;
             case "enable":
                 _console.MarkupLine($"[grey]Enabling ROSpec {rospecId}...[/]");
-                await _reader.RoSpecs.EnableAsync(rospecId, cancellationToken);
+                await _session.Reader.RoSpecs.EnableAsync(rospecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ ROSpec {rospecId} Enabled![/]");
                 break;
             case "disable":
                 _console.MarkupLine($"[grey]Disabling ROSpec {rospecId}...[/]");
-                await _reader.RoSpecs.DisableAsync(rospecId, cancellationToken);
+                await _session.Reader.RoSpecs.DisableAsync(rospecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ ROSpec {rospecId} Disabled![/]");
                 break;
             case "start":
                 _console.MarkupLine($"[grey]Starting ROSpec {rospecId}...[/]");
-                await _reader.RoSpecs.StartAsync(rospecId, cancellationToken);
+                await _session.Reader.RoSpecs.StartAsync(rospecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ ROSpec {rospecId} Started![/]");
                 break;
             case "stop":
                 _console.MarkupLine($"[grey]Stopping ROSpec {rospecId}...[/]");
-                await _reader.RoSpecs.StopAsync(rospecId, cancellationToken);
+                await _session.Reader.RoSpecs.StopAsync(rospecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ ROSpec {rospecId} Stopped![/]");
                 break;
             case "delete":
                 _console.MarkupLine($"[grey]Deleting ROSpec {rospecId}...[/]");
-                await _reader.RoSpecs.DeleteAsync(rospecId, cancellationToken);
+                await _session.Reader.RoSpecs.DeleteAsync(rospecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ ROSpec {rospecId} Deleted![/]");
                 break;
             default:
@@ -762,9 +773,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 return;
         }
 
-        if (_observer != null)
+        if (_session.FrameObserver != null)
         {
-            IReadOnlyList<CapturedFrame> frames = _observer.CapturedFrames;
+            IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
             if (frames.Count > startIndex)
             {
                 var newFrames = frames.Skip(startIndex).ToList();
@@ -779,7 +790,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task HandleAccessSpecAsync(string[] tokens, CancellationToken cancellationToken)
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
@@ -802,22 +813,22 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             case "list":
                 _console.MarkupLine("[grey]Querying installed AccessSpecs...[/]");
-                var accessSpecs = await _reader.AccessSpecs.GetAllAsync(cancellationToken);
+                var accessSpecs = await _session.Reader.AccessSpecs.GetAllAsync(cancellationToken);
                 _console.MarkupLine($"[green]Found {accessSpecs.Count} AccessSpec(s).[/]");
                 break;
             case "enable":
                 _console.MarkupLine($"[grey]Enabling AccessSpec {accessSpecId}...[/]");
-                await _reader.AccessSpecs.EnableAsync(accessSpecId, cancellationToken);
+                await _session.Reader.AccessSpecs.EnableAsync(accessSpecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ AccessSpec {accessSpecId} Enabled![/]");
                 break;
             case "disable":
                 _console.MarkupLine($"[grey]Disabling AccessSpec {accessSpecId}...[/]");
-                await _reader.AccessSpecs.DisableAsync(accessSpecId, cancellationToken);
+                await _session.Reader.AccessSpecs.DisableAsync(accessSpecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ AccessSpec {accessSpecId} Disabled![/]");
                 break;
             case "delete":
                 _console.MarkupLine($"[grey]Deleting AccessSpec {accessSpecId}...[/]");
-                await _reader.AccessSpecs.DeleteAsync(accessSpecId, cancellationToken);
+                await _session.Reader.AccessSpecs.DeleteAsync(accessSpecId, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ AccessSpec {accessSpecId} Deleted![/]");
                 break;
             default:
@@ -828,7 +839,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task HandleRawAsync(string[] tokens, CancellationToken cancellationToken)
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
@@ -858,7 +869,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     throw new CliUsageException("Usage: raw send <hex-frame> --yes");
                 }
 
-                await _reader.Protocol.SendRawAsync(requestFrame, cancellationToken);
+                await _session.Reader.Protocol.SendRawAsync(requestFrame, cancellationToken);
                 _console.MarkupLine("[bold springgreen2]✔ Raw frame sent.[/]");
                 break;
 
@@ -869,7 +880,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 }
 
                 ushort? responseType = ParseRawResponseType(tokens.Skip(3).ToArray());
-                ReadOnlyMemory<byte> response = await _reader.Protocol.TransactRawAsync(
+                ReadOnlyMemory<byte> response = await _session.Reader.Protocol.TransactRawAsync(
                     requestFrame,
                     (header, _) => header.MessageId == requestHeader.MessageId &&
                         (!responseType.HasValue || (ushort)header.MessageType == responseType.Value),
@@ -886,23 +897,183 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 throw new CliUsageException("Usage: raw send|transact <hex-frame> [--response-type <type>] --yes");
         }
 
-        if (!_reader.IsManagedStateSynchronized)
+        if (!_session.Reader.IsManagedStateSynchronized)
         {
             _console.MarkupLine(
                 "[yellow]SDK-managed state is now unsynchronized. Run [cyan1]sync[/] before the next managed operation.[/]");
         }
     }
 
+    private async Task HandleConfigAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        if (_session.Reader is null || !_session.Reader.IsConnected)
+        {
+            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
+            return;
+        }
+
+        if (tokens.Length < 2)
+        {
+            throw new CliUsageException("Usage: config get | config apply [options] [--dry-run] --yes");
+        }
+
+        if (tokens[1].Equals("apply", StringComparison.OrdinalIgnoreCase))
+        {
+            await HandleConfigApplyAsync(tokens, cancellationToken);
+            return;
+        }
+        if (!tokens[1].Equals("get", StringComparison.OrdinalIgnoreCase) || tokens.Length != 2)
+        {
+            throw new CliUsageException("Usage: config get | config apply [options] [--dry-run] --yes");
+        }
+
+        ReaderConfiguration configuration = await _session.Reader.QuerySettingsAsync(cancellationToken);
+        var table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("[bold grey70]Setting[/]");
+        table.AddColumn("[bold grey70]Value[/]");
+        table.AddRow("Keepalive", $"[cyan1]{configuration.Keepalive.TriggerType}[/], {configuration.Keepalive.IntervalMs} ms");
+        table.AddRow("Antennas", configuration.Antennas.Count.ToString());
+        table.AddRow("GPI / GPO", $"{configuration.Gpis.Count} / {configuration.Gpos.Count}");
+        table.AddRow("ROSpec events", configuration.Events.RoSpecEventEnabled ? "[green]Enabled[/]" : "[grey]Disabled[/]");
+        table.AddRow("GPI events", configuration.Events.GpiEventEnabled ? "[green]Enabled[/]" : "[grey]Disabled[/]");
+        _console.Write(new Panel(table)
+            .Header("[bold yellow] READER CONFIGURATION [/]")
+            .Border(BoxBorder.Rounded));
+    }
+
+    private async Task HandleConfigApplyAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        ConfigApplySettings settings = ParseLiveConfigApply(tokens, out bool confirmed);
+        if (!ConfigApplyCommand.TryValidateRequestedChanges(settings, out string? error))
+        {
+            throw new CliUsageException(error!);
+        }
+
+        ReaderConfiguration current = await _session.Reader!.QuerySettingsAsync(cancellationToken);
+        ReaderConfiguration updated = ConfigApplyCommand.BuildUpdatedConfiguration(settings, current);
+        RenderLiveConfigChange(settings, updated, settings.DryRun || !confirmed);
+        if (settings.DryRun)
+        {
+            return;
+        }
+        if (!confirmed)
+        {
+            _console.MarkupLine("[yellow]No configuration was written. Repeat with [cyan1]--yes[/] to confirm.[/]");
+            return;
+        }
+
+        await _session.Reader.ApplySettingsAsync(updated, cancellationToken);
+        _console.MarkupLine("[bold springgreen2]✔ Configuration applied successfully.[/]");
+        _console.MarkupLine("[yellow]SDK-managed state is now unsynchronized. Run [cyan1]sync[/] before the next managed operation.[/]");
+    }
+
+    private static ConfigApplySettings ParseLiveConfigApply(string[] tokens, out bool confirmed)
+    {
+        string? keepaliveType = null;
+        uint? keepaliveInterval = null;
+        ushort? antennaId = null;
+        ushort? transmitPower = null;
+        ushort? receiverSensitivity = null;
+        ushort? channelIndex = null;
+        ushort? gpoPort = null;
+        bool? gpoData = null;
+        bool dryRun = false;
+        confirmed = false;
+
+        for (int index = 2; index < tokens.Length; index++)
+        {
+            string token = tokens[index];
+            if (token.Equals("--dry-run", StringComparison.OrdinalIgnoreCase))
+            {
+                dryRun = true;
+                continue;
+            }
+            if (token.Equals("--yes", StringComparison.OrdinalIgnoreCase))
+            {
+                confirmed = true;
+                continue;
+            }
+            if (index + 1 >= tokens.Length)
+            {
+                throw new CliUsageException("A config apply option is missing its value.");
+            }
+
+            string value = tokens[++index];
+            switch (token.ToLowerInvariant())
+            {
+                case "--keepalive-type": keepaliveType = value; break;
+                case "--keepalive-interval": keepaliveInterval = Helpers.ParseUInt32(value, token); break;
+                case "--antenna": antennaId = ParseUShort(value, token); break;
+                case "--tx-power": transmitPower = ParseUShort(value, token); break;
+                case "--rx-sens": receiverSensitivity = ParseUShort(value, token); break;
+                case "--channel": channelIndex = ParseUShort(value, token); break;
+                case "--gpo-port": gpoPort = ParseUShort(value, token); break;
+                case "--gpo-data" when bool.TryParse(value, out bool parsed): gpoData = parsed; break;
+                case "--gpo-data": throw new CliUsageException("--gpo-data must be true or false.");
+                default: throw new CliUsageException($"Unknown config apply option '{token}'.");
+            }
+        }
+
+        return new ConfigApplySettings
+        {
+            KeepaliveType = keepaliveType,
+            KeepaliveInterval = keepaliveInterval,
+            AntennaId = antennaId,
+            TransmitPower = transmitPower,
+            ReceiverSensitivity = receiverSensitivity,
+            ChannelIndex = channelIndex,
+            GpoPort = gpoPort,
+            GpoData = gpoData,
+            DryRun = dryRun
+        };
+    }
+
+    private static ushort ParseUShort(string value, string option)
+    {
+        uint parsed = Helpers.ParseUInt32(value, option);
+        if (parsed > ushort.MaxValue)
+        {
+            throw new CliUsageException($"{option} must be a UInt16 value.");
+        }
+        return (ushort)parsed;
+    }
+
+    private void RenderLiveConfigChange(ConfigApplySettings settings, ReaderConfiguration configuration, bool noWrite)
+    {
+        var table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("[bold grey70]Setting[/]");
+        table.AddColumn("[bold grey70]Resolved value[/]");
+        if (settings.KeepaliveType is not null || settings.KeepaliveInterval.HasValue)
+        {
+            table.AddRow("Keepalive", $"{configuration.Keepalive.TriggerType}, {configuration.Keepalive.IntervalMs} ms");
+        }
+        if (settings.AntennaId is ushort antennaId)
+        {
+            AntennaConfigurationSettings antenna = configuration.Antennas.Single(item => item.AntennaId == antennaId);
+            table.AddRow($"Antenna {antennaId}", $"Tx={antenna.TransmitPowerIndex}, Rx={antenna.ReceiverSensitivityIndex}, Channel={antenna.ChannelIndex}");
+        }
+        if (settings.GpoPort is ushort gpoPort)
+        {
+            GpoConfiguration gpo = configuration.Gpos.Single(item => item.GpoPortNumber == gpoPort);
+            table.AddRow($"GPO {gpoPort}", gpo.GpoData ? "[green]High (1)[/]" : "[grey]Low (0)[/]");
+        }
+
+        string header = noWrite
+            ? "[bold yellow] CONFIGURATION PREVIEW — NO DEVICE WRITE [/]"
+            : "[bold yellow] CONFIGURATION CHANGE [/]";
+        _console.Write(new Panel(table).Header(header).Border(BoxBorder.Rounded));
+    }
+
     private async Task HandleSynchronizeStateAsync(CancellationToken cancellationToken)
     {
-        if (_reader is null || !_reader.IsConnected)
+        if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
         }
 
         _console.MarkupLine("[grey]Synchronizing reader-managed ROSpec and AccessSpec state...[/]");
-        await _reader.SynchronizeStateAsync(cancellationToken);
+        await _session.Reader.SynchronizeStateAsync(cancellationToken);
         _console.MarkupLine("[bold springgreen2]✔ SDK-managed state synchronized.[/]");
     }
 
@@ -934,96 +1105,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         return responseType;
     }
 
-    private void HandleInspect(string[] tokens)
-    {
-        if (tokens.Length < 2)
-        {
-            _console.MarkupLine("[red]Usage:[/] inspect <hex-frame>");
-            return;
-        }
-
-        byte[] frame = Helpers.ParseHex(tokens[1]);
-        LlrpMessageHeader header = Helpers.DecodeExactHeader(frame);
-        FrameRenderer.RenderHeader(header, frame.Length, _console);
-    }
-
-    private void HandleDecode(string[] tokens)
-    {
-        if (tokens.Length < 2)
-        {
-            _console.MarkupLine("[red]Usage:[/] decode <hex-frame>");
-            return;
-        }
-
-        byte[] frame = Helpers.ParseHex(tokens[1]);
-        Helpers.DecodeExactHeader(frame);
-        ILlrpMessage message = Helpers.CreateRegistry().DecodeMessage(frame);
-        FrameRenderer.RenderDecodedMessage(message, frame, _console);
-    }
-
-    private void HandleValidate(string[] tokens)
-    {
-        if (tokens.Length < 2)
-        {
-            _console.MarkupLine("[red]Usage:[/] validate <hex-frame>");
-            return;
-        }
-
-        byte[] frame = Helpers.ParseHex(tokens[1]);
-        Helpers.DecodeExactHeader(frame);
-        ILlrpMessage message = Helpers.CreateRegistry().DecodeMessage(frame);
-        FrameRenderer.RenderValidationResult(isValid: true, message.GetType().Name, frame.Length, _console);
-    }
-
-    private void HandleEncode(string[] tokens)
-    {
-        if (tokens.Length < 2)
-        {
-            _console.MarkupLine("[red]Usage:[/] encode <message-name> [[--message-id ID]] [[--rospec-id ID]]");
-            return;
-        }
-
-        string msgName = tokens[1];
-        uint msgId = 1;
-        uint? roSpecId = null;
-
-        for (int i = 2; i < tokens.Length; i += 2)
-        {
-            if (i + 1 >= tokens.Length)
-            {
-                break;
-            }
-            if (tokens[i].Equals("--message-id", StringComparison.OrdinalIgnoreCase))
-            {
-                msgId = Helpers.ParseUInt32(tokens[i + 1], "--message-id");
-            }
-            else if (tokens[i].Equals("--rospec-id", StringComparison.OrdinalIgnoreCase))
-            {
-                roSpecId = Helpers.ParseUInt32(tokens[i + 1], "--rospec-id");
-            }
-        }
-
-        ILlrpMessage message = msgName.ToLowerInvariant() switch
-        {
-            "keepalive" => new LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE(msgId),
-            "keepalive-ack" => new LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE_ACK(msgId),
-            "get-reader-capabilities" => new LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES(
-                msgId,
-                LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderCapabilitiesRequestedData.All,
-                Array.Empty<LlrpNet.Protocol.Parameters.ILlrpParameter>()),
-            "get-rospecs" => new LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS(msgId),
-            "delete-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC(msgId, roSpecId ?? 1),
-            "start-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC(msgId, roSpecId ?? 1),
-            "stop-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC(msgId, roSpecId ?? 1),
-            "enable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC(msgId, roSpecId ?? 1),
-            "disable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC(msgId, roSpecId ?? 1),
-            _ => throw new CliUsageException($"Encode message '{msgName}' is not supported."),
-        };
-
-        byte[] frame = Helpers.CreateRegistry().EncodeMessage(LlrpProtocolVersion.Version101, message);
-        FrameRenderer.RenderEncodedHex(msgName, msgId, frame, _console);
-    }
-
     private static void UpdateWindowTitle(string status)
     {
         try
@@ -1038,7 +1119,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private void RenderBanner()
     {
-        UpdateWindowTitle(_reader?.IsConnected == true ? $"{_currentHost}:{_currentPort}" : "offline");
+        UpdateWindowTitle(_session.Reader?.IsConnected == true ? $"{_session.Host}:{_session.Port}" : "offline");
 
         _console.Write(
             new FigletText("LLRPCSharp")
@@ -1093,6 +1174,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("  [cyan1]disconnect[/]", "断开当前读写器 TCP 会话");
         table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
         table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");
+        table.AddRow("  [cyan1]config get[/]", "查询当前读写器配置（只读，不影响托管盘点状态）");
+        table.AddRow("  [cyan1]config apply [[options]] [[--dry-run]] --yes[/]", "预览或显式确认后写入可编辑配置");
 
         // 分组 2: 高层托管盘点 (Managed Inventory)
         table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
@@ -1120,6 +1203,32 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("  [cyan1]exit | quit[/]", "退出交互式 Live Shell 终端");
 
         _console.Write(table);
+    }
+
+    private void RenderCommandHelp(string commandName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
+        CommandSpec? command = CommandCatalog.FindCommand(commandName);
+        if (command is null)
+        {
+            _console.MarkupLine($"[red]Unknown command '{Markup.Escape(commandName)}'.[/]");
+            return;
+        }
+
+        var table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("[bold grey70]Field[/]");
+        table.AddColumn("[bold grey70]Value[/]");
+        table.AddRow("Usage", $"[cyan1]{Markup.Escape(command.Usage)}[/]");
+        table.AddRow("Description", Markup.Escape(command.Description));
+        table.AddRow("Connection", command.RequiresConnection ? "[yellow]Required[/]" : "[grey]Not required[/]");
+        if (command.Aliases.Length > 0)
+        {
+            table.AddRow("Aliases", Markup.Escape(string.Join(", ", command.Aliases)));
+        }
+
+        _console.Write(new Panel(table)
+            .Header($"[bold deepskyblue1] HELP: {Markup.Escape(command.Name)} [/]")
+            .Border(BoxBorder.Rounded));
     }
 
 }

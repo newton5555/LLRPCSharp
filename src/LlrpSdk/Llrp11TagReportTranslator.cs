@@ -1,5 +1,6 @@
 ﻿using LlrpNet.Protocol.Choices.V1_1;
 using LlrpNet.Protocol.Messages.V1_1;
+using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_1;
 
 namespace LlrpSdk;
@@ -9,15 +10,15 @@ namespace LlrpSdk;
 /// </summary>
 internal static class Llrp11TagReportTranslator
 {
-    public static IReadOnlyList<TagReport> Translate(RO_ACCESS_REPORT report)
+    public static IReadOnlyList<TranslatedTagReport> Translate(RO_ACCESS_REPORT report)
     {
         ArgumentNullException.ThrowIfNull(report);
 
-        var reports = new TagReport[report.TagReportDataItems.Count];
+        var reports = new TranslatedTagReport[report.TagReportDataItems.Count];
         for (int index = 0; index < report.TagReportDataItems.Count; index++)
         {
             TagReportData tag = report.TagReportDataItems[index];
-            reports[index] = new TagReport(
+            var translated = new TagReport(
                 GetElectronicProductCode(tag.EPCParameter),
                 tag.ROSpecID?.ROSpecID_2,
                 tag.SpecIndex?.SpecIndex_2,
@@ -32,7 +33,9 @@ internal static class Llrp11TagReportTranslator
                     tag.LastSeenTimestampUTC?.Microseconds,
                     tag.LastSeenTimestampUptime?.Microseconds),
                 tag.TagSeenCount?.TagCount,
-                tag.AccessSpecID?.AccessSpecID_2);
+                tag.AccessSpecID?.AccessSpecID_2,
+                TranslateAccessResults(tag.AccessCommandOpSpecResultItems));
+            reports[index] = new TranslatedTagReport(translated, tag.CustomItems);
         }
 
         return reports;
@@ -54,6 +57,45 @@ internal static class Llrp11TagReportTranslator
         return utcMicroseconds is null && uptimeMicroseconds is null
             ? null
             : new TagTimestamp(utcMicroseconds, uptimeMicroseconds);
+    }
+
+    private static IReadOnlyList<TagAccessOperationResult> TranslateAccessResults(
+        IReadOnlyList<ILlrpParameter> items)
+    {
+        if (items.Count == 0)
+        {
+            return [];
+        }
+
+        var results = new List<TagAccessOperationResult>(items.Count);
+        foreach (ILlrpParameter item in items)
+        {
+            switch (item)
+            {
+                case C1G2ReadOpSpecResult read:
+                    results.Add(new TagAccessOperationResult(
+                        read.OpSpecID,
+                        read.Result == global::LlrpNet.Protocol.Enumerations.V1_1.C1G2ReadResultType.Success,
+                        read.ReadData,
+                        null,
+                        read.Result == global::LlrpNet.Protocol.Enumerations.V1_1.C1G2ReadResultType.Success
+                            ? null
+                            : read.Result.ToString()));
+                    break;
+                case C1G2WriteOpSpecResult write:
+                    results.Add(new TagAccessOperationResult(
+                        write.OpSpecID,
+                        write.Result == global::LlrpNet.Protocol.Enumerations.V1_1.C1G2WriteResultType.Success,
+                        [],
+                        write.NumWordsWritten,
+                        write.Result == global::LlrpNet.Protocol.Enumerations.V1_1.C1G2WriteResultType.Success
+                            ? null
+                            : write.Result.ToString()));
+                    break;
+            }
+        }
+
+        return results;
     }
 
     private static byte[] PackBits(IReadOnlyList<bool> bits)

@@ -1,6 +1,6 @@
 # ADR 0003：读写器默认配置 Profile 与厂商型号适配
 
-- 状态：Proposed
+- 状态：Accepted（第一阶段已实施）
 - 日期：2026-07-27
 
 ## 背景
@@ -136,11 +136,12 @@ LLRP 通用安全默认值
 
 ## 实施顺序
 
-1. 定义 Profile 上下文、匹配结果和来源诊断模型；
-2. 增加核心 LLRP 通用安全默认 Profile；
-3. 增加 `LlrpReader.GetDefaultConfiguration()`；
-4. 在 Impinj 扩展包中增加厂商/型号 Profile；
-5. 增加 `ReaderConfigurationPatch` 并调整 Apply 合并流程；
+1. 已定义 `ReaderConfigurationProfileContext`、`IReaderConfigurationDefaultsProvider`、`ReaderConfigurationProfile` 和冲突诊断模型；
+2. 已增加核心 LLRP 通用安全基线：不推测天线功率/信道/GPO，Keepalive 为 `None`；
+3. 已增加 `LlrpReader.GetDefaultConfiguration()`；该 API 仅依赖已初始化的身份、能力和激活扩展，不发送 LLRP 请求；
+   `GetDefaultConfigurationResult()` 可同时返回选中的 Provider/Profile 来源；
+4. 在 Impinj 扩展包中增加厂商/型号 Profile；仅在厂商资料或实测能证明具体安全值时实施，当前不得猜测 R420/R700 的功率、信道或私有设置；
+5. 已增加 `ReaderConfigurationPatch`、`ResolveConfigurationPatchAsync()` 与 `ApplyConfigurationPatchAsync()`；前者仅查询并合并，后者才明确写入；
 6. 增加 Profile 冲突、未知型号和安全范围测试；
 7. 最后接入 CLI、Live Shell 和 Inventory Compiler。
 

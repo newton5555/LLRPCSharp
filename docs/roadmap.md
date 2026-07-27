@@ -5,10 +5,9 @@
 
 ## 当前优先级
 
-1. 完成标签访问 API：以 AccessSpec 高层构造为核心，不暴露版本化 Message。
-2. 扩展 Contributor 管道：让厂商设置贡献和报告增强真正进入 SDK 高级 API。
-3. 推进 Virtual Reader：补 TagReport、AccessSpec 和故障注入，用于 CI。
-4. 接入 LLRP 2.0：在 1.0.1/1.1 基线稳定后再加入 V2 Adapter。
+1. 扩展 Contributor 管道：补 Impinj Inventory 的首个实际实现，并完善报告增强的实机验证。
+2. 推进 Virtual Reader：补非法帧及更复杂的配置/标签场景，用于 CI。
+3. 接入 LLRP 2.0：在 1.0.1/1.1 基线稳定后再加入 V2 Adapter。
 
 ## 任务拆分
 
@@ -26,11 +25,11 @@
 - 实现 `QuerySettingsAsync` / `ApplySettingsAsync` 时走 Adapter，避免把版本化 Message 暴露到应用层。
 - CLI 增加 `config get` / `config apply` 的最小可用路径。
 
-### 3. 标签访问 API
+### 3. 标签访问 API（标准基线已完成）
 
-- 定义版本无关的 `TagAccessRequest` / `TagAccessResult` / `ReadTagRequest` / `WriteTagRequest`。
-- 将 AccessSpec 高层构造放入 Adapter 或 Compiler。
-- CLI 增加 `tag read` / `tag write` 前先支持 dry-run 或 inspect 输出，降低真机风险。
+- 已定义版本无关的 `TagAccessRequest` / `TagAccessResult` / `ReadTagRequest` / `WriteTagRequest`。
+- 已将 AccessSpec 高层构造放入 1.0.1 / 1.1 Adapter，且通过 R420 完成非破坏性读取验证。
+- 后续：CLI 增加 `tag read` / `tag write` 前先支持 dry-run 或 inspect 输出，降低真机风险。
 
 ### 4. LLRP 2.0
 
@@ -39,31 +38,36 @@
 - 扩展协商策略，明确 1.1 与 2.0 的最高共同版本选择逻辑。
 - 增加 `--llrp 2.0` CLI 入口和互操作测试。
 
-### 5. 扩展 Contributor
+### 5. 扩展 Contributor（部分完成）
 
-- 设计 `IReaderSettingsContributor` 和 `ITagReportContributor`，挂到已激活的 Reader Extension。
-- 让 Inventory Compiler 在生成 ROSpec/ReportSpec 时收集扩展贡献。
-- 让 TagReport 翻译后再由扩展补充 `TagData.Extensions`。
+- `IReaderSettingsContributor` 和 `ITagReportContributor` 已挂到已激活的 Reader Extension；标准配置和 TagReport 保持可用。
+- Impinj Settings Contributor 已完成只读查询：通过 `ImpinjRequestedData(All_Configuration)` 请求并投影厂商配置；写入必须等 Profile 与恢复流程完成后才开放。
+- Inventory Compiler 已可在生成 ROSpec/ROReportSpec 时收集扩展贡献，并将身份、能力、协议版本交给 Contributor。Impinj 已建立默认拒绝的型号/固件能力表；R420 Model `2001002` Firmware `6.4.1.x` 已由 ItemTest 抓包验证支持 `ImpinjTagReportContentSelector`，SDK 已修正为将其挂到 `ROReportSpec`。
+- R420 已启用 `ImpinjInventoryReportOptions` 并确认 `TagReport.Extensions` 的 `impinj.serializedTid`、`impinj.rfPhaseAngle` 与 `impinj.peakRssi` 端到端可见；下一步扩充其他型号/固件的能力目录。
 - 为未安装、已安装未激活、已激活三种状态补回测试。
 
 ### 6. Virtual Reader
 
-- 增加可配置 TagReport 生成，支撑 `InventoryAsync` 的端到端测试。
-- 增加 AccessSpec 最小状态机。
-- 增加断线、超时、错误状态码、非法帧等故障注入。
-- 将 Virtual Reader 接入 CI 互操作测试。
+- 已增加确定性 TagReport 生成，支撑 SDK 托管盘存与 Tag Access 读取的端到端测试。
+- 已增加 AccessSpec 最小状态机、可配置标签、EPC 筛选和 User Memory 的 C1G2 Read/Write 模拟；下一步补配置流与故障注入。
+- 已支持按请求消息类型静默丢弃响应、注入带描述的 LLRP 错误状态，以及主动关闭连接；自动重连测试确认不会隐式恢复 ROSpec/AccessSpec。后续增加非法帧注入。
+- 已接入 `Interop.Tests` 的 1.0.1 SDK 互操作测试；后续扩展到配置、写入和故障注入场景。
 
 ### 7. CLI 命令系统与提示链
 
 - 详细规划见 [`architecture/cli-command-system.md`](architecture/cli-command-system.md)。
 - 保留 Spectre 外层 CLI 与 Live Shell 两种宿主，逐步建立共享命令定义和业务 Handler。
 - 已完成第一步连接选项对齐：外层 `connect` / `monitor` 与 Live Shell `connect` 共享 LLRP/Vendor 策略解析。
-- 下一步让 Usage、Help、选项解析、连接状态约束和输入候选来自同一份命令元数据。
-- 提取 `LiveSessionContext`，逐步拆分 `LiveCommand` 中的连接、监控、盘点和渲染职责。
+- C2 已完成 Live Shell 的命令元数据收敛：Usage、`help <command>`、别名、连接可用性、输入候选和执行路由均从 `CommandCatalog` 获取；外层 Spectre 注册仍保持独立。
+- 已提取 `LiveSessionContext` 集中连接、监控与盘点状态，并将无会话依赖的协议诊断命令迁入 `LiveProtocolDiagnostics`；下一步逐步拆分连接、监控、盘点和渲染职责。
 - 在 SDK API 稳定后，将 `config` 与 `tag` 命令安全地接入 Live Shell。
 
 ### 8. Reader 默认配置 Profile
 
-- 作为 SDK 配置模型升级能力推进，不放入本轮 CLI 重构。
-- 设计 `GetDefaultConfiguration` / `QueryDefaultSettingsAsync` 之类入口前，先明确“离线默认配置”“设备当前配置”“持久化配置”的边界。
-- Profile 匹配应至少包含厂商、型号、固件范围和依赖的 LLRP 标准版本；厂商扩展可以建立在某个标准版本之上。
+- 已完成连接后 `GetDefaultConfiguration()`：它不发协议请求、不自动写入设备，且与实际配置/持久化配置分离。
+- 已定义可注册的 `IReaderConfigurationDefaultsProvider`；上下文包括厂商、型号、固件、协商版本、能力和激活扩展，最高优先级获选，同级冲突失败。
+- 已完成 `ReaderConfigurationPatch` 的只读解析和显式 Apply 合并；下一步仅在有资料或实测依据后增加 Impinj 型号 Profile，不放入本轮 CLI 重构。
+
+## 最终互操作验收
+
+发布前必须按 [最终互操作验收标准](acceptance/reader-interoperability.md) 完成：LLRP 1.0.1 使用 Impinj R420/R700，LLRP 1.1 使用 Zebra FX9600，LLRP 2.0 使用 Virtual Reader。

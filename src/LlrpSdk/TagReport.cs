@@ -18,4 +18,6 @@ public sealed record TagReport(
     TagTimestamp? FirstSeen,
     TagTimestamp? LastSeen,
     ushort? SeenCount,
-    uint? AccessSpecId);
+    uint? AccessSpecId,
+    IReadOnlyList<TagAccessOperationResult>? AccessOperationResults = null,
+    IReadOnlyDictionary<string, object?>? Extensions = null);

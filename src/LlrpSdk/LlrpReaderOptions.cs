@@ -39,6 +39,7 @@ public sealed class LlrpReaderOptions
         LlrpTransportFactory? transportFactory,
         IEnumerable<ILlrpProtocolModule> protocolModules,
         IEnumerable<IReaderExtension> readerExtensions,
+        IEnumerable<IReaderConfigurationDefaultsProvider> configurationDefaultsProviders,
         IEnumerable<Action<LlrpCodecRegistry>> protocolConfigurations)
     {
         Host = host;
@@ -55,6 +56,7 @@ public sealed class LlrpReaderOptions
         TransportFactory = transportFactory ?? CreateTcpTransport;
         ProtocolModules = Array.AsReadOnly(protocolModules.ToArray());
         ReaderExtensions = Array.AsReadOnly(readerExtensions.ToArray());
+        ConfigurationDefaultsProviders = Array.AsReadOnly(configurationDefaultsProviders.ToArray());
         ProtocolConfigurations = Array.AsReadOnly(protocolConfigurations.ToArray());
     }
 
@@ -119,6 +121,9 @@ public sealed class LlrpReaderOptions
 
     /// <summary>Gets extensions eligible for identity-based activation after standard initialization.</summary>
     public IReadOnlyList<IReaderExtension> ReaderExtensions { get; }
+
+    /// <summary>Gets profile providers evaluated after a reader has initialized.</summary>
+    public IReadOnlyList<IReaderConfigurationDefaultsProvider> ConfigurationDefaultsProviders { get; }
 
     internal IReadOnlyList<Action<LlrpCodecRegistry>> ProtocolConfigurations { get; }
 
