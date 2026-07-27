@@ -17,6 +17,9 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/newton5555/LLRPCSharp</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/newton5555/LLRPCSharp</PackageProjectUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tool' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel' AND '$(MSBuildProjectName)' != 'LlrpNet.Core' AND '$(MSBuildProjectName)' != 'LlrpNet.Protocol' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.Core.Tests'">
