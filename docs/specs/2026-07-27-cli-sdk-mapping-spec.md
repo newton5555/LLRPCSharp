@@ -1,7 +1,7 @@
 # CLI 命令与 SDK 逻辑及 LLRP 报文对应关系规格计划 (Specification)
 
 - 日期：2026-07-27
-- 依据：[ADR 0005](../adr/0005-llrp101-reader-first-delivery.md) & [2026-07-27-reader-first-delivery.md](2026-07-27-reader-first-delivery.md)
+- 依据：[ADR 0005](../adr/0005-llrp101-reader-first-delivery.md) & [2026-07-27-reader-first-delivery.md](../plans/2026-07-27-reader-first-delivery.md)
 - 目的：明确所有 CLI 命令与 SDK API、底层 LLRP 报文及帧观察器之间的 1:1 映射规格，作为 CLI 重构与验证的规格书。
 
 ---
