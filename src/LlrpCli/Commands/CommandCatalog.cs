@@ -17,6 +17,29 @@ public sealed record InputAssist(
 
 public static class CommandCatalog
 {
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> ArgumentCandidatesByCommand =
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["connect"] = ["--llrp", "--vendor", "auto", "1.0.1", "1.1", "impinj", "none"],
+            ["monitor"] = ["10", "30", "60", "--frames", "--table"],
+            ["frames"] = ["10", "20", "50", "100"],
+            ["inventory"] = ["start", "stop", "status"],
+            ["rospec"] = ["list", "enable", "disable", "start", "stop", "delete"],
+            ["accessspec"] = ["list", "enable", "disable", "delete"],
+            ["encode"] =
+            [
+                "keepalive",
+                "keepalive-ack",
+                "get-reader-capabilities",
+                "get-rospecs",
+                "delete-rospec",
+                "start-rospec",
+                "stop-rospec",
+                "enable-rospec",
+                "disable-rospec"
+            ],
+        };
+
     public static IReadOnlyList<CommandSpec> Commands { get; } =
     [
         new("connect", "connect [host] [port] [--llrp auto|1.0.1|1.1] [--vendor auto|impinj|none]", "Connect to an LLRP Reader."),
@@ -38,6 +61,11 @@ public static class CommandCatalog
         new("help", "help [command]", "Display command help.", Aliases: ["?"]),
         new("quit", "quit", "Exit interactive live shell.", Aliases: ["exit", "q"])
     ];
+
+    public static CommandSpec Require(string value)
+    {
+        return FindCommand(value) ?? throw new InvalidOperationException($"Command '{value}' is not registered.");
+    }
 
     public static CommandSpec? FindCommand(string value)
     {
@@ -80,45 +108,12 @@ public static class CommandCatalog
         }
 
         string commandName = tokens[0].ToLowerInvariant();
-        if (commandName == "rospec")
+        if (ArgumentCandidatesByCommand.TryGetValue(commandName, out IReadOnlyList<string>? commandCandidates))
         {
-            string subToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
-            string[] subCommands = ["list", "enable", "disable", "start", "stop", "delete"];
-            return subCommands
-                .Where(sc => sc.StartsWith(subToken, StringComparison.OrdinalIgnoreCase))
+            string argumentToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
+            return commandCandidates
+                .Where(candidate => candidate.StartsWith(argumentToken, StringComparison.OrdinalIgnoreCase))
                 .ToList();
-        }
-
-        if (commandName == "accessspec")
-        {
-            string subToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
-            string[] subCommands = ["list", "enable", "disable", "delete"];
-            return subCommands
-                .Where(sc => sc.StartsWith(subToken, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
-
-        if (commandName == "inventory")
-        {
-            string subToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
-            string[] subCommands = ["start", "stop", "status"];
-            return subCommands
-                .Where(sc => sc.StartsWith(subToken, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
-
-        if (commandName == "encode")
-        {
-            string msgToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
-            string[] messages = ["keepalive", "keepalive-ack", "get-reader-capabilities", "get-rospecs", "delete-rospec", "start-rospec", "stop-rospec", "enable-rospec", "disable-rospec"];
-            return messages
-                .Where(msg => msg.StartsWith(msgToken, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
-
-        if (commandName == "frames")
-        {
-            return ["10", "20", "50", "100"];
         }
 
         return Array.Empty<string>();

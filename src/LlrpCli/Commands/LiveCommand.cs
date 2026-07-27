@@ -8,7 +8,6 @@ using LlrpSdk;
 using LlrpCli.Analysis;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
-using LlrpSdk.Extensions.Impinj;
 
 namespace LlrpCli.Commands;
 
@@ -69,20 +68,19 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (!string.IsNullOrWhiteSpace(settings.Host))
         {
-            if (!ProtocolVersionPolicyParser.TryParse(settings.LlrpVersion, out LlrpProtocolVersionPolicy policy))
+            if (!CliConnectionOptions.TryCreate(
+                settings.Host,
+                settings.Port,
+                settings.LlrpVersion,
+                settings.Vendor,
+                out CliConnectionOptions options,
+                out string error))
             {
-                _console.MarkupLine("[bold red]✖ Invalid LLRP version:[/] use auto, 1.0.1, or 1.1.");
+                _console.MarkupLine($"[bold red]✖ Invalid connection option:[/] {Markup.Escape(error)}");
             }
             else
             {
-                if (!VendorExtensionModeParser.TryParse(settings.Vendor, out VendorExtensionMode vendorMode))
-                {
-                    _console.MarkupLine("[bold red]✖ Invalid vendor option:[/] use auto, impinj, or none.");
-                }
-                else
-                {
-                    await ConnectToReaderAsync(settings.Host, settings.Port, policy, vendorMode, cancellationToken);
-                }
+                await ConnectToReaderAsync(options, cancellationToken);
             }
         }
 
@@ -110,7 +108,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             }
 
             string line = readResult.Text.Trim();
-            string[] tokens = Tokenize(line);
+            string[] tokens = LiveCommandParser.Tokenize(line);
             if (tokens.Length == 0)
             {
                 continue;
@@ -185,10 +183,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         if (tokens.Length == 1 && (verb.Contains('.') || verb == "localhost" || verb == "127.0.0.1"))
                         {
                             await ConnectToReaderAsync(
-                                tokens[0],
-                                5084,
-                                LlrpProtocolVersionPolicy.Auto,
-                                VendorExtensionMode.Auto,
+                                new CliConnectionOptions(
+                                    tokens[0],
+                                    5084,
+                                    LlrpProtocolVersionPolicy.Auto,
+                                    VendorExtensionMode.Auto),
                                 cancellationToken);
                         }
                         else
@@ -218,67 +217,26 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     private async Task HandleConnectAsync(string[] tokens, CancellationToken cancellationToken)
     {
-        string host;
-        int port = 5084;
-
         if (tokens.Length < 2)
         {
-            host = _console.Prompt(
+            string host = _console.Prompt(
                 new TextPrompt<string>("[grey]Enter Reader Host/IP:[/]")
                     .DefaultValue("127.0.0.1"));
-        }
-        else
-        {
-            host = tokens[1];
-            int nextToken = 2;
-            if (tokens.Length > nextToken && int.TryParse(tokens[nextToken], out int parsedPort))
-            {
-                port = parsedPort;
-                nextToken++;
-            }
-
-            LlrpProtocolVersionPolicy policy = LlrpProtocolVersionPolicy.Auto;
-            VendorExtensionMode vendorMode = VendorExtensionMode.Auto;
-            while (nextToken < tokens.Length)
-            {
-                if (tokens[nextToken].Equals("--llrp", StringComparison.OrdinalIgnoreCase) &&
-                    nextToken + 1 < tokens.Length)
-                {
-                    if (!ProtocolVersionPolicyParser.TryParse(tokens[nextToken + 1], out policy))
-                    {
-                        throw new CliUsageException("LLRP version must be auto, 1.0.1, or 1.1.");
-                    }
-
-                    nextToken += 2;
-                }
-                else if (tokens[nextToken].Equals("--vendor", StringComparison.OrdinalIgnoreCase) &&
-                    nextToken + 1 < tokens.Length)
-                {
-                    if (!VendorExtensionModeParser.TryParse(tokens[nextToken + 1], out vendorMode))
-                    {
-                        throw new CliUsageException("Vendor mode must be auto, impinj, or none.");
-                    }
-
-                    nextToken += 2;
-                }
-                else
-                {
-                    throw new CliUsageException("Usage: connect <host> [port] [--llrp auto|1.0.1|1.1] [--vendor auto|impinj|none]");
-                }
-            }
-
-            await ConnectToReaderAsync(host, port, policy, vendorMode, cancellationToken);
+            await ConnectToReaderAsync(
+                new CliConnectionOptions(
+                    host,
+                    5084,
+                    LlrpProtocolVersionPolicy.Auto,
+                    VendorExtensionMode.Auto),
+                cancellationToken);
             return;
         }
 
-        await ConnectToReaderAsync(host, port, LlrpProtocolVersionPolicy.Auto, VendorExtensionMode.Auto, cancellationToken);
+        await ConnectToReaderAsync(LiveCommandParser.ParseConnect(tokens), cancellationToken);
     }
 
     private async Task ConnectToReaderAsync(
-        string host,
-        int port,
-        LlrpProtocolVersionPolicy protocolVersionPolicy,
-        VendorExtensionMode vendorMode,
+        CliConnectionOptions options,
         CancellationToken cancellationToken)
     {
         if (_reader is not null)
@@ -301,22 +259,13 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             }
         });
 
-        _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{Markup.Escape(host)}:{port}[/]...");
+        _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{Markup.Escape(options.Host)}:{options.Port}[/]...");
 
-        var builder = LlrpReader.CreateBuilder(host)
-            .WithPort(port)
+        var builder = options.CreateReaderBuilder()
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
-            .WithFrameObserver(_observer)
-            .WithProtocolVersionPolicy(protocolVersionPolicy);
+            .WithFrameObserver(_observer);
 
-        if (vendorMode != VendorExtensionMode.None)
-        {
-            builder.UseImpinj();
-        }
-
-        _console.MarkupLine(vendorMode == VendorExtensionMode.None
-            ? "[grey]Vendor extensions:[/] [yellow]disabled (pure standard LLRP mode)[/]"
-            : "[grey]Vendor extensions:[/] [springgreen2]Impinj enabled[/]");
+        options.RenderVendorMode(_console);
 
         LlrpReader reader = builder.Build();
 
@@ -324,9 +273,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             await reader.ConnectAsync(cancellationToken);
             _reader = reader;
-            _currentHost = host;
-            _currentPort = port;
-            UpdateWindowTitle($"{host}:{port}");
+            _currentHost = options.Host;
+            _currentPort = options.Port;
+            UpdateWindowTitle($"{options.Host}:{options.Port}");
 
             _console.MarkupLine("[bold springgreen2]✔ Connected successfully![/]");
             _console.WriteLine();
@@ -1173,37 +1122,4 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         _console.Write(table);
     }
 
-    private static string[] Tokenize(string text)
-    {
-        var list = new List<string>();
-        var sb = new System.Text.StringBuilder();
-        bool inQuotes = false;
-
-        foreach (char c in text)
-        {
-            if (c == '"')
-            {
-                inQuotes = !inQuotes;
-            }
-            else if (char.IsWhiteSpace(c) && !inQuotes)
-            {
-                if (sb.Length > 0)
-                {
-                    list.Add(sb.ToString());
-                    sb.Clear();
-                }
-            }
-            else
-            {
-                sb.Append(c);
-            }
-        }
-
-        if (sb.Length > 0)
-        {
-            list.Add(sb.ToString());
-        }
-
-        return list.ToArray();
-    }
 }

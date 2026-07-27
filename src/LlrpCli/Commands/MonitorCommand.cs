@@ -7,7 +7,6 @@ using LlrpNet.Protocol.Messages;
 using LlrpSdk;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
-using LlrpSdk.Extensions.Impinj;
 
 namespace LlrpCli.Commands;
 
@@ -51,9 +50,15 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, MonitorSettings settings, CancellationToken cancellationToken)
     {
-        if (!ProtocolVersionPolicyParser.TryParse(settings.LlrpVersion, out LlrpProtocolVersionPolicy policy))
+        if (!CliConnectionOptions.TryCreate(
+            settings.Host,
+            settings.Port,
+            settings.LlrpVersion,
+            settings.Vendor,
+            out CliConnectionOptions options,
+            out string error))
         {
-            _console.MarkupLine("[bold red]✖ Invalid LLRP version:[/] use auto, 1.0.1, or 1.1.");
+            _console.MarkupLine($"[bold red]✖ Invalid connection option:[/] {Markup.Escape(error)}");
             return 2;
         }
 
@@ -65,26 +70,9 @@ public sealed class MonitorCommand : AsyncCommand<MonitorSettings>
             _console.WriteLine();
         });
 
-        var builder = LlrpReader.CreateBuilder(settings.Host)
-            .WithPort(settings.Port)
-            .WithFrameObserver(observer)
-            .WithProtocolVersionPolicy(policy);
-
-        if (string.Equals(settings.Vendor, "none", StringComparison.OrdinalIgnoreCase))
-        {
-            _console.MarkupLine("[grey]Vendor extensions:[/] [yellow]disabled (pure standard LLRP mode)[/]");
-        }
-        else if (string.Equals(settings.Vendor, "impinj", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(settings.Vendor, "auto", StringComparison.OrdinalIgnoreCase))
-        {
-            builder.UseImpinj();
-            _console.MarkupLine("[grey]Vendor extensions:[/] [springgreen2]Impinj enabled[/]");
-        }
-        else
-        {
-            _console.MarkupLine($"[bold red]✖ Invalid vendor option:[/] '{Markup.Escape(settings.Vendor)}' (use auto, impinj, or none).");
-            return 2;
-        }
+        var builder = options.CreateReaderBuilder()
+            .WithFrameObserver(observer);
+        options.RenderVendorMode(_console);
 
         await using LlrpReader reader = builder.Build();
 

@@ -1,6 +1,6 @@
 # CLI 命令系统与交互提示链规划
 
-> 状态：规划中
+> 状态：分阶段落地中
 >
 > 基准日期：2026-07-27
 >
@@ -43,7 +43,7 @@ Live Shell 是 `CommandApp` 的默认命令，但进入交互环境后使用独�
 LiveCommand
 ├─ TerminalLineEditor
 ├─ CommandCatalog
-├─ Tokenize
+├─ LiveCommandParser
 ├─ switch (verb)
 └─ HandleXxxAsync / HandleXxx
 ```
@@ -67,7 +67,7 @@ TerminalLineEditor.Redraw
   ↓
 Tab 循环候选 / → 接受 Ghost / Enter 提交
   ↓
-LiveCommand.Tokenize
+LiveCommandParser.Tokenize
   ↓
 switch 分发到 HandleXxx
 ```
@@ -266,11 +266,15 @@ InputAssist
 - 外层连接、Monitor、Live 启动和 Live `connect` 使用同一语义；
 - 更新 Usage、Help 和提示候选。
 
+当前状态：已落地基础实现。外层 `connect` / `monitor` 与 Live Shell `connect` 共享 `CliConnectionOptions` 和 `LiveCommandParser.ParseConnect`，`CommandCatalog` 已集中维护连接选项和常用子命令候选。
+
 ### C2：共享命令定义
 
 - 将 `CommandCatalog` 升级为结构化命令树；
 - 从定义生成 Live Help、Usage 和候选；
 - 增加命令路径、参数、选项和可用状态模型。
+
+当前状态：已开始。候选值已从多个硬编码分支收拢到 `CommandCatalog`，但 Help、Usage、外层 Spectre 注册和 Live 执行路由还没有完全由同一份结构化定义驱动。
 
 ### C3：拆分 LiveSessionContext 与 Handler
 

@@ -56,7 +56,14 @@
 ### 7. CLI 命令系统与提示链
 
 - 详细规划见 [`architecture/cli-command-system.md`](architecture/cli-command-system.md)。
-- 保留 Spectre 外层 CLI 与 Live Shell 两种宿主，建立共享命令定义和业务 Handler。
-- 让 Usage、Help、选项解析、连接状态约束和输入候选来自同一份命令元数据。
+- 保留 Spectre 外层 CLI 与 Live Shell 两种宿主，逐步建立共享命令定义和业务 Handler。
+- 已完成第一步连接选项对齐：外层 `connect` / `monitor` 与 Live Shell `connect` 共享 LLRP/Vendor 策略解析。
+- 下一步让 Usage、Help、选项解析、连接状态约束和输入候选来自同一份命令元数据。
 - 提取 `LiveSessionContext`，逐步拆分 `LiveCommand` 中的连接、监控、盘点和渲染职责。
 - 在 SDK API 稳定后，将 `config` 与 `tag` 命令安全地接入 Live Shell。
+
+### 8. Reader 默认配置 Profile
+
+- 作为 SDK 配置模型升级能力推进，不放入本轮 CLI 重构。
+- 设计 `GetDefaultConfiguration` / `QueryDefaultSettingsAsync` 之类入口前，先明确“离线默认配置”“设备当前配置”“持久化配置”的边界。
+- Profile 匹配应至少包含厂商、型号、固件范围和依赖的 LLRP 标准版本；厂商扩展可以建立在某个标准版本之上。
