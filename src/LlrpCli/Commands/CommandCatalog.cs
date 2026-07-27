@@ -12,6 +12,7 @@ public enum LiveCommandRoute
     RoSpec,
     AccessSpec,
     Configuration,
+    TagAccess,
     Raw,
     Synchronize,
     Inspect,
@@ -53,15 +54,19 @@ public static class CommandCatalog
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
         new("caps", LiveCommandRoute.Capabilities, "caps", "Query Reader capabilities.", RequiresConnection: true),
-        new("config", LiveCommandRoute.Configuration, "config get | config apply [options] [--dry-run] --yes", "Query or safely apply reader configuration.", RequiresConnection: true)
+        new("config", LiveCommandRoute.Configuration, "config get | defaults | apply [options] [--dry-run] --yes", "Query, resolve defaults, or safely apply reader configuration.", RequiresConnection: true)
         {
-            CompletionCandidates = ["get", "apply", "--dry-run", "--yes"],
+            CompletionCandidates = ["get", "defaults", "apply", "--dry-run", "--yes"],
+        },
+        new("tag", LiveCommandRoute.TagAccess, "tag read|write <epc> --bank <bank> --word <address> (--count <words>|--data <hex-words>)", "Read tag memory or inspect a write request.", RequiresConnection: true)
+        {
+            CompletionCandidates = ["read", "write", "--bank", "--word", "--count", "--data", "--antenna", "--password", "--timeout", "user", "tid", "epc", "reserved"],
         },
         new("inventory", LiveCommandRoute.Inventory, "inventory start [antenna-id] | stop | status", "Manage SDK inventory and display tag reports.", RequiresConnection: true)
         {
             CompletionCandidates = ["start", "stop", "status"],
         },
-        new("rospec", LiveCommandRoute.RoSpec, "rospec list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
+        new("rospec", LiveCommandRoute.RoSpec, "rospec add|list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
         {
             CompletionCandidates = ["list", "enable", "disable", "start", "stop", "delete"],
         },

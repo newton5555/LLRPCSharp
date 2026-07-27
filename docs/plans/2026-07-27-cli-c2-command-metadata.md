@@ -1,5 +1,7 @@
 # CLI C2 Command Metadata Implementation Plan
 
+> Status: Completed
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the Live Shell use one structured command catalog for command identity, aliases, Usage, connection availability, completion candidates, help, and dispatch selection.
@@ -156,4 +158,4 @@ Run `dotnet build LLRPCSharp.slnx --no-restore -m:1`, then `git diff --check` an
 
 ## Execution Handoff
 
-The plan is saved at `docs/superpowers/plans/2026-07-27-cli-c2-command-metadata.md`. Repository policy prohibits automatic commits, so review checkpoints replace the skill's default commit step unless the user explicitly requests a commit.
+The plan is saved at `docs/plans/2026-07-27-cli-c2-command-metadata.md`. Repository policy prohibits automatic commits, so review checkpoints replace the skill's default commit step unless the user explicitly requests a commit.

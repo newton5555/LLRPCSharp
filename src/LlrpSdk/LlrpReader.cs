@@ -728,8 +728,7 @@ public sealed class LlrpReader : IAsyncDisposable
                     // Best-effort pre-cleanup if ROSpec already exists
                 }
 
-                IReadOnlyList<ILlrpParameter> roReportSpecCustomItems = BuildInventoryCustomItems(settings);
-                ILlrpParameter roSpec = GetProtocolAdapter().CompileInventory(settings, roReportSpecCustomItems);
+                ILlrpParameter roSpec = CompileDefaultInventoryRoSpec(settings);
                 await RoSpecs.AddAsync(roSpec, cancellationToken).ConfigureAwait(false);
                 added = true;
                 await RoSpecs.EnableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
@@ -838,6 +837,20 @@ public sealed class LlrpReader : IAsyncDisposable
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Compiles the SDK-default inventory ROSpec without changing managed operation state.
+    /// </summary>
+    /// <remarks>
+    /// This is used by <see cref="IRoSpecService.AddDefaultAsync"/> for callers that need to create a
+    /// disabled default resource and control its lifecycle explicitly.
+    /// </remarks>
+    internal ILlrpParameter CompileDefaultInventoryRoSpec(ReaderSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        EnsureProtocolAvailable();
+        return GetProtocolAdapter().CompileInventory(settings, BuildInventoryCustomItems(settings));
     }
 
     /// <summary>Reads one selected tag's standard C1G2 memory through the active SDK-managed inventory operation.</summary>

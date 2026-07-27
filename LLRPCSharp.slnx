@@ -37,6 +37,16 @@
     <File Path="docs/adr/0002-reader-extension-active-initialization.md" />
     <File Path="docs/adr/0003-reader-configuration-default-profiles.md" />
     <File Path="docs/adr/0004-reader-contributors.md" />
+    <File Path="docs/adr/0005-llrp101-reader-first-delivery.md" />
+  </Folder>
+  <Folder Name="/docs/plans/">
+    <File Path="docs/plans/2026-07-27-cli-c2-command-metadata.md" />
+    <File Path="docs/plans/2026-07-27-cli-c3-session-handlers.md" />
+    <File Path="docs/plans/2026-07-27-cli-tag-access.md" />
+    <File Path="docs/plans/2026-07-27-reader-first-delivery.md" />
+  </Folder>
+  <Folder Name="/docs/specs/">
+    <File Path="docs/specs/2026-07-27-cli-tag-access-design.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
     <File Path="docs/architecture/overview.md" />

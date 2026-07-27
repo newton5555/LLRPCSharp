@@ -244,9 +244,9 @@ InputAssist
 | `inspect/decode/validate/encode` | 支持 | 支持 | 共享解析与渲染输入模型 |
 | `connect/monitor` | 临时连接 | 会话连接 | 共享连接选项和 Vendor/LLRP 策略 |
 | `config get/apply` | 支持 | 支持 | 共享配置操作、变更解析与校验；Live 复用连接 |
-| `inventory/rospec/accessspec` | 部分或无 | 支持 | Handler 面向已有 Reader |
+| `inventory/rospec/accessspec` | 部分或无 | 支持 | `rospec add` 仅创建 SDK 默认 Disabled ROSpec；其余 Handler 面向已有 Reader |
 | `raw/sync/frames` | 诊断入口 | 支持 | 保留明确的状态与安全提示 |
-| `tag read/write` | 规划中 | 规划中 | 先支持 dry-run/inspect，再允许执行 |
+| `tag read/write` | 实施中 | 实施中 | `tag read` 仅执行标准非破坏性读取；`tag write` 先只支持 dry-run/inspect，不连接设备、不写标签 |
 
 并非所有命令都必须同时暴露在两个宿主中，但差异必须由命令定义显式声明，不能因为漏注册而产生。
 
@@ -290,14 +290,15 @@ InputAssist
 
 ### C5：标签访问命令
 
-- 在 SDK 标签访问 API 完成后增加 `tag read/write`；
-- 提示链根据 Memory Bank、Reader 能力和当前连接生成候选；
-- 危险操作执行前显示最终协议计划。
+- SDK Tag Access API 已完成；当前增加标准 `tag read`，仅针对明确 EPC 目标执行非破坏性 Memory Read；
+- `tag write` 当前仅生成并显示请求计划，明确不连接设备、不创建 AccessSpec 且不调用 SDK 写入 API；
+- 提示链提供 Memory Bank 和访问选项候选；真实写入、Lock、Kill 与厂商访问操作留待后续独立安全设计。
 
 ### C6：测试与兼容性
 
+- 已覆盖 `tag` 命令目录与连接状态门控、Live 输入候选、dry-run 不连接设备、以及 EPC/写入数据非法十六进制输入；
 - 命令定义与两个宿主的对齐测试；
-- Partial Parser 和 InputAssist 单元测试；
+- Partial Parser 和 InputAssist 的完整引号、选项顺序矩阵仍待补齐；
 - 引号、选项顺序、别名和错误提示测试；
 - 使用可控 Transport 或 Virtual Reader 的 Live Handler 集成测试；
 - 重定向输入输出和不支持 ANSI 的终端回退测试。
@@ -306,4 +307,4 @@ InputAssist
 
 短期继续保留 Spectre 外层命令和现有 Live Shell，不进行整体重写。新增功能优先提取共享业务操作，再分别接入两个宿主。
 
-下一步从 C2 开始：建立共享命令定义，使帮助、Usage、候选和执行路由逐步由同一份命令元数据驱动。
+下一步推进 C5：在已稳定的 SDK Tag Access API 上提供安全的 `tag read`，`tag write` 先只提供 dry-run/inspect 计划；之后以 C6 补齐两个宿主、部分输入和 Live Handler 的兼容测试。

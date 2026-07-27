@@ -5,9 +5,11 @@
 
 ## 当前优先级
 
-1. 扩展 Contributor 管道：补 Impinj Inventory 的首个实际实现，并完善报告增强的实机验证。
-2. 推进 Virtual Reader：补非法帧及更复杂的配置/标签场景，用于 CI。
-3. 接入 LLRP 2.0：在 1.0.1/1.1 基线稳定后再加入 V2 Adapter。
+1. 按 [Reader-first 交付计划](plans/2026-07-27-reader-first-delivery.md) 补齐 LLRP 1.0.1 标准 `LlrpReader` 的高层与高级接口，并完成 R420/R700 实机验收。
+2. 扩展 Impinj 1.0.1 Contributor 管道：以型号/固件证据补齐主要扩展能力，保持默认拒绝。
+3. 将 CLI 收敛为 Reader SDK 薄封装，并按计划完成 Live Shell 生命周期管理。
+4. **最终阶段**：接入 LLRP 2.0 Adapter。
+5. **最终阶段**：扩展 Virtual Reader（包括现有 1.0.1 场景与对应的 2.0 Virtual Reader）及其互操作闭环。
 
 ## 任务拆分
 
@@ -29,9 +31,9 @@
 
 - 已定义版本无关的 `TagAccessRequest` / `TagAccessResult` / `ReadTagRequest` / `WriteTagRequest`。
 - 已将 AccessSpec 高层构造放入 1.0.1 / 1.1 Adapter，且通过 R420 完成非破坏性读取验证。
-- 后续：CLI 增加 `tag read` / `tag write` 前先支持 dry-run 或 inspect 输出，降低真机风险。
+- 已完成：CLI 已增加实际执行的非破坏性 `tag read`，以及不连接设备、不调用写入 API 的 `tag write` dry-run。设计见 [`specs/2026-07-27-cli-tag-access-design.md`](specs/2026-07-27-cli-tag-access-design.md)；C6 已覆盖连接门控与非法十六进制输入，后续补完整引号/选项顺序矩阵和 Virtual Reader 命令级集成测试。
 
-### 4. LLRP 2.0
+### 4. LLRP 2.0（最终阶段）
 
 - 核验 2.0 Delta 是否已经能生成 V2_0 类型与 Codec。
 - 新增 `Llrp20ProtocolAdapter`，先覆盖 Initialize、ROSpec/AccessSpec 映射和 TagReport 翻译的最小闭环。
@@ -46,11 +48,11 @@
 - R420 已启用 `ImpinjInventoryReportOptions` 并确认 `TagReport.Extensions` 的 `impinj.serializedTid`、`impinj.rfPhaseAngle` 与 `impinj.peakRssi` 端到端可见；下一步扩充其他型号/固件的能力目录。
 - 为未安装、已安装未激活、已激活三种状态补回测试。
 
-### 6. Virtual Reader
+### 6. Virtual Reader（最终阶段）
 
-- 已增加确定性 TagReport 生成，支撑 SDK 托管盘存与 Tag Access 读取的端到端测试。
+- 已增加确定性 TagReport 生成，支撑 SDK 托管盘存与 Tag Access 读取的端到端测试；也已支持针对指定请求返回截断响应并关闭连接，用于接收循环协议错误测试。
 - 已增加 AccessSpec 最小状态机、可配置标签、EPC 筛选和 User Memory 的 C1G2 Read/Write 模拟；下一步补配置流与故障注入。
-- 已支持按请求消息类型静默丢弃响应、注入带描述的 LLRP 错误状态，以及主动关闭连接；自动重连测试确认不会隐式恢复 ROSpec/AccessSpec。后续增加非法帧注入。
+- 已支持按请求消息类型静默丢弃响应、注入带描述的 LLRP 错误状态、截断响应并主动关闭连接；自动重连测试确认不会隐式恢复 ROSpec/AccessSpec。后续扩展全部 Virtual Reader 场景均放在项目最终阶段。
 - 已接入 `Interop.Tests` 的 1.0.1 SDK 互操作测试；后续扩展到配置、写入和故障注入场景。
 
 ### 7. CLI 命令系统与提示链
@@ -60,7 +62,7 @@
 - 已完成第一步连接选项对齐：外层 `connect` / `monitor` 与 Live Shell `connect` 共享 LLRP/Vendor 策略解析。
 - C2 已完成 Live Shell 的命令元数据收敛：Usage、`help <command>`、别名、连接可用性、输入候选和执行路由均从 `CommandCatalog` 获取；外层 Spectre 注册仍保持独立。
 - C3 已完成：`LiveSessionContext` 集中连接、监控与盘点状态；连接、盘点、监控和离线协议诊断分别由专用 Handler 处理，`LiveCommand` 保持为 Live Shell 宿主与路由层。
-- 在 SDK API 稳定后，将 `config` 与 `tag` 命令安全地接入 Live Shell。
+- `config` 已接入 Live Shell；当前将按已批准设计安全接入 `tag read` 与 `tag write` dry-run，之后进入 C6 兼容性测试。
 
 ### 8. Reader 默认配置 Profile
 

@@ -1,0 +1,133 @@
+using LlrpSdk;
+
+namespace LlrpCli.Commands;
+
+/// <summary>
+/// Validated, host-neutral input for a standard C1G2 tag access command.
+/// </summary>
+internal sealed record TagAccessCliRequest(
+    ReadOnlyMemory<byte> Epc,
+    TagMemoryBank MemoryBank,
+    ushort WordPointer,
+    ushort AntennaId,
+    uint AccessPassword,
+    TimeSpan? Timeout)
+{
+    public static TagAccessCliRequest Create(
+        string epc,
+        string bank,
+        ushort wordPointer,
+        ushort antennaId,
+        string? password,
+        uint? timeoutSeconds)
+    {
+        byte[] epcBytes = ParseHex(epc, "EPC");
+        if (epcBytes.Length == 0)
+        {
+            throw new CliUsageException("EPC must contain at least one byte.");
+        }
+
+        TagMemoryBank memoryBank = bank.ToLowerInvariant() switch
+        {
+            "reserved" => TagMemoryBank.Reserved,
+            "epc" or "electronicproductcode" => TagMemoryBank.ElectronicProductCode,
+            "tid" => TagMemoryBank.Tid,
+            "user" => TagMemoryBank.User,
+            _ => throw new CliUsageException("--bank must be reserved, epc, tid, or user."),
+        };
+
+        uint accessPassword = string.IsNullOrWhiteSpace(password)
+            ? 0
+            : ParseUInt32Hex(password, "--password");
+        TimeSpan? timeout = timeoutSeconds is null ? null : TimeSpan.FromSeconds(timeoutSeconds.Value);
+        return new TagAccessCliRequest(epcBytes, memoryBank, wordPointer, antennaId, accessPassword, timeout);
+    }
+
+    public ReadTagRequest ToReadRequest(ushort wordCount)
+    {
+        if (wordCount == 0)
+        {
+            throw new CliUsageException("--count must be greater than zero.");
+        }
+
+        return new ReadTagRequest
+        {
+            Selection = CreateSelection(),
+            AntennaId = AntennaId,
+            AccessPassword = AccessPassword,
+            MemoryBank = MemoryBank,
+            WordPointer = WordPointer,
+            WordCount = wordCount,
+        };
+    }
+
+    public WriteTagRequest ToWriteRequest(IReadOnlyList<ushort> words)
+    {
+        if (words.Count == 0)
+        {
+            throw new CliUsageException("--data must contain at least one 16-bit word.");
+        }
+
+        return new WriteTagRequest
+        {
+            Selection = CreateSelection(),
+            AntennaId = AntennaId,
+            AccessPassword = AccessPassword,
+            MemoryBank = MemoryBank,
+            WordPointer = WordPointer,
+            WriteData = words,
+        };
+    }
+
+    public static IReadOnlyList<ushort> ParseWords(string hex)
+    {
+        byte[] bytes = ParseHex(hex, "--data");
+        if (bytes.Length == 0 || bytes.Length % 2 != 0)
+        {
+            throw new CliUsageException("--data must contain complete 16-bit words.");
+        }
+
+        return Enumerable.Range(0, bytes.Length / 2)
+            .Select(index => (ushort)((bytes[index * 2] << 8) | bytes[(index * 2) + 1]))
+            .ToArray();
+    }
+
+    private TagSelection CreateSelection() => new()
+    {
+        MemoryBank = TagMemoryBank.ElectronicProductCode,
+        BitPointer = 32,
+        BitLength = checked((ushort)(Epc.Length * 8)),
+        Mask = Epc,
+        Data = Epc,
+    };
+
+    private static byte[] ParseHex(string value, string name)
+    {
+        string normalized = value.Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace(":", string.Empty, StringComparison.Ordinal);
+        if (normalized.Length % 2 != 0)
+        {
+            throw new CliUsageException($"{name} must be an even-length hexadecimal value.");
+        }
+        try
+        {
+            return Convert.FromHexString(normalized);
+        }
+        catch (FormatException)
+        {
+            throw new CliUsageException($"{name} must be an even-length hexadecimal value.");
+        }
+    }
+
+    private static uint ParseUInt32Hex(string value, string name)
+    {
+        string normalized = value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value[2..] : value;
+        if (!uint.TryParse(normalized, System.Globalization.NumberStyles.AllowHexSpecifier, null, out uint parsed))
+        {
+            throw new CliUsageException($"{name} must be a UInt32 hexadecimal value.");
+        }
+
+        return parsed;
+    }
+}

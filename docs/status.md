@@ -1,13 +1,13 @@
 # 当前状态
 
-> 基准日期：2026-07-24  
+> 基准日期：2026-07-27
 > 目的：作为仓库当前真实状态的事实源。README 面向使用者，长期规划面向设计；本文件回答“现在已经有什么、还缺什么、什么会阻塞开发”。
 
 ## 总结
 
 当前源码已经超过旧 README 的 M3/M5 描述：M3/M4/M6/M7/M8 都已有部分实现。1.0.1/1.1 SDK 基线、Reader 配置流和扩展主动初始化已经固定下来。
 
-当前最高优先级：在已建立的 Contributor 管道上补 Impinj Inventory Contributor，并推进 Virtual Reader 场景。
+当前最高优先级：完成 LLRP 1.0.1/1.1 的 CLI 兼容性验证、Impinj 能力目录与真实设备验收。LLRP 2.0 与 Virtual Reader 的后续扩展均属于最终阶段。
 
 ## 支持矩阵
 
@@ -19,8 +19,8 @@
 | Impinj 扩展 | 可用基线 | `UseImpinj()` 和扩展注册入口可用，生成资产构建已恢复正常。 |
 | 标准 Tag Access | 可用基线 | `ReadTagMemoryAsync` / `WriteTagMemoryAsync` 通过临时 AccessSpec 运行；R420 已完成非破坏性读验证。 |
 | Contributor 管道 | 部分可用 | Settings、TagReport 与 Inventory Contributor 已接入 SDK；Impinj Settings 的只读查询投影、TagReport 投影及报告选择器能力目录已实现，R420 已完成 Serialized TID、RF Phase Angle 与 Peak RSSI 端到端验收。 |
-| CLI | 可用诊断入口 | 支持在线连接、监控、Live Shell、离线 inspect/decode/encode。 |
-| Virtual Reader | 可用最小 1.0.1 Server | 支持能力查询、ROSpec 生命周期、基础 TagReport 与临时 AccessSpec 读/写结果；故障注入和 2.0 仍待补。 |
+| CLI | 可用交互、配置与标签入口 | 支持在线连接、监控、Live Shell、离线 inspect/decode/encode、设备配置查询、SDK 默认配置解析/安全应用、默认 ROSpec 创建，以及标准 `tag read` 与 `tag write` dry-run。 |
+| Virtual Reader | 可用 1.0.1 Server | 支持能力查询、ROSpec 生命周期、基础 TagReport、临时 AccessSpec 读/写结果以及丢响应、错误、断线和截断响应注入；其后续扩展与 2.0 Virtual Reader 都在最终阶段实施。 |
 
 ## 已实现
 
@@ -61,6 +61,8 @@
 - 支持 LLRP 1.0.1 和 1.1 协议适配器下的映射与配置流。
 - `QuerySettingsAsync()` 是只读 SDK 事务，不会使托管 ROSpec/AccessSpec 状态失效；`ApplySettingsAsync()` 仍会使其失效，之后必须显式 `SynchronizeStateAsync()`。
 - CLI 命令行支持 `config get <HOST>` 和 `config apply <HOST> [options]`；Live Shell 也支持 `config get` 与复用同一映射/校验的 `config apply [options] [--dry-run] --yes`。配置写入会在连接前拒绝空写入、缺少天线上下文的天线字段，以及不完整的 GPO 写入；Live 写入必须显式使用 `--yes`。
+- `config get <HOST>`/Live `config get` 直接调用 `QuerySettingsAsync()`，读取设备当前状态；`config defaults <HOST>`/Live `config defaults` 直接调用 `GetDefaultConfigurationResult()`，展示 SDK 安全基线及选中的 Profile 来源。后者需要已初始化连接以识别设备，但不读取或写入设备配置。
+- Live Shell 的 `rospec add` 会在设备当前没有任何 ROSpec 时，创建 SDK 默认的 Disabled ROSpec（ID `14150`）；不会自动启用或开始盘点，也不会覆盖设备已有 ROSpec。后续可显式执行 `rospec enable 14150` 与 `rospec start 14150`。
 
 ### 标签访问 API
 
@@ -69,6 +71,8 @@
 - `TagReport` 会投影标准 C1G2 Read/Write OpSpec Result。
 - 2026-07-27：Impinj R420（LLRP 1.0.1、固件 6.4.1.240）通过直接 SDK 调用完成连接、Impinj 扩展激活、盘点和 User Memory 读；详见互操作验收文档。
 - `Interop.Tests` 使用 Virtual Reader 覆盖 SDK 托管盘存、TagReport 翻译、临时 AccessSpec 读取结果与清理路径；Virtual Reader 是固定 LLRP 1.0.1，因此测试显式使用 `Force101`。
+- CLI 已提供 `tag read <host> <epc> ...` 和 Live Shell `tag read ...`，两者复用标准 SDK ReadTagMemory API；若读取方没有托管盘点，会临时启动并在结束后清理。`tag write` 在两个宿主中都只显示 dry-run 请求计划，不调用 SDK 写入 API、不连接设备也不写标签。
+- 2026-07-27：外层 CLI 已通过 R420 的实际非破坏性 User Memory 读取验收，目标 EPC `E28011710000020D056E9BEE` 的 word 0 返回 `0000`。
 
 ### Contributor 管道
 
@@ -83,7 +87,7 @@
 
 ### LLRP 2.0
 
-仓库已有 2.0 Delta，但当前没有 `Llrp20ProtocolAdapter`，Reader 初始化 Adapter 列表也只有 1.0.1 与 1.1。
+仓库已有 2.0 Delta，但当前没有 `Llrp20ProtocolAdapter`，Reader 初始化 Adapter 列表也只有 1.0.1 与 1.1。该 Adapter 及其 2.0 Virtual Reader 互操作闭环均已排到项目最终阶段。
 
 ### 扩展 Contributor
 

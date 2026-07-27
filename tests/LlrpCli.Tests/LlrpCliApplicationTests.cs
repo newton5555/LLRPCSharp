@@ -183,6 +183,47 @@ public sealed class LlrpCliApplicationTests
         Assert.Contains("Unknown command", result.Error, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TagWrite_DryRunDoesNotRequireAReaderConnection()
+    {
+        InvocationResult result = Invoke("tag", "write", "E2801171", "--bank", "user", "--word", "0", "--data", "0001");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("NO TAG MEMORY WAS WRITTEN", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TagWrite_DryRunAcceptsEpcBankAlias()
+    {
+        InvocationResult result = Invoke("tag", "write", "E2801171", "--bank", "epc", "--word", "0", "--data", "0001");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Bank=ElectronicProductCode", result.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("E280117", "0001")]
+    [InlineData("E2801171", "000")]
+    public void TagWrite_DryRunRejectsMalformedHexBeforeAnyConnection(string epc, string data)
+    {
+        InvocationResult result = Invoke("tag", "write", epc, "--bank", "user", "--word", "0", "--data", data);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("hexadecimal", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CommandCatalog_TagRequiresConnectionAndOffersAccessCandidates()
+    {
+        Assert.False(CommandCatalog.TryResolve("tag", isConnected: false, out _));
+        Assert.True(CommandCatalog.TryResolve("tag", isConnected: true, out CommandSpec tag));
+        InputAssist assist = CommandCatalog.Assist("tag ", cursor: 4, isConnected: true);
+
+        Assert.Equal(LiveCommandRoute.TagAccess, tag.Route);
+        Assert.Contains("read", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("write", assist.Candidates, StringComparer.Ordinal);
+    }
+
     [Theory]
     [InlineData("--tx-power", "1")]
     [InlineData("--gpo-port", "1")]

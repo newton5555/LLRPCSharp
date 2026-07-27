@@ -28,6 +28,9 @@ public sealed record VirtualReaderOptions
     /// <summary>Gets request message types after which the virtual reader closes the current TCP connection.</summary>
     /// <remarks>This fault is evaluated before request state is mutated or a response is written.</remarks>
     public IReadOnlySet<ushort> CloseConnectionAfterRequestMessageTypes { get; init; } = new HashSet<ushort>();
+
+    /// <summary>Gets request message types for which the response is intentionally truncated before the connection closes.</summary>
+    public IReadOnlySet<ushort> TruncateResponseForMessageTypes { get; init; } = new HashSet<ushort>();
 }
 
 /// <summary>Describes one deterministic virtual-reader error response.</summary>

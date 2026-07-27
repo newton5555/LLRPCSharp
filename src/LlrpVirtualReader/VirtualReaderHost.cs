@@ -31,6 +31,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
     private readonly HashSet<ushort> droppedResponseMessageTypes;
     private readonly Dictionary<ushort, VirtualReaderErrorResponse> errorResponseMessageTypes;
     private readonly HashSet<ushort> closeConnectionRequestMessageTypes;
+    private readonly HashSet<ushort> truncateResponseMessageTypes;
     private int nextAsyncMessageId;
     private Task? acceptLoop;
 
@@ -45,6 +46,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.DropResponseForMessageTypes);
         ArgumentNullException.ThrowIfNull(options.ErrorResponseForMessageTypes);
         ArgumentNullException.ThrowIfNull(options.CloseConnectionAfterRequestMessageTypes);
+        ArgumentNullException.ThrowIfNull(options.TruncateResponseForMessageTypes);
 
         listener = new TcpListener(IPAddress.Loopback, port);
         tagEpc = options.ElectronicProductCode.ToArray();
@@ -52,6 +54,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         droppedResponseMessageTypes = options.DropResponseForMessageTypes.ToHashSet();
         errorResponseMessageTypes = options.ErrorResponseForMessageTypes.ToDictionary();
         closeConnectionRequestMessageTypes = options.CloseConnectionAfterRequestMessageTypes.ToHashSet();
+        truncateResponseMessageTypes = options.TruncateResponseForMessageTypes.ToHashSet();
         Llrp101StandardModule.Register(registry);
     }
 
@@ -138,6 +141,11 @@ public sealed class VirtualReaderHost : IAsyncDisposable
                     continue;
                 }
                 byte[] responseFrame = registry.EncodeMessage(LlrpProtocolVersion.Version101, dispatched.Response);
+                if (truncateResponseMessageTypes.Contains(header.MessageType))
+                {
+                    await stream.WriteAsync(responseFrame.AsMemory(0, responseFrame.Length - 1), token).ConfigureAwait(false);
+                    return;
+                }
                 await stream.WriteAsync(responseFrame, token).ConfigureAwait(false);
                 foreach (ILlrpMessage report in dispatched.Reports)
                 {

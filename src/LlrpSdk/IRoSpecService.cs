@@ -11,6 +11,19 @@ namespace LlrpSdk;
 public interface IRoSpecService
 {
     /// <summary>
+    /// Compiles and adds one SDK-default inventory ROSpec in the currently negotiated protocol version.
+    /// </summary>
+    /// <param name="settings">The version-independent inventory intent used to build the default ROSpec.</param>
+    /// <param name="cancellationToken">Cancels the send or pending response transaction.</param>
+    /// <remarks>
+    /// The added ROSpec remains disabled. Call <see cref="EnableAsync"/> and <see cref="StartAsync"/>
+    /// explicitly when the reader should begin inventorying.
+    /// </remarks>
+    public Task AddDefaultAsync(
+        ReaderSettings settings,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds one ROSpec.
     /// </summary>
     /// <param name="roSpec">A ROSpec parameter whose LLRP wire type is 177.</param>

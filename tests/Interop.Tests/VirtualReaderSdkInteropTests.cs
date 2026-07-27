@@ -182,6 +182,27 @@ public sealed class VirtualReaderSdkInteropTests
     }
 
     [Fact]
+    public async Task TruncatedResponse_FaultsTheReceiveLoop()
+    {
+        await using var host = new VirtualReaderHost(options: new VirtualReaderOptions
+        {
+            TruncateResponseForMessageTypes = new HashSet<ushort> { GET_ROSPECS.MessageType }
+        });
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port).WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101).Build();
+        await reader.ConnectAsync(timeout.Token);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => reader.RoSpecs.GetAllAsync(timeout.Token));
+        await Task.Delay(50, timeout.Token);
+        Assert.Equal(ReaderConnectionState.Faulted, reader.ConnectionState);
+    }
+
+    [Fact]
     public async Task QueryAndApplySettings_RoundTripAgainstVirtualReader()
     {
         await using var host = new VirtualReaderHost();

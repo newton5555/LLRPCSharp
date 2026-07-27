@@ -40,6 +40,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     private readonly LiveInventoryHandler _inventoryHandler;
     private readonly LiveMonitorHandler _monitorHandler;
     private readonly LiveConnectionHandler _connectionHandler;
+    private readonly LiveTagAccessHandler _tagAccessHandler;
 
     public LiveCommand() : this(AnsiConsole.Console) { }
 
@@ -49,6 +50,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         _inventoryHandler = new LiveInventoryHandler(_console, _session);
         _monitorHandler = new LiveMonitorHandler(_console, _session);
         _connectionHandler = new LiveConnectionHandler(_console, _session, _inventoryHandler);
+        _tagAccessHandler = new LiveTagAccessHandler(_console, _session);
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, LiveSettings settings, CancellationToken cancellationToken)
@@ -149,6 +151,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         break;
                     case LiveCommandRoute.Configuration:
                         await HandleConfigAsync(tokens, cancellationToken);
+                        break;
+                    case LiveCommandRoute.TagAccess:
+                        await _tagAccessHandler.HandleAsync(tokens, cancellationToken);
                         break;
                     case LiveCommandRoute.Raw:
                         await HandleRawAsync(tokens, cancellationToken);
@@ -351,7 +356,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (tokens.Length < 2)
         {
-            _console.MarkupLine("[red]Usage:[/] rospec list|enable|disable|start|stop|delete [[id]]");
+            _console.MarkupLine("[red]Usage:[/] rospec add|list|enable|disable|start|stop|delete [[id]]");
             return;
         }
 
@@ -366,6 +371,25 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         switch (subAction)
         {
+            case "add":
+                if (tokens.Length >= 3)
+                {
+                    _console.MarkupLine("[red]Usage:[/] rospec add");
+                    return;
+                }
+
+                var existingRoSpecs = await _session.Reader.RoSpecs.GetAllAsync(cancellationToken);
+                if (existingRoSpecs.Count != 0)
+                {
+                    _console.MarkupLine("[yellow]Default ROSpec was not created: the reader already has ROSpec resources. Use 'rospec list' to inspect them.[/]");
+                    return;
+                }
+
+                var defaultSettings = new ReaderSettings();
+                _console.MarkupLine($"[grey]Creating disabled SDK-default ROSpec {defaultSettings.RoSpecId}...[/]");
+                await _session.Reader.RoSpecs.AddDefaultAsync(defaultSettings, cancellationToken);
+                _console.MarkupLine($"[bold springgreen2]✔ Default ROSpec {defaultSettings.RoSpecId} Created (Disabled).[/]");
+                break;
             case "list":
                 _console.MarkupLine("[grey]Querying installed ROSpecs...[/]");
                 var rospecs = await _session.Reader.RoSpecs.GetAllAsync(cancellationToken);
@@ -542,7 +566,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (tokens.Length < 2)
         {
-            throw new CliUsageException("Usage: config get | config apply [options] [--dry-run] --yes");
+            throw new CliUsageException("Usage: config get | config defaults | config apply [options] [--dry-run] --yes");
         }
 
         if (tokens[1].Equals("apply", StringComparison.OrdinalIgnoreCase))
@@ -550,9 +574,14 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             await HandleConfigApplyAsync(tokens, cancellationToken);
             return;
         }
+        if (tokens[1].Equals("defaults", StringComparison.OrdinalIgnoreCase) && tokens.Length == 2)
+        {
+            ConfigDefaultsRenderer.Render(_console, _session.Reader.GetDefaultConfigurationResult());
+            return;
+        }
         if (!tokens[1].Equals("get", StringComparison.OrdinalIgnoreCase) || tokens.Length != 2)
         {
-            throw new CliUsageException("Usage: config get | config apply [options] [--dry-run] --yes");
+            throw new CliUsageException("Usage: config get | config defaults | config apply [options] [--dry-run] --yes");
         }
 
         ReaderConfiguration configuration = await _session.Reader.QuerySettingsAsync(cancellationToken);
@@ -803,6 +832,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
         table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");
         table.AddRow("  [cyan1]config get[/]", "查询当前读写器配置（只读，不影响托管盘点状态）");
+        table.AddRow("  [cyan1]config defaults[/]", "显示 SDK 默认配置/Profile 来源（不读取或写入设备配置）");
         table.AddRow("  [cyan1]config apply [[options]] [[--dry-run]] --yes[/]", "预览或显式确认后写入可编辑配置");
 
         // 分组 2: 高层托管盘点 (Managed Inventory)
@@ -816,7 +846,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 4: 进阶底层资源操控 (Advanced Resource API)
         table.AddRow("[bold yellow1]─── ⚙️ 进阶底层资源操控 (Advanced Resource API) ───[/]", "");
-        table.AddRow("  [cyan1]rospec list|enable|disable|start|stop|delete [[id]][/]", "声明式管理设备 ROSpec 资源 (独立控制指定 ROSpec ID)");
+        table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "创建默认 ROSpec 或管理设备现有 ROSpec 资源");
         table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "声明式管理设备 AccessSpec 资源 (密码/Memory 读写)");
         table.AddRow("  [cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "精准发送或收发原始二进制 Hex 报文");
         table.AddRow("  [cyan1]sync[/]", "同步 Raw 操作后的托管状态与配置缓存");

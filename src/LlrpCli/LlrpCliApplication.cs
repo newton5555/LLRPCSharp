@@ -67,8 +67,17 @@ public sealed class LlrpCliApplication
                 configBranch.SetDescription("Manage reader configurations.");
                 configBranch.AddCommand<ConfigGetCommand>("get")
                     .WithDescription("Query and display reader configuration.");
+                configBranch.AddCommand<ConfigDefaultsCommand>("defaults")
+                    .WithDescription("Display SDK-recommended defaults without writing the reader.");
                 configBranch.AddCommand<ConfigApplyCommand>("apply")
                     .WithDescription("Apply configuration changes to the reader.");
+            });
+
+            config.AddBranch("tag", tagBranch =>
+            {
+                tagBranch.SetDescription("Read tag memory or inspect a write request.");
+                tagBranch.AddCommand<TagReadCommand>("read");
+                tagBranch.AddCommand<TagWriteDryRunCommand>("write");
             });
         });
 
