@@ -1,21 +1,18 @@
 # 路线图
 
-> 基准日期：2026-07-24  
-> 目的：记录下一步开发顺序。当前真实状态见 `status.md`。
+> 基准日期：2026-07-27  
+> 目的：记录阶段性与中长期开发顺序。当前真实状态见 `status.md`。
 
 ## 当前优先级
 
-1. 按 [Reader-first 交付计划](plans/2026-07-27-reader-first-delivery.md) 补齐 LLRP 1.0.1 标准 `LlrpReader` 的高层与高级接口，并完成 R420/R700 实机验收。
-2. 扩展 Impinj 1.0.1 Contributor 管道：以型号/固件证据补齐主要扩展能力，保持默认拒绝。
-3. 将 CLI 收敛为 Reader SDK 薄封装，并按计划完成 Live Shell 生命周期管理。
-4. **最终阶段**：接入 LLRP 2.0 Adapter。
-5. **最终阶段**：扩展 Virtual Reader（包括现有 1.0.1 场景与对应的 2.0 Virtual Reader）及其互操作闭环。
+1. **当前主线目标（完成）**：在保证架构对多厂商与多协议版本具备长期扩展性的前提下，全量交付 **LLRP 1.0.1 标准协议与 Impinj 默认扩展（Impinj Default Extensions）** 的 SDK 与 CLI 功能闭环（包含 R420/R700 实机与 Virtual Reader 互操作测试）。
+2. **硬件/扩展能力补充（按需）**：根据更多型号/固件实测证据扩充 Impinj Contributor 管道的能力目录及相关基线 Profile。
+3. **长期可扩展阶段**：按需接入其他厂商扩展（如 Zebra 扩展等）。
+4. **长期可扩展阶段**：接入 `Llrp20ProtocolAdapter` 及 LLRP 2.0 完整互操作闭环。
 
 ## 任务拆分
 
 ### 1. 恢复构建（已完成）
-
-- 对 `LlrpSdk.Extensions.Impinj` 生成文件按类型名建立索引，确认重复来源。
 - 在 ProtocolModel Validator 或 Generator 写入前增加同名类型冲突诊断。
 - 明确 Impinj 原始定义中同 subtype 或同 name 的处理规则。
 - 清理重复生成输出后，重新运行 `dotnet build LLRPCSharp.slnx --no-restore`。

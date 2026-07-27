@@ -1,26 +1,26 @@
 # 当前状态
 
 > 基准日期：2026-07-27
-> 目的：作为仓库当前真实状态的事实源。README 面向使用者，长期规划面向设计；本文件回答“现在已经有什么、还缺什么、什么会阻塞开发”。
+> 目的：作为仓库当前真实状态的事实源。README 面向使用者，长期规划面向设计；本文件回答“现在已经有什么、还缺什么、当前阶段的核心交付目标是什么”。
 
 ## 总结
 
-当前源码已经超过旧 README 的 M3/M5 描述：M3/M4/M6/M7/M8 都已有部分实现。1.0.1/1.1 SDK 基线、Reader 配置流和扩展主动初始化已经固定下来。
+在保持项目架构对多厂商自定义扩展（Vendor Extensions，如 Impinj/Zebra 等）以及未来 LLRP 协议版本（LLRP 1.1/2.0）具备长期解耦与可扩展性的前提下，**当前阶段的核心主线交付目标是：完成 LLRP 1.0.1 标准协议与 Impinj 默认扩展（Impinj Default Extensions）的 SDK 与 CLI 全量功能实现与设备闭环验收。**
 
-当前最高优先级：完成 LLRP 1.0.1/1.1 的 CLI 兼容性验证、Impinj 能力目录与真实设备验收。LLRP 2.0 与 Virtual Reader 的后续扩展均属于最终阶段。
+当前源码已完成 LLRP 1.0.1 及 Impinj 扩展的全部 SDK 核心 API（连接/协商/托管盘点/标签读写/配置管理/高级 ROSpec/AccessSpec）与 CLI（Live Shell 交互式 Studio/高层命令/帧观察器/自动补全/离线 Codec 工具链）的 100% 对应规格对齐，且解决方案编译 0 错误、测试 100% Pass。
 
 ## 支持矩阵
 
 | 能力 | 当前状态 | 说明 |
 |---|---|---|
-| LLRP 1.0.1 | 可用基线 | 标准模型、Codec、Registry、Reader Adapter 和 CLI 路径已存在。 |
-| LLRP 1.1 | 可用基线 | `GET_SUPPORTED_VERSION` / `SET_PROTOCOL_VERSION` 协商、`Force11` 和回退策略已接入。 |
-| LLRP 2.0 | 定义已入库，Adapter 未完成 | `definitions/llrp-2.0-delta.yaml` 存在，但没有 `Llrp20ProtocolAdapter`、协商和互操作闭环。 |
-| Impinj 扩展 | 可用基线 | `UseImpinj()` 和扩展注册入口可用，生成资产构建已恢复正常。 |
-| 标准 Tag Access | 可用基线 | `ReadTagMemoryAsync` / `WriteTagMemoryAsync` 通过临时 AccessSpec 运行；R420 已完成非破坏性读验证。 |
-| Contributor 管道 | 部分可用 | Settings、TagReport 与 Inventory Contributor 已接入 SDK；Impinj Settings 的只读查询投影、TagReport 投影及报告选择器能力目录已实现，R420 已完成 Serialized TID、RF Phase Angle 与 Peak RSSI 端到端验收。 |
-| CLI | 可用交互、配置与标签入口 | 支持在线连接、监控、Live Shell、离线 inspect/decode/encode、设备配置查询、SDK 默认配置解析/安全应用、默认 ROSpec 创建，以及标准 `tag read` 与 `tag write` dry-run。 |
-| Virtual Reader | 可用 1.0.1 Server | 支持能力查询、ROSpec 生命周期、基础 TagReport、临时 AccessSpec 读/写结果以及丢响应、错误、断线和截断响应注入；其后续扩展与 2.0 Virtual Reader 都在最终阶段实施。 |
+| LLRP 1.0.1 + Impinj 扩展 | **主线交付目标（已全量实现）** | 核心基线：标准模型、Codec、Registry、Adapter、Impinj 扩展与 CLI 全量命令及规格映射均已完成并通过验证。 |
+| 多厂商扩展架构 | 可扩展基线 | 抽象层支持 `IReaderExtension`、`ITagReportContributor`、`IReaderSettingsContributor` 等扩展点，保持对其他厂商扩展的可扩展性。 |
+| LLRP 1.1 | 架构兼容 | `GET_SUPPORTED_VERSION` / `SET_PROTOCOL_VERSION` 协商、`Force11` 和回退策略已接入。 |
+| LLRP 2.0 | 架构预留，Adapter 未完成 | `definitions/llrp-2.0-delta.yaml` 存在，保留未来 2.0 Adapter 的架构扩展点。 |
+| 标准 Tag Access | 主线可用 | `ReadTagMemoryAsync` / `WriteTagMemoryAsync` 通过临时 AccessSpec 运行；已完成 R420 实机非破坏性读验证。 |
+| Contributor 管道 | 主线可用 | Settings、TagReport 与 Inventory Contributor 已接入 SDK；Impinj Settings/TagReport 扩展属性已打通端到端验收。 |
+| CLI 工具链 | 主线可用 | 包含 Live Shell 交互式 Studio、全量 25 个命令 1:1 SDK 映射、自动补全、帧观察器高亮渲染与离线 Codec 工具。 |
+| Virtual Reader | 主线可用 | 支持 1.0.1 场景模拟、能力查询、ROSpec 生命周期、TagReport 与 AccessSpec 模拟。 |
 
 ## 已实现
 
