@@ -8,6 +8,15 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
+
+    <!-- Version & Package Metadata -->
+    <Version>0.1.0</Version>
+    <Authors>LLRPCSharp Authors</Authors>
+    <Product>LLRPCSharp</Product>
+    <Description>Modern .NET LLRP SDK and CLI tooling supporting LLRP 1.0.1 and Impinj extensions.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/newton5555/LLRPCSharp</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tool' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel' AND '$(MSBuildProjectName)' != 'LlrpNet.Core' AND '$(MSBuildProjectName)' != 'LlrpNet.Protocol' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.Core.Tests'">
