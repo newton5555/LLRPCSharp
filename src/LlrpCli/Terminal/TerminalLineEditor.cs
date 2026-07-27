@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Spectre.Console;
 
 namespace LlrpCli.Terminal;
@@ -238,6 +238,22 @@ public sealed class TerminalLineEditor : IDisposable
             string hint = string.IsNullOrWhiteSpace(assist.Hint)
                 ? "Tab/→ accept suggestion · Esc clears"
                 : assist.Hint;
+
+            int windowWidth = 80;
+            try
+            {
+                if (!Console.IsOutputRedirected && Console.WindowWidth > 10)
+                {
+                    windowWidth = Console.WindowWidth;
+                }
+            }
+            catch { }
+
+            int maxHintLen = Math.Max(10, windowWidth - 8);
+            if (hint.Length > maxHintLen)
+            {
+                hint = string.Concat(hint.AsSpan(0, maxHintLen - 3), "...");
+            }
 
             Console.Write("\n\r\u001b[2K");
             Console.ForegroundColor = ConsoleColor.DarkGray;

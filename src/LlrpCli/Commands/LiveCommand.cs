@@ -425,19 +425,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 return;
         }
 
-        if (_session.FrameObserver != null)
-        {
-            IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
-            if (frames.Count > startIndex)
-            {
-                var newFrames = frames.Skip(startIndex).ToList();
-                foreach (CapturedFrame frame in newFrames)
-                {
-                    FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
-                    _console.WriteLine();
-                }
-            }
-        }
+        RenderNewlyCapturedFrames(startIndex);
     }
 
     private async Task HandleAccessSpecAsync(string[] tokens, CancellationToken cancellationToken)
@@ -460,6 +448,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             accessSpecId = parsedId;
         }
+
+        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
 
         switch (subAction)
         {
@@ -485,7 +475,26 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 break;
             default:
                 _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [[id]]");
-                break;
+                return;
+        }
+
+        RenderNewlyCapturedFrames(startIndex);
+    }
+
+    private void RenderNewlyCapturedFrames(int startIndex)
+    {
+        if (_session.FrameObserver != null)
+        {
+            IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
+            if (frames.Count > startIndex)
+            {
+                var newFrames = frames.Skip(startIndex).ToList();
+                foreach (CapturedFrame frame in newFrames)
+                {
+                    FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
+                    _console.WriteLine();
+                }
+            }
         }
     }
 
@@ -584,7 +593,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             throw new CliUsageException("Usage: config get | config defaults | config apply [options] [--dry-run] --yes");
         }
 
+        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
         ReaderConfiguration configuration = await _session.Reader.QuerySettingsAsync(cancellationToken);
+        RenderNewlyCapturedFrames(startIndex);
+
         var table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("[bold grey70]Setting[/]");
         table.AddColumn("[bold grey70]Value[/]");
@@ -606,6 +618,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             throw new CliUsageException(error!);
         }
 
+        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
         ReaderConfiguration current = await _session.Reader!.QuerySettingsAsync(cancellationToken);
         ReaderConfiguration updated = ConfigApplyCommand.BuildUpdatedConfiguration(settings, current);
         RenderLiveConfigChange(settings, updated, settings.DryRun || !confirmed);
@@ -620,6 +633,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         await _session.Reader.ApplySettingsAsync(updated, cancellationToken);
+        RenderNewlyCapturedFrames(startIndex);
         _console.MarkupLine("[bold springgreen2]✔ Configuration applied successfully.[/]");
         _console.MarkupLine("[yellow]SDK-managed state is now unsynchronized. Run [cyan1]sync[/] before the next managed operation.[/]");
     }
@@ -887,6 +901,29 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         _console.Write(new Panel(table)
             .Header($"[bold deepskyblue1] HELP: {Markup.Escape(command.Name)} [/]")
             .Border(BoxBorder.Rounded));
+
+        if (command.Name.Equals("config", StringComparison.OrdinalIgnoreCase))
+        {
+            var optionsTable = new Table().Border(TableBorder.Rounded);
+            optionsTable.AddColumn("[bold cyan1]Option[/]");
+            optionsTable.AddColumn("[bold grey70]Type / Format[/]");
+            optionsTable.AddColumn("[bold grey70]Description[/]");
+
+            optionsTable.AddRow("--dry-run", "Flag", "Show configuration change preview without writing to device");
+            optionsTable.AddRow("--yes", "Flag", "Explicitly confirm configuration write to reader");
+            optionsTable.AddRow("--antenna", "<ushort>", "Target antenna ID (e.g. 1)");
+            optionsTable.AddRow("--tx-power", "<ushort>", "Transmit power level index");
+            optionsTable.AddRow("--rx-sens", "<ushort>", "Receiver sensitivity index");
+            optionsTable.AddRow("--channel", "<ushort>", "Channel / frequency index");
+            optionsTable.AddRow("--keepalive-type", "none|periodic", "Keepalive trigger type");
+            optionsTable.AddRow("--keepalive-interval", "<uint ms>", "Keepalive interval in milliseconds");
+            optionsTable.AddRow("--gpo-port", "<ushort>", "GPO port number (e.g. 1)");
+            optionsTable.AddRow("--gpo-data", "true|false", "GPO pin state");
+
+            _console.Write(new Panel(optionsTable)
+                .Header("[bold yellow] config apply [[options]] [/]")
+                .Border(BoxBorder.Rounded));
+        }
     }
 
 }

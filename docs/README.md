@@ -16,7 +16,8 @@ This directory contains project status, planning, architecture notes, decision r
 - [Source structure](architecture/source-structure.md)
 - [Protocol extension guide](architecture/protocol-extension-guide.md) ([中文](architecture/protocol-extension-guide.zh.md))
 - [CLI command system and interactive assist plan](architecture/cli-command-system.md)
-- [CLI tag access design](specs/2026-07-27-cli-tag-access-design.md)
+- [SDK Developer API Guide](sdk-api-guide.md): developer-facing API reference, lifecycle, categorized methods, and code samples.
+- [CLI Command to SDK Mapping Specification](plans/2026-07-27-cli-sdk-mapping-spec.md): 1:1 mapping between CLI commands, SDK APIs, and raw LLRP frames.
 - [Reader-first delivery plan](plans/2026-07-27-reader-first-delivery.md)
 
 ## Decision Records

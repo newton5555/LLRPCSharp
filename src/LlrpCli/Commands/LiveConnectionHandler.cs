@@ -43,6 +43,16 @@ internal sealed class LiveConnectionHandler(
         options.RenderVendorMode(console);
 
         LlrpReader reader = builder.Build();
+        reader.ConnectionChanged += (sender, e) =>
+        {
+            if (e.PreviousState == ReaderConnectionState.Ready &&
+                e.CurrentState is ReaderConnectionState.Faulted or ReaderConnectionState.Disconnected)
+            {
+                UpdateWindowTitle("offline");
+                console.MarkupLine($"\n[bold red]✖ Reader disconnected ({Markup.Escape(options.Host)}:{options.Port}):[/] {Markup.Escape(e.Error?.Message ?? "Connection dropped")}");
+            }
+        };
+
         try
         {
             await reader.ConnectAsync(cancellationToken);

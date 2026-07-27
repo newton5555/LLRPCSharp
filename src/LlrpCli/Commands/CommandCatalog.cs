@@ -56,7 +56,26 @@ public static class CommandCatalog
         new("caps", LiveCommandRoute.Capabilities, "caps", "Query Reader capabilities.", RequiresConnection: true),
         new("config", LiveCommandRoute.Configuration, "config get | defaults | apply [options] [--dry-run] --yes", "Query, resolve defaults, or safely apply reader configuration.", RequiresConnection: true)
         {
-            CompletionCandidates = ["get", "defaults", "apply", "--dry-run", "--yes"],
+            CompletionCandidates =
+            [
+                "get",
+                "defaults",
+                "apply",
+                "--dry-run",
+                "--yes",
+                "--antenna",
+                "--tx-power",
+                "--rx-sens",
+                "--channel",
+                "--keepalive-type",
+                "--keepalive-interval",
+                "--gpo-port",
+                "--gpo-data",
+                "periodic",
+                "none",
+                "true",
+                "false"
+            ],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write <epc> --bank <bank> --word <address> (--count <words>|--data <hex-words>)", "Read tag memory or inspect a write request.", RequiresConnection: true)
         {

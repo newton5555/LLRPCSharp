@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Reflection;
 using LlrpCli.Commands;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -35,8 +35,9 @@ public sealed class LlrpCliApplicationTests
         CommandSpec config = CommandCatalog.Require("config");
         InputAssist assist = CommandCatalog.Assist("config ", cursor: 7, isConnected: true);
 
-        Assert.Equal("config get | config apply [options] [--dry-run] --yes", config.Usage);
+        Assert.Equal("config get | defaults | apply [options] [--dry-run] --yes", config.Usage);
         Assert.Contains("get", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("defaults", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
     }
 
@@ -74,7 +75,7 @@ public sealed class LlrpCliApplicationTests
         Exception? exception = Record.Exception(() => renderCommandHelp.Invoke(command, ["config"]));
 
         Assert.Null(exception);
-        Assert.Contains("config get | config apply [options] [--dry-run] --yes", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("config get | defaults | apply [options] [--dry-run] --yes", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
