@@ -28,3 +28,10 @@ await foreach (TagReport report in reader.ReadTagReportsAsync(cts.Token))
 await reader.StopAsync();
 await reader.DisconnectAsync();
 ```
+
+---
+
+## 协议标准与开源许可 (License & Standard Notice)
+
+- 本 SDK 在 MIT 许可下开源发布与分发。
+- LLRP (Low Level Reader Protocol) 1.0.1 / 1.1 为 GS1 / EPCglobal 发布的开放国际标准规范。
