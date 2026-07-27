@@ -42,7 +42,7 @@ CLI 旨在提供双轨视角：
 | `tag write <epc> ...` | *(Dry-run 检验模式)* | - (展示请求计划，不发报文) | 校验写入请求的参数合规性，展示待发送的 OpSpec 计划，防止意外破坏性写入。 |
 | `rospec add\|list\|enable\|disable\|start\|stop\|delete` | `reader.RoSpecs.*` | `ADD_ROSPEC`<br>`DELETE_ROSPEC`<br>`ENABLE_ROSPEC`<br>`DISABLE_ROSPEC`<br>`START_ROSPEC`<br>`STOP_ROSPEC`<br>`GET_ROSPECS` | 显式管理设备上的 ROSpec 资源，直接向读写器下发协议指令。 |
 | `accessspec list\|enable\|disable\|delete` | `reader.AccessSpecs.*` | `ADD_ACCESSSPEC`<br>`DELETE_ACCESSSPEC`<br>`ENABLE_ACCESSSPEC`<br>`DISABLE_ACCESSSPEC`<br>`GET_ACCESSSPEC` | 显式管理设备上的 AccessSpec 资源。 |
-| `raw send\|transact <hex> --yes` | `reader.Protocol.SendAsync`<br>`reader.Protocol.TransactAsync` | 任意自定义 Hex 帧 | 发送原始 LLRP 报文；发送后将 SDK 标记为 `IsManagedStateSynchronized = false`。 |
+| `raw send\|transact <hex> --yes` | `reader.Protocol.SendAsync`<br>`reader.Protocol.SendRawAsync`<br>`reader.Protocol.TransactRawAsync` | 任意自定义 Hex 帧 | 发送原始 LLRP 报文；发送后将 SDK 标记为 `IsManagedStateSynchronized = false`。 |
 | `sync` | `reader.SynchronizeStateAsync()` | `GET_ROSPECS`<br>`GET_ACCESSSPEC` | 重新向设备拉取 ROSpec / AccessSpec 列表，恢复托管状态同步 (`IsManagedStateSynchronized = true`)。 |
 | `monitor [seconds]` | `session.FrameObserver` | - (只读观测流) | 实时解包并彩色打印所有传输 (TX) 与接收 (RX) 的 LLRP 帧。 |
 | `frames [count]` | `session.FrameObserver.CapturedFrames` | - (只读内存环形缓冲区) | 打印最近收发的 N 条 LLRP 帧历史日志。 |
