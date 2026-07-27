@@ -28,7 +28,7 @@
 - Produces: `Task HandleAsync(string[] tokens, CancellationToken cancellationToken)` and `Task StopAsync(CancellationToken cancellationToken)`.
 - Used by: `LiveConnectionHandler` before replacing or disconnecting a reader, and `LiveCommand` for the `inventory` route.
 
-- [ ] **Step 1: Move the inventory command and report pump to `LiveInventoryHandler`**
+- [x] **Step 1: Move the inventory command and report pump to `LiveInventoryHandler`**
 
 ```csharp
 internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionContext session)
@@ -40,7 +40,7 @@ internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionCont
 
 Keep `inventory start [antenna-id] | stop | status`, the existing connection checks, task cancellation, `ReaderSettings.AntennaIds`, and tag-line rendering byte-for-byte equivalent in user-visible text.
 
-- [ ] **Step 2: Replace `LiveCommand` inventory implementations with delegation**
+- [x] **Step 2: Replace `LiveCommand` inventory implementations with delegation**
 
 ```csharp
 case LiveCommandRoute.Inventory:
@@ -50,7 +50,7 @@ case LiveCommandRoute.Inventory:
 
 Remove the now-relocated `HandleInventoryAsync`, `StopInventoryAsync`, and `PumpTagReportsAsync` from `LiveCommand`.
 
-- [ ] **Step 3: Build the CLI project**
+- [x] **Step 3: Build the CLI project**
 
 Run: `dotnet build src/LlrpCli/LlrpCli.csproj --no-restore -m:1`
 
@@ -67,7 +67,7 @@ Expected: zero build errors.
 - Produces: `Task HandleAsync(string[] tokens, CancellationToken cancellationToken)`.
 - Used by: `LiveCommand` for the `monitor` route.
 
-- [ ] **Step 1: Move monitor mode parsing, raw-frame timing, table aggregation, and `TagStat` into `LiveMonitorHandler`**
+- [x] **Step 1: Move monitor mode parsing, raw-frame timing, table aggregation, and `TagStat` into `LiveMonitorHandler`**
 
 ```csharp
 internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContext session)
@@ -78,7 +78,7 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
 
 Keep the `monitor [seconds] [--table | --frames]` behavior, ignored non-report frames, and `finally` cleanup that clears monitoring flags and callbacks.
 
-- [ ] **Step 2: Delegate the monitor route from `LiveCommand`**
+- [x] **Step 2: Delegate the monitor route from `LiveCommand`**
 
 ```csharp
 case LiveCommandRoute.Monitor:
@@ -88,7 +88,7 @@ case LiveCommandRoute.Monitor:
 
 Remove `HandleMonitorAsync` and the nested `TagStat` from `LiveCommand`.
 
-- [ ] **Step 3: Run the existing CLI test project**
+- [x] **Step 3: Run the existing CLI test project**
 
 Run: `dotnet test tests/LlrpCli.Tests/LlrpCli.Tests.csproj --no-build --no-restore -m:1`
 
@@ -102,10 +102,10 @@ Expected: all existing tests pass.
 
 **Interfaces:**
 - Consumes: `IAnsiConsole`, `LiveSessionContext`, and `LiveInventoryHandler.StopAsync`.
-- Produces: `Task ConnectAsync(CliConnectionOptions options, CancellationToken cancellationToken)`, `Task DisconnectAsync(CancellationToken cancellationToken)`, and `Task DisposeAsync()`.
+- Produces: `Task<bool> ConnectAsync(CliConnectionOptions options, CancellationToken cancellationToken)`, `Task DisconnectAsync(CancellationToken cancellationToken)`, and `Task DisposeAsync()`.
 - Used by: automatic startup connection, explicit `connect`, raw-host shorthand, explicit `disconnect`, and shell shutdown.
 
-- [ ] **Step 1: Move reader lifecycle and observer installation to `LiveConnectionHandler`**
+- [x] **Step 1: Move reader lifecycle and observer installation to `LiveConnectionHandler`**
 
 ```csharp
 internal sealed class LiveConnectionHandler(
@@ -113,7 +113,7 @@ internal sealed class LiveConnectionHandler(
     LiveSessionContext session,
     LiveInventoryHandler inventory)
 {
-    public Task ConnectAsync(CliConnectionOptions options, CancellationToken cancellationToken);
+    public Task<bool> ConnectAsync(CliConnectionOptions options, CancellationToken cancellationToken);
     public Task DisconnectAsync(CancellationToken cancellationToken);
     public Task DisposeAsync();
 }
@@ -121,15 +121,15 @@ internal sealed class LiveConnectionHandler(
 
 Install the same `DelegateFrameObserver`: raw monitoring renders frames, table monitoring invokes `MonitorFrameCallback`. Preserve the five-second connect timeout, vendor-mode rendering, negotiation-frame output, failure cleanup, and restricted-terminal-safe title update. Do not have the handler render status; the host retains `HandleStatus()` immediately after a successful connection, as today.
 
-- [ ] **Step 2: Make `LiveCommand` a routing host for lifecycle operations**
+- [x] **Step 2: Make `LiveCommand` a routing host for lifecycle operations**
 
 Construct the three handlers in `LiveCommand(IAnsiConsole)`. Replace automatic, interactive, shorthand, disconnect, and shutdown lifecycle calls with handler methods. Keep `HandleStatus`, `HandleCaps`, `HandleFrames`, help, parsing, and all unrelated resource/configuration handlers in `LiveCommand`.
 
-- [ ] **Step 3: Update C3 status documentation**
+- [x] **Step 3: Update C3 status documentation**
 
 Modify `docs/architecture/cli-command-system.md` and `docs/roadmap.md` to state that C3 has extracted connection, inventory, monitoring, and offline-diagnostics handlers, while `LiveCommand` remains the interactive host and routing layer.
 
-- [ ] **Step 4: Verify compilation and Live Shell routing**
+- [x] **Step 4: Verify compilation and Live Shell routing**
 
 Run:
 

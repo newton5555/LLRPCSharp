@@ -278,9 +278,9 @@ InputAssist
 
 ### C3：拆分 LiveSessionContext 与 Handler
 
-- 已将连接、帧观察、盘点任务、监控状态和当前端点从 `LiveCommand` 提取到 `LiveSessionContext`；生命周期操作仍由 `LiveCommand` 保持，行为与输出不变。
-- 无会话依赖的 `inspect`、`decode`、`validate` 与 `encode` 已迁入 `LiveProtocolDiagnostics`；下一步将连接、监控和盘点 Handler 逐步移动到独立命令处理器；
-- 保持现有命令行为和输出兼容。
+- 已将连接、帧观察、盘点任务、监控状态和当前端点从 `LiveCommand` 提取到 `LiveSessionContext`。
+- 无会话依赖的 `inspect`、`decode`、`validate` 与 `encode` 由 `LiveProtocolDiagnostics` 处理；`LiveInventoryHandler` 负责 SDK 托管盘点及报告泵，`LiveMonitorHandler` 负责被动帧和实时标签表，`LiveConnectionHandler` 负责连接、帧观察器、断开和退出释放。
+- `LiveCommand` 现为交互宿主与路由层，保留提示链、帮助、状态渲染及尚未抽取的资源/配置命令；现有命令行为和输出保持兼容。
 
 ### C4：配置命令对齐
 

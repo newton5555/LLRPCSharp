@@ -37,21 +37,18 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 {
     private readonly IAnsiConsole _console;
     private readonly LiveSessionContext _session = new();
-
-    private sealed class TagStat
-    {
-        public required string Epc { get; init; }
-        public ushort AntennaId { get; set; }
-        public sbyte PeakRssi { get; set; }
-        public long ReadCount { get; set; }
-        public DateTime LastSeen { get; set; }
-    }
+    private readonly LiveInventoryHandler _inventoryHandler;
+    private readonly LiveMonitorHandler _monitorHandler;
+    private readonly LiveConnectionHandler _connectionHandler;
 
     public LiveCommand() : this(AnsiConsole.Console) { }
 
     public LiveCommand(IAnsiConsole console)
     {
         _console = console ?? AnsiConsole.Console;
+        _inventoryHandler = new LiveInventoryHandler(_console, _session);
+        _monitorHandler = new LiveMonitorHandler(_console, _session);
+        _connectionHandler = new LiveConnectionHandler(_console, _session, _inventoryHandler);
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, LiveSettings settings, CancellationToken cancellationToken)
@@ -127,7 +124,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         await HandleConnectAsync(tokens, cancellationToken);
                         break;
                     case LiveCommandRoute.Disconnect:
-                        await HandleDisconnectAsync(cancellationToken);
+                        await _connectionHandler.DisconnectAsync(cancellationToken);
                         break;
                     case LiveCommandRoute.Status:
                         HandleStatus();
@@ -136,10 +133,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         HandleCaps();
                         break;
                     case LiveCommandRoute.Inventory:
-                        await HandleInventoryAsync(tokens, cancellationToken);
+                        await _inventoryHandler.HandleAsync(tokens, cancellationToken);
                         break;
                     case LiveCommandRoute.Monitor:
-                        await HandleMonitorAsync(tokens, cancellationToken);
+                        await _monitorHandler.HandleAsync(tokens, cancellationToken);
                         break;
                     case LiveCommandRoute.Frames:
                         HandleFrames(tokens);
@@ -198,12 +195,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _console.WriteLine();
         }
 
-        if (_session.Reader is not null)
-        {
-            await StopInventoryAsync(CancellationToken.None);
-            await _session.Reader.DisposeAsync();
-            _session.Reader = null;
-        }
+        await _connectionHandler.DisposeAsync();
 
         return 0;
     }
@@ -250,87 +242,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         CliConnectionOptions options,
         CancellationToken cancellationToken)
     {
-        if (_session.Reader is not null)
+        if (await _connectionHandler.ConnectAsync(options, cancellationToken))
         {
-            await StopInventoryAsync(CancellationToken.None);
-            await _session.Reader.DisposeAsync();
-            _session.Reader = null;
-        }
-
-        _session.FrameObserver = new DelegateFrameObserver(frame =>
-        {
-            if (_session.IsMonitoring)
-            {
-                FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
-                _console.WriteLine();
-            }
-            if (_session.IsMonitoringTable)
-            {
-                _session.MonitorFrameCallback?.Invoke(frame);
-            }
-        });
-
-        _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{Markup.Escape(options.Host)}:{options.Port}[/]...");
-
-        var builder = options.CreateReaderBuilder()
-            .WithConnectTimeout(TimeSpan.FromSeconds(5))
-            .WithFrameObserver(_session.FrameObserver);
-
-        options.RenderVendorMode(_console);
-
-        LlrpReader reader = builder.Build();
-
-        try
-        {
-            await reader.ConnectAsync(cancellationToken);
-            _session.Reader = reader;
-            _session.Host = options.Host;
-            _session.Port = options.Port;
-            UpdateWindowTitle($"{options.Host}:{options.Port}");
-
-            _console.MarkupLine("[bold springgreen2]✔ Connected successfully![/]");
-            _console.WriteLine();
-
-            IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
-            if (frames.Count > 0)
-            {
-                var rule = new Rule($"[bold cyan1]Exchanged Connection Negotiation LLRP Messages ({frames.Count})[/]");
-                _console.Write(rule);
-
-                foreach (CapturedFrame frame in frames)
-                {
-                    FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
-                    _console.WriteLine();
-                }
-            }
-
             HandleStatus();
         }
-        catch (Exception ex)
-        {
-            await reader.DisposeAsync();
-            _session.Reader = null;
-            _session.FrameObserver = null;
-            UpdateWindowTitle("offline");
-            _console.MarkupLine($"[bold red]✖ Connection failed:[/] {Markup.Escape(ex.Message)}");
-        }
-    }
-
-    private async Task HandleDisconnectAsync(CancellationToken cancellationToken)
-    {
-        if (_session.Reader is null || !_session.Reader.IsConnected)
-        {
-            _console.MarkupLine("[yellow]Not connected to any reader.[/]");
-            return;
-        }
-
-        await StopInventoryAsync(cancellationToken);
-        await _session.Reader.DisconnectAsync(cancellationToken);
-        await _session.Reader.DisposeAsync();
-        _session.Reader = null;
-        _session.FrameObserver = null;
-        UpdateWindowTitle("offline");
-        _console.MarkupLine("[grey]Disconnected from reader.[/]");
     }
 
     private void HandleStatus()
@@ -423,293 +338,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
             _console.WriteLine();
-        }
-    }
-
-    private async Task HandleInventoryAsync(string[] tokens, CancellationToken cancellationToken)
-    {
-        if (_session.Reader is null || !_session.Reader.IsConnected)
-        {
-            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
-            return;
-        }
-
-        if (tokens.Length < 2)
-        {
-            _console.MarkupLine("[red]Usage:[/] inventory start [[antenna-id]] | stop | status");
-            return;
-        }
-
-        switch (tokens[1].ToLowerInvariant())
-        {
-            case "start":
-            {
-                if (_session.InventoryPumpTask is { IsCompleted: false })
-                {
-                    _console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
-                    return;
-                }
-
-                ushort antennaId = 0;
-                if (tokens.Length >= 3 && !ushort.TryParse(tokens[2], out antennaId))
-                {
-                    _console.MarkupLine("[red]Antenna identifier must be an unsigned 16-bit integer.[/]");
-                    return;
-                }
-
-                var settings = new ReaderSettings
-                {
-                    AntennaIds = [antennaId],
-                };
-                await _session.Reader.StartAsync(settings, cancellationToken);
-
-                var inventoryCancellation = new CancellationTokenSource();
-                _session.InventoryCancellation = inventoryCancellation;
-                _session.InventoryPumpTask = PumpTagReportsAsync(_session.Reader, inventoryCancellation.Token);
-                string scope = antennaId == 0 ? "all antennas" : $"antenna {antennaId}";
-                _console.MarkupLine($"[bold springgreen2]✔ SDK-managed inventory started for {scope}.[/]");
-                break;
-            }
-
-            case "stop":
-                await StopInventoryAsync(cancellationToken);
-                _console.MarkupLine("[bold springgreen2]✔ SDK-managed inventory stopped.[/]");
-                break;
-
-            case "status":
-                _console.MarkupLine(
-                    _session.Reader.OperationState == ReaderOperationState.Inventorying
-                        ? "[springgreen2]SDK-managed inventory is running.[/]"
-                        : $"[yellow]SDK-managed inventory is not running (state: {_session.Reader.OperationState}).[/]");
-                break;
-
-            default:
-                _console.MarkupLine("[red]Usage:[/] inventory start [[antenna-id]] | stop | status");
-                break;
-        }
-    }
-
-    private async Task HandleMonitorAsync(string[] tokens, CancellationToken cancellationToken)
-    {
-        if (_session.Reader is null || !_session.Reader.IsConnected)
-        {
-            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
-            return;
-        }
-
-        bool useTable = false;
-        int seconds = 10;
-
-        for (int i = 1; i < tokens.Length; i++)
-        {
-            string token = tokens[i].ToLowerInvariant();
-            if (token is "--table" or "-t" or "table")
-            {
-                useTable = true;
-            }
-            else if (token is "--frames" or "-f" or "frames" or "raw")
-            {
-                useTable = false;
-            }
-            else if (int.TryParse(token, out int parsedSec))
-            {
-                seconds = parsedSec;
-            }
-        }
-
-        if (!useTable)
-        {
-            _console.MarkupLine($"[bold springgreen2]📡 Listening to passive LLRP frame logs for {seconds} seconds...[/]");
-            _console.MarkupLine("[grey]Raw Frame Mode: printing raw RX/TX frame trees and hex dumps.[/]");
-            _console.WriteLine();
-
-            _session.IsMonitoringTable = false;
-            _session.IsMonitoring = true;
-            try
-            {
-                await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected if user cancels
-            }
-            finally
-            {
-                _session.IsMonitoring = false;
-                _console.MarkupLine("[bold cyan1]✔ Passive frame monitoring ended.[/]");
-            }
-        }
-        else
-        {
-            _console.MarkupLine($"[bold springgreen2]📊 Streaming live tag statistics table for {seconds} seconds...[/]");
-            _console.MarkupLine("[grey]Live Table Mode: aggregated unique EPC tag counts, RSSI, and antennas.[/]");
-            var tagStats = new System.Collections.Concurrent.ConcurrentDictionary<string, TagStat>();
-
-            _session.MonitorFrameCallback = frame =>
-            {
-                try
-                {
-                    ILlrpMessage msg = _session.Reader.Registry.DecodeMessage(frame.Bytes);
-                    IReadOnlyList<TagReport> reports = _session.Reader.TranslateTagReports(msg);
-                    foreach (TagReport report in reports)
-                    {
-                        string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
-                        if (string.IsNullOrEmpty(epc))
-                        {
-                            continue;
-                        }
-
-                        tagStats.AddOrUpdate(
-                            epc,
-                            key => new TagStat
-                            {
-                                Epc = key,
-                                AntennaId = report.AntennaId ?? 0,
-                                PeakRssi = report.PeakRssi ?? 0,
-                                ReadCount = 1,
-                                LastSeen = DateTime.Now
-                            },
-                            (key, existing) =>
-                            {
-                                existing.ReadCount++;
-                                existing.AntennaId = report.AntennaId ?? existing.AntennaId;
-                                existing.PeakRssi = report.PeakRssi ?? existing.PeakRssi;
-                                existing.LastSeen = DateTime.Now;
-                                return existing;
-                            });
-                    }
-                }
-                catch
-                {
-                    // Non-report messages ignored in tag table
-                }
-            };
-
-            _session.IsMonitoringTable = true;
-            _session.IsMonitoring = false;
-
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(seconds));
-
-            var table = new Table
-            {
-                Border = TableBorder.Rounded,
-                BorderStyle = new Style(Color.DeepSkyBlue1)
-            };
-            table.AddColumn("[bold deepskyblue1]🏷️ EPC (Hex)[/]");
-            table.AddColumn("[bold springgreen2]📡 Antenna[/]");
-            table.AddColumn("[bold yellow1]📶 Peak RSSI[/]");
-            table.AddColumn("[bold cyan1]🔢 Read Count[/]");
-            table.AddColumn("[bold grey70]🕒 Last Seen[/]");
-
-            try
-            {
-                await _console.Live(table)
-                    .AutoClear(false)
-                    .Overflow(VerticalOverflow.Ellipsis)
-                    .StartAsync(async ctx =>
-                    {
-                        while (!cts.IsCancellationRequested)
-                        {
-                            table.Rows.Clear();
-                            var topTags = tagStats.Values
-                                .OrderByDescending(t => t.LastSeen)
-                                .Take(15)
-                                .ToList();
-
-                            long totalReads = tagStats.Values.Sum(t => t.ReadCount);
-
-                            foreach (var tag in topTags)
-                            {
-                                table.AddRow(
-                                    $"[bold white]{tag.Epc}[/]",
-                                    $"[cyan1]{tag.AntennaId}[/]",
-                                    $"[yellow1]{tag.PeakRssi} dBm[/]",
-                                    $"[bold springgreen2]{tag.ReadCount:N0}[/]",
-                                    $"[grey]{tag.LastSeen:HH:mm:ss.fff}[/]");
-                            }
-
-                            table.Title = new TableTitle(
-                                $"[bold white on deepskyblue1] 🏷️ LIVE TAG MONITOR [/] [grey]Unique Tags:[/] [bold yellow]{tagStats.Count}[/] | [grey]Total Reads:[/] [bold springgreen2]{totalReads:N0}[/]");
-
-                            ctx.Refresh();
-                            try
-                            {
-                                await Task.Delay(100, cts.Token);
-                            }
-                            catch (OperationCanceledException)
-                            {
-                                break;
-                            }
-                        }
-                    });
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected when canceled
-            }
-            finally
-            {
-                _session.IsMonitoringTable = false;
-                _session.MonitorFrameCallback = null;
-                _console.MarkupLine($"[bold cyan1]✔ Live tag summary ended. Total Unique Tags: {tagStats.Count}[/]");
-            }
-        }
-    }
-
-    private async Task StopInventoryAsync(CancellationToken cancellationToken)
-    {
-        CancellationTokenSource? inventoryCancellation = _session.InventoryCancellation;
-        Task? inventoryPumpTask = _session.InventoryPumpTask;
-        _session.InventoryCancellation = null;
-        _session.InventoryPumpTask = null;
-
-        inventoryCancellation?.Cancel();
-        try
-        {
-            if (_session.Reader?.IsConnected == true && _session.Reader.OperationState == ReaderOperationState.Inventorying)
-            {
-                await _session.Reader.StopAsync(cancellationToken).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            if (inventoryPumpTask is not null)
-            {
-                try
-                {
-                    await inventoryPumpTask.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (inventoryCancellation?.IsCancellationRequested == true)
-                {
-                    // Stopping inventory owns cancellation of the report pump.
-                }
-            }
-
-            inventoryCancellation?.Dispose();
-        }
-    }
-
-    private async Task PumpTagReportsAsync(LlrpReader reader, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await foreach (TagReport report in reader.ReadTagReportsAsync(cancellationToken))
-            {
-                string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
-                string antenna = report.AntennaId?.ToString() ?? "-";
-                string rssi = report.PeakRssi?.ToString() ?? "-";
-                _console.MarkupLine(
-                    $"[cyan1]TAG[/] EPC=[bold]{epc}[/] Antenna={antenna} RSSI={rssi}");
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // The inventory command explicitly stopped the report stream.
-        }
-        catch (Exception exception)
-        {
-            _console.MarkupLine($"[red]Inventory report stream failed:[/] {Markup.Escape(exception.Message)}");
         }
     }
 
