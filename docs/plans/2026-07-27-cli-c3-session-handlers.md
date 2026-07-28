@@ -40,7 +40,7 @@ internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionCont
 }
 ```
 
-Keep `inventory start [antenna-id] | stop | status`, the existing connection checks, task cancellation, `ReaderSettings.AntennaIds`, and tag-line rendering byte-for-byte equivalent in user-visible text.
+Keep inventory lifecycle ownership, connection checks for start/stop/status, task cancellation, `ReaderSettings.AntennaIds`, and tag-line rendering. The later Reader-first plan intentionally replaces the old positional start syntax with a session-local `DesiredInventorySettings` draft and `inventory start [--antennas <id,id|all>]`.
 
 - [x] **Step 2: Replace `LiveCommand` inventory implementations with delegation**
 

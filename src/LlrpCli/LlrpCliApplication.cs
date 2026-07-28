@@ -75,9 +75,17 @@ public sealed class LlrpCliApplication
 
             config.AddBranch("tag", tagBranch =>
             {
-                tagBranch.SetDescription("Read tag memory or inspect a write request.");
+                tagBranch.SetDescription("Access tag memory through SDK-managed temporary resources.");
                 tagBranch.AddCommand<TagReadCommand>("read");
                 tagBranch.AddCommand<TagWriteDryRunCommand>("write");
+                tagBranch.AddCommand<TagSequenceCommand>("sequence")
+                    .WithDescription("Execute one or more C1G2 operations through one temporary AccessSpec.");
+                tagBranch.AddCommand<TagMutationCommand>("lock")
+                    .WithDescription("Lock or unlock tag memory after explicit confirmation.");
+                tagBranch.AddCommand<TagMutationCommand>("erase")
+                    .WithDescription("Block-erase tag memory after explicit confirmation.");
+                tagBranch.AddCommand<TagMutationCommand>("kill")
+                    .WithDescription("Kill a tag after explicit confirmation.");
             });
         });
 

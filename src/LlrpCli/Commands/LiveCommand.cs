@@ -599,7 +599,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
-        ReaderConfiguration configuration = await _session.Reader.QuerySettingsAsync(cancellationToken);
+        ReaderConfiguration configuration = await _session.Reader.QueryConfigurationAsync(cancellationToken);
         RenderNewlyCapturedFrames(startIndex);
 
         var table = new Table().Border(TableBorder.Rounded);
@@ -624,7 +624,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
-        ReaderConfiguration current = await _session.Reader!.QuerySettingsAsync(cancellationToken);
+        ReaderConfiguration current = await _session.Reader!.QueryConfigurationAsync(cancellationToken);
         ReaderConfiguration updated = ConfigApplyCommand.BuildUpdatedConfiguration(settings, current);
         RenderLiveConfigChange(settings, updated, settings.DryRun || !confirmed);
         if (settings.DryRun)
@@ -637,7 +637,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             return;
         }
 
-        await _session.Reader.ApplySettingsAsync(updated, cancellationToken);
+        await _session.Reader.ApplyConfigurationAsync(updated, cancellationToken);
         RenderNewlyCapturedFrames(startIndex);
         _console.MarkupLine("[bold springgreen2]✔ Configuration applied successfully.[/]");
         _console.MarkupLine("[yellow]SDK-managed state is now unsynchronized. Run [cyan1]sync[/] before the next managed operation.[/]");
@@ -814,7 +814,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             "[grey][cyan1]rospec list[/] / [cyan1]start[/] / [cyan1]stop[/] / [cyan1]caps[/] / [cyan1]status[/][/]");
         grid.AddRow(
             "[bold yellow1]🏷️ 托管盘点流[/]",
-            "[grey][cyan1]inventory start|stop[/] 开启/停止 SDK 托管盘点[/]");
+            "[grey][cyan1]inventory settings[/] 配置盘点意图；[cyan1]inventory start|stop[/] 控制 SDK 托管盘点[/]");
         grid.AddRow(
             "[bold cyan1]📡 被动推流监听[/]",
             "[grey][cyan1]monitor 10[/] 纯被动接收打印 10 秒 TCP 回调帧[/]");
@@ -856,7 +856,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 2: 高层托管盘点 (Managed Inventory)
         table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
-        table.AddRow("  [cyan1]inventory start [[antenna-id]] | stop | status[/]", "一键托管盘点 (SDK 自动处理 ADD/ENABLE/START ROSpec 声明)");
+        table.AddRow("  [cyan1]inventory settings show|set|load|save|reset[/]", "管理下一次托管盘点的本地意图草稿；无需连接读写器");
+        table.AddRow("  [cyan1]inventory start [[--antennas id,id|all]] | stop | status[/]", "按草稿启动盘点；--antennas 仅覆盖本次启动 (SDK 自动处理 ROSpec)");
 
         // 分组 3: 纯被动推流监听 (Passive Monitoring)
         table.AddRow("[bold yellow1]─── 📡 纯被动推流监听 (Passive Monitoring) ───[/]", "");

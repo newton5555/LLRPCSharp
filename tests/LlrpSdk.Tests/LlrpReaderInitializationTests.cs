@@ -451,7 +451,7 @@ public sealed class LlrpReaderInitializationTests
     {
         Type compilerType = typeof(LlrpReader).Assembly.GetType(typeName, throwOnError: true)!;
         MethodInfo compile = compilerType.GetMethod("Compile", BindingFlags.Public | BindingFlags.Static)!;
-        return Assert.IsAssignableFrom<ILlrpParameter>(compile.Invoke(null, [settings, customItems]));
+        return Assert.IsAssignableFrom<ILlrpParameter>(compile.Invoke(null, [settings, customItems, false]));
     }
 
     private sealed class MockActiveExtension : LlrpSdk.Extensions.IReaderExtension

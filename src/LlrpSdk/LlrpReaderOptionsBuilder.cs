@@ -22,6 +22,7 @@ public sealed class LlrpReaderOptionsBuilder
     private TimeSpan _connectTimeout = TimeSpan.FromSeconds(10);
     private TimeSpan _frameAssemblyTimeout = TimeSpan.FromSeconds(10);
     private TimeSpan _requestTimeout = TimeSpan.FromSeconds(10);
+    private TimeSpan? _keepaliveTimeout;
     private uint _maximumFrameLength = LlrpFrameDecoder.DefaultMaximumFrameLength;
     private int _incomingMessageCapacity = LlrpReaderOptions.DefaultIncomingMessageCapacity;
     private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
@@ -228,6 +229,17 @@ public sealed class LlrpReaderOptionsBuilder
         return this;
     }
 
+    /// <summary>
+    /// Enables opt-in reader KEEPALIVE liveness monitoring after initialization.
+    /// </summary>
+    /// <param name="timeout">A positive duration, or null to disable monitoring.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderOptionsBuilder WithKeepaliveTimeout(TimeSpan? timeout)
+    {
+        _keepaliveTimeout = timeout;
+        return this;
+    }
+
     /// <summary>Registers a provider of safe, identity-based configuration defaults.</summary>
     /// <param name="provider">The provider to evaluate after reader initialization.</param>
     /// <returns>This builder.</returns>
@@ -256,6 +268,7 @@ public sealed class LlrpReaderOptionsBuilder
             _connectTimeout,
             _frameAssemblyTimeout,
             _requestTimeout,
+            _keepaliveTimeout,
             _maximumFrameLength,
             _incomingMessageCapacity,
             _loggerFactory,
@@ -305,6 +318,15 @@ public sealed class LlrpReaderOptionsBuilder
                 nameof(_requestTimeout),
                 _requestTimeout,
                 $"The request timeout must be non-negative, no greater than {MaximumTimerTimeout}, or infinite.");
+        }
+
+        if (_keepaliveTimeout is { } keepaliveTimeout &&
+            (keepaliveTimeout <= TimeSpan.Zero || keepaliveTimeout > MaximumTimerTimeout))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_keepaliveTimeout),
+                keepaliveTimeout,
+                $"The keepalive timeout must be positive and no greater than {MaximumTimerTimeout}, or null to disable it.");
         }
 
         if (_maximumFrameLength is < LlrpMessageHeader.EncodedLength or > int.MaxValue)

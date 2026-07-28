@@ -17,34 +17,34 @@
 | | 1.4 强行撕毁断开 | **待补全** | — | **实施计划**：增加 `LlrpReader.ForceDisconnectAsync()`，在心跳超时或网络异常时直接关闭底层 Socket 与泵 Task，不发 `CLOSE_CONNECTION`。 |
 | | 1.5 协议版本协商与降级 | **已实现(超越)**| `LlrpProtocolVersionPolicy.Auto` / `Force101` / `Force11`<br>底层：`GET_SUPPORTED_VERSION` (46)，支持旧设备断开时自动降级 1.0.1 | — |
 | **2. 硬件能力集解析** | 2.1 设备基础身份快照 | **已实现** | `reader.Identity` (`ManufacturerId`, `ModelId`, `FirmwareVersion`)；<br>`reader.Capabilities` (`MaxNumberOfAntennas`, `NumGpis`, `NumGpos`)<br>底层：`GET_READER_CAPABILITIES` (General) | — |
-| | 2.2 发射功率表 (`TxPowers`) | **待补全** | — | **实施计划**：在 `ReaderCapabilities` 中解析 `UHFBandCapabilities.TransmitPowerLevelTableEntry` 数组，暴露为 `IReadOnlyList<TxPowerEntry>`（包含 Index 与 dBm 对应值）。 |
-| | 2.3 接收灵敏度表 (`RxSensitivities`) | **待补全** | — | **实施计划**：在 `ReaderCapabilities` 中解析 `ReceiveSensitivityTableEntry` 数组，暴露为 `IReadOnlyList<RxSensitivityEntry>`。 |
-| | 2.4 频点与跳频表 | **待补全** | — | **实施计划**：解析 `FrequencyInformation` 下的 `FrequencyHopTable` 与 `FixedFrequencyTable` 数组，暴露 `TxFrequencies` 与 `HopTables`。 |
-| | 2.5 C1G2 射频模式表 | **待补全** | — | **实施计划**：解析 `C1G2UHFRFModeTable`（暴露 `ModeIdentifier`, `BDR`, `Modulation`, `Tari` 等），方便 UI 下拉菜单选择。 |
-| | 2.6 高级物理门控布尔值 | **待补全** | — | **实施计划**：在 `ReaderCapabilities` 中公开 `IsTagAccessAvailable`、`IsMultiwordBlockWriteAvailable`、`IsMultiwordBlockEraseAvailable`、`CanDoTagInventoryStateAwareSingulation`。 |
-| **3. 设备配置与物理控制** | 3.1 查询设备当前物理配置 | **已实现** | `reader.QuerySettingsAsync()`<br>底层：`GET_READER_CONFIG` (RequestedData=All) ➔ `GET_READER_CONFIG_RESPONSE` | — |
+| | 2.2 发射功率表 (`TxPowers`) | **已实现** | `ReaderCapabilities.TxPowers`（索引、原始 0.01 dBm 值和 `TransmitPowerDbm`） | — |
+| | 2.3 接收灵敏度表 (`RxSensitivities`) | **已实现** | `ReaderCapabilities.RxSensitivities`（索引、原始 0.01 dBm 值和 `ReceiveSensitivityDbm`） | — |
+| | 2.4 频点与跳频表 | **已实现** | `ReaderCapabilities.TxFrequencies` / `HopTables` | — |
+| | 2.5 C1G2 射频模式表 | **已实现** | `ReaderCapabilities.RfModes`（ModeIdentifier、DR、调制、Tari 范围等） | — |
+| | 2.6 高级物理门控布尔值 | **已实现** | `IsTagAccessAvailable`、`IsMultiwordBlockWriteAvailable`、`IsMultiwordBlockEraseAvailable`、`CanDoTagInventoryStateAwareSingulation` | — |
+| **3. 设备配置与物理控制** | 3.1 查询设备当前物理配置 | **已实现** | `reader.QueryConfigurationAsync()`<br>底层：`GET_READER_CONFIG` (RequestedData=All) ➔ `GET_READER_CONFIG_RESPONSE` | — |
 | | 3.2 离线 SDK 安全默认配置 | **已实现** | `reader.GetDefaultConfiguration()` / `GetDefaultConfigurationResult()` | — |
-| | 3.3 应用物理配置 | **已实现** | `reader.ApplySettingsAsync(configuration)`<br>底层：`SET_READER_CONFIG` ➔ `SET_READER_CONFIG_RESPONSE` | — |
-| | 3.4 心跳 Keepalive 配置 | **已实现** | `configuration.Keepalive.Mode` / `PeriodicInterval`<br>底层：`KeepaliveSpec` | — |
-| | 3.5 天线功率/灵敏度配置 | **已实现** | `configuration.AntennaConfigs`<br>底层：`AntennaConfiguration` | — |
-| | 3.6 C1G2 盘点参数扩展 | **待补全** | — | **实施计划**：在 `ReaderSettings` 与 `ReaderConfiguration` 增加 `C1G2SingulationControl` 属性（支持 `Session` 0-3, `TagPopulationEstimate`, `InventoryTarget` A/B, `SearchMode`），在 Adapter 中编译到 `AISpec` 下。 |
-| | 3.7 ROSpec 定时器/GPI 自动触发 | **待补全** | — | **实施计划**：在 `ReaderSettings` 增加 `AutoStartTrigger` / `AutoStopTrigger`，Adapter 编译到 `ROBoundSpec` 的 `ROSpecStartTrigger` / `ROSpecStopTrigger`。 |
-| | 3.8 盘点附加数据配置 (`AttachedData`) | **待补全** | — | **实施计划**：在 `ReaderSettings` 增加 `AttachedDataOptions`。盘点时若开启，标准 1.0.1 自动挂载常驻 C1G2 Read AccessSpec 1000；Impinj 在未指定通用 AttachedData 时优先使用 `ImpinjTagReportContentSelector` 零损耗扩展。 |
+| | 3.3 应用物理配置 | **已实现** | `reader.ApplyConfigurationAsync(configuration)`<br>底层：`SET_READER_CONFIG` ➔ `SET_READER_CONFIG_RESPONSE` | — |
+| | 3.4 心跳 Keepalive 配置 | **已实现** | `configuration.Keepalive.TriggerType` / `IntervalMs`<br>底层：`KeepaliveSpec` | — |
+| | 3.5 天线功率/灵敏度配置 | **已实现** | `configuration.Antennas`<br>底层：`AntennaConfiguration` | — |
+| | 3.6 C1G2 盘点参数扩展 | **已实现（标准范围）** | `ReaderSettings.Session`、`TagPopulationEstimate`、`ModeIndex`、`Tari` 与 `StateAwareSingulation` 编译为 `C1G2SingulationControl` / `C1G2RFControl`；Target A/B 仅在能力快照明确支持时启用 | 厂商 SearchMode 保持为 Contributor/Profile 专有能力，不放入标准模型。 |
+| | 3.7 ROSpec 定时器/GPI 自动触发 | **已实现** | `ReaderSettings.StartTrigger` / `StopTrigger` 支持 Immediate、Periodic、GPI、Duration 与 GPI-with-timeout，并编译到 `ROBoundarySpec` | Live Shell 暂未暴露触发器旗标，保持为 SDK Reader-first API。 |
+| | 3.8 盘点附加数据配置 (`AttachedData`) | **已实现** | `ReaderSettings.AttachedData`；`StartAsync` 创建/启用关联 C1G2 Read AccessSpec，`StopAsync` 清理；临时 Tag Access 会暂停并恢复该常驻 AccessSpec | 厂商高效报告选择器仍由 Contributor 自主决定，不能替换标准语义。 |
 | **4. 托管盘点与数据上报** | 4.1 启动托管盘点 | **已实现** | `reader.StartAsync(settings)`<br>底层：`ADD_ROSPEC` (14150) ➔ `ENABLE_ROSPEC` ➔ `START_ROSPEC` | — |
 | | 4.2 停止托管盘点 | **已实现** | `reader.StopAsync()`<br>底层：`STOP_ROSPEC` ➔ `DISABLE_ROSPEC` ➔ `DELETE_ROSPEC` | — |
 | | 4.3 实时标签数据订阅 | **已实现** | `reader.TagsReported` 事件 / `ReadTagReportsAsync()` 异步流<br>底层：`RO_NOTIFICATION` / `TagReport` | — |
-| | 4.4 主动拉取模式 (`QueryTags`) | **待补全** | — | **实施计划**：当盘点模式为 `WaitForQuery` 时，提供 `reader.GetTagReportsAsync()`，内部下发 `GET_REPORT` 报文主动拉取读写器缓冲区数据。 |
-| **5. 标签 Memory 访问操作** | 5.1 自动 ROSpec 生命周期与安全协同 | **待补全** | — | **实施计划**：一键标签操作模式：无 ROSpec 时 SDK 内部自动创建/启动临时 ROSpec 14150 并在完成后清理；有 ROSpec 时直接关联；若有常驻 `AttachedData`，自动执行临时 Disable ➔ 操作 ➔ Enable 恢复，防止冲撞。 |
+| | 4.4 主动拉取模式 (`QueryTags`) | **已实现** | `reader.GetTagReportsAsync()`<br>底层：`GET_REPORT` ➔ `RO_ACCESS_REPORT` | — |
+| **5. 标签 Memory 访问操作** | 5.1 自动 ROSpec 生命周期与安全协同 | **已实现（单操作）** | 无托管盘点时 `ExecuteTagAccessAsync` 创建并清理临时 ROSpec；运行中盘点直接关联其 ROSpec；AttachedData 常驻 AccessSpec 会在临时操作期间暂停后恢复 | 组合操作序列仍单列实现。 |
 | | 5.2 读标签 Memory | **已实现** | `reader.ReadTagMemoryAsync(ReadTagRequest)`<br>底层：`ADD_ACCESSSPEC` (C1G2Read) ➔ `ENABLE_ACCESSSPEC` ➔ 监听结果 ➔ 清理 | — |
-| | 5.3 写标签 Memory / BlockWrite | **部分已实现** | `reader.WriteTagMemoryAsync(WriteTagRequest)` | **实施计划**：在 1.0.1 Adapter 中根据 `Capabilities.IsMultiwordBlockWriteAvailable` 自动选用 `C1G2Write` 或 `C1G2BlockWrite` 性能优化。 |
-| | 5.4 锁标签 Memory | **待补全** | — | **实施计划**：新增 `reader.LockTagMemoryAsync(LockTagRequest)`，1.0.1 Adapter 编译 `C1G2Lock` / `C1G2LockPayload`（支持 Kill/Access 密码锁及 5 种模式）。 |
-| | 5.5 销毁标签 (Kill Tag) | **待补全** | — | **实施计划**：新增 `reader.KillTagAsync(KillTagRequest)`，1.0.1 Adapter 编译 `C1G2Kill`。 |
-| | 5.6 块擦除 (BlockErase) | **待补全** | — | **实施计划**：新增 `reader.BlockEraseTagMemoryAsync(BlockEraseTagRequest)`，1.0.1 Adapter 编译 `C1G2BlockErase`。 |
-| | 5.7 组合操作序列 (`TagOpSequence`) | **待补全** | — | **实施计划**：新增 `reader.ExecuteTagOpSequenceAsync(TagOpSequence)`，支持在一个 AccessSpec 内包含多个 C1G2 OpSpec，并支持 `TargetTag`（BitPointer, Mask）精准过滤。 |
-| **6. GPIO 与硬件事件通知** | 6.1 GPO 快捷高低电平控制 | **待补全** | — | **实施计划**：在 `LlrpReader` 上提供快捷 API `reader.SetGpoAsync(port, state)`，内部下发包含 `GPOWriteData` 的 `SET_READER_CONFIG`。 |
-| | 6.2 GPI 电平变化事件 | **待补全** | — | **实施计划**：在高层 `LlrpReader` 上暴露 `GpiChanged` 事件，在异步泵中解析 `READER_EVENT_NOTIFICATION` 的 `GPIEvent` 并透出。 |
-| | 6.3 心跳接收与超时事件 | **待补全** | — | **实施计划**：在高层暴露 `KeepaliveReceived` / `KeepaliveTimeout` 事件；心跳超时默认可配置自动执行 `ForceDisconnectAsync()`。 |
-| | 6.4 缓冲区告警与诊断事件 | **部分已实现** | `ErrorOccurred` 已实现 | **实施计划**：高层透出 `ReportBufferOverflow` / `ReportBufferWarning` 事件，解析 `RO_NOTIFICATION` 或 `READER_EVENT_NOTIFICATION` 中的缓冲区告警。 |
+| | 5.3 写标签 Memory / BlockWrite | **已实现** | `reader.WriteTagMemoryAsync(WriteTagRequest)`；多字写且 `Capabilities.IsMultiwordBlockWriteAvailable` 时编译 `C1G2BlockWrite`，否则 `C1G2Write` | — |
+| | 5.4 锁标签 Memory | **已实现** | `reader.LockTagMemoryAsync(LockTagRequest)` ➔ `C1G2Lock` / `C1G2LockPayload`；Result 投影为 `TagAccessResult` | — |
+| | 5.5 销毁标签 (Kill Tag) | **已实现** | `reader.KillTagAsync(KillTagRequest)` ➔ `C1G2Kill`；Result 投影为 `TagAccessResult` | — |
+| | 5.6 块擦除 (BlockErase) | **已实现** | `reader.BlockEraseTagMemoryAsync(BlockEraseTagRequest)` ➔ `C1G2BlockErase`；Result 投影为 `TagAccessResult` | — |
+| | 5.7 组合操作序列 (`TagOpSequence`) | **已实现** | `reader.ExecuteTagAccessSequenceAsync(TagAccessSequenceRequest)`；一个 AccessSpec 内包含多个 C1G2 OpSpec，复用每项请求中的标准 BitPointer/Mask TargetTag，返回完整结果集合；Live 与外层 CLI `tag sequence --op ...` 均为薄封装 | 外层 CLI 对非只读操作要求 `--yes`。 |
+| **6. GPIO 与硬件事件通知** | 6.1 GPO 快捷高低电平控制 | **已实现** | `reader.SetGpoAsync(port, state)` ➔ `SET_READER_CONFIG` | — |
+| | 6.2 GPI 电平变化事件 | **已实现** | `reader.GpiChanged`，解析 `READER_EVENT_NOTIFICATION` | — |
+| | 6.3 心跳接收与超时事件 | **已实现（观察型）** | `reader.KeepaliveReceived`；`builder.WithKeepaliveTimeout(...)` 启用后，连续静默会触发一次 `reader.KeepaliveTimedOut` | 超时不会强制断开；TLS 与显式强制断开属于后续连接增强。 |
+| | 6.4 缓冲区告警与诊断事件 | **已实现** | `ErrorOccurred`、`ReportBufferOverflow`、`ReportBufferWarning`（包含读写器报告的缓冲区百分比） | — |
 
 ---
 
@@ -54,12 +54,8 @@
 - **暂缓项目 (本轮不做，后续按需安排)**：
   - `1.2 TLS 加密连接 (5085)`
   - `1.4 强行撕毁断开 (ForceDisconnect)`
-- **本轮全量补全项目**：
-  - 模块 2 全量（硬件能力集功率/灵敏度/频点/RF Mode 表及物理门控解析）
-  - 模块 3 全量（C1G2 Session/Target 盘点配置、AutoStart/AutoStop 触发器、标准 `AttachedData` 附加数据）
-  - 模块 4 全量（`GET_REPORT` 主动拉取模式 `GetTagReportsAsync`）
-  - 模块 5 全量（自动 ROSpec 生命周期与 AttachedData 防冲撞安全调度、`LockTagMemoryAsync`、`KillTagAsync`、`BlockEraseTagMemoryAsync`、BlockWrite 优化、`ExecuteTagOpSequenceAsync` 组合序列与 `TargetTag` 过滤）
-  - 模块 6 全量（`SetGpoAsync` 快捷控制、`GpiChanged` 事件、心跳事件与缓冲区告警事件）
+- **后续连接增强项目**：
+  - TLS 与显式强制断开维持为独立安全与互操作工作，不作为本轮 1.0.1 SDK/CLI 完成条件。
 
 ---
 

@@ -92,10 +92,40 @@ internal static class Llrp101TagReportTranslator
                             ? null
                             : write.Result.ToString()));
                     break;
+                case C1G2BlockWriteOpSpecResult blockWrite:
+                    results.Add(new TagAccessOperationResult(
+                        blockWrite.OpSpecID,
+                        blockWrite.Result == global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2BlockWriteResultType.Success,
+                        [],
+                        blockWrite.NumWordsWritten,
+                        blockWrite.Result == global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2BlockWriteResultType.Success
+                            ? null
+                            : blockWrite.Result.ToString()));
+                    break;
+                case C1G2LockOpSpecResult lockResult:
+                    AddStatusOnlyResult(results, lockResult.OpSpecID, lockResult.Result, global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2LockResultType.Success);
+                    break;
+                case C1G2KillOpSpecResult kill:
+                    AddStatusOnlyResult(results, kill.OpSpecID, kill.Result, global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2KillResultType.Success);
+                    break;
+                case C1G2BlockEraseOpSpecResult erase:
+                    AddStatusOnlyResult(results, erase.OpSpecID, erase.Result, global::LlrpNet.Protocol.Enumerations.V1_0_1.C1G2BlockEraseResultType.Success);
+                    break;
             }
         }
 
         return results;
+    }
+
+    private static void AddStatusOnlyResult<T>(
+        ICollection<TagAccessOperationResult> results,
+        ushort opSpecId,
+        T result,
+        T success)
+        where T : struct, Enum
+    {
+        bool isSuccess = EqualityComparer<T>.Default.Equals(result, success);
+        results.Add(new TagAccessOperationResult(opSpecId, isSuccess, [], null, isSuccess ? null : result.ToString()));
     }
 
     private static byte[] PackBits(IReadOnlyList<bool> bits)

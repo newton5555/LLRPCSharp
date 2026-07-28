@@ -36,16 +36,21 @@ public sealed class LlrpReader : IAsyncDisposable
     private readonly LlrpSession _session;
     private CancellationTokenSource? _pumpCancellation;
     private Task? _pumpTask;
+    private CancellationTokenSource? _keepaliveMonitorCancellation;
+    private Task? _keepaliveMonitorTask;
     private CancellationTokenSource? _automaticReconnectCancellation;
     private Task? _automaticReconnectTask;
     private ReaderSettings? _currentSettings;
     private ReaderMetadataSnapshot? _metadata;
     private uint? _managedInventoryRoSpecId;
+    private uint? _managedInventoryAttachedDataAccessSpecId;
     private int _nextManagedAccessSpecId = 24000;
     private int _connectionState = (int)ReaderConnectionState.Disconnected;
     private int _managedStateIsSynchronized = 1;
     private int _operationState = (int)ReaderOperationState.Idle;
     private int _disposed;
+    private long _lastKeepaliveUtcTicks;
+    private int _keepaliveTimeoutSignaled;
 
     /// <summary>
     /// Creates the application-facing fluent builder for one reader.
@@ -167,7 +172,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// </summary>
     /// <remarks>
     /// The result is neither the reader's current configuration nor its persistent configuration. It never applies
-    /// settings; callers must explicitly call <see cref="ApplySettingsAsync(ReaderConfiguration, CancellationToken)"/>
+    /// settings; callers must explicitly call <see cref="ApplyConfigurationAsync(ReaderConfiguration, CancellationToken)"/>
     /// to write a configuration.
     /// </remarks>
     public ReaderConfiguration GetDefaultConfiguration()
@@ -323,9 +328,20 @@ public sealed class LlrpReader : IAsyncDisposable
     public event EventHandler<EventArgs>? KeepaliveReceived;
 
     /// <summary>
+    /// Occurs once for each uninterrupted KEEPALIVE silence period when opt-in liveness monitoring is enabled.
+    /// The event is observational and does not disconnect the reader.
+    /// </summary>
+    public event EventHandler<KeepaliveTimeoutEventArgs>? KeepaliveTimedOut;
+
+    /// <summary>
     /// Occurs when the reader reports a tag report buffer overflow event.
     /// </summary>
     public event EventHandler<EventArgs>? ReportBufferOverflow;
+
+    /// <summary>
+    /// Occurs when the reader reports that its tag-report buffer has reached a warning level.
+    /// </summary>
+    public event EventHandler<ReportBufferWarningEventArgs>? ReportBufferWarning;
 
     /// <summary>
     /// Connects the session and starts the sole unsolicited-frame consumer.
@@ -378,6 +394,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Ready);
+                StartKeepaliveMonitor();
             }
             catch (Exception exception)
             {
@@ -471,7 +488,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancels the query operation.</param>
     /// <returns>The high-level reader configuration snapshot.</returns>
-    public async Task<ReaderConfiguration> QuerySettingsAsync(
+    public async Task<ReaderConfiguration> QueryConfigurationAsync(
         CancellationToken cancellationToken = default)
     {
         EnsureProtocolAvailable();
@@ -497,7 +514,7 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(patch);
-        ReaderConfiguration current = await QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
+        ReaderConfiguration current = await QueryConfigurationAsync(cancellationToken).ConfigureAwait(false);
         return patch.ApplyTo(current);
     }
 
@@ -517,7 +534,7 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         ReaderConfiguration resolved = await ResolveConfigurationPatchAsync(patch, cancellationToken)
             .ConfigureAwait(false);
-        await ApplySettingsAsync(resolved, cancellationToken).ConfigureAwait(false);
+        await ApplyConfigurationAsync(resolved, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -526,7 +543,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <param name="configuration">The settings to apply.</param>
     /// <param name="cancellationToken">Cancels the application operation.</param>
     /// <returns>A task representing the apply operation.</returns>
-    public async Task ApplySettingsAsync(
+    public async Task ApplyConfigurationAsync(
         ReaderConfiguration configuration,
         CancellationToken cancellationToken = default)
     {
@@ -590,6 +607,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Ready);
+                StartKeepaliveMonitor();
             }
             catch (Exception exception)
             {
@@ -714,6 +732,9 @@ public sealed class LlrpReader : IAsyncDisposable
             Volatile.Write(ref _operationState, (int)ReaderOperationState.Starting);
             bool added = false;
             bool enabled = false;
+            uint? attachedDataAccessSpecId = null;
+            bool attachedDataAdded = false;
+            bool attachedDataEnabled = false;
             try
             {
                 try
@@ -746,15 +767,33 @@ public sealed class LlrpReader : IAsyncDisposable
                 ILlrpParameter roSpec = CompileDefaultInventoryRoSpec(settings);
                 await RoSpecs.AddAsync(roSpec, cancellationToken).ConfigureAwait(false);
                 added = true;
+
+                if (settings.AttachedData.Enabled)
+                {
+                    uint accessSpecId = NextManagedAccessSpecId();
+                    ILlrpParameter accessSpec = CompileAttachedDataAccessSpec(accessSpecId, settings.RoSpecId, settings.AttachedData);
+                    await AccessSpecs.AddAsync(accessSpec, cancellationToken).ConfigureAwait(false);
+                    attachedDataAccessSpecId = accessSpecId;
+                    attachedDataAdded = true;
+                    await AccessSpecs.EnableAsync(accessSpecId, cancellationToken).ConfigureAwait(false);
+                    attachedDataEnabled = true;
+                }
+
                 await RoSpecs.EnableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
                 enabled = true;
 
                 _managedInventoryRoSpecId = settings.RoSpecId;
+                _managedInventoryAttachedDataAccessSpecId = attachedDataAccessSpecId;
                 Volatile.Write(ref _currentSettings, settings);
                 Volatile.Write(ref _operationState, (int)ReaderOperationState.Inventorying);
             }
             catch
             {
+                await TryAttachedDataAccessSpecCleanupAsync(
+                    attachedDataAccessSpecId,
+                    attachedDataEnabled,
+                    attachedDataAdded,
+                    CancellationToken.None).ConfigureAwait(false);
                 if (enabled)
                 {
                     await TryManagedInventoryCleanupAsync(
@@ -865,7 +904,11 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(settings);
         EnsureProtocolAvailable();
-        return GetProtocolAdapter().CompileInventory(settings, BuildInventoryCustomItems(settings));
+        bool supportsStateAwareSingulation = Capabilities?.CanDoTagInventoryStateAwareSingulation == true;
+        return GetProtocolAdapter().CompileInventory(
+            settings,
+            BuildInventoryCustomItems(settings),
+            supportsStateAwareSingulation);
     }
 
     /// <inheritdoc />
@@ -957,7 +1000,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             Gpos = [new GpoConfiguration { GpoPortNumber = portNumber, GpoData = state }]
         };
-        await ApplySettingsAsync(config, cancellationToken).ConfigureAwait(false);
+        await ApplyConfigurationAsync(config, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -989,8 +1032,18 @@ public sealed class LlrpReader : IAsyncDisposable
             {
                 EnsureProtocolAvailable();
                 uint roSpecId = _managedInventoryRoSpecId ?? 14150;
+                uint? attachedDataAccessSpecId = _managedInventoryAttachedDataAccessSpecId;
+                bool attachedDataSuspended = false;
+                if (attachedDataAccessSpecId is uint attachedDataId)
+                {
+                    await AccessSpecs.DisableAsync(attachedDataId, cancellationToken).ConfigureAwait(false);
+                    attachedDataSuspended = true;
+                }
+
                 uint accessSpecId = NextManagedAccessSpecId();
-                ILlrpParameter accessSpec = GetProtocolAdapter().CompileTagAccess(accessSpecId, roSpecId, request);
+                bool useBlockWrite = request is WriteTagRequest { WriteData.Count: > 1 } &&
+                    Capabilities?.IsMultiwordBlockWriteAvailable == true;
+                ILlrpParameter accessSpec = GetProtocolAdapter().CompileTagAccess(accessSpecId, roSpecId, request, useBlockWrite);
                 var completion = new TaskCompletionSource<TagAccessResult>(TaskCreationOptions.RunContinuationsAsynchronously);
                 EventHandler<TagReportEventArgs>? handler = null;
                 handler = (_, args) =>
@@ -1031,6 +1084,125 @@ public sealed class LlrpReader : IAsyncDisposable
                     if (added)
                     {
                         try { await AccessSpecs.DeleteAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                    if (attachedDataSuspended && attachedDataAccessSpecId is uint suspendedAttachedDataId && IsConnected && OperationState == ReaderOperationState.Inventorying)
+                    {
+                        try { await AccessSpecs.EnableAsync(suspendedAttachedDataId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                }
+            }
+            finally
+            {
+                _operationLock.Release();
+            }
+        }
+        finally
+        {
+            if (isTemporaryRoSpec)
+            {
+                try { await StopAsync(cancellationToken).ConfigureAwait(false); } catch { }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Executes multiple standard C1G2 operations in one AccessSpec against a shared tag selection.
+    /// </summary>
+    /// <remarks>
+    /// The SDK owns the temporary AccessSpec and, when necessary, a temporary ROSpec. All operations must have
+    /// the same target selection and antenna; use separate calls for different targets.
+    /// </remarks>
+    public async Task<TagAccessSequenceResult> ExecuteTagAccessSequenceAsync(
+        TagAccessSequenceRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Operations);
+        if (request.Operations.Count == 0)
+        {
+            throw new ArgumentException("A tag access sequence requires at least one operation.", nameof(request));
+        }
+        EnsureProtocolAvailable();
+        if (timeout.HasValue && timeout.Value <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout), "Tag access timeout must be positive when specified.");
+        }
+
+        TagAccessRequest[] operations = request.Operations.ToArray();
+        bool isTemporaryRoSpec = false;
+        if (OperationState != ReaderOperationState.Inventorying)
+        {
+            await StartAsync(new ReaderSettings(), cancellationToken).ConfigureAwait(false);
+            isTemporaryRoSpec = true;
+        }
+
+        try
+        {
+            await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                EnsureProtocolAvailable();
+                uint roSpecId = _managedInventoryRoSpecId ?? 14150;
+                uint? attachedDataAccessSpecId = _managedInventoryAttachedDataAccessSpecId;
+                bool attachedDataSuspended = false;
+                if (attachedDataAccessSpecId is uint attachedDataId)
+                {
+                    await AccessSpecs.DisableAsync(attachedDataId, cancellationToken).ConfigureAwait(false);
+                    attachedDataSuspended = true;
+                }
+
+                uint accessSpecId = NextManagedAccessSpecId();
+                bool useBlockWrite = operations.Any(static operation => operation is WriteTagRequest { WriteData.Count: > 1 }) &&
+                    Capabilities?.IsMultiwordBlockWriteAvailable == true;
+                ILlrpParameter accessSpec = GetProtocolAdapter().CompileTagAccessSequence(
+                    accessSpecId,
+                    roSpecId,
+                    operations,
+                    useBlockWrite);
+                var completion = new TaskCompletionSource<TagAccessSequenceResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+                EventHandler<TagReportEventArgs>? handler = null;
+                handler = (_, args) =>
+                {
+                    TagReport report = args.Report;
+                    IReadOnlyList<TagAccessOperationResult>? results = report.AccessOperationResults;
+                    if (report.AccessSpecId != accessSpecId || results is null ||
+                        !Enumerable.Range(1, operations.Length).All(id => results.Any(result => result.OpSpecID == id)))
+                    {
+                        return;
+                    }
+
+                    completion.TrySetResult(new TagAccessSequenceResult(
+                        report,
+                        results.OrderBy(static result => result.OpSpecID).ToArray()));
+                };
+
+                TagsReported += handler;
+                bool added = false;
+                bool enabled = false;
+                try
+                {
+                    await AccessSpecs.AddAsync(accessSpec, cancellationToken).ConfigureAwait(false);
+                    added = true;
+                    await AccessSpecs.EnableAsync(accessSpecId, cancellationToken).ConfigureAwait(false);
+                    enabled = true;
+                    TimeSpan effectiveTimeout = timeout ?? Options.RequestTimeout;
+                    return await completion.Task.WaitAsync(effectiveTimeout, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    TagsReported -= handler;
+                    if (enabled)
+                    {
+                        try { await AccessSpecs.DisableAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                    if (added)
+                    {
+                        try { await AccessSpecs.DeleteAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                    if (attachedDataSuspended && attachedDataAccessSpecId is uint suspendedAttachedDataId && IsConnected && OperationState == ReaderOperationState.Inventorying)
+                    {
+                        try { await AccessSpecs.EnableAsync(suspendedAttachedDataId, CancellationToken.None).ConfigureAwait(false); } catch { }
                     }
                 }
             }
@@ -1242,6 +1414,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
     private async Task StopPumpAsync()
     {
+        await StopKeepaliveMonitorAsync().ConfigureAwait(false);
         CancellationTokenSource? cancellation = _pumpCancellation;
         Task? pumpTask = _pumpTask;
         _pumpCancellation = null;
@@ -1259,6 +1432,76 @@ public sealed class LlrpReader : IAsyncDisposable
         }
 
         cancellation.Dispose();
+    }
+
+    private void StartKeepaliveMonitor()
+    {
+        if (Options.KeepaliveTimeout is not { } timeout)
+        {
+            return;
+        }
+
+        if (_keepaliveMonitorTask is not null)
+        {
+            throw new InvalidOperationException("The LLRP keepalive monitor is already running.");
+        }
+
+        Volatile.Write(ref _lastKeepaliveUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
+        Volatile.Write(ref _keepaliveTimeoutSignaled, 0);
+        var cancellation = new CancellationTokenSource();
+        _keepaliveMonitorCancellation = cancellation;
+        _keepaliveMonitorTask = MonitorKeepaliveAsync(cancellation, timeout);
+    }
+
+    private async Task StopKeepaliveMonitorAsync()
+    {
+        CancellationTokenSource? cancellation = _keepaliveMonitorCancellation;
+        Task? monitorTask = _keepaliveMonitorTask;
+        _keepaliveMonitorCancellation = null;
+        _keepaliveMonitorTask = null;
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        cancellation.Cancel();
+        if (monitorTask is not null)
+        {
+            try
+            {
+                await monitorTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+                // Expected during explicit lifecycle shutdown.
+            }
+        }
+        cancellation.Dispose();
+    }
+
+    private async Task MonitorKeepaliveAsync(CancellationTokenSource cancellation, TimeSpan timeout)
+    {
+        TimeSpan interval = TimeSpan.FromMilliseconds(Math.Clamp(timeout.TotalMilliseconds / 4d, 50d, 1000d));
+        using var timer = new PeriodicTimer(interval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellation.Token).ConfigureAwait(false))
+            {
+                long ticks = Volatile.Read(ref _lastKeepaliveUtcTicks);
+                var lastReceivedAt = new DateTimeOffset(ticks, TimeSpan.Zero);
+                if (DateTimeOffset.UtcNow - lastReceivedAt < timeout ||
+                    Interlocked.CompareExchange(ref _keepaliveTimeoutSignaled, 1, 0) != 0)
+                {
+                    continue;
+                }
+
+                PublishKeepaliveTimedOut(timeout, lastReceivedAt);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // Explicit lifecycle shutdown.
+        }
     }
 
     private async Task PumpAsync(
@@ -1738,6 +1981,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private void ResetManagedInventoryState()
     {
         _managedInventoryRoSpecId = null;
+        _managedInventoryAttachedDataAccessSpecId = null;
         Volatile.Write(ref _currentSettings, null);
         Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
     }
@@ -1752,6 +1996,28 @@ public sealed class LlrpReader : IAsyncDisposable
         catch (Exception exception)
         {
             failure = exception;
+        }
+
+        uint? attachedDataAccessSpecId = _managedInventoryAttachedDataAccessSpecId;
+        if (attachedDataAccessSpecId is uint attachedDataId)
+        {
+            try
+            {
+                await AccessSpecs.DisableAsync(attachedDataId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                failure ??= exception;
+            }
+
+            try
+            {
+                await AccessSpecs.DeleteAsync(attachedDataId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                failure ??= exception;
+            }
         }
 
         try
@@ -1804,6 +2070,61 @@ public sealed class LlrpReader : IAsyncDisposable
     private Task TryDeleteManagedInventoryAsync(uint roSpecId, CancellationToken cancellationToken)
     {
         return TryManagedInventoryCleanupAsync(roSpecId, stop: false, cancellationToken);
+    }
+
+    private ILlrpParameter CompileAttachedDataAccessSpec(uint accessSpecId, uint roSpecId, AttachedDataOptions options)
+    {
+        if (options.MemoryBank > (ushort)TagMemoryBank.User)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Attached-data memory bank must be between 0 and 3.");
+        }
+        if (options.WordCount == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Attached-data word count must be positive.");
+        }
+        if (options.AccessPassword.Length != 8 ||
+            !uint.TryParse(options.AccessPassword, System.Globalization.NumberStyles.AllowHexSpecifier, System.Globalization.CultureInfo.InvariantCulture, out uint accessPassword))
+        {
+            throw new ArgumentException("Attached-data access password must be an eight-digit hexadecimal value.", nameof(options));
+        }
+
+        var request = new ReadTagRequest
+        {
+            Selection = new TagSelection
+            {
+                MemoryBank = TagMemoryBank.ElectronicProductCode,
+                BitPointer = 32,
+                BitLength = 1,
+                Mask = new byte[] { 0 },
+                Data = new byte[] { 0 },
+            },
+            AccessPassword = accessPassword,
+            MemoryBank = (TagMemoryBank)options.MemoryBank,
+            WordPointer = options.WordPointer,
+            WordCount = options.WordCount,
+        };
+        return GetProtocolAdapter().CompileTagAccess(accessSpecId, roSpecId, request);
+    }
+
+    private async Task TryAttachedDataAccessSpecCleanupAsync(
+        uint? accessSpecId,
+        bool enabled,
+        bool added,
+        CancellationToken cancellationToken)
+    {
+        if (accessSpecId is not uint id)
+        {
+            return;
+        }
+
+        if (enabled)
+        {
+            try { await AccessSpecs.DisableAsync(id, cancellationToken).ConfigureAwait(false); } catch { }
+        }
+        if (added)
+        {
+            try { await AccessSpecs.DeleteAsync(id, cancellationToken).ConfigureAwait(false); } catch { }
+        }
     }
 
     private bool MatchesTypedResponse<TResponse>(
@@ -1948,6 +2269,10 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             PublishReportBufferOverflow();
         }
+        if (data.ReportBufferLevelWarningEvent is { } warning)
+        {
+            PublishReportBufferWarning(warning.ReportBufferPercentageFull);
+        }
     }
 
     private void ProcessReaderEventNotification(V11Messages.READER_EVENT_NOTIFICATION msg)
@@ -1960,6 +2285,10 @@ public sealed class LlrpReader : IAsyncDisposable
         if (data.ReportBufferOverflowErrorEvent is not null)
         {
             PublishReportBufferOverflow();
+        }
+        if (data.ReportBufferLevelWarningEvent is { } warning)
+        {
+            PublishReportBufferWarning(warning.ReportBufferPercentageFull);
         }
     }
 
@@ -1977,6 +2306,8 @@ public sealed class LlrpReader : IAsyncDisposable
 
     private void PublishKeepaliveReceived()
     {
+        Volatile.Write(ref _lastKeepaliveUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
+        Volatile.Write(ref _keepaliveTimeoutSignaled, 0);
         try
         {
             KeepaliveReceived?.Invoke(this, EventArgs.Empty);
@@ -1996,6 +2327,30 @@ public sealed class LlrpReader : IAsyncDisposable
         catch (Exception exception)
         {
             _logger.LogError(exception, "A reader ReportBufferOverflow event subscriber failed for connection {ConnectionId}", ConnectionId);
+        }
+    }
+
+    private void PublishKeepaliveTimedOut(TimeSpan timeout, DateTimeOffset lastReceivedAt)
+    {
+        try
+        {
+            KeepaliveTimedOut?.Invoke(this, new KeepaliveTimeoutEventArgs(timeout, lastReceivedAt));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "A reader KeepaliveTimeout event subscriber failed for connection {ConnectionId}", ConnectionId);
+        }
+    }
+
+    private void PublishReportBufferWarning(byte percentageFull)
+    {
+        try
+        {
+            ReportBufferWarning?.Invoke(this, new ReportBufferWarningEventArgs(percentageFull));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "A reader ReportBufferWarning event subscriber failed for connection {ConnectionId}", ConnectionId);
         }
     }
 

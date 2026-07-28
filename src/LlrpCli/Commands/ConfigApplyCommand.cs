@@ -25,6 +25,11 @@ public sealed class ConfigApplySettings : CommandSettings
     [DefaultValue("auto")]
     public string LlrpVersion { get; init; } = "auto";
 
+    [CommandOption("--vendor <VENDOR>")]
+    [Description("Vendor extensions mode: auto, impinj, or none.")]
+    [DefaultValue("auto")]
+    public string Vendor { get; init; } = "auto";
+
     [CommandOption("--keepalive-type <TYPE>")]
     [Description("Keepalive trigger type: none or periodic.")]
     public string? KeepaliveType { get; init; }
@@ -75,9 +80,15 @@ public sealed class ConfigApplyCommand : AsyncCommand<ConfigApplySettings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, ConfigApplySettings settings, CancellationToken cancellationToken)
     {
-        if (!ProtocolVersionPolicyParser.TryParse(settings.LlrpVersion, out LlrpProtocolVersionPolicy policy))
+        if (!CliConnectionOptions.TryCreate(
+            settings.Host,
+            settings.Port,
+            settings.LlrpVersion,
+            settings.Vendor,
+            out CliConnectionOptions options,
+            out string error))
         {
-            _console.MarkupLine("[bold red]✖ Invalid LLRP version:[/] use auto, 1.0.1, or 1.1.");
+            _console.MarkupLine($"[bold red]✖ Invalid connection option:[/] {Markup.Escape(error)}");
             return 2;
         }
         if (!TryValidateRequestedChanges(settings, out string? validationError))
@@ -88,10 +99,9 @@ public sealed class ConfigApplyCommand : AsyncCommand<ConfigApplySettings>
 
         _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{settings.Host}:{settings.Port}[/] to apply settings...");
 
-        var builder = LlrpReader.CreateBuilder(settings.Host)
-            .WithPort(settings.Port)
-            .WithConnectTimeout(TimeSpan.FromSeconds(5))
-            .WithProtocolVersionPolicy(policy);
+        var builder = options.CreateReaderBuilder()
+            .WithConnectTimeout(TimeSpan.FromSeconds(5));
+        options.RenderVendorMode(_console);
 
         await using LlrpReader reader = builder.Build();
 
@@ -100,7 +110,7 @@ public sealed class ConfigApplyCommand : AsyncCommand<ConfigApplySettings>
             await reader.ConnectAsync(cancellationToken);
             
             // Query current configuration first
-            ReaderConfiguration current = await reader.QuerySettingsAsync(cancellationToken);
+            ReaderConfiguration current = await reader.QueryConfigurationAsync(cancellationToken);
             
             ReaderConfiguration updatedConfig = BuildUpdatedConfiguration(settings, current);
 
@@ -111,7 +121,7 @@ public sealed class ConfigApplyCommand : AsyncCommand<ConfigApplySettings>
                 return 0;
             }
 
-            await reader.ApplySettingsAsync(updatedConfig, cancellationToken);
+            await reader.ApplyConfigurationAsync(updatedConfig, cancellationToken);
             _console.MarkupLine("[bold springgreen2]✔ Configuration applied successfully![/]");
 
             await reader.DisconnectAsync(cancellationToken);

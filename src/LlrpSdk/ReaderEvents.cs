@@ -97,3 +97,39 @@ public sealed class GpiChangedEventArgs : EventArgs
     /// <summary>Gets the UTC time of the state change event.</summary>
     public DateTimeOffset Timestamp { get; }
 }
+
+/// <summary>Describes a reader tag-report buffer level warning.</summary>
+public sealed class ReportBufferWarningEventArgs : EventArgs
+{
+    internal ReportBufferWarningEventArgs(byte percentageFull)
+    {
+        PercentageFull = percentageFull;
+        Timestamp = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Gets the reader-reported percentage of the report buffer currently in use.</summary>
+    public byte PercentageFull { get; }
+
+    /// <summary>Gets when the SDK observed the warning.</summary>
+    public DateTimeOffset Timestamp { get; }
+}
+
+/// <summary>Describes an opt-in SDK keepalive liveness timeout.</summary>
+public sealed class KeepaliveTimeoutEventArgs : EventArgs
+{
+    internal KeepaliveTimeoutEventArgs(TimeSpan timeout, DateTimeOffset lastReceivedAt)
+    {
+        Timeout = timeout;
+        LastReceivedAt = lastReceivedAt;
+        Timestamp = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Gets the configured maximum silence between reader keepalives.</summary>
+    public TimeSpan Timeout { get; }
+
+    /// <summary>Gets the last keepalive observation time, or the start of ready state when none arrived.</summary>
+    public DateTimeOffset LastReceivedAt { get; }
+
+    /// <summary>Gets when the SDK detected the timeout.</summary>
+    public DateTimeOffset Timestamp { get; }
+}

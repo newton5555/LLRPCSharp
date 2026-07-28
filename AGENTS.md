@@ -55,7 +55,7 @@ instead, then regenerate and verify.
 - LLRP 2.0 definitions exist, but there is no `Llrp20ProtocolAdapter` yet.
 - `ReaderSettings` currently represents inventory intent, not a full reader
   configuration snapshot.
-- `QuerySettingsAsync`, `ApplySettingsAsync`, tag memory access APIs, dynamic
+- `QueryConfigurationAsync`, `ApplyConfigurationAsync`, tag memory access APIs, dynamic
   YAML runtime loading, Settings Contributor, and TagReport Contributor are
   planned design areas, not currently callable public SDK APIs.
 - Automatic reconnect is limited; it does not yet restore desired ROSpec,

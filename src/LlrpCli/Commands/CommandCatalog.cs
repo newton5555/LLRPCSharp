@@ -77,13 +77,13 @@ public static class CommandCatalog
                 "false"
             ],
         },
-        new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase <epc> [options]", "Read, write, lock, kill, or block-erase tag memory.", RequiresConnection: true)
+        new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
-            CompletionCandidates = ["read", "write", "lock", "kill", "erase", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "user", "tid", "epc", "reserved", "unlock", "perma-lock"],
+            CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory start [[antenna-id]] [--session <0..3>] [--population <n>] [--attach-bank <bank>] [--settings <path>] | stop | status", "Manage SDK inventory and display tag reports.", RequiresConnection: true)
+        new("inventory", LiveCommandRoute.Inventory, "inventory settings show|set|load|save|reset | start [--antennas <id,id|all>] | stop | status", "Manage SDK inventory intent and display tag reports.")
         {
-            CompletionCandidates = ["start", "stop", "status", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "--settings", "--config", "epc", "tid", "user", "reserved"],
+            CompletionCandidates = ["settings", "start", "stop", "status", "show", "set", "load", "save", "reset", "--antennas", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "epc", "tid", "user", "reserved", "all", "none"],
         },
         new("rospec", LiveCommandRoute.RoSpec, "rospec add|list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
         {

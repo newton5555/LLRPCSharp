@@ -11,6 +11,7 @@ public sealed class TagReadSettings : CommandSettings
     [CommandArgument(1, "<EPC>")] public string Epc { get; init; } = string.Empty;
     [CommandOption("--port <PORT>")] [DefaultValue(5084)] public int Port { get; init; } = 5084;
     [CommandOption("--llrp <VERSION>")] [DefaultValue("auto")] public string LlrpVersion { get; init; } = "auto";
+    [CommandOption("--vendor <VENDOR>")] [DefaultValue("auto")] public string Vendor { get; init; } = "auto";
     [CommandOption("--bank <BANK>")] [DefaultValue("user")] public string Bank { get; init; } = "user";
     [CommandOption("--word <ADDRESS>")] public ushort WordPointer { get; init; }
     [CommandOption("--count <WORDS>")] public ushort WordCount { get; init; }
@@ -26,7 +27,7 @@ public sealed class TagReadCommand(IAnsiConsole console) : AsyncCommand<TagReadS
 
     protected override async Task<int> ExecuteAsync(CommandContext context, TagReadSettings settings, CancellationToken cancellationToken)
     {
-        if (!CliConnectionOptions.TryCreate(settings.Host, settings.Port, settings.LlrpVersion, "auto", out CliConnectionOptions options, out string error))
+        if (!CliConnectionOptions.TryCreate(settings.Host, settings.Port, settings.LlrpVersion, settings.Vendor, out CliConnectionOptions options, out string error))
         {
             throw new CliUsageException(error);
         }

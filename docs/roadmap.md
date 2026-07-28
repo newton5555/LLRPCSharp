@@ -21,7 +21,7 @@
 
 - 定义 `ReaderSettings` 当前范围：只表示 Inventory 设置，还是升级为完整 Reader Config 聚合模型。
 - 若保留轻量模型，新增独立的 `ReaderConfiguration` 或 `ReaderConfigSnapshot`。
-- 实现 `QuerySettingsAsync` / `ApplySettingsAsync` 时走 Adapter，避免把版本化 Message 暴露到应用层。
+- 实现 `QueryConfigurationAsync` / `ApplyConfigurationAsync` 时走 Adapter，避免把版本化 Message 暴露到应用层。
 - CLI 增加 `config get` / `config apply` 的最小可用路径。
 
 ### 3. 标签访问 API（标准基线已完成）

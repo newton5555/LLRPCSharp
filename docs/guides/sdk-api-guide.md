@@ -21,7 +21,7 @@
  AccessSpec 生命周期与标签解析             资源生命周期与物理配置                   自定义 Custom Message 报文
   ├─ reader.StartAsync / StopAsync       ├─ reader.RoSpecs (IRoSpecService)      ├─ reader.Protocol.TransactAsync<T>
   ├─ reader.ReadTagMemoryAsync           ├─ reader.AccessSpecs (IAccessSpecService)├─ reader.Protocol.SendRawAsync
-  └─ reader.TagsReported / ReadTagReports └─ reader.QuerySettingsAsync / Apply    └─ reader.Protocol.TransactRawAsync
+  └─ reader.TagsReported / ReadTagReports └─ reader.QueryConfigurationAsync / ApplyConfigurationAsync    └─ reader.Protocol.TransactRawAsync
 ```
 
 ---
@@ -32,7 +32,7 @@
 
 1. **状态互锁防护 (State Synchronization Guard)**：
    - **托管状态 (`IsManagedStateSynchronized = true`)**：当使用第一层托管 API（如 `StartAsync` / `ReadTagMemoryAsync`）时，SDK 维持对读写器 ROSpec/AccessSpec 生命周期的完全追踪；
-   - **Raw/直接操控追踪**：一旦开发者调用了第三层 Raw 报文 API（如 `SendRawAsync`）或第二层修改了全局配置 (`ApplySettingsAsync`)，SDK 会**自动将 `IsManagedStateSynchronized` 标记为 `false`**；
+   - **Raw/直接操控追踪**：一旦开发者调用了第三层 Raw 报文 API（如 `SendRawAsync`）或第二层修改了全局配置 (`ApplyConfigurationAsync`)，SDK 会**自动将 `IsManagedStateSynchronized` 标记为 `false`**；
    - **防踩踏断言**：在 `IsManagedStateSynchronized == false` 时，若再次调用第一层托管 API，SDK 会抛出明确异常，防止托管逻辑与裸报文操作产生混乱或状态覆盖。
 2. **恢复机制 (`SynchronizeStateAsync`)**：
    - 开发者完成第三层 Raw 报文调试或自定义操作后，只需显式调用 `await reader.SynchronizeStateAsync()`，SDK 就会重新向设备拉取现存的 ROSpec/AccessSpec 列表，恢复托管状态同步。
@@ -45,7 +45,7 @@
 [构建 Builder] ──► [ConnectAsync 握手] ──► [Ready 就绪] ──► [业务操作 (配置/盘点/读写)] ──► [Disconnect / Dispose 释放]
                         │                       │
                         ▼                       ▼
-               (自动协商 1.1/1.0.1             (若调用 Raw/ApplySettings
+               (自动协商 1.1/1.0.1             (若调用 Raw/ApplyConfiguration
                 + 双阶段 Impinj 扩展激活)         标记失效 需 SynchronizeStateAsync)
 ```
 
@@ -71,7 +71,15 @@
 
 `GetDefaultConfiguration()` 只是不发送配置查询报文；目前仍需 Reader 已连接并完成初始化，才能依照身份、能力和激活扩展解析 Profile。它不是设备当前配置，也不是完全离线 API。
 
-后续将以非破坏方式增加 `QueryConfigurationAsync` / `ApplyConfigurationAsync` 作为清晰主名，并保留当前 `QuerySettingsAsync` / `ApplySettingsAsync` 一个兼容周期。
+配置 API 统一使用 `QueryConfigurationAsync` / `ApplyConfigurationAsync`；未发布版本不保留含糊的旧名称。
+
+`ReaderSettings` 表示一次托管盘点的意图。除天线、C1G2 Session、标签数量、RF Mode 和 Tari 外，它还可通过 `StartTrigger` / `StopTrigger` 表达标准 ROSpec 的周期、GPI 或时长触发；这些字段由协商的协议 Adapter 编译，应用层不需要引用版本化协议类型。
+
+`AttachedData.Enabled` 会让 SDK 为该托管 ROSpec 创建标准 C1G2 Read AccessSpec；停止盘点时该资源会被清理。若调用单次 Read/Write/Lock/Kill/Erase，SDK 会暂时禁用该常驻读取并在操作结束后恢复，以避免两个 AccessSpec 竞争。
+
+需要在一个目标标签上执行多个标准操作时，使用 `ExecuteTagAccessSequenceAsync(new TagAccessSequenceRequest { Operations = [...] })`。每项操作必须使用相同的 `TagSelection` 与天线；SDK 将它们编译到同一个 AccessSpec，并返回按 OpSpec ID 排序的完整结果集合。
+
+若使用 `ReaderSettings.StateAwareSingulation` 指定 C1G2 Target A/B，SDK 会先检查 `ReaderCapabilities.CanDoTagInventoryStateAwareSingulation`；读写器未声明支持时启动将明确失败，绝不静默下发会被忽略的状态感知参数。
 
 ### 1. 构建与连接管理 API
 
@@ -83,6 +91,7 @@
 - `.WithPort(int port)`：设置 LLRP 端口（默认 `5084`）。
 - `.WithConnectTimeout(TimeSpan timeout)`：连接建立超时时间。
 - `.WithRequestTimeout(TimeSpan timeout)`：LLRP 报文事务响应超时时间。
+- `.WithKeepaliveTimeout(TimeSpan? timeout)`：可选的读写器 KEEPALIVE 静默监测；超时触发 `KeepaliveTimedOut`，不强制断连。
 - `.WithProtocolVersionPolicy(LlrpProtocolVersionPolicy policy)`：协议协商策略 (`Auto`, `Force101`, `Force11`)。
 - `.WithAutomaticReconnect(LlrpAutomaticReconnectOptions options)`：开启意外断开后的有限自动重连。
 - `.WithFrameObserver(ILlrpFrameObserver observer)`：注入底层 TX/RX 帧观察器。
@@ -101,7 +110,7 @@
 | 属性 / 方法 | 类型 | 说明 |
 |---|---|---|
 | `ConnectionState` | `ReaderConnectionState` | 当前连接状态：`Disconnected`, `Connecting`, `Ready`, `Disconnecting`, `Faulted`, `Reconnecting`, `Disposed` |
-| `OperationState` | `ReaderOperationState` | 当前托管盘点状态：`Idle`, `InventoryRunning` |
+| `OperationState` | `ReaderOperationState` | 当前托管盘点状态：`Idle`, `Starting`, `Inventorying`, `Stopping`, `Faulted` |
 | `IsConnected` | `bool` | 当前读写器是否在线且就绪 (`ConnectionState == Ready && Session.IsConnected`) |
 | `NegotiatedVersion` | `LlrpProtocolVersion` | 连接建立后实际协商确定的协议版本 (`Version101` 或 `Version11`) |
 | `Identity` | `ReaderIdentity?` | 读写器身份信息：`ManufacturerName`, `ModelName`, `FirmwareVersion` |
@@ -109,19 +118,20 @@
 | `IsManagedStateSynchronized` | `bool` | 本地托管状态与设备是否同步（若为 `false` 需调用 `SynchronizeStateAsync`） |
 | `ConnectionChanged` | `event EventHandler<ReaderConnectionChangedEventArgs>` | 连接状态转换事件 |
 | `ErrorOccurred` | `event EventHandler<ReaderErrorEventArgs>` | 读写器后台泵或连接发生异常的通知事件 |
+| `KeepaliveTimedOut` | `event EventHandler<KeepaliveTimeoutEventArgs>` | 仅在 `WithKeepaliveTimeout` 启用后，连续静默达到阈值时触发一次 |
 
 ---
 
 ### 3. 设备配置 API (Configuration Management)
 
-#### `Task<ReaderConfiguration> QuerySettingsAsync(CancellationToken cancellationToken = default)`
+#### `Task<ReaderConfiguration> QueryConfigurationAsync(CancellationToken cancellationToken = default)`
 - **说明**：向读写器发送 `GET_READER_CONFIG`（包含 Impinj 查询扩展），获取设备当前运行参数。
 - **返回**：`ReaderConfiguration` 对象。对于 Impinj 读写器，扩展配置存储在 `configuration.Extensions["impinj.readerSettings"]`（类型为 `ImpinjReaderSettings`），包含区域、温度 Celsius、GPI 防抖、Link Monitor 等。
 
 #### `ReaderConfiguration GetDefaultConfiguration()` / `ReaderConfigurationDefaultsResult GetDefaultConfigurationResult()`
 - **说明**：获取 SDK 推荐的离线安全配置基线（不向设备发送报文）。
 
-#### `Task ApplySettingsAsync(ReaderConfiguration configuration, CancellationToken cancellationToken = default)`
+#### `Task ApplyConfigurationAsync(ReaderConfiguration configuration, CancellationToken cancellationToken = default)`
 - **说明**：向设备发送 `SET_READER_CONFIG` 应用配置。执行后将使 `IsManagedStateSynchronized` 标为 `false`。
 
 ---
@@ -155,18 +165,20 @@
 
 ### 5. C1G2 标签 Memory 访问 API (Tag Access)
 
-#### `Task<ReadTagResponse> ReadTagMemoryAsync(ReadTagRequest request, CancellationToken cancellationToken = default)`
+#### `Task<TagAccessResult> ReadTagMemoryAsync(ReadTagRequest request, TimeSpan? timeout = null, CancellationToken cancellationToken = default)`
 - **说明**：读取指定 EPC 标签的 Memory 区（如 EPC, TID, User Memory, Reserved）。
 - **参数**：
-  - `request.TargetEpc`：目标标签 EPC。
-  - `request.MemoryBank`：存储区类型 (`EPC`, `TID`, `User`, `Reserved`)。
-  - `request.WordAddress`：起始 Word 偏移量。
+  - `request.Selection`：目标标签的标准 BitPointer/Mask/Data 选择条件；EPC 选择通常使用 EPC bank、BitPointer=32。
+  - `request.MemoryBank`：存储区类型 (`ElectronicProductCode`, `Tid`, `User`, `Reserved`)。
+  - `request.WordPointer`：起始 Word 偏移量。
   - `request.WordCount`：读取 Word 数量。
   - `request.AccessPassword`：访问密码（可选）。
 - **机制**：SDK 自动创建临时 AccessSpec (ID 24000+)，等待 OpSpec 结果后自动注销清理。
 
-#### `Task<WriteTagResponse> WriteTagMemoryAsync(WriteTagRequest request, CancellationToken cancellationToken = default)`
+#### `Task<TagAccessResult> WriteTagMemoryAsync(WriteTagRequest request, TimeSpan? timeout = null, CancellationToken cancellationToken = default)`
 - **说明**：向指定 EPC 标签写入数据。
+
+同一套高层入口还提供 `LockTagMemoryAsync`、`KillTagAsync`、`BlockEraseTagMemoryAsync` 及 `ExecuteTagAccessSequenceAsync`。它们返回 `TagAccessResult` 或 `TagAccessSequenceResult`；结果从标准 C1G2 OpSpec Result 投影。
 
 ---
 
@@ -229,16 +241,24 @@ await Task.Delay(TimeSpan.FromSeconds(5));
 await reader.StopAsync();
 
 // 6. 执行 C1G2 标签 User Memory 读取（SDK 自动下发并清理临时 AccessSpec）
-var request = new ReadTagRequest(
-    targetEpc: "E28011710000020D056E9BEE",
-    memoryBank: MemoryBank.User,
-    wordAddress: 0,
-    wordCount: 1
-);
-ReadTagResponse response = await reader.ReadTagMemoryAsync(request);
-Console.WriteLine(response.IsSuccess 
-    ? $"读取成功: Data={response.DataHex}" 
-    : $"读取失败: {response.Status}");
+byte[] epc = Convert.FromHexString("E28011710000020D056E9BEE");
+TagAccessResult response = await reader.ReadTagMemoryAsync(new ReadTagRequest
+{
+    Selection = new TagSelection
+    {
+        MemoryBank = TagMemoryBank.ElectronicProductCode,
+        BitPointer = 32,
+        BitLength = checked((ushort)(epc.Length * 8)),
+        Mask = Enumerable.Repeat((byte)0xFF, epc.Length).ToArray(),
+        Data = epc,
+    },
+    MemoryBank = TagMemoryBank.User,
+    WordPointer = 0,
+    WordCount = 1,
+});
+Console.WriteLine(response.Operation.Success
+    ? $"读取成功: Data={string.Concat(response.Operation.ReadData.Select(static word => word.ToString(\"X4\")))}"
+    : $"读取失败: {response.Operation.Error}");
 
 // 7. 断开与销毁
 await reader.DisconnectAsync();
@@ -273,8 +293,8 @@ await reader.RoSpecs.DisableAsync(targetRoSpecId); // 禁用 ROSpec
 await reader.RoSpecs.DeleteAsync(targetRoSpecId);  // 删除 ROSpec
 
 // 4. 显式查询设备运行物理配置 (GET_READER_CONFIG)
-ReaderConfiguration config = await reader.QuerySettingsAsync();
-Console.WriteLine($"Keepalive 模式: {config.Keepalive.Mode}, 天线数量: {config.AntennaConfigs.Count}");
+ReaderConfiguration config = await reader.QueryConfigurationAsync();
+Console.WriteLine($"Keepalive 模式: {config.Keepalive.TriggerType}, 天线数量: {config.Antennas.Count}");
 
 await reader.DisconnectAsync();
 ```
@@ -335,7 +355,7 @@ await reader.Protocol.TransactAsync<GET_READER_CONFIG_RESPONSE>(customMsg);
 
 // 阶段 D：安全重新同步后，无缝切回第一层托管 API 读标签
 await reader.SynchronizeStateAsync();
-ReadTagResponse tagRes = await reader.ReadTagMemoryAsync(new ReadTagRequest("E28011710000020D056E9BEE"));
+// 使用上方示例的完整 ReadTagRequest；TagAccessResult 可提供 OpSpec 成功状态和读取字。
 
 await reader.DisconnectAsync();
 ```

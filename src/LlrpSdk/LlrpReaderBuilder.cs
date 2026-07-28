@@ -178,6 +178,18 @@ public sealed class LlrpReaderBuilder
         return this;
     }
 
+    /// <summary>
+    /// Enables opt-in reader KEEPALIVE liveness monitoring after initialization.
+    /// A timeout raises <see cref="LlrpReader.KeepaliveTimedOut"/> without forcibly disconnecting.
+    /// </summary>
+    /// <param name="timeout">A positive duration, or null to disable monitoring.</param>
+    /// <returns>This builder.</returns>
+    public LlrpReaderBuilder WithKeepaliveTimeout(TimeSpan? timeout)
+    {
+        _optionsBuilder.WithKeepaliveTimeout(timeout);
+        return this;
+    }
+
     /// <summary>Registers a provider of identity-based reader configuration defaults.</summary>
     /// <param name="provider">The provider to evaluate after the reader has initialized.</param>
     /// <returns>This builder.</returns>

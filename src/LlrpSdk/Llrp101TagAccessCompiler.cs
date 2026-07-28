@@ -7,29 +7,49 @@ namespace LlrpSdk;
 
 internal static class Llrp101TagAccessCompiler
 {
-    public static AccessSpec Compile(uint accessSpecId, uint roSpecId, TagAccessRequest request)
+    public static AccessSpec Compile(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false)
     {
         ArgumentNullException.ThrowIfNull(request);
-        Validate(request);
-        ILlrpParameter opSpec = request switch
+        return CompileSequence(accessSpecId, roSpecId, [request], useBlockWrite);
+    }
+
+    public static AccessSpec CompileSequence(
+        uint accessSpecId,
+        uint roSpecId,
+        IReadOnlyList<TagAccessRequest> requests,
+        bool useBlockWrite = false)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        if (requests.Count == 0)
         {
-            ReadTagRequest read => new C1G2Read(1, read.AccessPassword, (byte)read.MemoryBank, read.WordPointer, read.WordCount),
-            WriteTagRequest write => new C1G2Write(1, write.AccessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
-            LockTagRequest lockReq => CompileLock(lockReq),
-            KillTagRequest killReq => new C1G2Kill(1, killReq.KillPassword),
-            BlockEraseTagRequest eraseReq => new C1G2BlockErase(1, eraseReq.AccessPassword, (byte)eraseReq.MemoryBank, eraseReq.WordPointer, eraseReq.WordCount),
-            _ => throw new NotSupportedException($"Unsupported tag access request type {request.GetType().FullName}.")
-        };
+            throw new ArgumentException("A tag access sequence requires at least one operation.", nameof(requests));
+        }
+
+        TagAccessRequest first = requests[0] ?? throw new ArgumentException("A tag access sequence cannot contain null operations.", nameof(requests));
+        Validate(first);
+        var opSpecs = new ILlrpParameter[requests.Count];
+        for (int index = 0; index < requests.Count; index++)
+        {
+            TagAccessRequest request = requests[index] ?? throw new ArgumentException("A tag access sequence cannot contain null operations.", nameof(requests));
+            Validate(request);
+            if (!HasSameTarget(first, request))
+            {
+                throw new ArgumentException("Every tag access sequence operation must use the same selection and antenna.", nameof(requests));
+            }
+            opSpecs[index] = CompileOperation(request, checked((ushort)(index + 1)), useBlockWrite);
+        }
+
+        TagSelection selection = first.Selection;
         var target = new C1G2TargetTag(
-            (byte)request.Selection.MemoryBank,
-            request.Selection.Match,
-            request.Selection.BitPointer,
-            ToBits(request.Selection.Mask.Span, request.Selection.BitLength),
-            ToBits(request.Selection.Data.Span, request.Selection.BitLength));
-        var command = new AccessCommand(new C1G2TagSpec([target]), [opSpec], []);
+            (byte)selection.MemoryBank,
+            selection.Match,
+            selection.BitPointer,
+            ToBits(selection.Mask.Span, selection.BitLength),
+            ToBits(selection.Data.Span, selection.BitLength));
+        var command = new AccessCommand(new C1G2TagSpec([target]), opSpecs, []);
         return new AccessSpec(
             accessSpecId,
-            request.AntennaId,
+            first.AntennaId,
             AirProtocols.EPCGlobalClass1Gen2,
             AccessSpecState.Disabled,
             roSpecId,
@@ -37,6 +57,20 @@ internal static class Llrp101TagAccessCompiler
             command,
             new AccessReportSpec(AccessReportTriggerType.End_Of_AccessSpec),
             []);
+    }
+
+    private static ILlrpParameter CompileOperation(TagAccessRequest request, ushort opSpecId, bool useBlockWrite)
+    {
+        return request switch
+        {
+            ReadTagRequest read => new C1G2Read(opSpecId, read.AccessPassword, (byte)read.MemoryBank, read.WordPointer, read.WordCount),
+            WriteTagRequest write when useBlockWrite && write.WriteData.Count > 1 => new C1G2BlockWrite(opSpecId, write.AccessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
+            WriteTagRequest write => new C1G2Write(opSpecId, write.AccessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
+            LockTagRequest lockReq => CompileLock(lockReq, opSpecId),
+            KillTagRequest killReq => new C1G2Kill(opSpecId, killReq.KillPassword),
+            BlockEraseTagRequest eraseReq => new C1G2BlockErase(opSpecId, eraseReq.AccessPassword, (byte)eraseReq.MemoryBank, eraseReq.WordPointer, eraseReq.WordCount),
+            _ => throw new NotSupportedException($"Unsupported tag access request type {request.GetType().FullName}.")
+        };
     }
 
     private static void Validate(TagAccessRequest request)
@@ -60,7 +94,20 @@ internal static class Llrp101TagAccessCompiler
         }
     }
 
-    private static C1G2Lock CompileLock(LockTagRequest lockReq)
+    private static bool HasSameTarget(TagAccessRequest expected, TagAccessRequest actual)
+    {
+        TagSelection left = expected.Selection;
+        TagSelection right = actual.Selection;
+        return expected.AntennaId == actual.AntennaId &&
+            left.MemoryBank == right.MemoryBank &&
+            left.BitPointer == right.BitPointer &&
+            left.BitLength == right.BitLength &&
+            left.Match == right.Match &&
+            left.Mask.Span.SequenceEqual(right.Mask.Span) &&
+            left.Data.Span.SequenceEqual(right.Data.Span);
+    }
+
+    private static C1G2Lock CompileLock(LockTagRequest lockReq, ushort opSpecId)
     {
         var payloads = new List<C1G2LockPayload>();
         AddPayloadIfSet(payloads, C1G2LockDataField.Kill_Password, lockReq.KillPasswordLockMode);
@@ -74,7 +121,7 @@ internal static class Llrp101TagAccessCompiler
             throw new ArgumentException("LockTagRequest must specify at least one lock mode change.", nameof(lockReq));
         }
 
-        return new C1G2Lock(1, lockReq.AccessPassword, payloads);
+        return new C1G2Lock(opSpecId, lockReq.AccessPassword, payloads);
     }
 
     private static void AddPayloadIfSet(List<C1G2LockPayload> payloads, C1G2LockDataField field, TagLockMode mode)

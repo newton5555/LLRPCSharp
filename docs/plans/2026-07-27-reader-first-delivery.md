@@ -15,7 +15,7 @@
 | 域 | 高层 `LlrpReader` 接口 | 高级接口 | 当前验收原则 |
 |---|---|---|---|
 | 连接与初始化 | `ConnectAsync`、协商、身份、能力、断开 | `Protocol` 诊断 | R420/R700 连通、协商与错误可诊断 |
-| 标准配置 | `QueryConfigurationAsync` / `ApplyConfigurationAsync`（兼容期保留旧名）、默认配置/Profile、Patch 解析与显式 Apply | 原始配置报文 | 查询和写入边界分离；CLI 不重做配置语义 |
+| 标准配置 | `QueryConfigurationAsync` / `ApplyConfigurationAsync`、默认配置/Profile、Patch 解析与显式 Apply | 原始配置报文 | 查询和写入边界分离；CLI 不重做配置语义 |
 | ROSpec/盘点 | `StartAsync`、`StopAsync`、`InventoryAsync`、报告流 | `RoSpecs` Add/Get/Enable/Start/Stop/Delete | 默认资源可用、显式资源可控、所有权清楚 |
 | AccessSpec/标签操作 | `ReadTagMemoryAsync`、`WriteTagMemoryAsync` | `AccessSpecs` 生命周期 | 最小读写、选择、密码、清理和失败结果正确 |
 | TagReport | 版本无关 `TagReport` 流/事件 | 原始 Message/帧 | 标准字段与未知字段不丢失 |
@@ -25,7 +25,7 @@
 ## 阶段 A：标准 LLRP 1.0.1 Reader API 补全
 
 1. 为每个标准资源域盘点“高层入口 / 高级服务 / Raw 退路”三层是否齐备；缺高层入口时先补 SDK，不从 CLI 绕过。
-2. 完成配置 API 的一致使用：`ReaderConfigurationPatch` 是部分变更模型，`QueryConfigurationAsync` 是设备状态，`GetDefaultConfigurationResult()` 是 SDK 基线，三者不得混用。现有 `QuerySettingsAsync` / `ApplySettingsAsync` 作为兼容别名逐步迁移。
+2. 完成配置 API 的一致使用：`ReaderConfigurationPatch` 是部分变更模型，`QueryConfigurationAsync` 是设备状态，`GetDefaultConfigurationResult()` 是 SDK 基线，三者不得混用。
 3. 清晰定义 SDK 托管 ROSpec、CLI 默认 ROSpec 和外部 ROSpec 的资源所有权，避免删除不属于调用者的资源。
 4. 补足 Tag Access 的标准读写闭环、错误状态、超时、密码和清理语义；写入只在实机验收与明确确认后开放为 CLI 实际操作。
 5. 建立每项 API 对 R420/R700 的非破坏性验收记录；破坏性写入使用可恢复的专用标签与明确步骤。

@@ -21,6 +21,87 @@ public sealed record AttachedDataOptions
     public string AccessPassword { get; init; } = "00000000";
 }
 
+/// <summary>Defines how a managed ROSpec begins executing after it is enabled.</summary>
+public sealed record InventoryStartTrigger
+{
+    /// <summary>Gets the trigger kind. The default starts immediately.</summary>
+    public InventoryStartTriggerType Type { get; init; } = InventoryStartTriggerType.Immediate;
+
+    /// <summary>Gets the periodic-trigger offset in milliseconds.</summary>
+    public uint OffsetMilliseconds { get; init; }
+
+    /// <summary>Gets the periodic-trigger period in milliseconds. It must be non-zero for a periodic trigger.</summary>
+    public uint PeriodMilliseconds { get; init; }
+
+    /// <summary>Gets the GPI port used by a GPI trigger. It must be non-zero for a GPI trigger.</summary>
+    public ushort GpiPortNumber { get; init; }
+
+    /// <summary>Gets the GPI state which activates a GPI trigger.</summary>
+    public bool GpiState { get; init; }
+
+    /// <summary>Gets the GPI trigger timeout in milliseconds; zero means no timeout.</summary>
+    public uint TimeoutMilliseconds { get; init; }
+}
+
+/// <summary>Defines the supported standard ROSpec start trigger kinds.</summary>
+public enum InventoryStartTriggerType
+{
+    Immediate,
+    Periodic,
+    Gpi,
+}
+
+/// <summary>Defines how a managed ROSpec stops executing.</summary>
+public sealed record InventoryStopTrigger
+{
+    /// <summary>Gets the trigger kind. The default has no automatic stop condition.</summary>
+    public InventoryStopTriggerType Type { get; init; } = InventoryStopTriggerType.None;
+
+    /// <summary>Gets the duration in milliseconds for a duration trigger.</summary>
+    public uint DurationMilliseconds { get; init; }
+
+    /// <summary>Gets the GPI port used by a GPI-with-timeout trigger.</summary>
+    public ushort GpiPortNumber { get; init; }
+
+    /// <summary>Gets the GPI state which stops the ROSpec.</summary>
+    public bool GpiState { get; init; }
+
+    /// <summary>Gets the GPI trigger timeout in milliseconds; zero means no timeout.</summary>
+    public uint TimeoutMilliseconds { get; init; }
+}
+
+/// <summary>Defines the supported standard ROSpec stop trigger kinds.</summary>
+public enum InventoryStopTriggerType
+{
+    None,
+    Duration,
+    GpiWithTimeout,
+}
+
+/// <summary>Describes a state-aware C1G2 singulation action for an inventory operation.</summary>
+public sealed record InventoryStateAwareSingulation
+{
+    /// <summary>Gets the inventory state targeted for the configured C1G2 session.</summary>
+    public InventoryTarget Target { get; init; } = InventoryTarget.StateA;
+
+    /// <summary>Gets whether tags with the SL flag set or clear participate in the action.</summary>
+    public InventorySelectedFlag SelectedFlag { get; init; } = InventorySelectedFlag.Set;
+}
+
+/// <summary>Defines the C1G2 inventoried state targeted by state-aware singulation.</summary>
+public enum InventoryTarget
+{
+    StateA,
+    StateB,
+}
+
+/// <summary>Defines the SL flag state selected by state-aware singulation.</summary>
+public enum InventorySelectedFlag
+{
+    Set,
+    Clear,
+}
+
 /// <summary>
 /// Describes the version-independent intent for one managed inventory operation.
 /// </summary>
@@ -87,4 +168,16 @@ public sealed record ReaderSettings
     /// Gets the attached data options for reading extra tag memory during inventory.
     /// </summary>
     public AttachedDataOptions AttachedData { get; init; } = new();
+
+    /// <summary>Gets the ROSpec trigger that begins inventory after the ROSpec is enabled.</summary>
+    public InventoryStartTrigger StartTrigger { get; init; } = new();
+
+    /// <summary>Gets the ROSpec trigger that automatically stops inventory.</summary>
+    public InventoryStopTrigger StopTrigger { get; init; } = new();
+
+    /// <summary>
+    /// Gets the optional state-aware C1G2 singulation action. The connected reader must advertise
+    /// <see cref="ReaderCapabilities.CanDoTagInventoryStateAwareSingulation"/> when this is set.
+    /// </summary>
+    public InventoryStateAwareSingulation? StateAwareSingulation { get; init; }
 }

@@ -80,7 +80,7 @@ Live Shell 必须清晰管理一个 Reader 会话的连接、托管资源所有�
 
 - 1.0.1 Reader API 的缺口优先于 1.1/2.0、Virtual Reader 和新的 CLI 花样；
 - CLI 新命令没有对应 SDK API 时，先补 SDK API，再加 CLI 薄封装；
-- SDK API 名称逐步消除歧义：新增 `QueryConfigurationAsync` / `ApplyConfigurationAsync` 作为清晰主名，并在兼容期保留现有 `QuerySettingsAsync` / `ApplySettingsAsync`；盘点模型的规范命名为 `InventorySettings` / `CurrentInventorySettings`；
+- SDK 配置 API 统一使用 `QueryConfigurationAsync` / `ApplyConfigurationAsync`；盘点模型的规范命名为 `InventorySettings` / `CurrentInventorySettings`；
 - Impinj 写入能力必须有精确能力证据与恢复/回滚策略，不能由读取投影自动推断；
 - 每项完成项需要标准协议测试与 R420/R700 实机证据之一；厂商扩展还需要版本/型号证据；
 - LLRP 2.0 及所有后续 Virtual Reader 扩展维持在最终阶段。

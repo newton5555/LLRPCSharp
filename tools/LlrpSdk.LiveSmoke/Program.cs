@@ -46,7 +46,7 @@ await using LlrpReader reader = LlrpReader.CreateBuilder(host)
 
 await reader.ConnectAsync();
 ReaderConfiguration defaults = reader.GetDefaultConfiguration();
-ReaderConfiguration configuration = await reader.QuerySettingsAsync();
+ReaderConfiguration configuration = await reader.QueryConfigurationAsync();
 IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> configuredRoSpecs =
     await reader.RoSpecs.GetAllAsync();
 
@@ -98,17 +98,27 @@ if (args.Length >= 2)
     }
     try
     {
-        await foreach (TagReport report in reader.ReadTagReportsAsync(timeout.Token))
+        bool observedTag = false;
+        try
         {
-            Console.WriteLine($"Tag: {Convert.ToHexString(report.ElectronicProductCode.Span)} antenna={report.AntennaId} rssi={report.PeakRssi}");
-            if (requestImpinjReportFields)
+            await foreach (TagReport report in reader.ReadTagReportsAsync(timeout.Token))
             {
-                Console.WriteLine($"Impinj report: {DescribeImpinjReportExtensions(report)}");
+                observedTag = true;
+                Console.WriteLine($"Tag: {Convert.ToHexString(report.ElectronicProductCode.Span)} antenna={report.AntennaId} rssi={report.PeakRssi}");
+                if (requestImpinjReportFields)
+                {
+                    Console.WriteLine($"Impinj report: {DescribeImpinjReportExtensions(report)}");
+                }
+                break;
             }
-            break;
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            Console.Error.WriteLine("No tag report was received within 10 seconds; tag access was skipped.");
+            Environment.ExitCode = 1;
         }
 
-        if (readOptionIndex >= 0)
+        if (readOptionIndex >= 0 && observedTag)
         {
             if (readOptionIndex + 1 >= args.Length)
             {

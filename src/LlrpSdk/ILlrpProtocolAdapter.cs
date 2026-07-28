@@ -24,9 +24,16 @@ internal interface ILlrpProtocolAdapter
 
     public ILlrpParameter CompileInventory(
         ReaderSettings settings,
-        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems);
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        bool supportsStateAwareSingulation);
 
-    public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request);
+    public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false);
+
+    public ILlrpParameter CompileTagAccessSequence(
+        uint accessSpecId,
+        uint roSpecId,
+        IReadOnlyList<TagAccessRequest> requests,
+        bool useBlockWrite = false);
 
     public Task<IReadOnlyList<TranslatedTagReport>> FetchReportsAsync(
         LlrpReader reader,

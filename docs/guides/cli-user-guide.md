@@ -17,7 +17,7 @@
  严格对接 LlrpReader SDK 公开能力                                    不需要连接读写器即可使用
  ├─ connect / disconnect / status / caps                             ├─ inspect <hex>  (Header 解包)
  ├─ inventory start / stop / status                                  ├─ decode <hex>   (Tree 报文树)
- ├─ tag read / write / lock / kill / erase                          ├─ validate <hex> (完整性校验)
+ ├─ tag read / write / lock / kill / erase / sequence               ├─ validate <hex> (完整性校验)
  ├─ config get / defaults / apply                                    └─ encode <msg>   (序列化生成)
  └─ rospec / accessspec / raw / sync
 ```
@@ -69,25 +69,27 @@ dotnet run --project src/LlrpCli -- validate 043E0000000A01020304
 
 ### 托管盘点（inventory）
 
-`inventory start` 支持两种参数组合方式，可单独使用或混合使用：
-
-#### A. 内联参数
+盘点意图保存在当前 Live Shell 会话的本地草稿中；编辑草稿不需要连接读写器。`inventory start` 只消费该草稿，并只接受一次性的天线覆盖：
 
 ```
-inventory start [antenna-id] [--session <0..3>] [--population <n>]
-                [--mode <idx>] [--tari <nsec>]
-                [--attach-bank epc|tid|user|reserved] [--attach-ptr <n>]
-                [--attach-len <n>] [--attach-pwd <hex>]
+inventory settings show
+inventory settings set [options]
+inventory settings load <path.json>
+inventory settings save <path.json>
+inventory settings reset
+inventory start [--antennas <id,id|all>]
 ```
+
+`inventory status` 显示 SDK 的运行中 `CurrentSettings`，并明确提示它是否已与本会话的下一次盘点草稿不同；草稿变化永远不会修改正在运行的盘点。
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
-| `[antenna-id]` | ushort | 位置参数，天线 ID（0=全部天线）。向后兼容。 |
+| `--antennas` | `id,id\|all` | 草稿或本次启动使用的天线；`all` 映射为 LLRP 全部天线（ID 0）。 |
 | `--session` | 0..3 | C1G2 单例化会话号（默认 0）。 |
 | `--population` | ushort | 标签数量估计（默认 32）。 |
 | `--mode` | ushort | ModeIndex（RF 模式索引）。 |
 | `--tari` | ushort | Tari 值（纳秒）。 |
-| `--attach-bank` | epc\|tid\|user\|reserved | 附加读取内存 Bank，设置后自动启用 AttachedData。 |
+| `--attach-bank` | epc\|tid\|user\|reserved\|none | 附加读取内存 Bank；设置 Bank 自动启用 AttachedData，`none` 关闭它。 |
 | `--attach-ptr` | ushort | 附加读取字偏移（Word Pointer）。 |
 | `--attach-len` | ushort | 附加读取字数（Word Count）。 |
 | `--attach-pwd` | hex | 附加读取访问密码（8 位十六进制）。 |
@@ -95,24 +97,18 @@ inventory start [antenna-id] [--session <0..3>] [--population <n>]
 **示例**：
 
 ```
-# 在天线 1 启动盘点，会话 2，估计 64 标签
-inventory start 1 --session 2 --population 64
+# 将草稿设为天线 1、会话 2、估计 64 标签
+inventory settings set --antennas 1 --session 2 --population 64
 
-# 启动盘点并附带读取 TID 前 6 个字
-inventory start --attach-bank tid --attach-len 6
+# 让草稿附带读取 TID 前 6 个字，并按草稿启动
+inventory settings set --attach-bank tid --attach-len 6
+inventory start
 
-# 全参数组合
-inventory start 1 --session 2 --population 64 --mode 1 --attach-bank tid --attach-len 6
+# 不改动草稿，仅在本次启动改用天线 1 和 3
+inventory start --antennas 1,3
 ```
 
-#### B. Settings 配置文件
-
-通过 `--settings <path>` 或 `--config <path>` 加载 JSON 格式的完整 `ReaderSettings` 配置文件，**内联参数优先级高于文件**：
-
-```
-inventory start --settings my-settings.json
-inventory start --settings my-settings.json --session 0   # 内联 --session 覆盖文件
-```
+使用 `inventory settings load <path>` 或 `save <path>` 导入、导出 JSON 格式的完整 `ReaderSettings` 草稿。之后仍可通过 `settings set` 只修改个别字段。
 
 **ReaderSettings JSON 文件格式示例**（`my-settings.json`）：
 
@@ -148,9 +144,9 @@ inventory status            # 查看盘点运行状态（OperationState + 当前
 
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
-| `config get` | `config get` | 查询设备当前运行配置快照，在终端渲染配置面板。 |
-| `config defaults` | `config defaults` | 显示 SDK 针对当前设备推荐的安全配置基线（不下发）。 |
-| `config apply` | `config apply [options] [--dry-run] --yes` | 调整设备配置。 |
+| `config get` | `config get <host> [--llrp ...] [--vendor auto\|impinj\|none]` | 查询设备当前运行配置快照，在终端渲染配置面板。 |
+| `config defaults` | `config defaults <host> [--llrp ...] [--vendor auto\|impinj\|none]` | 显示 SDK 针对当前设备推荐的安全配置基线（不下发）。 |
+| `config apply` | `config apply <host> [--llrp ...] [--vendor auto\|impinj\|none] [options] [--dry-run]` | 调整设备配置。 |
 
 `config apply` 支持的参数：
 
@@ -182,10 +178,11 @@ config apply --keepalive-type periodic --keepalive-interval 5000 --yes
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
 | `tag read` | `tag read <epc> --bank <bank> --word <addr> --count <n> [--antenna <id>] [--password <hex>] [--timeout <sec>]` | 读取指定 EPC 标签的内存 Bank 数据。 |
-| `tag write` | `tag write <epc> --bank <bank> --word <addr> --data <hex> [--antenna <id>] [--password <hex>] [--dry-run]` | 写入标签内存。`--dry-run` 模式仅预览 OpSpec，不实际写入。 |
-| `tag lock` | `tag lock <epc> --privilege <lock\|unlock\|perma-lock\|perma-unlock\|no-change> [--target all\|epc\|tid\|user\|access-pwd\|kill-pwd] [--antenna <id>] [--password <hex>]` | 锁定/解锁标签内存区域。 |
-| `tag kill` | `tag kill <epc> --kill-pwd <hex> [--antenna <id>]` | 永久销毁标签。 |
-| `tag erase` | `tag erase <epc> --bank <bank> --word <addr> --count <n> [--antenna <id>] [--password <hex>]` | 块擦除（Block Erase）标签内存区域。 |
+| `tag write` | `llrp tag write <host> <epc> --bank <bank> --word <addr> --data <hex> [--antenna <id>] [--password <hex>] [--yes]` | 写入标签内存；省略 `--yes` 时只预览 OpSpec，不连接设备。Live Shell 实写也要求 `--yes`。 |
+| `tag lock` | `llrp tag lock <host> <epc> --privilege <lock\|unlock\|perma-lock\|perma-unlock\|no-change> [--target all\|epc\|tid\|user\|access-pwd\|kill-pwd] [--antenna <id>] [--password <hex>] --yes` | 锁定/解锁标签内存区域，必须确认。 |
+| `tag kill` | `llrp tag kill <host> <epc> [--kill-pwd <hex>] [--antenna <id>] --yes` | 永久销毁标签，必须确认。 |
+| `tag erase` | `llrp tag erase <host> <epc> --bank <bank> --word <addr> --count <n> [--antenna <id>] [--password <hex>] --yes` | 块擦除（Block Erase）标签内存区域，必须确认。 |
+| `tag sequence` | Live：`tag sequence <epc> --op <operation> ...`；外层：`llrp tag sequence <host> <epc> --op <operation> ...` | 在一个 AccessSpec 内执行多个同 EPC/天线目标的标准操作；外层 CLI 包含非读取操作时必须给出 `--yes`。 |
 
 **Bank 别名**：`epc`(1) / `tid`(2) / `user`(3) / `reserved`(0)
 
@@ -196,7 +193,7 @@ config apply --keepalive-type periodic --keepalive-interval 5000 --yes
 tag read E2801171 --bank user --word 0 --count 2
 
 # 写入（dry-run 预览）
-tag write E2801171 --bank user --word 0 --data CAFEBABE --dry-run
+llrp tag write 192.168.1.27 E2801171 --bank user --word 0 --data CAFEBABE
 
 # 锁定 User Bank（需要访问密码）
 tag lock E2801171 --privilege lock --target user --password 00000000
@@ -213,6 +210,15 @@ tag kill E2801171 --kill-pwd DEADBEEF
 # 块擦除 User Bank 前 4 个字
 tag erase E2801171 --bank user --word 0 --count 4 --password 00000000
 ```
+
+`tag sequence` 的 `--op` 可重复使用：`read:<bank>:<word>:<count>`、`write:<bank>:<word>:<hex>`、`erase:<bank>:<word>:<count>`、`lock:<target>:<privilege>` 或 `kill:<password>`。例如：
+
+```
+# 先读 TID 两个字，再写入 User Memory；两项在同一个 AccessSpec 内执行
+llrp tag sequence 192.168.1.27 E2801171 --op read:tid:0:2 --op write:user:0:1234 --password 00000000 --yes
+```
+
+序列中的 write/erase/lock/kill 与单操作一样会修改或销毁标签；外层 CLI 必须显式添加 `--yes`，并应先在测试标签上验证。
 
 ---
 
@@ -286,12 +292,12 @@ exit / quit / q               # 断开连接并退出
 **2. `config apply` 如何避免误操作写坏设备？**
 - 使用 `--dry-run` 参数（如 `config apply --antenna 1 --tx-power 12 --dry-run`），SDK 会计算变更并渲染 Preview 面板，**绝对不会向读写器发送任何写报文**。
 
-**3. `inventory start` 如何结合 settings 文件批量管理盘点配置？**
-- 将常用配置保存到 JSON 文件（如 `warehouse.json`），然后每次运行 `inventory start --settings warehouse.json`。
-- 如需临时覆盖个别参数，追加内联选项即可：`inventory start --settings warehouse.json --session 0`。
+**3. 如何批量管理盘点配置？**
+- 将常用草稿保存到 JSON 文件（如 `inventory settings save warehouse.json`），新会话用 `inventory settings load warehouse.json` 恢复。
+- 如需改变个别字段，执行 `inventory settings set --session 0`；如只想临时换天线，使用 `inventory start --antennas 1`。
 
 **4. `tag write` 如何防止意外覆盖标签数据？**
-- 先执行 `tag write <epc> ... --dry-run`，CLI 会打印完整的 OpSpec 计划（包含 Bank、Word Pointer、待写数据），确认无误后去掉 `--dry-run` 并加 `--password` 实际执行。
+- 先执行 `llrp tag write <host> <epc> ...`，CLI 会打印完整的 OpSpec 计划（包含 Bank、Word Pointer、待写数据）且不连接设备；确认无误后在同一命令加 `--yes` 才会实际执行。访问受保护标签时再加 `--password`。
 
 **5. `tag lock perma-lock` 操作是不可逆的，请谨慎使用！**
 - `perma-lock` 将标签对应区域设为永久只读/永久不可访问，**无法撤销**。

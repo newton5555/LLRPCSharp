@@ -13,19 +13,25 @@ namespace LlrpSdk;
 /// </summary>
 internal static class Llrp11InventoryCompiler
 {
-    public static ROSpec Compile(ReaderSettings settings, IReadOnlyList<ILlrpParameter> roReportSpecCustomItems)
+    public static ROSpec Compile(
+        ReaderSettings settings,
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        bool supportsStateAwareSingulation = false)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(roReportSpecCustomItems);
         Validate(settings);
 
         ushort[] antennaIds = settings.AntennaIds.ToArray();
-        var startTrigger = new ROSpecStartTrigger(V11Enumerations.ROSpecStartTriggerType.Immediate, null, null);
-        var stopTrigger = new ROSpecStopTrigger(V11Enumerations.ROSpecStopTriggerType.Null, 0, null);
+        ROSpecStartTrigger startTrigger = CompileStartTrigger(settings.StartTrigger);
+        ROSpecStopTrigger stopTrigger = CompileStopTrigger(settings.StopTrigger);
         var boundary = new ROBoundarySpec(startTrigger, stopTrigger);
 
-        V11Parameters.C1G2SingulationControl? singulationControl = (settings.Session != 0 || settings.TagPopulationEstimate != 32)
-            ? new V11Parameters.C1G2SingulationControl(settings.Session, settings.TagPopulationEstimate, 0, null)
+        V11Parameters.C1G2TagInventoryStateAwareSingulationAction? stateAwareAction = CompileStateAwareAction(
+            settings.StateAwareSingulation,
+            supportsStateAwareSingulation);
+        V11Parameters.C1G2SingulationControl? singulationControl = (settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
+            ? new V11Parameters.C1G2SingulationControl(settings.Session, settings.TagPopulationEstimate, 0, stateAwareAction)
             : null;
         V11Parameters.C1G2RFControl? rfControl = (settings.ModeIndex != 0 || settings.Tari != 0)
             ? new V11Parameters.C1G2RFControl(settings.ModeIndex, settings.Tari)
@@ -35,7 +41,7 @@ internal static class Llrp11InventoryCompiler
         if (singulationControl is not null || rfControl is not null)
         {
             var invCmd = new V11Parameters.C1G2InventoryCommand(
-                TagInventoryStateAware: false,
+                TagInventoryStateAware: stateAwareAction is not null,
                 C1G2FilterItems: Array.Empty<V11Parameters.C1G2Filter>(),
                 C1G2RFControl: rfControl,
                 C1G2SingulationControl: singulationControl,
@@ -131,5 +137,78 @@ internal static class Llrp11InventoryCompiler
                 settings.Session,
                 "C1G2 singulation session must be between 0 and 3.");
         }
+
+        ArgumentNullException.ThrowIfNull(settings.StartTrigger);
+        ArgumentNullException.ThrowIfNull(settings.StopTrigger);
+        if (settings.StartTrigger.Type == InventoryStartTriggerType.Periodic && settings.StartTrigger.PeriodMilliseconds == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(settings), "A periodic inventory start trigger requires a non-zero period.");
+        }
+        if (settings.StartTrigger.Type == InventoryStartTriggerType.Gpi && settings.StartTrigger.GpiPortNumber == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(settings), "A GPI inventory start trigger requires a non-zero port number.");
+        }
+        if (settings.StopTrigger.Type == InventoryStopTriggerType.Duration && settings.StopTrigger.DurationMilliseconds == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(settings), "A duration inventory stop trigger requires a non-zero duration.");
+        }
+        if (settings.StopTrigger.Type == InventoryStopTriggerType.GpiWithTimeout && settings.StopTrigger.GpiPortNumber == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(settings), "A GPI inventory stop trigger requires a non-zero port number.");
+        }
+    }
+
+    private static ROSpecStartTrigger CompileStartTrigger(InventoryStartTrigger trigger) => trigger.Type switch
+    {
+        InventoryStartTriggerType.Immediate => new(V11Enumerations.ROSpecStartTriggerType.Immediate, null, null),
+        InventoryStartTriggerType.Periodic => new(
+            V11Enumerations.ROSpecStartTriggerType.Periodic,
+            new V11Parameters.PeriodicTriggerValue(trigger.OffsetMilliseconds, trigger.PeriodMilliseconds, null),
+            null),
+        InventoryStartTriggerType.Gpi => new(
+            V11Enumerations.ROSpecStartTriggerType.GPI,
+            null,
+            new V11Parameters.GPITriggerValue(trigger.GpiPortNumber, trigger.GpiState, trigger.TimeoutMilliseconds)),
+        _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger.Type, null),
+    };
+
+    private static ROSpecStopTrigger CompileStopTrigger(InventoryStopTrigger trigger) => trigger.Type switch
+    {
+        InventoryStopTriggerType.None => new(V11Enumerations.ROSpecStopTriggerType.Null, 0, null),
+        InventoryStopTriggerType.Duration => new(V11Enumerations.ROSpecStopTriggerType.Duration, trigger.DurationMilliseconds, null),
+        InventoryStopTriggerType.GpiWithTimeout => new(
+            V11Enumerations.ROSpecStopTriggerType.GPI_With_Timeout,
+            0,
+            new V11Parameters.GPITriggerValue(trigger.GpiPortNumber, trigger.GpiState, trigger.TimeoutMilliseconds)),
+        _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger.Type, null),
+    };
+
+    private static V11Parameters.C1G2TagInventoryStateAwareSingulationAction? CompileStateAwareAction(
+        InventoryStateAwareSingulation? action,
+        bool supportsStateAwareSingulation)
+    {
+        if (action is null)
+        {
+            return null;
+        }
+        if (!supportsStateAwareSingulation)
+        {
+            throw new NotSupportedException(
+                "The connected reader does not advertise C1G2 tag inventory state-aware singulation support.");
+        }
+
+        var target = action.Target switch
+        {
+            InventoryTarget.StateA => V11Enumerations.C1G2TagInventoryStateAwareI.State_A,
+            InventoryTarget.StateB => V11Enumerations.C1G2TagInventoryStateAwareI.State_B,
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action.Target, null),
+        };
+        var selectedFlag = action.SelectedFlag switch
+        {
+            InventorySelectedFlag.Set => V11Enumerations.C1G2TagInventoryStateAwareS.SL,
+            InventorySelectedFlag.Clear => V11Enumerations.C1G2TagInventoryStateAwareS.Not_SL,
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action.SelectedFlag, null),
+        };
+        return new V11Parameters.C1G2TagInventoryStateAwareSingulationAction(target, selectedFlag);
     }
 }

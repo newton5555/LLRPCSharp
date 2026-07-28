@@ -17,7 +17,15 @@ namespace LlrpSdk.Tests;
 public sealed class LlrpReaderConfigurationTests
 {
     [Fact]
-    public async Task QuerySettings_SendsGetReaderConfigAndReturnsConfiguration()
+    public void ReaderIdentity_TrimsProtocolStringPadding()
+    {
+        var identity = new ReaderIdentity(1, 2, "1.0.0\0\0");
+
+        Assert.Equal("1.0.0", identity.FirmwareVersion);
+    }
+
+    [Fact]
+    public async Task QueryConfiguration_SendsGetReaderConfigAndReturnsConfiguration()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
@@ -86,7 +94,7 @@ public sealed class LlrpReaderConfigurationTests
             return ValueTask.CompletedTask;
         };
 
-        ReaderConfiguration config = await reader.QuerySettingsAsync(timeout.Token);
+        ReaderConfiguration config = await reader.QueryConfigurationAsync(timeout.Token);
 
         Assert.NotNull(config);
         Assert.Equal(KeepaliveTriggerType.Periodic, config.Keepalive.TriggerType);
@@ -115,7 +123,7 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
-    public async Task ApplySettings_SendsSetReaderConfig()
+    public async Task ApplyConfiguration_SendsSetReaderConfig()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
@@ -168,7 +176,7 @@ public sealed class LlrpReaderConfigurationTests
             Gpos = [new GpoConfiguration { GpoPortNumber = 2, GpoData = true }]
         };
 
-        await reader.ApplySettingsAsync(config, timeout.Token);
+        await reader.ApplyConfigurationAsync(config, timeout.Token);
         Assert.True(setConfigSent);
     }
 
@@ -205,6 +213,56 @@ public sealed class LlrpReaderConfigurationTests
 
         Assert.NotNull(invCmd.C1G2RFControl);
         Assert.Equal((ushort)1, invCmd.C1G2RFControl.ModeIndex);
+    }
+
+    [Fact]
+    public void ReaderSettings_TriggerCompiler_EmitsPeriodicStartAndDurationStop()
+    {
+        var settings = new ReaderSettings
+        {
+            StartTrigger = new InventoryStartTrigger
+            {
+                Type = InventoryStartTriggerType.Periodic,
+                OffsetMilliseconds = 100,
+                PeriodMilliseconds = 5_000,
+            },
+            StopTrigger = new InventoryStopTrigger
+            {
+                Type = InventoryStopTriggerType.Duration,
+                DurationMilliseconds = 30_000,
+            },
+        };
+
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(settings, []);
+        Assert.Equal(ROSpecStartTriggerType.Periodic, roSpec.ROBoundarySpec.ROSpecStartTrigger.ROSpecStartTriggerType);
+        Assert.Equal((uint)100, roSpec.ROBoundarySpec.ROSpecStartTrigger.PeriodicTriggerValue!.Offset);
+        Assert.Equal((uint)5_000, roSpec.ROBoundarySpec.ROSpecStartTrigger.PeriodicTriggerValue.Period);
+        Assert.Equal(ROSpecStopTriggerType.Duration, roSpec.ROBoundarySpec.ROSpecStopTrigger.ROSpecStopTriggerType);
+        Assert.Equal((uint)30_000, roSpec.ROBoundarySpec.ROSpecStopTrigger.DurationTriggerValue);
+    }
+
+    [Fact]
+    public void ReaderSettings_StateAwareSingulation_RequiresCapabilityAndCompilesTarget()
+    {
+        var settings = new ReaderSettings
+        {
+            StateAwareSingulation = new InventoryStateAwareSingulation
+            {
+                Target = InventoryTarget.StateB,
+                SelectedFlag = InventorySelectedFlag.Clear,
+            },
+        };
+
+        Assert.Throws<NotSupportedException>(() => Llrp101InventoryCompiler.Compile(settings, []));
+
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(settings, [], supportsStateAwareSingulation: true);
+        var aiSpec = Assert.IsType<AISpec>(Assert.Single(roSpec.SpecParameterItems));
+        var inventory = Assert.IsType<InventoryParameterSpec>(Assert.Single(aiSpec.InventoryParameterSpecItems));
+        var antenna = Assert.IsType<AntennaConfiguration>(Assert.Single(inventory.AntennaConfigurationItems));
+        var command = Assert.IsType<C1G2InventoryCommand>(Assert.Single(antenna.AirProtocolInventoryCommandSettingsItems));
+        Assert.True(command.TagInventoryStateAware);
+        Assert.Equal(C1G2TagInventoryStateAwareI.State_B, command.C1G2SingulationControl!.C1G2TagInventoryStateAwareSingulationAction!.I);
+        Assert.Equal(C1G2TagInventoryStateAwareS.Not_SL, command.C1G2SingulationControl.C1G2TagInventoryStateAwareSingulationAction.S);
     }
 
     private static LlrpReader CreateReader(ScriptedLlrpTransport transport)

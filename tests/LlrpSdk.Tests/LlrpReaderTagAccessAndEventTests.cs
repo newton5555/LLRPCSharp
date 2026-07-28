@@ -106,10 +106,12 @@ public sealed class LlrpReaderTagAccessAndEventTests
 
         var gpiEventTcs = new TaskCompletionSource<GpiChangedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         var keepaliveTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var warningTcs = new TaskCompletionSource<ReportBufferWarningEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         var overflowTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         reader.GpiChanged += (_, args) => gpiEventTcs.TrySetResult(args);
         reader.KeepaliveReceived += (_, _) => keepaliveTcs.TrySetResult(true);
+        reader.ReportBufferWarning += (_, args) => warningTcs.TrySetResult(args);
         reader.ReportBufferOverflow += (_, _) => overflowTcs.TrySetResult(true);
 
         await reader.ConnectAsync(timeout.Token);
@@ -121,13 +123,13 @@ public sealed class LlrpReaderTagAccessAndEventTests
         bool keepaliveReceived = await keepaliveTcs.Task.WaitAsync(timeout.Token);
         Assert.True(keepaliveReceived);
 
-        // Enqueue READER_EVENT_NOTIFICATION frame with GPIEvent and ReportBufferOverflow
+        // Enqueue READER_EVENT_NOTIFICATION frame with GPI, report-buffer warning and overflow.
         var eventData = new ReaderEventNotificationData(
             new Uptime(1000),
             null,
             new GPIEvent(2, true),
             null,
-            null,
+            new ReportBufferLevelWarningEvent(80),
             new ReportBufferOverflowErrorEvent(),
             null, null, null, null, null, null, []);
         var notificationMsg = new V101.READER_EVENT_NOTIFICATION(101, eventData);
@@ -137,7 +139,255 @@ public sealed class LlrpReaderTagAccessAndEventTests
         Assert.Equal(2, gpiArgs.PortNumber);
         Assert.True(gpiArgs.State);
 
+        ReportBufferWarningEventArgs warningArgs = await warningTcs.Task.WaitAsync(timeout.Token);
+        Assert.Equal((byte)80, warningArgs.PercentageFull);
+
         bool overflowReceived = await overflowTcs.Task.WaitAsync(timeout.Token);
         Assert.True(overflowReceived);
     }
+
+    [Fact]
+    public async Task KeepaliveTimeout_IsOptInAndDoesNotDisconnectTheReader()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using var reader = new LlrpReaderBuilder("scripted.local")
+            .WithTransportFactory(_ => transport)
+            .WithKeepaliveTimeout(TimeSpan.FromMilliseconds(75))
+            .Build();
+        var timedOut = new TaskCompletionSource<KeepaliveTimeoutEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
+        reader.KeepaliveTimedOut += (_, args) => timedOut.TrySetResult(args);
+
+        await reader.ConnectAsync(timeout.Token);
+        KeepaliveTimeoutEventArgs args = await timedOut.Task.WaitAsync(timeout.Token);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(75), args.Timeout);
+        Assert.True(reader.IsConnected);
+    }
+
+    [Fact]
+    public async Task StartAsync_WithAttachedData_ManagesStandardReadAccessSpecLifecycle()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        ConfigureManagementSuccessResponses(transport);
+
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        await reader.StartAsync(new ReaderSettings
+        {
+            AttachedData = new AttachedDataOptions
+            {
+                Enabled = true,
+                MemoryBank = 2,
+                WordPointer = 0,
+                WordCount = 6,
+                AccessPassword = "00000000",
+            },
+        }, timeout.Token);
+        await reader.StopAsync(timeout.Token);
+
+        ILlrpMessage[] requests = transport.SentFrames
+            .Select(frame => Registry.DecodeMessage(frame))
+            .ToArray();
+        var addAccessSpec = Assert.IsType<V101.ADD_ACCESSSPEC>(requests.Single(message => message is V101.ADD_ACCESSSPEC));
+        var accessSpec = Assert.IsType<AccessSpec>(addAccessSpec.AccessSpec);
+        Assert.Equal((uint)14150, accessSpec.ROSpecID);
+        var command = Assert.IsType<AccessCommand>(accessSpec.AccessCommand);
+        var read = Assert.IsType<C1G2Read>(Assert.Single(command.AccessCommandOpSpecItems));
+        Assert.Equal((byte)2, read.MB);
+        Assert.Equal((ushort)6, read.WordCount);
+
+        uint accessSpecId = accessSpec.AccessSpecID;
+        Assert.Contains(requests, message => message is V101.ENABLE_ACCESSSPEC enable && enable.AccessSpecID == accessSpecId);
+        Assert.Contains(requests, message => message is V101.DISABLE_ACCESSSPEC disable && disable.AccessSpecID == accessSpecId);
+        Assert.Contains(requests, message => message is V101.DELETE_ACCESSSPEC delete && delete.AccessSpecID == accessSpecId);
+    }
+
+    [Fact]
+    public void WriteTagRequest_UsesBlockWriteOnlyWhenCapabilityAllowsIt()
+    {
+        var request = new WriteTagRequest
+        {
+            Selection = new TagSelection
+            {
+                BitLength = 1,
+                Mask = new byte[] { 0 },
+                Data = new byte[] { 0 },
+            },
+            WriteData = [0x1111, 0x2222],
+        };
+
+        var blockAccessSpec = Llrp101TagAccessCompiler.Compile(1, 14150, request, useBlockWrite: true);
+        var standardAccessSpec = Llrp101TagAccessCompiler.Compile(2, 14150, request, useBlockWrite: false);
+
+        Assert.IsType<C1G2BlockWrite>(Assert.Single(blockAccessSpec.AccessCommand.AccessCommandOpSpecItems));
+        Assert.IsType<C1G2Write>(Assert.Single(standardAccessSpec.AccessCommand.AccessCommandOpSpecItems));
+    }
+
+    [Fact]
+    public void TagReportTranslator_ProjectsEveryStandardC1G2OperationResult()
+    {
+        var report = new V101.RO_ACCESS_REPORT(
+            1,
+            TagReportDataItems:
+            [
+                CreateTagReportData(null,
+                    new C1G2BlockWriteOpSpecResult(C1G2BlockWriteResultType.Success, 1, 2),
+                    new C1G2LockOpSpecResult(C1G2LockResultType.Success, 2),
+                    new C1G2KillOpSpecResult(C1G2KillResultType.No_Response_From_Tag, 3),
+                    new C1G2BlockEraseOpSpecResult(C1G2BlockEraseResultType.Success, 4)),
+            ],
+            RFSurveyReportDataItems: [],
+            CustomItems: []);
+
+        TagReport tag = Assert.Single(Llrp101TagReportTranslator.Translate(report)).Report;
+        IReadOnlyList<TagAccessOperationResult> results = tag.AccessOperationResults!;
+        Assert.Collection(
+            results,
+            result => { Assert.True(result.Success); Assert.Equal((ushort)2, result.WordsWritten); },
+            result => { Assert.True(result.Success); Assert.Null(result.WordsWritten); },
+            result => { Assert.False(result.Success); Assert.Equal("No_Response_From_Tag", result.Error); },
+            result => Assert.True(result.Success));
+    }
+
+    [Fact]
+    public void TagAccessSequence_CompilesOperationsIntoOneAccessSpec()
+    {
+        var selection = new TagSelection
+        {
+            BitLength = 1,
+            Mask = new byte[] { 0 },
+            Data = new byte[] { 0 },
+        };
+        AccessSpec accessSpec = Llrp101TagAccessCompiler.CompileSequence(
+            9,
+            14150,
+            [
+                new ReadTagRequest { Selection = selection, MemoryBank = TagMemoryBank.Tid, WordCount = 2 },
+                new WriteTagRequest { Selection = selection, MemoryBank = TagMemoryBank.User, WriteData = [0x1234] },
+            ]);
+
+        Assert.Collection(
+            accessSpec.AccessCommand.AccessCommandOpSpecItems,
+            item => Assert.Equal((ushort)1, Assert.IsType<C1G2Read>(item).OpSpecID),
+            item => Assert.Equal((ushort)2, Assert.IsType<C1G2Write>(item).OpSpecID));
+    }
+
+    [Fact]
+    public async Task ExecuteTagAccessSequenceAsync_ReturnsAllOperationResults()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        uint? sequenceAccessSpecId = null;
+        transport.OnSendAsync = (frame, _) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            var status = new LLRPStatus(StatusCode.M_Success, string.Empty, null, null);
+            ILlrpMessage? response = header.MessageType switch
+            {
+                V101.ADD_ROSPEC.MessageType => new V101.ADD_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.ENABLE_ROSPEC.MessageType => new V101.ENABLE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.DISABLE_ROSPEC.MessageType => new V101.DISABLE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.STOP_ROSPEC.MessageType => new V101.STOP_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.DELETE_ROSPEC.MessageType => new V101.DELETE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.ADD_ACCESSSPEC.MessageType => new V101.ADD_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                V101.ENABLE_ACCESSSPEC.MessageType => new V101.ENABLE_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                V101.DISABLE_ACCESSSPEC.MessageType => new V101.DISABLE_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                V101.DELETE_ACCESSSPEC.MessageType => new V101.DELETE_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                _ => null,
+            };
+            if (header.MessageType == V101.ADD_ACCESSSPEC.MessageType)
+            {
+                var add = Assert.IsType<V101.ADD_ACCESSSPEC>(Registry.DecodeMessage(frame.Span));
+                sequenceAccessSpecId = add.AccessSpec.AccessSpecID;
+            }
+            if (response is not null)
+            {
+                transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, response));
+            }
+            if (header.MessageType == V101.ENABLE_ACCESSSPEC.MessageType && sequenceAccessSpecId is uint accessSpecId)
+            {
+                var report = new V101.RO_ACCESS_REPORT(
+                    99,
+                    [CreateTagReportData(accessSpecId,
+                        new C1G2ReadOpSpecResult(C1G2ReadResultType.Success, 1, [0x1234]),
+                        new C1G2WriteOpSpecResult(C1G2WriteResultType.Success, 2, 1))],
+                    [],
+                    []);
+                transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, report));
+            }
+            return ValueTask.CompletedTask;
+        };
+
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        TagAccessSequenceResult result = await reader.ExecuteTagAccessSequenceAsync(
+            new TagAccessSequenceRequest
+            {
+                Operations =
+                [
+                    new ReadTagRequest { Selection = MatchAllSelection(), MemoryBank = TagMemoryBank.Tid, WordCount = 1 },
+                    new WriteTagRequest { Selection = MatchAllSelection(), MemoryBank = TagMemoryBank.User, WriteData = [0x1234] },
+                ],
+            },
+            cancellationToken: timeout.Token);
+
+        Assert.Collection(
+            result.Operations,
+            operation => { Assert.Equal((ushort)1, operation.OpSpecID); Assert.Equal([0x1234], operation.ReadData); },
+            operation => { Assert.Equal((ushort)2, operation.OpSpecID); Assert.Equal((ushort)1, operation.WordsWritten); });
+    }
+
+    private static void ConfigureManagementSuccessResponses(ScriptedLlrpTransport transport)
+    {
+        transport.OnSendAsync = (frame, _) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            var status = new LLRPStatus(StatusCode.M_Success, string.Empty, null, null);
+            ILlrpMessage? response = header.MessageType switch
+            {
+                V101.ADD_ROSPEC.MessageType => new V101.ADD_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.ENABLE_ROSPEC.MessageType => new V101.ENABLE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.DISABLE_ROSPEC.MessageType => new V101.DISABLE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.STOP_ROSPEC.MessageType => new V101.STOP_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.DELETE_ROSPEC.MessageType => new V101.DELETE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.ADD_ACCESSSPEC.MessageType => new V101.ADD_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                V101.ENABLE_ACCESSSPEC.MessageType => new V101.ENABLE_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                V101.DISABLE_ACCESSSPEC.MessageType => new V101.DISABLE_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                V101.DELETE_ACCESSSPEC.MessageType => new V101.DELETE_ACCESSSPEC_RESPONSE(header.MessageId, status),
+                _ => null,
+            };
+            if (response is not null)
+            {
+                transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, response));
+            }
+            return ValueTask.CompletedTask;
+        };
+    }
+
+    private static TagSelection MatchAllSelection() => new()
+    {
+        BitLength = 1,
+        Mask = new byte[] { 0 },
+        Data = new byte[] { 0 },
+    };
+
+    private static TagReportData CreateTagReportData(uint? accessSpecId, params ILlrpParameter[] results) => new(
+        new EPC_96(new byte[] { 0xE2, 0x80, 0x11, 0x91, 0, 0, 0, 0, 0, 0, 0, 1 }),
+        ROSpecID: null,
+        SpecIndex: null,
+        InventoryParameterSpecID: null,
+        AntennaID: null,
+        PeakRSSI: null,
+        ChannelIndex: null,
+        FirstSeenTimestampUTC: null,
+        FirstSeenTimestampUptime: null,
+        LastSeenTimestampUTC: null,
+        LastSeenTimestampUptime: null,
+        TagSeenCount: null,
+        AirProtocolTagDataItems: [],
+        AccessSpecID: accessSpecId is uint id ? new AccessSpecID(id) : null,
+        AccessCommandOpSpecResultItems: results,
+        CustomItems: []);
 }

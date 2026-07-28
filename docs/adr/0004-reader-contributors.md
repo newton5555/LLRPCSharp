@@ -27,11 +27,11 @@ ITagReportContributor
 `ReaderConfiguration` 保留版本无关的标准配置。厂商私有配置不通过派生 `ReaderConfiguration` 表达，而是作为带稳定 Contributor Id 的独立配置片段参与查询和应用：
 
 ```text
-QuerySettingsAsync
+QueryConfigurationAsync
   → 标准 ReaderConfiguration
   → 已激活 Settings Contributor 的配置片段
 
-ApplySettingsAsync
+ApplyConfigurationAsync
   → 先校验和应用标准部分
   → 再按 Contributor 处理厂商片段
 ```

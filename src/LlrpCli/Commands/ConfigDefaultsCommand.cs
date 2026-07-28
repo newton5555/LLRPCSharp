@@ -23,6 +23,11 @@ public sealed class ConfigDefaultsSettings : CommandSettings
     [Description("Protocol version policy: auto, 1.0.1, or 1.1.")]
     [DefaultValue("auto")]
     public string LlrpVersion { get; init; } = "auto";
+
+    [CommandOption("--vendor <VENDOR>")]
+    [Description("Vendor extensions mode: auto, impinj, or none.")]
+    [DefaultValue("auto")]
+    public string Vendor { get; init; } = "auto";
 }
 
 public sealed class ConfigDefaultsCommand : AsyncCommand<ConfigDefaultsSettings>
@@ -41,17 +46,22 @@ public sealed class ConfigDefaultsCommand : AsyncCommand<ConfigDefaultsSettings>
         ConfigDefaultsSettings settings,
         CancellationToken cancellationToken)
     {
-        if (!ProtocolVersionPolicyParser.TryParse(settings.LlrpVersion, out LlrpProtocolVersionPolicy policy))
+        if (!CliConnectionOptions.TryCreate(
+            settings.Host,
+            settings.Port,
+            settings.LlrpVersion,
+            settings.Vendor,
+            out CliConnectionOptions options,
+            out string error))
         {
-            _console.MarkupLine("[bold red]✖ Invalid LLRP version:[/] use auto, 1.0.1, or 1.1.");
+            _console.MarkupLine($"[bold red]✖ Invalid connection option:[/] {Markup.Escape(error)}");
             return 2;
         }
 
         _console.MarkupLine($"[grey]Connecting to LLRP Reader at[/] [cyan1]{settings.Host}:{settings.Port}[/] to resolve SDK defaults...");
-        var builder = LlrpReader.CreateBuilder(settings.Host)
-            .WithPort(settings.Port)
-            .WithConnectTimeout(TimeSpan.FromSeconds(5))
-            .WithProtocolVersionPolicy(policy);
+        var builder = options.CreateReaderBuilder()
+            .WithConnectTimeout(TimeSpan.FromSeconds(5));
+        options.RenderVendorMode(_console);
         await using LlrpReader reader = builder.Build();
 
         try

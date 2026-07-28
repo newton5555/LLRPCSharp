@@ -20,6 +20,12 @@ internal sealed class LiveSessionContext
 
     public Task? InventoryPumpTask { get; set; }
 
+    /// <summary>
+    /// Gets or sets the local inventory-intent draft for the next managed inventory start.
+    /// This is distinct from <see cref="LlrpReader.CurrentSettings"/>, which exists only while inventory runs.
+    /// </summary>
+    public ReaderSettings DesiredInventorySettings { get; set; } = new();
+
     public string? Host { get; set; }
 
     public int Port { get; set; } = 5084;

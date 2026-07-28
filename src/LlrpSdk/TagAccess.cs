@@ -123,6 +123,19 @@ public sealed record BlockEraseTagRequest : TagAccessRequest
     public ushort WordCount { get; init; }
 }
 
+/// <summary>
+/// Requests multiple standard C1G2 operations to be executed in one AccessSpec against the same tag selection.
+/// </summary>
+/// <remarks>
+/// Every operation must use the same <see cref="TagAccessRequest.Selection"/> and antenna. Individual
+/// operations may use their own access passwords and memory parameters.
+/// </remarks>
+public sealed record TagAccessSequenceRequest
+{
+    /// <summary>Gets the operations to compile into one AccessSpec. At least one operation is required.</summary>
+    public required IReadOnlyList<TagAccessRequest> Operations { get; init; }
+}
+
 /// <summary>Represents one standard C1G2 operation result projected from a tag report.</summary>
 public sealed record TagAccessOperationResult(
     ushort OpSpecID,
@@ -135,3 +148,8 @@ public sealed record TagAccessOperationResult(
 public sealed record TagAccessResult(
     TagReport Tag,
     TagAccessOperationResult Operation);
+
+/// <summary>Represents one tag and all result entries from a completed AccessSpec operation sequence.</summary>
+public sealed record TagAccessSequenceResult(
+    TagReport Tag,
+    IReadOnlyList<TagAccessOperationResult> Operations);

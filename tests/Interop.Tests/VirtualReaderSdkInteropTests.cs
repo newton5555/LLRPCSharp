@@ -33,7 +33,7 @@ public sealed class VirtualReaderSdkInteropTests
         Assert.Empty(defaults.Antennas);
         Assert.Empty(defaults.Gpos);
         Assert.True(result.IsGenericFallback);
-        await Assert.ThrowsAsync<TimeoutException>(() => reader.QuerySettingsAsync(timeout.Token));
+        await Assert.ThrowsAsync<TimeoutException>(() => reader.QueryConfigurationAsync(timeout.Token));
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed class VirtualReaderSdkInteropTests
     }
 
     [Fact]
-    public async Task QueryAndApplySettings_RoundTripAgainstVirtualReader()
+    public async Task QueryAndApplyConfiguration_RoundTripAgainstVirtualReader()
     {
         await using var host = new VirtualReaderHost();
         host.Start();
@@ -217,12 +217,12 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        ReaderConfiguration initial = await reader.QuerySettingsAsync(timeout.Token);
+        ReaderConfiguration initial = await reader.QueryConfigurationAsync(timeout.Token);
         Assert.Equal(4, initial.Antennas.Count);
         Assert.Equal(LlrpSdk.KeepaliveTriggerType.None, initial.Keepalive.TriggerType);
         Assert.False(Assert.Single(initial.Gpos).GpoData);
 
-        await reader.ApplySettingsAsync(new ReaderConfiguration
+        await reader.ApplyConfigurationAsync(new ReaderConfiguration
         {
             Keepalive = new KeepaliveConfiguration
             {
@@ -233,7 +233,7 @@ public sealed class VirtualReaderSdkInteropTests
         }, timeout.Token);
 
         await reader.SynchronizeStateAsync(timeout.Token);
-        ReaderConfiguration updated = await reader.QuerySettingsAsync(timeout.Token);
+        ReaderConfiguration updated = await reader.QueryConfigurationAsync(timeout.Token);
         Assert.Equal(LlrpSdk.KeepaliveTriggerType.Periodic, updated.Keepalive.TriggerType);
         Assert.Equal(1500U, updated.Keepalive.IntervalMs);
         Assert.True(Assert.Single(updated.Gpos).GpoData);
@@ -267,19 +267,19 @@ public sealed class VirtualReaderSdkInteropTests
         Assert.Equal(2300U, preview.Keepalive.IntervalMs);
         Assert.Equal(4, preview.Antennas.Count);
 
-        ReaderConfiguration beforeApply = await reader.QuerySettingsAsync(timeout.Token);
+        ReaderConfiguration beforeApply = await reader.QueryConfigurationAsync(timeout.Token);
         Assert.Equal(LlrpSdk.KeepaliveTriggerType.None, beforeApply.Keepalive.TriggerType);
 
         await reader.ApplyConfigurationPatchAsync(patch, timeout.Token);
         await reader.SynchronizeStateAsync(timeout.Token);
-        ReaderConfiguration afterApply = await reader.QuerySettingsAsync(timeout.Token);
+        ReaderConfiguration afterApply = await reader.QueryConfigurationAsync(timeout.Token);
         Assert.Equal(LlrpSdk.KeepaliveTriggerType.Periodic, afterApply.Keepalive.TriggerType);
         Assert.Equal(2300U, afterApply.Keepalive.IntervalMs);
         Assert.Equal(4, afterApply.Antennas.Count);
     }
 
     [Fact]
-    public async Task QuerySettings_DoesNotRequireStateSynchronizationBeforeManagedInventory()
+    public async Task QueryConfiguration_DoesNotRequireStateSynchronizationBeforeManagedInventory()
     {
         await using var host = new VirtualReaderHost();
         host.Start();
@@ -293,7 +293,7 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        _ = await reader.QuerySettingsAsync(timeout.Token);
+        _ = await reader.QueryConfigurationAsync(timeout.Token);
         await reader.StartAsync(new ReaderSettings { RoSpecId = 994 }, timeout.Token);
         try
         {

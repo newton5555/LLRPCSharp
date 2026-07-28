@@ -143,11 +143,19 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
 
     public ILlrpParameter CompileInventory(
         ReaderSettings settings,
-        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems) =>
-        Llrp101InventoryCompiler.Compile(settings, roReportSpecCustomItems);
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        bool supportsStateAwareSingulation) =>
+        Llrp101InventoryCompiler.Compile(settings, roReportSpecCustomItems, supportsStateAwareSingulation);
 
-    public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request) =>
-        Llrp101TagAccessCompiler.Compile(accessSpecId, roSpecId, request);
+    public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false) =>
+        Llrp101TagAccessCompiler.Compile(accessSpecId, roSpecId, request, useBlockWrite);
+
+    public ILlrpParameter CompileTagAccessSequence(
+        uint accessSpecId,
+        uint roSpecId,
+        IReadOnlyList<TagAccessRequest> requests,
+        bool useBlockWrite = false) =>
+        Llrp101TagAccessCompiler.CompileSequence(accessSpecId, roSpecId, requests, useBlockWrite);
 
     public IReadOnlyList<TranslatedTagReport> TranslateTagReports(ILlrpMessage message) =>
         message is RO_ACCESS_REPORT report ? Llrp101TagReportTranslator.Translate(report) : [];

@@ -187,7 +187,7 @@ public sealed class LlrpCliApplicationTests
     [Fact]
     public void TagWrite_DryRunDoesNotRequireAReaderConnection()
     {
-        InvocationResult result = Invoke("tag", "write", "E2801171", "--bank", "user", "--word", "0", "--data", "0001");
+        InvocationResult result = Invoke("tag", "write", "192.0.2.1", "E2801171", "--bank", "user", "--word", "0", "--data", "0001");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("NO TAG MEMORY WAS WRITTEN", result.Output, StringComparison.Ordinal);
@@ -196,7 +196,7 @@ public sealed class LlrpCliApplicationTests
     [Fact]
     public void TagWrite_DryRunAcceptsEpcBankAlias()
     {
-        InvocationResult result = Invoke("tag", "write", "E2801171", "--bank", "epc", "--word", "0", "--data", "0001");
+        InvocationResult result = Invoke("tag", "write", "192.0.2.1", "E2801171", "--bank", "epc", "--word", "0", "--data", "0001");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Bank=ElectronicProductCode", result.Output, StringComparison.Ordinal);
@@ -207,7 +207,7 @@ public sealed class LlrpCliApplicationTests
     [InlineData("E2801171", "000")]
     public void TagWrite_DryRunRejectsMalformedHexBeforeAnyConnection(string epc, string data)
     {
-        InvocationResult result = Invoke("tag", "write", epc, "--bank", "user", "--word", "0", "--data", data);
+        InvocationResult result = Invoke("tag", "write", "192.0.2.1", epc, "--bank", "user", "--word", "0", "--data", data);
 
         Assert.Equal(2, result.ExitCode);
         Assert.Contains("hexadecimal", result.Error, StringComparison.OrdinalIgnoreCase);
@@ -223,6 +223,8 @@ public sealed class LlrpCliApplicationTests
         Assert.Equal(LiveCommandRoute.TagAccess, tag.Route);
         Assert.Contains("read", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("write", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("sequence", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("--yes", assist.Candidates, StringComparer.Ordinal);
     }
 
     [Fact]
@@ -255,50 +257,91 @@ public sealed class LlrpCliApplicationTests
         Assert.Equal((ushort)2, deserialized.AttachedData.MemoryBank);
     }
 
-    [Fact]
-    public void InventoryStart_ParsesInlineSessionAndPopulationOptions()
+    [Theory]
+    [InlineData("lock")]
+    [InlineData("erase")]
+    [InlineData("kill")]
+    public void TagMutation_RequiresExplicitConfirmationBeforeConnecting(string action)
     {
-        // ParseStartSettings 是私有方法，通过反射进行单元测试
-        var handler = CreateInventoryHandler();
-        string[] tokens = ["inventory", "start", "--session", "2", "--population", "64", "--mode", "1"];
+        InvocationResult result = Invoke("tag", action, "192.0.2.1", "E2801171");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("requires --yes", result.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TagSequence_HelpExposesRepeatedOperationsAndSafetyConfirmation()
+    {
+        InvocationResult result = Invoke("tag", "sequence", "--help");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("--op", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--yes", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReaderSettingsSerializer_RejectsUntypedVendorExtensions()
+    {
+        var settings = new LlrpSdk.ReaderSettings
+        {
+            Extensions = new Dictionary<string, object?>
+            {
+                ["impinj.inventoryReport"] = new object(),
+            },
+        };
+
+        Assert.Throws<NotSupportedException>(() => LlrpSdk.ReaderSettingsSerializer.SerializeToJson(settings));
+    }
+
+    [Fact]
+    public async Task InventorySettings_SetUpdatesTheSessionDraft()
+    {
+        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
+        await handler.HandleAsync(["inventory", "settings", "set", "--session", "2", "--population", "64", "--mode", "1"], CancellationToken.None);
+
+        Assert.Equal((byte)2, session.DesiredInventorySettings.Session);
+        Assert.Equal((ushort)64, session.DesiredInventorySettings.TagPopulationEstimate);
+        Assert.Equal((ushort)1, session.DesiredInventorySettings.ModeIndex);
+    }
+
+    [Fact]
+    public void InventoryStart_AntennasOverrideTheDraftOnlyForThisStart()
+    {
+        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
+        session.DesiredInventorySettings = new LlrpSdk.ReaderSettings { AntennaIds = [2] };
+        string[] tokens = ["inventory", "start", "--antennas", "1,3"];
         System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
             .GetMethod("ParseStartSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         var settings = (LlrpSdk.ReaderSettings)parseMethod!.Invoke(handler, [tokens])!;
 
-        Assert.Equal((byte)2, settings.Session);
-        Assert.Equal((ushort)64, settings.TagPopulationEstimate);
-        Assert.Equal((ushort)1, settings.ModeIndex);
+        Assert.Equal([2], session.DesiredInventorySettings.AntennaIds);
+        Assert.Equal([1, 3], settings.AntennaIds);
     }
 
     [Fact]
-    public void InventoryStart_PositionalAntennaIdIsBackwardCompatible()
+    public async Task InventorySettings_SetAttachedDataUpdatesTheSessionDraft()
     {
-        var handler = CreateInventoryHandler();
-        string[] tokens = ["inventory", "start", "1"];
-        System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
-            .GetMethod("ParseStartSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var settings = (LlrpSdk.ReaderSettings)parseMethod!.Invoke(handler, [tokens])!;
+        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
+        await handler.HandleAsync(["inventory", "settings", "set", "--attach-bank", "tid", "--attach-len", "6"], CancellationToken.None);
 
-        Assert.Single(settings.AntennaIds);
-        Assert.Equal((ushort)1, settings.AntennaIds[0]);
+        Assert.True(session.DesiredInventorySettings.AttachedData.Enabled);
+        Assert.Equal((ushort)2, session.DesiredInventorySettings.AttachedData.MemoryBank);
+        Assert.Equal((ushort)6, session.DesiredInventorySettings.AttachedData.WordCount);
     }
 
     [Fact]
-    public void InventoryStart_AttachBankOptionEnablesAttachedData()
+    public async Task InventorySettings_ResetRestoresSdkDefaults()
     {
-        var handler = CreateInventoryHandler();
-        string[] tokens = ["inventory", "start", "--attach-bank", "tid", "--attach-len", "6"];
-        System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
-            .GetMethod("ParseStartSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var settings = (LlrpSdk.ReaderSettings)parseMethod!.Invoke(handler, [tokens])!;
+        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
+        session.DesiredInventorySettings = new LlrpSdk.ReaderSettings { Session = 3, AntennaIds = [1] };
+        await handler.HandleAsync(["inventory", "settings", "reset"], CancellationToken.None);
 
-        Assert.True(settings.AttachedData.Enabled);
-        Assert.Equal((ushort)2, settings.AttachedData.MemoryBank); // tid = 2
-        Assert.Equal((ushort)6, settings.AttachedData.WordCount);
+        Assert.Equal((byte)0, session.DesiredInventorySettings.Session);
+        Assert.Equal([(ushort)0], session.DesiredInventorySettings.AntennaIds);
     }
 
     [Fact]
-    public void InventoryStart_SettingsFileLoadsAndInlineOverrides()
+    public async Task InventorySettings_LoadThenSetUpdatesTheDraft()
     {
         // 写入临时 JSON settings 文件
         string tempFile = System.IO.Path.GetTempFileName() + ".json";
@@ -306,15 +349,12 @@ public sealed class LlrpCliApplicationTests
         System.IO.File.WriteAllText(tempFile, LlrpSdk.ReaderSettingsSerializer.SerializeToJson(fileSettings));
         try
         {
-            var handler = CreateInventoryHandler();
-            // 内联 --session 2 应该覆盖文件里的 Session=3
-            string[] tokens = ["inventory", "start", "--settings", tempFile, "--session", "2"];
-            System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
-                .GetMethod("ParseStartSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            var settings = (LlrpSdk.ReaderSettings)parseMethod!.Invoke(handler, [tokens])!;
+            (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
+            await handler.HandleAsync(["inventory", "settings", "load", tempFile], CancellationToken.None);
+            await handler.HandleAsync(["inventory", "settings", "set", "--session", "2"], CancellationToken.None);
 
-            Assert.Equal((byte)2, settings.Session);        // 内联覆盖
-            Assert.Equal((ushort)128, settings.TagPopulationEstimate); // 来自文件
+            Assert.Equal((byte)2, session.DesiredInventorySettings.Session);
+            Assert.Equal((ushort)128, session.DesiredInventorySettings.TagPopulationEstimate);
         }
         finally
         {
@@ -323,12 +363,13 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void CommandCatalog_InventoryOffersSettingsFileCandidates()
+    public void CommandCatalog_InventoryOffersSettingsAndAntennaCandidates()
     {
         CommandSpec inv = CommandCatalog.Require("inventory");
         InputAssist assist = CommandCatalog.Assist("inventory ", cursor: 10, isConnected: true);
 
-        Assert.Contains("--settings", inv.CompletionCandidates, StringComparer.Ordinal);
+        Assert.Contains("settings", inv.CompletionCandidates, StringComparer.Ordinal);
+        Assert.Contains("--antennas", inv.CompletionCandidates, StringComparer.Ordinal);
         Assert.Contains("start", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("stop", assist.Candidates, StringComparer.Ordinal);
     }
@@ -359,14 +400,15 @@ public sealed class LlrpCliApplicationTests
         return registry;
     }
 
-    private static LiveInventoryHandler CreateInventoryHandler()
+    private static (LiveInventoryHandler Handler, LiveSessionContext Session) CreateInventoryHandler()
     {
-        using var output = new StringWriter();
+        var output = new StringWriter();
         IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings
         {
             Out = new AnsiConsoleOutput(output)
         });
-        return new LiveInventoryHandler(console, new LiveSessionContext());
+        var session = new LiveSessionContext();
+        return (new LiveInventoryHandler(console, session), session);
     }
 
     private sealed record InvocationResult(

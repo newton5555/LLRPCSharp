@@ -55,7 +55,7 @@ public sealed class ReaderIdentity
     {
         ManufacturerId = manufacturerId;
         ModelId = modelId;
-        FirmwareVersion = firmwareVersion;
+        FirmwareVersion = firmwareVersion?.TrimEnd('\0') ?? string.Empty;
     }
 
     /// <summary>

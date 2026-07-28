@@ -30,6 +30,7 @@ public sealed class LlrpReaderOptions
         TimeSpan connectTimeout,
         TimeSpan frameAssemblyTimeout,
         TimeSpan requestTimeout,
+        TimeSpan? keepaliveTimeout,
         uint maximumFrameLength,
         int incomingMessageCapacity,
         ILoggerFactory loggerFactory,
@@ -47,6 +48,7 @@ public sealed class LlrpReaderOptions
         ConnectTimeout = connectTimeout;
         FrameAssemblyTimeout = frameAssemblyTimeout;
         RequestTimeout = requestTimeout;
+        KeepaliveTimeout = keepaliveTimeout;
         MaximumFrameLength = maximumFrameLength;
         IncomingMessageCapacity = incomingMessageCapacity;
         LoggerFactory = loggerFactory;
@@ -84,6 +86,12 @@ public sealed class LlrpReaderOptions
     /// Gets the default timeout applied to correlated request/response transactions.
     /// </summary>
     public TimeSpan RequestTimeout { get; }
+
+    /// <summary>
+    /// Gets the optional maximum silence between reader-originated KEEPALIVE messages after the reader reaches Ready.
+    /// A null value disables liveness monitoring; a timeout raises an event but does not forcibly disconnect.
+    /// </summary>
+    public TimeSpan? KeepaliveTimeout { get; }
 
     /// <summary>
     /// Gets the defensive upper bound for one complete LLRP frame.

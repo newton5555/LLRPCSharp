@@ -23,7 +23,9 @@ public static class ReaderSettingsSerializer
     public static ReaderSettings DeserializeFromJson(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
-        return JsonSerializer.Deserialize<ReaderSettings>(json, Options) ?? new ReaderSettings();
+        ReaderSettings settings = JsonSerializer.Deserialize<ReaderSettings>(json, Options) ?? new ReaderSettings();
+        EnsureStandardOnly(settings);
+        return settings;
     }
 
     /// <summary>
@@ -32,6 +34,7 @@ public static class ReaderSettingsSerializer
     public static string SerializeToJson(ReaderSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        EnsureStandardOnly(settings);
         return JsonSerializer.Serialize(settings, Options);
     }
 
@@ -48,5 +51,27 @@ public static class ReaderSettingsSerializer
 
         string content = File.ReadAllText(filePath);
         return DeserializeFromJson(content);
+    }
+
+    /// <summary>Saves standard inventory settings to a JSON file.</summary>
+    /// <remarks>
+    /// Vendor-owned extension values require an extension-specific profile serializer before they can be
+    /// safely persisted and restored.
+    /// </remarks>
+    public static void SaveToFile(string filePath, ReaderSettings settings)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        ArgumentNullException.ThrowIfNull(settings);
+        File.WriteAllText(filePath, SerializeToJson(settings));
+    }
+
+    private static void EnsureStandardOnly(ReaderSettings settings)
+    {
+        if (settings.Extensions.Count != 0)
+        {
+            throw new NotSupportedException(
+                "ReaderSettings JSON only supports standard inventory settings. " +
+                "Vendor extension values must be persisted through that extension's typed profile serializer.");
+        }
     }
 }

@@ -215,7 +215,7 @@ inventory start [--antennas <id,id|all>]
 inventory stop | status
 ```
 
-`inventory settings` 操作 `LiveSessionContext.DesiredInventorySettings`；`inventory start` 将其不可变快照传给 `reader.StartAsync(snapshot)`。`reader.CurrentSettings` 只用于 `inventory status` 显示当前运行参数，停止盘点后不保留为草稿。厂商扩展设置不得以 `Dictionary<string, object?>` 的默认 JSON 形式保存，必须经过其 Extension 的强类型 Profile 序列化。
+`inventory settings` 操作 `LiveSessionContext.DesiredInventorySettings`；`inventory start` 将其不可变快照传给 `reader.StartAsync(snapshot)`。`reader.CurrentSettings` 只用于 `inventory status` 显示当前运行参数，停止盘点后不保留为草稿；status 同时明确提示运行快照是否与下一次草稿不同。厂商扩展设置不得以 `Dictionary<string, object?>` 的默认 JSON 形式保存，必须经过其 Extension 的强类型 Profile 序列化。
 
 ### 6. 重构提示链
 

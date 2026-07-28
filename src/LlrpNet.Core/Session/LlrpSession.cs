@@ -480,6 +480,9 @@ public sealed class LlrpSession : IAsyncDisposable
                 ConnectionId,
                 $"LLRP session {ConnectionId} stopped because its receive loop failed.",
                 exception);
+            // Publish the logical connection loss before exposing completion.  Physical transport cleanup
+            // follows below, but callers must never observe a completed unexpected termination as connected.
+            Volatile.Write(ref _connected, 0);
             connectionCompletion.TrySetResult(
                 LlrpSessionTermination.Unexpected(sessionFailure));
             _logger.LogError(
@@ -492,12 +495,14 @@ public sealed class LlrpSession : IAsyncDisposable
         {
             await HandleReceiveFailureAsync(
                 receiveCancellation,
+                connectionCompletion,
                 sessionFailure).ConfigureAwait(false);
         }
     }
 
     private async Task HandleReceiveFailureAsync(
         CancellationTokenSource receiveCancellation,
+        TaskCompletionSource<LlrpSessionTermination> connectionCompletion,
         LlrpSessionDisconnectedException sessionFailure)
     {
         try
