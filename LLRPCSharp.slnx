@@ -66,6 +66,9 @@
     <File Path="docs/guides/cli-user-guide.md" />
     <File Path="docs/guides/sdk-api-guide.md" />
   </Folder>
+  <Folder Name="/docs/releases/">
+    <File Path="docs/releases/v0.2.0.md" />
+  </Folder>
   <Folder Name="/docs/acceptance/">
     <File Path="docs/acceptance/reader-interoperability.md" />
   </Folder>
