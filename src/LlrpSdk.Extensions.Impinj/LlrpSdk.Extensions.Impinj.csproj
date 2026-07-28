@@ -1,7 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Title>LLRPCSharp Impinj Extension Plugin</Title>
+    <Description>Impinj RFID reader extension plugin for LlrpSdk, providing UseImpinj(), custom capabilities, Serialized TID, RF Phase, and Impinj extensions.</Description>
+    <PackageTags>rfid;llrp;impinj;speedway;revolution;r420;r700;sdk;plugin</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
@@ -9,4 +17,3 @@
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
   </ItemGroup>
 </Project>
-

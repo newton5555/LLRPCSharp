@@ -1,7 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Title>LLRPCSharp Core SDK</Title>
+    <Description>Modern .NET LLRP SDK for RFID readers, supporting LLRP 1.0.1, auto-negotiation, managed inventory, tag access, and reader configuration.</Description>
+    <PackageTags>rfid;llrp;sdk;csharp;dotnet;rfid-reader</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
