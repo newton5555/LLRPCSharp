@@ -77,13 +77,13 @@ public static class CommandCatalog
                 "false"
             ],
         },
-        new("tag", LiveCommandRoute.TagAccess, "tag read|write <epc> --bank <bank> --word <address> (--count <words>|--data <hex-words>)", "Read tag memory or inspect a write request.", RequiresConnection: true)
+        new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase <epc> [options]", "Read, write, lock, kill, or block-erase tag memory.", RequiresConnection: true)
         {
-            CompletionCandidates = ["read", "write", "--bank", "--word", "--count", "--data", "--antenna", "--password", "--timeout", "user", "tid", "epc", "reserved"],
+            CompletionCandidates = ["read", "write", "lock", "kill", "erase", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "user", "tid", "epc", "reserved", "unlock", "perma-lock"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory start [antenna-id] | stop | status", "Manage SDK inventory and display tag reports.", RequiresConnection: true)
+        new("inventory", LiveCommandRoute.Inventory, "inventory start [[antenna-id]] [--session <0..3>] [--population <n>] [--attach-bank <bank>] [--settings <path>] | stop | status", "Manage SDK inventory and display tag reports.", RequiresConnection: true)
         {
-            CompletionCandidates = ["start", "stop", "status"],
+            CompletionCandidates = ["start", "stop", "status", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "--settings", "--config", "epc", "tid", "user", "reserved"],
         },
         new("rospec", LiveCommandRoute.RoSpec, "rospec add|list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
         {
@@ -99,126 +99,110 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["10", "20", "50", "100"],
         },
-        new("monitor", LiveCommandRoute.Monitor, "monitor [seconds]", "Stream live received/transmitted LLRP frames.", RequiresConnection: true)
-        {
-            CompletionCandidates = ["10", "30", "60", "--frames", "--table"],
-        },
-        new("inspect", LiveCommandRoute.Inspect, "inspect <hex>", "Inspect raw hex LLRP header."),
-        new("decode", LiveCommandRoute.Decode, "decode <hex>", "Decode raw hex into parameter tree."),
-        new("validate", LiveCommandRoute.Validate, "validate <hex>", "Validate LLRP frame integrity."),
-        new("encode", LiveCommandRoute.Encode, "encode <message-name> [--message-id ID] [--rospec-id ID]", "Encode standard LLRP message into hex.")
-        {
-            CompletionCandidates =
-            [
-                "keepalive",
-                "keepalive-ack",
-                "get-reader-capabilities",
-                "get-rospecs",
-                "delete-rospec",
-                "start-rospec",
-                "stop-rospec",
-                "enable-rospec",
-                "disable-rospec",
-            ],
-        },
+        new("inspect", LiveCommandRoute.Inspect, "inspect <hex>", "Inspect basic header of an LLRP hexadecimal payload."),
+        new("decode", LiveCommandRoute.Decode, "decode <hex>", "Decode LLRP hexadecimal payload into parameter tree."),
+        new("validate", LiveCommandRoute.Validate, "validate <hex>", "Validate structural integrity of an LLRP payload."),
+        new("encode", LiveCommandRoute.Encode, "encode <message-type-or-json>", "Encode message template to hex."),
+        new("monitor", LiveCommandRoute.Monitor, "monitor [duration-sec]", "Monitor live LLRP frames in real-time.", RequiresConnection: true),
         new("clear", LiveCommandRoute.Clear, "clear", "Clear console screen.", Aliases: ["cls"]),
-        new("help", LiveCommandRoute.Help, "help [command]", "Display command help.", Aliases: ["?"]),
-        new("quit", LiveCommandRoute.Exit, "quit", "Exit interactive live shell.", Aliases: ["exit", "q"]),
+        new("help", LiveCommandRoute.Help, "help [command]", "Show command help or list commands.", Aliases: ["?"]),
+        new("exit", LiveCommandRoute.Exit, "exit", "Exit session.", Aliases: ["quit", "q"]),
     ];
 
-    public static CommandSpec Require(string value)
+    public static CommandSpec? Find(string name)
     {
-        return FindCommand(value) ?? throw new InvalidOperationException($"Command '{value}' is not registered.");
+        return Commands.FirstOrDefault(c =>
+            c.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+            c.Aliases.Any(a => a.Equals(name, StringComparison.OrdinalIgnoreCase)));
     }
 
-    public static CommandSpec? FindCommand(string value)
-    {
-        return Commands.FirstOrDefault(command =>
-            command.Name.Equals(value, StringComparison.OrdinalIgnoreCase) ||
-            command.Aliases.Contains(value, StringComparer.OrdinalIgnoreCase));
-    }
+    /// <summary>
+    /// Returns the <see cref="CommandSpec"/> for the given name, or throws <see cref="InvalidOperationException"/> if not found.
+    /// </summary>
+    public static CommandSpec Require(string name)
+        => Find(name) ?? throw new InvalidOperationException($"Command '{name}' not found in catalog.");
 
-    public static bool TryResolve(string value, bool isConnected, out CommandSpec command)
+    /// <summary>
+    /// Resolves a command name, respecting connection state. Returns false if the command is not
+    /// found or requires a connection that is not currently established.
+    /// </summary>
+    public static bool TryResolve(string name, bool isConnected, out CommandSpec command)
     {
-        CommandSpec? resolved = FindCommand(value);
-        if (resolved is null || (resolved.RequiresConnection && !isConnected))
+        CommandSpec? found = Find(name);
+        if (found is null || (found.RequiresConnection && !isConnected))
         {
-            command = null!;
+            command = default!;
             return false;
         }
 
-        command = resolved;
+        command = found;
         return true;
     }
 
-    public static InputAssist Assist(string text, int cursor, bool isConnected)
+    /// <summary>
+    /// Returns completion suggestions for the current input, taking connection state into account.
+    /// The <paramref name="cursor"/> parameter is accepted for API symmetry but not currently used for
+    /// intra-token completion; suggestions are based on the token sequence preceding the trailing space.
+    /// </summary>
+    public static InputAssist Assist(string input, int cursor, bool isConnected)
     {
-        cursor = Math.Clamp(cursor, 0, text.Length);
-        string prefix = text[..cursor];
-        string[] tokens = TokenizePrefix(prefix);
-        string currentToken = tokens.Length > 0 && !prefix.EndsWith(' ') ? tokens[^1] : string.Empty;
-
-        IReadOnlyList<string> candidates = GetCandidates(tokens, prefix.EndsWith(' '), isConnected, currentToken);
-        string ghostSuffix = string.Empty;
-        if (cursor == text.Length && !string.IsNullOrWhiteSpace(currentToken) && candidates.Count > 0)
+        if (string.IsNullOrWhiteSpace(input))
         {
-            string bestMatch = candidates[0];
-            if (bestMatch.StartsWith(currentToken, StringComparison.OrdinalIgnoreCase))
+            return InputAssist.Empty;
+        }
+
+        string[] parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string firstWord = parts[0].ToLowerInvariant();
+
+        CommandSpec? spec = Find(firstWord);
+        if (spec is null)
+        {
+            var matches = Commands
+                .Where(c => c.Name.StartsWith(firstWord, StringComparison.OrdinalIgnoreCase)
+                            && (!c.RequiresConnection || isConnected))
+                .Select(c => c.Name)
+                .ToList();
+
+            if (matches.Count == 1)
             {
-                ghostSuffix = bestMatch[currentToken.Length..];
+                string match = matches[0];
+                return new InputAssist([match], match[firstWord.Length..], $"Press Tab to complete '{match}'");
             }
+
+            return new InputAssist(matches, string.Empty, matches.Count > 0 ? $"{matches.Count} matching commands" : string.Empty);
         }
 
-        string hint = GetHint(tokens, candidates, isConnected);
-        return new InputAssist(candidates, ghostSuffix, hint);
-    }
-
-    private static IReadOnlyList<string> GetCandidates(string[] tokens, bool endsWithSpace, bool isConnected, string currentToken)
-    {
-        if (tokens.Length == 0 || (tokens.Length == 1 && !endsWithSpace))
+        // Command requires connection but we are disconnected – no assist.
+        if (spec.RequiresConnection && !isConnected)
         {
-            return Commands
-                .Where(command => !command.RequiresConnection || isConnected)
-                .Select(command => command.Name)
-                .Where(name => name.StartsWith(currentToken, StringComparison.OrdinalIgnoreCase))
+            return InputAssist.Empty;
+        }
+
+        if (parts.Length > 1 && spec.CompletionCandidates.Count > 0)
+        {
+            string lastToken = parts[^1].ToLowerInvariant();
+            var matches = spec.CompletionCandidates
+                .Where(c => c.StartsWith(lastToken, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+
+            if (matches.Count == 1)
+            {
+                string match = matches[0];
+                return new InputAssist([match], match[lastToken.Length..], $"Press Tab to complete '{match}'");
+            }
+
+            return new InputAssist(matches, string.Empty, matches.Count > 0 ? $"{matches.Count} matching options" : string.Empty);
         }
 
-        CommandSpec? command = FindCommand(tokens[0]);
-        if (command is not null)
+        // Input ends with whitespace but has no trailing token (e.g. "tag ") – return all candidates.
+        if (input.Length > 0 && char.IsWhiteSpace(input[^1]) && spec.CompletionCandidates.Count > 0)
         {
-            string argumentToken = tokens.Length > 1 && !endsWithSpace ? tokens[^1] : string.Empty;
-            return command.CompletionCandidates
-                .Where(candidate => candidate.StartsWith(argumentToken, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            return new InputAssist(spec.CompletionCandidates.ToList(), string.Empty, $"{spec.CompletionCandidates.Count} matching options");
         }
 
-        return Array.Empty<string>();
+        return new InputAssist([], string.Empty, spec.Usage);
     }
 
-    private static string GetHint(string[] tokens, IReadOnlyList<string> candidates, bool isConnected)
-    {
-        if (tokens.Length == 0)
-        {
-            return "Type command or IP to connect.";
-        }
-
-        CommandSpec? spec = FindCommand(tokens[0]);
-        if (spec is not null)
-        {
-            return $"{spec.Usage} - {spec.Description}";
-        }
-
-        if (candidates.Count > 0)
-        {
-            return $"Candidates: {string.Join(", ", candidates.Take(4))}";
-        }
-
-        return string.Empty;
-    }
-
-    private static string[] TokenizePrefix(string prefix)
-    {
-        return prefix.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-    }
+    public static InputAssist GetAssist(string input)
+        => Assist(input, cursor: input.Length, isConnected: true);
 }

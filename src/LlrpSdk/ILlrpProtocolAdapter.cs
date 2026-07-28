@@ -28,6 +28,11 @@ internal interface ILlrpProtocolAdapter
 
     public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request);
 
+    public Task<IReadOnlyList<TranslatedTagReport>> FetchReportsAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken);
+
     public IReadOnlyList<TranslatedTagReport> TranslateTagReports(ILlrpMessage message);
 
     public Task AddRoSpecAsync(

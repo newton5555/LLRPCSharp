@@ -12,4 +12,9 @@
     <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>LlrpSdk.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

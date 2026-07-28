@@ -1,6 +1,6 @@
 # 当前状态
 
-> 基准日期：2026-07-27
+> 基准日期：2026-07-28
 > 目的：作为仓库当前真实状态的事实源。README 面向使用者，长期规划面向设计；本文件回答“现在已经有什么、还缺什么、当前阶段的核心交付目标是什么”。
 
 ## 总结
@@ -27,8 +27,9 @@
 ### 盘点与资源服务
 
 - `LlrpReader.StartAsync(ReaderSettings)`、`StopAsync()`、`InventoryAsync(ReaderSettings?)`。
-- `ReadTagReportsAsync()` 与 `TagsReported`，并共用同一份已翻译的 `TagReport`。
-- `ReaderSettings` 作为版本无关的盘点意图模型存在。
+- `ReadTagReportsAsync()`、`GetTagReportsAsync()` 与 `TagsReported`，并共用同一份已翻译的 `TagReport`。
+- `ReaderSettings` 作为版本无关的盘点意图模型存在，新增 C1G2 盘点参数（`Session`、`TagPopulationEstimate`、`ModeIndex`、`Tari`）与 `AttachedDataOptions`（高层附加数据盘存配置）。
+- `ReaderMetadata` 新增物理参数表（`TxPowers`、`RxSensitivities`、`TxFrequencies`、`HopTables`、`RfModes`）与门控能力标志位（`IsTagAccessAvailable`、`IsMultiwordBlockWriteAvailable`、`IsMultiwordBlockEraseAvailable`、`CanDoTagInventoryStateAwareSingulation`）。
 - `IRoSpecService` 提供 Add/Delete/Enable/Disable/Start/Stop/GetAll。
 - `IAccessSpecService` 提供 Add/Delete/Enable/Disable/GetAll。
 - Raw Protocol 操作后会使托管状态失效，并通过 `SynchronizeStateAsync()` 恢复可继续 Managed 操作的状态。
@@ -48,12 +49,21 @@
 - Reader Extension 基于 Manufacturer/Model/Firmware/ProtocolVersion 匹配，并检查互斥组冲突。
 - **两阶段能力获取与主动连接初始化 (ADR 0002)**：重构 SDK 握手连接逻辑，实现“读取基础身份 -> 匹配并激活运行对应扩展的主动初始化（如 Impinj 自动发送 `IMPINJ_ENABLE_EXTENSIONS`）-> 读取包含厂商专属能力的完整 Capability 快照”的双阶段流，解决因扩展未使能而无法查询厂商扩展能力的限制。
 
-### 可靠性与诊断
+### 硬件事件与 GPIO
 
-- `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`。
-- 意外断线后的有限自动重连。
-- `LlrpFrameJournal` 诊断基线。
-- `ILlrpFrameObserver` 可从底层 Transport/Session 注入完整 TX/RX 帧观测。
+- `GpiChanged`、`KeepaliveReceived`、`ReportBufferOverflow` 硬件事件推送接入消息 Pump 调度。
+- `SetGpoAsync(portNumber, state)` 提供控制读写器 GPO 输出的便利接口。
+
+### 标签访问 API
+
+- `ReadTagMemoryAsync`、`WriteTagMemoryAsync`、`LockTagMemoryAsync`、`KillTagAsync`、`BlockEraseTagMemoryAsync`：版本无关的标准 C1G2 读/写/锁/销毁/块擦除操作入口。
+- 自动化 ROSpec 生命周期：非盘点状态下调用标签操作时，SDK 自动创建并开启临时 ROSpec 14150，并在操作完成后自动清理临时资源与恢复状态。
+- AccessSpec 由 1.0.1 / 1.1 Adapter 编译为 `C1G2Lock`、`C1G2Kill`、`C1G2BlockErase` 等底层 wire 参数；执行后自动 Disable/Delete 临时 AccessSpec。
+- `TagReport` 会投影标准 C1G2 Read/Write OpSpec Result。
+- 2026-07-27：Impinj R420（LLRP 1.0.1、固件 6.4.1.240）通过直接 SDK 调用完成连接、Impinj 扩展激活、盘点和 User Memory 读；详见互操作验收文档。
+- `Interop.Tests` 使用 Virtual Reader 覆盖 SDK 托管盘存、TagReport 翻译、临时 AccessSpec 读取结果与清理路径；Virtual Reader 是固定 LLRP 1.0.1，因此测试显式使用 `Force101`。
+- CLI 已提供 `tag read <host> <epc> ...` 和 Live Shell `tag read ...`，两者复用标准 SDK ReadTagMemory API；若读取方没有托管盘点，会临时启动并在结束后清理。`tag write` 在两个宿主中都只显示 dry-run 请求计划，不调用 SDK 写入 API、不连接设备也不写标签。
+- 2026-07-27：外层 CLI 已通过 R420 的实际非破坏性 User Memory 读取验收，目标 EPC `E28011710000020D056E9BEE` 的 word 0 返回 `0000`。
 
 ### Reader 配置查询与应用
 
@@ -63,16 +73,6 @@
 - CLI 命令行支持 `config get <HOST>` 和 `config apply <HOST> [options]`；Live Shell 也支持 `config get` 与复用同一映射/校验的 `config apply [options] [--dry-run] --yes`。配置写入会在连接前拒绝空写入、缺少天线上下文的天线字段，以及不完整的 GPO 写入；Live 写入必须显式使用 `--yes`。
 - `config get <HOST>`/Live `config get` 直接调用 `QuerySettingsAsync()`，读取设备当前状态；`config defaults <HOST>`/Live `config defaults` 直接调用 `GetDefaultConfigurationResult()`，展示 SDK 安全基线及选中的 Profile 来源。后者需要已初始化连接以识别设备，但不读取或写入设备配置。
 - Live Shell 的 `rospec add` 会在设备当前没有任何 ROSpec 时，创建 SDK 默认的 Disabled ROSpec（ID `14150`）；不会自动启用或开始盘点，也不会覆盖设备已有 ROSpec。后续可显式执行 `rospec enable 14150` 与 `rospec start 14150`。
-
-### 标签访问 API
-
-- `ReadTagMemoryAsync(ReadTagRequest)` 与 `WriteTagMemoryAsync(WriteTagRequest)`：版本无关的标准 C1G2 读写入口。
-- AccessSpec 由 1.0.1 / 1.1 Adapter 编译；调用要求已有 SDK 托管盘点，执行后自动 Disable/Delete 临时 AccessSpec。
-- `TagReport` 会投影标准 C1G2 Read/Write OpSpec Result。
-- 2026-07-27：Impinj R420（LLRP 1.0.1、固件 6.4.1.240）通过直接 SDK 调用完成连接、Impinj 扩展激活、盘点和 User Memory 读；详见互操作验收文档。
-- `Interop.Tests` 使用 Virtual Reader 覆盖 SDK 托管盘存、TagReport 翻译、临时 AccessSpec 读取结果与清理路径；Virtual Reader 是固定 LLRP 1.0.1，因此测试显式使用 `Force101`。
-- CLI 已提供 `tag read <host> <epc> ...` 和 Live Shell `tag read ...`，两者复用标准 SDK ReadTagMemory API；若读取方没有托管盘点，会临时启动并在结束后清理。`tag write` 在两个宿主中都只显示 dry-run 请求计划，不调用 SDK 写入 API、不连接设备也不写标签。
-- 2026-07-27：外层 CLI 已通过 R420 的实际非破坏性 User Memory 读取验收，目标 EPC `E28011710000020D056E9BEE` 的 word 0 返回 `0000`。
 
 ### Contributor 管道
 
@@ -103,9 +103,17 @@ R420 Firmware 6.4.1 的 ItemTest 抓包证明最新 Impinj 定义中的 `ImpinjT
 
 Virtual Reader 已能生成可配置 EPC 的基础 TagReport，对 EPC bit mask 执行最小标签筛选，并以可变的 User Memory 模拟 C1G2 Read/Write AccessSpec；也支持最小 `GET/SET_READER_CONFIG` 的 Keepalive、GPO、天线和事件配置状态。`Interop.Tests` 覆盖写后读、配置查询/应用回读、SDK 超时、LLRP 错误状态和主动断线后的自动重连。它仍不模拟真实射频、跨进程持久化或 LLRP 2.0。
 
-## 当前构建状态
+`dotnet build LLRPCSharp.slnx --no-restore` 已通过，解决方案中所有项目编译零错误、零警告。
 
-`dotnet build LLRPCSharp.slnx --no-restore` 已通过，解决方案中所有项目（包含 `src/LlrpSdk.Extensions.Impinj`）编译零错误；当前测试基线全部通过。
+本轮（2026-07-28）完成的主要工作：
+
+- **CLI `inventory` 全量参数对齐**：`inventory start` 新增 `--session`、`--population`、`--mode`、`--tari`、`--attach-bank/ptr/len/pwd`、`--settings <path.json>` 参数，内联参数优先级高于 settings 文件；`[antenna-id]` 位置参数向后兼容。
+- **CLI `tag` 全量对齐**：`tag lock`、`tag kill`、`tag erase` 已补全；`TagAccessRenderer` 错误字段修正为 `Error`。
+- **`ReaderSettingsSerializer`**：新增 JSON 序列化/反序列化帮助类，供 `--settings` 文件加载与单元测试使用。
+- **`CommandCatalog` 扩展**：新增 `Require`、`TryResolve(name, isConnected)`、`Assist(input, cursor, isConnected)` 方法，支持连接状态门控与末尾空格自动补全场景。
+- **`LlrpCli.csproj`**：添加 `InternalsVisibleTo("LlrpCli.Tests")`，允许测试项目访问 internal 命令处理器。
+- **CLI 用户指南**：[cli-user-guide.md](file:///f:/Projects/LLRP/LLRPCSharp/docs/guides/cli-user-guide.md) 全量更新，覆盖所有命令语法、参数表、settings 文件 JSON 格式示例与常见问题。
+- 测试：7 个项目套件共 **346 项全部通过（0 失败）**；`LlrpCli.Tests` 由 22 项增至 28 项（新增 inventory 参数解析与 CommandCatalog 测试）。
 
 此前发生的 Impinj 扩展类型重复定义错误已解决：`LlrpNet.ProtocolGenerator.Tool` 已增加对输出目录孤立 `*.g.cs` 文件的检测与自动清理机制，旧编号遗留文件已全部清除。
 

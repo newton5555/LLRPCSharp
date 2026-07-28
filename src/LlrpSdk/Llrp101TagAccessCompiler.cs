@@ -15,6 +15,9 @@ internal static class Llrp101TagAccessCompiler
         {
             ReadTagRequest read => new C1G2Read(1, read.AccessPassword, (byte)read.MemoryBank, read.WordPointer, read.WordCount),
             WriteTagRequest write => new C1G2Write(1, write.AccessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
+            LockTagRequest lockReq => CompileLock(lockReq),
+            KillTagRequest killReq => new C1G2Kill(1, killReq.KillPassword),
+            BlockEraseTagRequest eraseReq => new C1G2BlockErase(1, eraseReq.AccessPassword, (byte)eraseReq.MemoryBank, eraseReq.WordPointer, eraseReq.WordCount),
             _ => throw new NotSupportedException($"Unsupported tag access request type {request.GetType().FullName}.")
         };
         var target = new C1G2TargetTag(
@@ -51,6 +54,44 @@ internal static class Llrp101TagAccessCompiler
         {
             throw new ArgumentException("Write data must contain at least one word.", nameof(request));
         }
+        if (request is BlockEraseTagRequest { WordCount: 0 })
+        {
+            throw new ArgumentOutOfRangeException(nameof(request), "Block erase word count must be positive.");
+        }
+    }
+
+    private static C1G2Lock CompileLock(LockTagRequest lockReq)
+    {
+        var payloads = new List<C1G2LockPayload>();
+        AddPayloadIfSet(payloads, C1G2LockDataField.Kill_Password, lockReq.KillPasswordLockMode);
+        AddPayloadIfSet(payloads, C1G2LockDataField.Access_Password, lockReq.AccessPasswordLockMode);
+        AddPayloadIfSet(payloads, C1G2LockDataField.EPC_Memory, lockReq.EpcMemoryLockMode);
+        AddPayloadIfSet(payloads, C1G2LockDataField.TID_Memory, lockReq.TidMemoryLockMode);
+        AddPayloadIfSet(payloads, C1G2LockDataField.User_Memory, lockReq.UserMemoryLockMode);
+
+        if (payloads.Count == 0)
+        {
+            throw new ArgumentException("LockTagRequest must specify at least one lock mode change.", nameof(lockReq));
+        }
+
+        return new C1G2Lock(1, lockReq.AccessPassword, payloads);
+    }
+
+    private static void AddPayloadIfSet(List<C1G2LockPayload> payloads, C1G2LockDataField field, TagLockMode mode)
+    {
+        if (mode == TagLockMode.NoChange)
+        {
+            return;
+        }
+        C1G2LockPrivilege privilege = mode switch
+        {
+            TagLockMode.Accessible => C1G2LockPrivilege.Read_Write,
+            TagLockMode.AlwaysAccessible => C1G2LockPrivilege.Perma_Unlock,
+            TagLockMode.SecuredWrite => C1G2LockPrivilege.Unlock,
+            TagLockMode.AlwaysNotWritable => C1G2LockPrivilege.Perma_Lock,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+        };
+        payloads.Add(new C1G2LockPayload(privilege, field));
     }
 
     private static IReadOnlyList<bool> ToBits(ReadOnlySpan<byte> bytes, ushort bitLength)

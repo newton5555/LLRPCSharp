@@ -15,7 +15,7 @@
 | 域 | 高层 `LlrpReader` 接口 | 高级接口 | 当前验收原则 |
 |---|---|---|---|
 | 连接与初始化 | `ConnectAsync`、协商、身份、能力、断开 | `Protocol` 诊断 | R420/R700 连通、协商与错误可诊断 |
-| 标准配置 | `QuerySettingsAsync`、默认配置/Profile、Patch 解析与显式 Apply | 原始配置报文 | 查询和写入边界分离；CLI 不重做配置语义 |
+| 标准配置 | `QueryConfigurationAsync` / `ApplyConfigurationAsync`（兼容期保留旧名）、默认配置/Profile、Patch 解析与显式 Apply | 原始配置报文 | 查询和写入边界分离；CLI 不重做配置语义 |
 | ROSpec/盘点 | `StartAsync`、`StopAsync`、`InventoryAsync`、报告流 | `RoSpecs` Add/Get/Enable/Start/Stop/Delete | 默认资源可用、显式资源可控、所有权清楚 |
 | AccessSpec/标签操作 | `ReadTagMemoryAsync`、`WriteTagMemoryAsync` | `AccessSpecs` 生命周期 | 最小读写、选择、密码、清理和失败结果正确 |
 | TagReport | 版本无关 `TagReport` 流/事件 | 原始 Message/帧 | 标准字段与未知字段不丢失 |
@@ -25,7 +25,7 @@
 ## 阶段 A：标准 LLRP 1.0.1 Reader API 补全
 
 1. 为每个标准资源域盘点“高层入口 / 高级服务 / Raw 退路”三层是否齐备；缺高层入口时先补 SDK，不从 CLI 绕过。
-2. 完成配置 API 的一致使用：`ReaderConfigurationPatch` 是部分变更模型，`QuerySettingsAsync` 是设备状态，`GetDefaultConfigurationResult()` 是 SDK 基线，三者不得混用。
+2. 完成配置 API 的一致使用：`ReaderConfigurationPatch` 是部分变更模型，`QueryConfigurationAsync` 是设备状态，`GetDefaultConfigurationResult()` 是 SDK 基线，三者不得混用。现有 `QuerySettingsAsync` / `ApplySettingsAsync` 作为兼容别名逐步迁移。
 3. 清晰定义 SDK 托管 ROSpec、CLI 默认 ROSpec 和外部 ROSpec 的资源所有权，避免删除不属于调用者的资源。
 4. 补足 Tag Access 的标准读写闭环、错误状态、超时、密码和清理语义；写入只在实机验收与明确确认后开放为 CLI 实际操作。
 5. 建立每项 API 对 R420/R700 的非破坏性验收记录；破坏性写入使用可恢复的专用标签与明确步骤。
@@ -42,21 +42,24 @@
 
 1. 每个在线 CLI 命令列出其唯一的 Reader API 映射；没有映射的业务命令先停止扩展。
 2. 将 `config apply` 从 CLI 私有完整对象合并逐步收敛到 `ReaderConfigurationPatch` → `ResolveConfigurationPatchAsync` / `ApplyConfigurationPatchAsync`。
-3. 将 `inventory` 参数收敛为 `ReaderSettings` 的安全子集；高级字段采用显式 Profile/YAML，而非命令行无限堆选项。
-4. 保持 `rospec`/`accessspec` 为高级接口的薄包装；默认 ROSpec 的创建规则与 SDK `ReaderSettings` 默认值保持一致。
-5. 仅离线协议命令允许直接进入 Protocol 层；`raw` 操作后必须提示并强制下一次托管操作前同步。
+3. 将 `ReaderSettings` 规范为盘点意图（目标名称 `InventorySettings`），并把 `CurrentSettings` 规范为运行中快照（目标名称 `CurrentInventorySettings`）。
+4. Live Shell 在 `LiveSessionContext` 保存 `DesiredInventorySettings` 草稿；`inventory settings show|set|load|save|reset` 修改草稿，`inventory start [--antennas]` 只消费草稿快照并允许天线临时覆盖。
+5. 标准盘点 Profile 可 JSON 读写；厂商 Extension 必须注册强类型、版本化的 Profile 映射，不能直接持久化 `Extensions<object>`。
+6. 保持 `rospec`/`accessspec` 为高级接口的薄包装；默认 ROSpec 的创建规则与 SDK 盘点意图默认值保持一致。
+7. 仅离线协议命令允许直接进入 Protocol 层；`raw` 操作后必须提示并强制下一次托管操作前同步。
 
 ## 阶段 D：CLI 生命周期管理（先规划，后实现）
 
 ### D1. 状态模型
 
-`LiveSessionContext` 必须区分：连接状态、SDK 托管盘点状态、CLI 所有的报告泵、被动监控、Raw 后同步需求、以及待处理的断线/清理任务。不得仅凭一个 `IsConnected` 推断其余状态。
+`LiveSessionContext` 必须区分：连接状态、SDK 托管盘点状态、CLI 所有的报告泵、被动监控、Raw 后同步需求、待处理的断线/清理任务，以及仅用于下一次盘点的 `DesiredInventorySettings`。不得仅凭一个 `IsConnected` 或 `reader.CurrentSettings` 推断其余状态。
 
 ### D2. 所有权与清理
 
 - 仅清理当前 CLI 命令创建的 ROSpec、AccessSpec、报告泵与监控任务；
 - `disconnect`、连接失败和 Ctrl+C 走同一幂等清理路径；
 - 临时 `tag read` 只停止它自己启动的托管盘点，绝不停止用户已在运行的盘点；
+- `inventory start` 对草稿执行不可变快照；运行中 SDK 设置与之后继续编辑的草稿互不影响；
 - Raw 操作不尝试猜测设备改变了什么，标为未同步并要求 `sync`。
 
 ### D3. 重连与错误

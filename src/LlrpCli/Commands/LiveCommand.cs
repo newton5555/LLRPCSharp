@@ -105,7 +105,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 continue;
             }
 
-            CommandSpec? command = CommandCatalog.FindCommand(tokens[0]);
+            CommandSpec? command = CommandCatalog.Find(tokens[0]);
             if (command?.Route == LiveCommandRoute.Exit)
             {
                 _console.MarkupLine("[grey]Exiting live mode... Bye![/]");
@@ -885,7 +885,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     private void RenderCommandHelp(string commandName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
-        CommandSpec? command = CommandCatalog.FindCommand(commandName);
+        CommandSpec? command = CommandCatalog.Find(commandName);
         if (command is null)
         {
             _console.MarkupLine($"[red]Unknown command '{Markup.Escape(commandName)}'.[/]");

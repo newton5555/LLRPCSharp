@@ -1,4 +1,25 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
+
+/// <summary>
+/// Configures optional attached memory bank read operations during managed inventory.
+/// </summary>
+public sealed record AttachedDataOptions
+{
+    /// <summary>Gets a value indicating whether attached memory reading is enabled.</summary>
+    public bool Enabled { get; init; }
+
+    /// <summary>Gets the Gen2 memory bank to read (0=Reserved, 1=EPC, 2=TID, 3=User). Default is 2 (TID).</summary>
+    public ushort MemoryBank { get; init; } = 2;
+
+    /// <summary>Gets the starting word pointer for reading.</summary>
+    public ushort WordPointer { get; init; }
+
+    /// <summary>Gets the number of 16-bit words to read. Default is 6 words.</summary>
+    public ushort WordCount { get; init; } = 6;
+
+    /// <summary>Gets the 32-bit hex access password string (8 hex characters).</summary>
+    public string AccessPassword { get; init; } = "00000000";
+}
 
 /// <summary>
 /// Describes the version-independent intent for one managed inventory operation.
@@ -41,4 +62,29 @@ public sealed record ReaderSettings
     /// Gets the number of observed tags that trigger one report. The default reports each observed tag.
     /// </summary>
     public ushort ReportEveryNTags { get; init; } = 1;
+
+    /// <summary>
+    /// Gets the C1G2 Session (0, 1, 2, or 3) for singulation. Default is 0.
+    /// </summary>
+    public byte Session { get; init; }
+
+    /// <summary>
+    /// Gets the estimated tag population for singulation slot count calculation. Default is 32.
+    /// </summary>
+    public ushort TagPopulationEstimate { get; init; } = 32;
+
+    /// <summary>
+    /// Gets the C1G2 ModeIndex (RF mode) to request, or <c>0</c> for default mode.
+    /// </summary>
+    public ushort ModeIndex { get; init; }
+
+    /// <summary>
+    /// Gets the Tari value in nsec, or <c>0</c> for default Tari.
+    /// </summary>
+    public ushort Tari { get; init; }
+
+    /// <summary>
+    /// Gets the attached data options for reading extra tag memory during inventory.
+    /// </summary>
+    public AttachedDataOptions AttachedData { get; init; } = new();
 }

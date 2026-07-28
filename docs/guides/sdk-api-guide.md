@@ -59,6 +59,20 @@
 
 ## 三、 分类 SDK API 规格指南
 
+### 0. 两类设置与一个运行中快照
+
+`ReaderConfiguration` 和 `ReaderSettings` 不是同一类对象：
+
+| 对象 | 用途 | 生命周期 |
+|---|---|---|
+| `ReaderConfiguration` / `ReaderConfigurationPatch` | 设备硬件、事件与厂商配置；对应 `GET/SET_READER_CONFIG` | 设备状态与显式写入 |
+| `ReaderSettings`（计划规范名：`InventorySettings`） | 盘点意图；SDK 编译为 ROSpec 和必要的托管资源 | 每次 `StartAsync` 的输入快照 |
+| `CurrentSettings`（计划规范名：`CurrentInventorySettings`） | SDK 当前托管盘点的实际输入 | 仅在盘点运行期间有效 |
+
+`GetDefaultConfiguration()` 只是不发送配置查询报文；目前仍需 Reader 已连接并完成初始化，才能依照身份、能力和激活扩展解析 Profile。它不是设备当前配置，也不是完全离线 API。
+
+后续将以非破坏方式增加 `QueryConfigurationAsync` / `ApplyConfigurationAsync` 作为清晰主名，并保留当前 `QuerySettingsAsync` / `ApplySettingsAsync` 一个兼容周期。
+
 ### 1. 构建与连接管理 API
 
 #### `LlrpReader.CreateBuilder(string host)`

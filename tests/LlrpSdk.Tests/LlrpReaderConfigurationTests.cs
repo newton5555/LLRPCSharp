@@ -172,6 +172,41 @@ public sealed class LlrpReaderConfigurationTests
         Assert.True(setConfigSent);
     }
 
+    [Fact]
+    public void ReaderSettings_C1G2SingulationCompiler_IncludesSingulationAndRFControl()
+    {
+        var settings = new ReaderSettings
+        {
+            Session = 2,
+            TagPopulationEstimate = 128,
+            ModeIndex = 1,
+            AttachedData = new AttachedDataOptions
+            {
+                Enabled = true,
+                MemoryBank = 2,
+                WordCount = 6
+            }
+        };
+
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(settings, []);
+        Assert.NotNull(roSpec);
+        Assert.Single(roSpec.SpecParameterItems);
+        var aiSpec = Assert.IsType<AISpec>(roSpec.SpecParameterItems[0]);
+        Assert.Single(aiSpec.InventoryParameterSpecItems);
+        InventoryParameterSpec invSpec = aiSpec.InventoryParameterSpecItems[0];
+        Assert.Single(invSpec.AntennaConfigurationItems);
+        AntennaConfiguration antConfig = invSpec.AntennaConfigurationItems[0];
+        Assert.Single(antConfig.AirProtocolInventoryCommandSettingsItems);
+        var invCmd = Assert.IsType<C1G2InventoryCommand>(antConfig.AirProtocolInventoryCommandSettingsItems[0]);
+
+        Assert.NotNull(invCmd.C1G2SingulationControl);
+        Assert.Equal((byte)2, invCmd.C1G2SingulationControl.Session);
+        Assert.Equal((ushort)128, invCmd.C1G2SingulationControl.TagPopulation);
+
+        Assert.NotNull(invCmd.C1G2RFControl);
+        Assert.Equal((ushort)1, invCmd.C1G2RFControl.ModeIndex);
+    }
+
     private static LlrpReader CreateReader(ScriptedLlrpTransport transport)
     {
         return LlrpReader.CreateBuilder("scripted.local")

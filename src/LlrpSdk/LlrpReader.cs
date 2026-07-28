@@ -313,6 +313,21 @@ public sealed class LlrpReader : IAsyncDisposable
     public event EventHandler<TagReportEventArgs>? TagsReported;
 
     /// <summary>
+    /// Occurs when a GPI pin state change is reported by the reader.
+    /// </summary>
+    public event EventHandler<GpiChangedEventArgs>? GpiChanged;
+
+    /// <summary>
+    /// Occurs when a Keepalive message is received from the reader.
+    /// </summary>
+    public event EventHandler<EventArgs>? KeepaliveReceived;
+
+    /// <summary>
+    /// Occurs when the reader reports a tag report buffer overflow event.
+    /// </summary>
+    public event EventHandler<EventArgs>? ReportBufferOverflow;
+
+    /// <summary>
     /// Connects the session and starts the sole unsolicited-frame consumer.
     /// </summary>
     /// <param name="cancellationToken">Cancels waiting for or establishing the connection.</param>
@@ -853,20 +868,6 @@ public sealed class LlrpReader : IAsyncDisposable
         return GetProtocolAdapter().CompileInventory(settings, BuildInventoryCustomItems(settings));
     }
 
-    /// <summary>Reads one selected tag's standard C1G2 memory through the active SDK-managed inventory operation.</summary>
-    public Task<TagAccessResult> ReadTagMemoryAsync(
-        ReadTagRequest request,
-        TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default) =>
-        ExecuteTagAccessAsync(request, timeout, cancellationToken);
-
-    /// <summary>Writes one selected tag's standard C1G2 memory through the active SDK-managed inventory operation.</summary>
-    public Task<TagAccessResult> WriteTagMemoryAsync(
-        WriteTagRequest request,
-        TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default) =>
-        ExecuteTagAccessAsync(request, timeout, cancellationToken);
-
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
@@ -918,10 +919,54 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private async Task<TagAccessResult> ExecuteTagAccessAsync(
+    /// <summary>
+    /// Actively requests tag reports from the physical reader's buffer via GET_REPORT.
+    /// </summary>
+    public async Task<IReadOnlyList<TagReport>> GetTagReportsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureProtocolAvailable();
+        EnsureManagedStateSynchronized();
+
+        ILlrpProtocolAdapter adapter = GetProtocolAdapter();
+        uint messageId = _messageIds.Next();
+        IReadOnlyList<TranslatedTagReport> translated = await adapter
+            .FetchReportsAsync(this, messageId, cancellationToken)
+            .ConfigureAwait(false);
+
+        var reports = new List<TagReport>();
+        foreach (TranslatedTagReport report in translated)
+        {
+            TagReport result = ApplyTagReportContributors(report);
+            reports.Add(result);
+            PublishTagReport(result);
+        }
+
+        return reports;
+    }
+
+    /// <summary>
+    /// Sets the output state of a specified GPO port on the reader.
+    /// </summary>
+    public async Task SetGpoAsync(
+        ushort portNumber,
+        bool state,
+        CancellationToken cancellationToken = default)
+    {
+        var config = new ReaderConfiguration
+        {
+            Gpos = [new GpoConfiguration { GpoPortNumber = portNumber, GpoData = state }]
+        };
+        await ApplySettingsAsync(config, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Executes one standard C1G2 tag access operation (Read, Write, Lock, Kill, BlockErase).
+    /// </summary>
+    public async Task<TagAccessResult> ExecuteTagAccessAsync(
         TagAccessRequest request,
-        TimeSpan? timeout,
-        CancellationToken cancellationToken)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureProtocolAvailable();
@@ -930,66 +975,113 @@ public sealed class LlrpReader : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(timeout), "Tag access timeout must be positive when specified.");
         }
 
-        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        bool isTemporaryRoSpec = false;
+        if (OperationState != ReaderOperationState.Inventorying)
+        {
+            await StartAsync(new ReaderSettings(), cancellationToken).ConfigureAwait(false);
+            isTemporaryRoSpec = true;
+        }
+
         try
         {
-            EnsureProtocolAvailable();
-            if (OperationState != ReaderOperationState.Inventorying || _managedInventoryRoSpecId is not uint roSpecId)
-            {
-                throw new InvalidOperationException(
-                    "Tag access requires an active SDK-managed inventory operation. Call StartAsync before issuing tag access.");
-            }
-
-            uint accessSpecId = NextManagedAccessSpecId();
-            ILlrpParameter accessSpec = GetProtocolAdapter().CompileTagAccess(accessSpecId, roSpecId, request);
-            var completion = new TaskCompletionSource<TagAccessResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-            EventHandler<TagReportEventArgs>? handler = null;
-            handler = (_, args) =>
-            {
-                TagReport report = args.Report;
-                if (report.AccessSpecId != accessSpecId)
-                {
-                    return;
-                }
-
-                TagAccessOperationResult? operation = report.AccessOperationResults?
-                    .FirstOrDefault(static result => result.OpSpecId == 1);
-                if (operation is not null)
-                {
-                    completion.TrySetResult(new TagAccessResult(report, operation));
-                }
-            };
-
-            TagsReported += handler;
-            bool added = false;
-            bool enabled = false;
+            await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                await AccessSpecs.AddAsync(accessSpec, cancellationToken).ConfigureAwait(false);
-                added = true;
-                await AccessSpecs.EnableAsync(accessSpecId, cancellationToken).ConfigureAwait(false);
-                enabled = true;
-                TimeSpan effectiveTimeout = timeout ?? Options.RequestTimeout;
-                return await completion.Task.WaitAsync(effectiveTimeout, cancellationToken).ConfigureAwait(false);
+                EnsureProtocolAvailable();
+                uint roSpecId = _managedInventoryRoSpecId ?? 14150;
+                uint accessSpecId = NextManagedAccessSpecId();
+                ILlrpParameter accessSpec = GetProtocolAdapter().CompileTagAccess(accessSpecId, roSpecId, request);
+                var completion = new TaskCompletionSource<TagAccessResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+                EventHandler<TagReportEventArgs>? handler = null;
+                handler = (_, args) =>
+                {
+                    TagReport report = args.Report;
+                    if (report.AccessSpecId != accessSpecId)
+                    {
+                        return;
+                    }
+
+                    TagAccessOperationResult? operation = report.AccessOperationResults?
+                        .FirstOrDefault(static result => result.OpSpecID == 1);
+                    if (operation is not null)
+                    {
+                        completion.TrySetResult(new TagAccessResult(report, operation));
+                    }
+                };
+
+                TagsReported += handler;
+                bool added = false;
+                bool enabled = false;
+                try
+                {
+                    await AccessSpecs.AddAsync(accessSpec, cancellationToken).ConfigureAwait(false);
+                    added = true;
+                    await AccessSpecs.EnableAsync(accessSpecId, cancellationToken).ConfigureAwait(false);
+                    enabled = true;
+                    TimeSpan effectiveTimeout = timeout ?? Options.RequestTimeout;
+                    return await completion.Task.WaitAsync(effectiveTimeout, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    TagsReported -= handler;
+                    if (enabled)
+                    {
+                        try { await AccessSpecs.DisableAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                    if (added)
+                    {
+                        try { await AccessSpecs.DeleteAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
+                    }
+                }
             }
             finally
             {
-                TagsReported -= handler;
-                if (enabled)
-                {
-                    try { await AccessSpecs.DisableAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
-                }
-                if (added)
-                {
-                    try { await AccessSpecs.DeleteAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
-                }
+                _operationLock.Release();
             }
         }
         finally
         {
-            _operationLock.Release();
+            if (isTemporaryRoSpec)
+            {
+                try { await StopAsync(cancellationToken).ConfigureAwait(false); } catch { }
+            }
         }
     }
+
+    /// <summary>Reads memory from matching Gen2 RFID tags.</summary>
+    public Task<TagAccessResult> ReadTagMemoryAsync(
+        ReadTagRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteTagAccessAsync(request, timeout, cancellationToken);
+
+    /// <summary>Writes memory to matching Gen2 RFID tags.</summary>
+    public Task<TagAccessResult> WriteTagMemoryAsync(
+        WriteTagRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteTagAccessAsync(request, timeout, cancellationToken);
+
+    /// <summary>Locks memory or passwords on matching Gen2 RFID tags.</summary>
+    public Task<TagAccessResult> LockTagMemoryAsync(
+        LockTagRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteTagAccessAsync(request, timeout, cancellationToken);
+
+    /// <summary>Kills matching Gen2 RFID tags.</summary>
+    public Task<TagAccessResult> KillTagAsync(
+        KillTagRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteTagAccessAsync(request, timeout, cancellationToken);
+
+    /// <summary>Erases memory blocks on matching Gen2 RFID tags.</summary>
+    public Task<TagAccessResult> BlockEraseTagMemoryAsync(
+        BlockEraseTagRequest request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteTagAccessAsync(request, timeout, cancellationToken);
 
     private uint NextManagedAccessSpecId()
     {
@@ -1212,6 +1304,7 @@ public sealed class LlrpReader : IAsyncDisposable
                     ILlrpMessage message = _registry.DecodeMessage(frame.Span);
                     if (message is V101Messages.KEEPALIVE or V11Messages.KEEPALIVE)
                     {
+                        PublishKeepaliveReceived();
                         ILlrpMessage acknowledgementMessage = NegotiatedVersion switch
                         {
                             LlrpProtocolVersion.Version101 => new V101Messages.KEEPALIVE_ACK(message.MessageId),
@@ -1225,6 +1318,14 @@ public sealed class LlrpReader : IAsyncDisposable
                         await _session
                             .SendFrameAsync(acknowledgement, cancellationToken)
                             .ConfigureAwait(false);
+                    }
+                    else if (message is V101Messages.READER_EVENT_NOTIFICATION v101Notification)
+                    {
+                        ProcessReaderEventNotification(v101Notification);
+                    }
+                    else if (message is V11Messages.READER_EVENT_NOTIFICATION v11Notification)
+                    {
+                        ProcessReaderEventNotification(v11Notification);
                     }
 
                     foreach (TranslatedTagReport translatedReport in GetProtocolAdapter().TranslateTagReports(message))
@@ -1833,6 +1934,68 @@ public sealed class LlrpReader : IAsyncDisposable
                 exception,
                 "A reader tag-report event subscriber failed for connection {ConnectionId}",
                 ConnectionId);
+        }
+    }
+
+    private void ProcessReaderEventNotification(V101Messages.READER_EVENT_NOTIFICATION msg)
+    {
+        var data = msg.ReaderEventNotificationData;
+        if (data.GPIEvent is { } gpi)
+        {
+            PublishGpiChanged(gpi.GPIPortNumber, gpi.GPIEvent_2);
+        }
+        if (data.ReportBufferOverflowErrorEvent is not null)
+        {
+            PublishReportBufferOverflow();
+        }
+    }
+
+    private void ProcessReaderEventNotification(V11Messages.READER_EVENT_NOTIFICATION msg)
+    {
+        var data = msg.ReaderEventNotificationData;
+        if (data.GPIEvent is { } gpi)
+        {
+            PublishGpiChanged(gpi.GPIPortNumber, gpi.GPIEvent_2);
+        }
+        if (data.ReportBufferOverflowErrorEvent is not null)
+        {
+            PublishReportBufferOverflow();
+        }
+    }
+
+    private void PublishGpiChanged(ushort portNumber, bool state)
+    {
+        try
+        {
+            GpiChanged?.Invoke(this, new GpiChangedEventArgs(portNumber, state));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "A reader GPI event subscriber failed for connection {ConnectionId}", ConnectionId);
+        }
+    }
+
+    private void PublishKeepaliveReceived()
+    {
+        try
+        {
+            KeepaliveReceived?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "A reader Keepalive event subscriber failed for connection {ConnectionId}", ConnectionId);
+        }
+    }
+
+    private void PublishReportBufferOverflow()
+    {
+        try
+        {
+            ReportBufferOverflow?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "A reader ReportBufferOverflow event subscriber failed for connection {ConnectionId}", ConnectionId);
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Session;
 using LlrpSdk.Tests.Support;
@@ -115,7 +115,7 @@ public sealed class LlrpReaderLifecycleTests
         Assert.Equal(1, transport.DisposeCount);
     }
 
-    private static LlrpReader CreateReader(ScriptedLlrpTransport transport)
+    internal static LlrpReader CreateReader(ScriptedLlrpTransport transport)
     {
         LlrpReaderOptions options = new LlrpReaderOptionsBuilder("scripted.local")
             .WithTransportFactory(_ => transport)

@@ -27,14 +27,7 @@ internal sealed record TagAccessCliRequest(
             throw new CliUsageException("EPC must contain at least one byte.");
         }
 
-        TagMemoryBank memoryBank = bank.ToLowerInvariant() switch
-        {
-            "reserved" => TagMemoryBank.Reserved,
-            "epc" or "electronicproductcode" => TagMemoryBank.ElectronicProductCode,
-            "tid" => TagMemoryBank.Tid,
-            "user" => TagMemoryBank.User,
-            _ => throw new CliUsageException("--bank must be reserved, epc, tid, or user."),
-        };
+        TagMemoryBank memoryBank = ParseBank(bank);
 
         uint accessPassword = string.IsNullOrWhiteSpace(password)
             ? 0
@@ -42,6 +35,15 @@ internal sealed record TagAccessCliRequest(
         TimeSpan? timeout = timeoutSeconds is null ? null : TimeSpan.FromSeconds(timeoutSeconds.Value);
         return new TagAccessCliRequest(epcBytes, memoryBank, wordPointer, antennaId, accessPassword, timeout);
     }
+
+    public static TagMemoryBank ParseBank(string bank) => bank.ToLowerInvariant() switch
+    {
+        "reserved" or "0" => TagMemoryBank.Reserved,
+        "epc" or "electronicproductcode" or "1" => TagMemoryBank.ElectronicProductCode,
+        "tid" or "2" => TagMemoryBank.Tid,
+        "user" or "3" => TagMemoryBank.User,
+        _ => throw new CliUsageException("Memory bank must be reserved (0), epc (1), tid (2), or user (3)."),
+    };
 
     public ReadTagRequest ToReadRequest(ushort wordCount)
     {
@@ -79,6 +81,34 @@ internal sealed record TagAccessCliRequest(
         };
     }
 
+    public KillTagRequest ToKillRequest(uint killPassword)
+    {
+        return new KillTagRequest
+        {
+            Selection = CreateSelection(),
+            AntennaId = AntennaId,
+            KillPassword = killPassword,
+        };
+    }
+
+    public BlockEraseTagRequest ToBlockEraseRequest(ushort wordCount)
+    {
+        if (wordCount == 0)
+        {
+            throw new CliUsageException("--count must be greater than zero.");
+        }
+
+        return new BlockEraseTagRequest
+        {
+            Selection = CreateSelection(),
+            AntennaId = AntennaId,
+            AccessPassword = AccessPassword,
+            MemoryBank = MemoryBank,
+            WordPointer = WordPointer,
+            WordCount = wordCount,
+        };
+    }
+
     public static IReadOnlyList<ushort> ParseWords(string hex)
     {
         byte[] bytes = ParseHex(hex, "--data");
@@ -92,7 +122,7 @@ internal sealed record TagAccessCliRequest(
             .ToArray();
     }
 
-    private TagSelection CreateSelection() => new()
+    public TagSelection CreateSelection() => new()
     {
         MemoryBank = TagMemoryBank.ElectronicProductCode,
         BitPointer = 32,
@@ -101,7 +131,7 @@ internal sealed record TagAccessCliRequest(
         Data = Epc,
     };
 
-    private static byte[] ParseHex(string value, string name)
+    public static byte[] ParseHex(string value, string name)
     {
         string normalized = value.Replace(" ", string.Empty, StringComparison.Ordinal)
             .Replace("-", string.Empty, StringComparison.Ordinal)
@@ -120,7 +150,7 @@ internal sealed record TagAccessCliRequest(
         }
     }
 
-    private static uint ParseUInt32Hex(string value, string name)
+    public static uint ParseUInt32Hex(string value, string name)
     {
         string normalized = value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value[2..] : value;
         if (!uint.TryParse(normalized, System.Globalization.NumberStyles.AllowHexSpecifier, null, out uint parsed))

@@ -46,7 +46,9 @@
     <File Path="docs/plans/2026-07-27-reader-first-delivery.md" />
   </Folder>
   <Folder Name="/docs/specs/">
+    <File Path="docs/specs/2026-07-27-cli-sdk-mapping-spec.md" />
     <File Path="docs/specs/2026-07-27-cli-tag-access-design.md" />
+    <File Path="docs/specs/2026-07-28-llrp101-sdk-completion-spec.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
     <File Path="docs/architecture/overview.md" />
@@ -56,6 +58,11 @@
     <File Path="docs/architecture/protocol-extension-guide.zh.md" />
     <File Path="docs/architecture/cli-command-system.md" />
     <File Path="docs/architecture/llrp-ecosystem-comparison.draft.zh.md" />
+  </Folder>
+  <Folder Name="/docs/guides/">
+    <File Path="docs/guides/README.md" />
+    <File Path="docs/guides/cli-user-guide.md" />
+    <File Path="docs/guides/sdk-api-guide.md" />
   </Folder>
   <Folder Name="/docs/acceptance/">
     <File Path="docs/acceptance/reader-interoperability.md" />

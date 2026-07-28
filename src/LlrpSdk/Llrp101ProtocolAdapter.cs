@@ -67,13 +67,78 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
             general.GPIOCapabilities,
             .. general.PerAntennaAirProtocolItems,
         ];
+
+        var rxSensitivities = general.ReceiveSensitivityTableEntryItems
+            .Select(e => new RxSensitivityEntry(e.Index, e.ReceiveSensitivityValue))
+            .ToList();
+
+        var txPowers = new List<TxPowerEntry>();
+        var txFrequencies = new List<uint>();
+        var hopTables = new List<FrequencyHopTableEntry>();
+        var rfModes = new List<C1G2RfModeEntry>();
+
+        if (response.RegulatoryCapabilities?.UHFBandCapabilities is UHFBandCapabilities uhfBand)
+        {
+            txPowers.AddRange(uhfBand.TransmitPowerLevelTableEntryItems
+                .Select(e => new TxPowerEntry(e.Index, e.TransmitPowerValue)));
+
+            if (uhfBand.FrequencyInformation.FixedFrequencyTable is FixedFrequencyTable fixedTable)
+            {
+                txFrequencies.AddRange(fixedTable.Frequency);
+            }
+
+            foreach (FrequencyHopTable hopTable in uhfBand.FrequencyInformation.FrequencyHopTableItems)
+            {
+                hopTables.Add(new FrequencyHopTableEntry(hopTable.HopTableID, hopTable.Frequency));
+            }
+
+            foreach (var airTableChoice in uhfBand.AirProtocolUHFRFModeTableItems)
+            {
+                if (airTableChoice is C1G2UHFRFModeTable c1g2Table)
+                {
+                    rfModes.AddRange(c1g2Table.C1G2UHFRFModeTableEntryItems.Select(m => new C1G2RfModeEntry(
+                        m.ModeIdentifier,
+                        m.DRValue.ToString(),
+                        m.EPCHAGTCConformance,
+                        (byte)m.MValue,
+                        m.ForwardLinkModulation.ToString(),
+                        m.SpectralMaskIndicator.ToString(),
+                        m.BDRValue,
+                        m.PIEValue,
+                        m.MinTariValue,
+                        m.MaxTariValue,
+                        m.StepTariValue)));
+                }
+            }
+        }
+
+        bool isTagAccessAvailable = response.LLRPCapabilities is null || response.LLRPCapabilities.MaxNumAccessSpecs > 0;
+        bool canDoStateAware = response.LLRPCapabilities?.CanDoTagInventoryStateAwareSingulation ?? false;
+        bool isBlockWrite = false;
+        bool isBlockErase = false;
+
+        if (response.AirProtocolLLRPCapabilities is C1G2LLRPCapabilities c1g2Caps)
+        {
+            isBlockWrite = c1g2Caps.CanSupportBlockWrite;
+            isBlockErase = c1g2Caps.CanSupportBlockErase;
+        }
+
         return new ReaderCapabilities(
             general.MaxNumberOfAntennaSupported,
             general.CanSetAntennaProperties,
             general.HasUTCClockCapability,
             generalParameters,
             response,
-            response.CustomItems);
+            response.CustomItems,
+            txPowers,
+            rxSensitivities,
+            txFrequencies,
+            hopTables,
+            rfModes,
+            isTagAccessAvailable,
+            isBlockWrite,
+            isBlockErase,
+            canDoStateAware);
     }
 
     public ILlrpParameter CompileInventory(
@@ -86,6 +151,16 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
 
     public IReadOnlyList<TranslatedTagReport> TranslateTagReports(ILlrpMessage message) =>
         message is RO_ACCESS_REPORT report ? Llrp101TagReportTranslator.Translate(report) : [];
+
+    public async Task<IReadOnlyList<TranslatedTagReport>> FetchReportsAsync(
+        LlrpReader reader,
+        uint messageId,
+        CancellationToken cancellationToken)
+    {
+        RO_ACCESS_REPORT report = await reader.TransactAsync<RO_ACCESS_REPORT>(
+            new GET_REPORT(messageId), timeout: null, cancellationToken).ConfigureAwait(false);
+        return TranslateTagReports(report);
+    }
 
     public async Task AddRoSpecAsync(LlrpReader reader, uint messageId, ILlrpParameter roSpec, CancellationToken cancellationToken)
     {

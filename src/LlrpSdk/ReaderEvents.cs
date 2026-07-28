@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
 
 /// <summary>
 /// Describes one observable reader connection-state transition.
@@ -73,5 +73,27 @@ public sealed class ReaderErrorEventArgs : EventArgs
     /// <summary>
     /// Gets the UTC time at which the SDK recorded the failure.
     /// </summary>
+    public DateTimeOffset Timestamp { get; }
+}
+
+/// <summary>
+/// Describes a GPI pin state change notification from the reader.
+/// </summary>
+public sealed class GpiChangedEventArgs : EventArgs
+{
+    internal GpiChangedEventArgs(ushort portNumber, bool state)
+    {
+        PortNumber = portNumber;
+        State = state;
+        Timestamp = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Gets the GPI port number that changed state.</summary>
+    public ushort PortNumber { get; }
+
+    /// <summary>Gets the new electrical state of the GPI port (true = High, false = Low).</summary>
+    public bool State { get; }
+
+    /// <summary>Gets the UTC time of the state change event.</summary>
     public DateTimeOffset Timestamp { get; }
 }

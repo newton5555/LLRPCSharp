@@ -1,4 +1,4 @@
-﻿using LlrpNet.Protocol.Choices.V1_1;
+using LlrpNet.Protocol.Choices.V1_1;
 using LlrpNet.Protocol.Enumerations.V1_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_1;
@@ -23,6 +23,26 @@ internal static class Llrp11InventoryCompiler
         var startTrigger = new ROSpecStartTrigger(V11Enumerations.ROSpecStartTriggerType.Immediate, null, null);
         var stopTrigger = new ROSpecStopTrigger(V11Enumerations.ROSpecStopTriggerType.Null, 0, null);
         var boundary = new ROBoundarySpec(startTrigger, stopTrigger);
+
+        V11Parameters.C1G2SingulationControl? singulationControl = (settings.Session != 0 || settings.TagPopulationEstimate != 32)
+            ? new V11Parameters.C1G2SingulationControl(settings.Session, settings.TagPopulationEstimate, 0, null)
+            : null;
+        V11Parameters.C1G2RFControl? rfControl = (settings.ModeIndex != 0 || settings.Tari != 0)
+            ? new V11Parameters.C1G2RFControl(settings.ModeIndex, settings.Tari)
+            : null;
+
+        AntennaConfiguration[] antennaConfigs = Array.Empty<AntennaConfiguration>();
+        if (singulationControl is not null || rfControl is not null)
+        {
+            var invCmd = new V11Parameters.C1G2InventoryCommand(
+                TagInventoryStateAware: false,
+                C1G2FilterItems: Array.Empty<V11Parameters.C1G2Filter>(),
+                C1G2RFControl: rfControl,
+                C1G2SingulationControl: singulationControl,
+                CustomItems: Array.Empty<ILlrpParameter>());
+            antennaConfigs = [new AntennaConfiguration(0, null, null, [invCmd])];
+        }
+
         var aiSpec = new AISpec(
             antennaIds,
             new AISpecStopTrigger(V11Enumerations.AISpecStopTriggerType.Null, 0, null, null),
@@ -30,10 +50,11 @@ internal static class Llrp11InventoryCompiler
                 new InventoryParameterSpec(
                     settings.InventoryParameterSpecId,
                     V11Enumerations.AirProtocols.EPCGlobalClass1Gen2,
-                    Array.Empty<AntennaConfiguration>(),
+                    antennaConfigs,
                     Array.Empty<ILlrpParameter>()),
             ],
             Array.Empty<ILlrpParameter>());
+
         var reportSelector = new V11Parameters.TagReportContentSelector(
             EnableROSpecID: true,
             EnableSpecIndex: true,
@@ -46,6 +67,7 @@ internal static class Llrp11InventoryCompiler
             EnableTagSeenCount: true,
             EnableAccessSpecID: true,
             AirProtocolEPCMemorySelectorItems: Array.Empty<V11Choices.IAirProtocolEPCMemorySelector>());
+
         var reportSpec = new ROReportSpec(
             V11Enumerations.ROReportTriggerType.Upon_N_Tags_Or_End_Of_AISpec,
             settings.ReportEveryNTags,
@@ -100,6 +122,14 @@ internal static class Llrp11InventoryCompiler
             throw new ArgumentException(
                 "Antenna identifier 0 selects all antennas and cannot be combined with explicit antenna identifiers.",
                 nameof(settings));
+        }
+
+        if (settings.Session > 3)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.Session,
+                "C1G2 singulation session must be between 0 and 3.");
         }
     }
 }

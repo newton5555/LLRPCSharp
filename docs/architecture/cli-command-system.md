@@ -196,12 +196,28 @@ LiveSessionContext
 ├─ FrameObserver
 ├─ InventoryTask
 ├─ MonitoringState
+├─ DesiredInventorySettings (下一次盘点草稿，不是运行中快照)
 └─ CancellationScopes
 ```
 
 Handler 通过上下文访问当前连接，Live Shell 负责上下文生命周期，不让普通命令直接管理全局字段。
 
-### 5. 重构提示链
+### 5. 盘点意图不是设备配置
+
+Live Shell 的 `config` 命令组映射 `ReaderConfiguration`：它查询或显式写入设备的物理/事件配置。盘点参数则属于 `ReaderSettings`（后续规范名为 `InventorySettings`），由 SDK 编译到 ROSpec 与必要的托管资源；两者不能共用一个 CLI 配置对象。
+
+目标命令形态为：
+
+```text
+config get | defaults | apply ... --yes
+inventory settings show | set | load | save | reset
+inventory start [--antennas <id,id|all>]
+inventory stop | status
+```
+
+`inventory settings` 操作 `LiveSessionContext.DesiredInventorySettings`；`inventory start` 将其不可变快照传给 `reader.StartAsync(snapshot)`。`reader.CurrentSettings` 只用于 `inventory status` 显示当前运行参数，停止盘点后不保留为草稿。厂商扩展设置不得以 `Dictionary<string, object?>` 的默认 JSON 形式保存，必须经过其 Extension 的强类型 Profile 序列化。
+
+### 6. 重构提示链
 
 保留 `TerminalLineEditor` 的交互体验，但把提示计算抽象为 `IInputAssistProvider`：
 
