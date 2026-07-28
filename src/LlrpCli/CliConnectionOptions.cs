@@ -59,8 +59,11 @@ internal sealed record CliConnectionOptions(
 
     public void RenderVendorMode(IAnsiConsole console)
     {
-        console.MarkupLine(VendorMode == VendorExtensionMode.None
-            ? "[grey]Vendor extensions:[/] [yellow]disabled (pure standard LLRP mode)[/]"
-            : "[grey]Vendor extensions:[/] [springgreen2]Impinj enabled[/]");
+        console.MarkupLine(VendorMode switch
+        {
+            VendorExtensionMode.None => "[grey]Vendor mode:[/] [yellow]disabled (pure standard LLRP mode)[/]",
+            VendorExtensionMode.Impinj => "[grey]Vendor mode:[/] [springgreen2]forced Impinj mode[/]",
+            _ => "[grey]Vendor mode:[/] [deepskyblue1]auto-detect (match on connect)[/]",
+        });
     }
 }

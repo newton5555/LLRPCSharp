@@ -276,6 +276,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             table.AddRow("Firmware Version", $"[yellow]{Markup.Escape(identity.FirmwareVersion)}[/]");
         }
 
+        string extensionsText = _session.Reader.Extensions.Count == 0
+            ? "[yellow]None (Standard LLRP)[/]"
+            : $"[springgreen2]{string.Join(", ", _session.Reader.Extensions.Select(static ext => ext.Id))}[/]";
+        table.AddRow("Active Extensions", extensionsText);
+
         if (_session.FrameObserver != null)
         {
             table.AddRow("Total Captured Frames", $"[deepskyblue1]{_session.FrameObserver.CapturedFrames.Count}[/]");
