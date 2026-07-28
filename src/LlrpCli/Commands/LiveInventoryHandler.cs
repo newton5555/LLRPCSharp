@@ -1,4 +1,5 @@
 using Spectre.Console;
+using LlrpCli.Rendering;
 using LlrpSdk;
 
 namespace LlrpCli.Commands;
@@ -6,7 +7,10 @@ namespace LlrpCli.Commands;
 /// <summary>
 /// Owns SDK-managed inventory and its Live Shell tag-report stream.
 /// </summary>
-internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionContext session)
+internal sealed class LiveInventoryHandler(
+    IAnsiConsole console,
+    LiveSessionContext session,
+    LiveMonitorHandler monitor)
 {
     public async Task HandleAsync(string[] tokens, CancellationToken cancellationToken)
     {
@@ -29,20 +33,17 @@ internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionCont
                     return;
                 }
                 LlrpReader reader = session.Reader!;
-                if (session.InventoryPumpTask is { IsCompleted: false })
+                if (reader.OperationState == ReaderOperationState.Inventorying)
                 {
                     console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
                     return;
                 }
 
                 ReaderSettings settings = ParseStartSettings(tokens);
+                LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
                 await reader.StartAsync(settings, cancellationToken);
-
-                var inventoryCancellation = new CancellationTokenSource();
-                session.InventoryCancellation = inventoryCancellation;
-                session.InventoryPumpTask = PumpTagReportsAsync(reader, inventoryCancellation.Token);
-
                 RenderStartedSummary(settings);
+                await monitor.MonitorAsync(monitorMode, seconds: null, cancellationToken);
                 break;
             }
 
@@ -82,48 +83,23 @@ internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionCont
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        CancellationTokenSource? inventoryCancellation = session.InventoryCancellation;
-        Task? inventoryPumpTask = session.InventoryPumpTask;
-        session.InventoryCancellation = null;
-        session.InventoryPumpTask = null;
-
-        inventoryCancellation?.Cancel();
-        try
+        if (session.Reader?.IsConnected == true && session.Reader.OperationState == ReaderOperationState.Inventorying)
         {
-            if (session.Reader?.IsConnected == true && session.Reader.OperationState == ReaderOperationState.Inventorying)
-            {
-                await session.Reader.StopAsync(cancellationToken).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            if (inventoryPumpTask is not null)
-            {
-                try
-                {
-                    await inventoryPumpTask.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (inventoryCancellation?.IsCancellationRequested == true)
-                {
-                    // Stopping inventory owns cancellation of the report pump.
-                }
-            }
-
-            inventoryCancellation?.Dispose();
+            await session.Reader.StopAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
     private void HandleSettings(string[] tokens)
     {
-        if (tokens.Length < 3)
+        if (tokens.Length == 2)
         {
-            console.MarkupLine("[red]Usage:[/] inventory settings show|set [options]|load <path>|save <path>|reset");
+            RenderSettings(" INVENTORY SETTINGS DRAFT ", session.DesiredInventorySettings);
             return;
         }
 
         switch (tokens[2].ToLowerInvariant())
         {
-            case "show" when tokens.Length == 3:
+            case "show" or "get" when tokens.Length == 3:
                 RenderSettings(" INVENTORY SETTINGS DRAFT ", session.DesiredInventorySettings);
                 return;
 
@@ -149,7 +125,15 @@ internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionCont
                 return;
 
             default:
-                console.MarkupLine("[red]Usage:[/] inventory settings show|set [options]|load <path>|save <path>|reset");
+                if (tokens[2].StartsWith("--", StringComparison.Ordinal))
+                {
+                    session.DesiredInventorySettings = ParseSettingsOptions(session.DesiredInventorySettings, tokens, 2);
+                    console.MarkupLine("[bold springgreen2]✔ Inventory settings draft updated.[/]");
+                    RenderSettings(" INVENTORY SETTINGS DRAFT ", session.DesiredInventorySettings);
+                    return;
+                }
+
+                console.MarkupLine("[red]Usage:[/] inventory settings [[show|get]] | set [[options]] | load <path> | save <path> | reset");
                 return;
         }
     }
@@ -161,13 +145,43 @@ internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionCont
             return session.DesiredInventorySettings;
         }
 
-        if (tokens.Length != 4 || !tokens[2].Equals("--antennas", StringComparison.OrdinalIgnoreCase))
+        IReadOnlyList<ushort> antennas = session.DesiredInventorySettings.AntennaIds;
+        for (int index = 2; index < tokens.Length; index += 2)
         {
-            throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>]");
+            if (index + 1 >= tokens.Length)
+            {
+                throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none]");
+            }
+            switch (tokens[index].ToLowerInvariant())
+            {
+                case "--antennas": antennas = ParseAntennaIds(tokens[index + 1]); break;
+                case "--monitor": _ = ParseMonitorMode(tokens[index + 1]); break;
+                default: throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none]");
+            }
         }
 
-        return session.DesiredInventorySettings with { AntennaIds = ParseAntennaIds(tokens[3]) };
+        return session.DesiredInventorySettings with { AntennaIds = antennas };
     }
+
+    private static LiveMonitorMode ParseStartMonitorMode(string[] tokens)
+    {
+        for (int index = 2; index < tokens.Length; index += 2)
+        {
+            if (tokens[index].Equals("--monitor", StringComparison.OrdinalIgnoreCase))
+            {
+                return ParseMonitorMode(tokens[index + 1]);
+            }
+        }
+        return LiveMonitorMode.Live;
+    }
+
+    private static LiveMonitorMode ParseMonitorMode(string value) => value.ToLowerInvariant() switch
+    {
+        "live" => LiveMonitorMode.Live,
+        "frames" => LiveMonitorMode.Frames,
+        "none" => LiveMonitorMode.None,
+        _ => throw new CliUsageException("--monitor must be live, frames, or none.")
+    };
 
     private static ReaderSettings ParseSettingsOptions(ReaderSettings baseSettings, string[] tokens, int startIndex)
     {
@@ -385,36 +399,7 @@ internal sealed class LiveInventoryHandler(IAnsiConsole console, LiveSessionCont
 
     private void RenderUsage()
     {
-        console.MarkupLine("[red]Usage:[/] inventory settings show|set|load|save|reset | start [--antennas <id,id|all>] | stop | status");
+        console.MarkupLine("[red]Usage:[/] inventory settings [[show|get]] | set [[options]] | load <path> | save <path> | reset | start [[--antennas <id,id|all>]] [[--monitor live|frames|none]] | stop | status");
     }
 
-    private async Task PumpTagReportsAsync(LlrpReader reader, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await foreach (TagReport report in reader.ReadTagReportsAsync(cancellationToken))
-            {
-                string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
-                string antenna = report.AntennaId?.ToString() ?? "-";
-                string rssi = report.PeakRssi?.ToString() ?? "-";
-
-                string extra = string.Empty;
-                if (report.AccessOperationResults is { Count: > 0 } ops && ops[0].ReadData.Count > 0)
-                {
-                    extra = $" Data=[yellow]{string.Join(' ', ops[0].ReadData.Select(w => w.ToString("X4")))}[/]";
-                }
-
-                console.MarkupLine(
-                    $"[cyan1]TAG[/] EPC=[bold]{epc}[/] Antenna={antenna} RSSI={rssi}{extra}");
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // The inventory command explicitly stopped the report stream.
-        }
-        catch (Exception exception)
-        {
-            console.MarkupLine($"[red]Inventory report stream failed:[/] {Markup.Escape(exception.Message)}");
-        }
-    }
 }

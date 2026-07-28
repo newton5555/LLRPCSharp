@@ -4,6 +4,7 @@ internal enum VendorExtensionMode
 {
     Auto,
     Impinj,
+    Seuic,
     None,
 }
 
@@ -21,6 +22,12 @@ internal static class VendorExtensionModeParser
         if (normalized == "impinj")
         {
             mode = VendorExtensionMode.Impinj;
+            return true;
+        }
+
+        if (normalized == "seuic")
+        {
+            mode = VendorExtensionMode.Seuic;
             return true;
         }
 

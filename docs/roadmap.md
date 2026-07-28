@@ -55,9 +55,8 @@
 ### 7. CLI 命令系统与提示链
 
 - 详细规划见 [`architecture/cli-command-system.md`](architecture/cli-command-system.md)。
-- 保留 Spectre 外层 CLI 与 Live Shell 两种宿主，逐步建立共享命令定义和业务 Handler。
-- 已完成第一步连接选项对齐：外层 `connect` / `monitor` 与 Live Shell `connect` 共享 LLRP/Vendor 策略解析。
-- C2 已完成 Live Shell 的命令元数据收敛：Usage、`help <command>`、别名、连接可用性、输入候选和执行路由均从 `CommandCatalog` 获取；外层 Spectre 注册仍保持独立。
+- 根 Spectre CLI 仅承载离线 `inspect/decode/validate/encode`；读写器连接与所有在线业务均收敛到 Live Shell，避免重复的临时连接生命周期。
+- C2 已完成 Live Shell 的命令元数据收敛：Usage、`help <command>`、别名、连接可用性、输入候选和执行路由均从 `CommandCatalog` 获取。
 - C3 已完成：`LiveSessionContext` 集中连接、监控与盘点状态；连接、盘点、监控和离线协议诊断分别由专用 Handler 处理，`LiveCommand` 保持为 Live Shell 宿主与路由层。
 - `config` 已接入 Live Shell；当前将按已批准设计安全接入 `tag read` 与 `tag write` dry-run，之后进入 C6 兼容性测试。
 

@@ -79,13 +79,27 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void HelpOption_PrintsHelp()
+    public void HelpOption_PrintsOnlyOfflineProtocolTools()
     {
         InvocationResult result = Invoke("--help");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("inspect", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("decode", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("validate", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("encode", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("monitor", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("tag", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(result.Error);
+    }
+
+    [Fact]
+    public void CommandCatalog_ConfigApplyPowerOptionExplainsIndexSemantics()
+    {
+        InputAssist assist = CommandCatalog.Assist("config apply --tx-power ", cursor: 24, isConnected: true);
+
+        Assert.Contains("index", assist.Hint, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not dBm", assist.Hint, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -185,35 +199,6 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void TagWrite_DryRunDoesNotRequireAReaderConnection()
-    {
-        InvocationResult result = Invoke("tag", "write", "192.0.2.1", "E2801171", "--bank", "user", "--word", "0", "--data", "0001");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("NO TAG MEMORY WAS WRITTEN", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TagWrite_DryRunAcceptsEpcBankAlias()
-    {
-        InvocationResult result = Invoke("tag", "write", "192.0.2.1", "E2801171", "--bank", "epc", "--word", "0", "--data", "0001");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Bank=ElectronicProductCode", result.Output, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData("E280117", "0001")]
-    [InlineData("E2801171", "000")]
-    public void TagWrite_DryRunRejectsMalformedHexBeforeAnyConnection(string epc, string data)
-    {
-        InvocationResult result = Invoke("tag", "write", "192.0.2.1", epc, "--bank", "user", "--word", "0", "--data", data);
-
-        Assert.Equal(2, result.ExitCode);
-        Assert.Contains("hexadecimal", result.Error, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public void CommandCatalog_TagRequiresConnectionAndOffersAccessCandidates()
     {
         Assert.False(CommandCatalog.TryResolve("tag", isConnected: false, out _));
@@ -257,28 +242,6 @@ public sealed class LlrpCliApplicationTests
         Assert.Equal((ushort)2, deserialized.AttachedData.MemoryBank);
     }
 
-    [Theory]
-    [InlineData("lock")]
-    [InlineData("erase")]
-    [InlineData("kill")]
-    public void TagMutation_RequiresExplicitConfirmationBeforeConnecting(string action)
-    {
-        InvocationResult result = Invoke("tag", action, "192.0.2.1", "E2801171");
-
-        Assert.Equal(2, result.ExitCode);
-        Assert.Contains("requires --yes", result.Error, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TagSequence_HelpExposesRepeatedOperationsAndSafetyConfirmation()
-    {
-        InvocationResult result = Invoke("tag", "sequence", "--help");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("--op", result.Output, StringComparison.Ordinal);
-        Assert.Contains("--yes", result.Output, StringComparison.Ordinal);
-    }
-
     [Fact]
     public void ReaderSettingsSerializer_RejectsUntypedVendorExtensions()
     {
@@ -302,6 +265,17 @@ public sealed class LlrpCliApplicationTests
         Assert.Equal((byte)2, session.DesiredInventorySettings.Session);
         Assert.Equal((ushort)64, session.DesiredInventorySettings.TagPopulationEstimate);
         Assert.Equal((ushort)1, session.DesiredInventorySettings.ModeIndex);
+    }
+
+    [Fact]
+    public async Task InventorySettings_GetAndDirectOptionsAreFriendlyAliases()
+    {
+        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
+
+        await handler.HandleAsync(["inventory", "settings", "--antennas", "1"], CancellationToken.None);
+        await handler.HandleAsync(["inventory", "settings", "get"], CancellationToken.None);
+
+        Assert.Equal([(ushort)1], session.DesiredInventorySettings.AntennaIds);
     }
 
     [Fact]
@@ -374,17 +348,6 @@ public sealed class LlrpCliApplicationTests
         Assert.Contains("stop", assist.Candidates, StringComparer.Ordinal);
     }
 
-    [Theory]
-    [InlineData("--tx-power", "1")]
-    [InlineData("--gpo-port", "1")]
-    public void ConfigApply_RejectsAmbiguousWritesBeforeConnecting(string option, string value)
-    {
-        InvocationResult result = Invoke("config", "apply", "127.0.0.1", option, value);
-
-        Assert.Equal(2, result.ExitCode);
-        Assert.Contains("Invalid configuration change", result.Output, StringComparison.Ordinal);
-    }
-
     private static InvocationResult Invoke(params string[] args)
     {
         using var output = new StringWriter();
@@ -408,7 +371,7 @@ public sealed class LlrpCliApplicationTests
             Out = new AnsiConsoleOutput(output)
         });
         var session = new LiveSessionContext();
-        return (new LiveInventoryHandler(console, session), session);
+        return (new LiveInventoryHandler(console, session, new LiveMonitorHandler(console, session)), session);
     }
 
     private sealed record InvocationResult(

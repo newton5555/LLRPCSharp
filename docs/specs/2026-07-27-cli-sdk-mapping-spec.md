@@ -9,7 +9,7 @@
 ## 一、 设计原则与双轨架构
 
 CLI 旨在提供双轨视角：
-1. **高层托管 API 视口**：展示 `LlrpReader` SDK 的公开能力，CLI 严禁包含私有协议业务逻辑；
+1. **Live Shell 高层托管 API 视口**：展示 `LlrpReader` SDK 的公开能力，CLI 严禁包含私有协议业务逻辑；
 2. **底层 Wire-Level 观察视口**：借助 SDK 的 `ILlrpFrameObserver` 实时捕获、解析并渲染 SDK 与设备之间收发的原始 LLRP 报文。
 
 ```text
@@ -28,7 +28,7 @@ CLI 旨在提供双轨视角：
 
 | CLI 命令/子命令 | 对应 SDK 公开 API / 属性 | 底层 LLRP 报文 (标准 LLRP / Impinj Custom) | 观察器捕捉与行为描述 |
 |---|---|---|---|
-| `connect [host] [port] [--llrp auto\|1.0.1\|1.1] [--vendor auto\|impinj\|none]` | `LlrpReader.CreateBuilder(host)`<br>`builder.Build()`<br>`reader.ConnectAsync()` | `GET_SUPPORTED_VERSION`<br>`SET_PROTOCOL_VERSION`<br>`GET_READER_CAPABILITIES(Discovery)`<br>`IMPINJ_ENABLE_EXTENSIONS`<br>`GET_READER_CAPABILITIES(All)` | 拦截并渲染握手过程中的 5 步收发报文；若连接成功更新控制台标题，失败则清空会话。 |
+| `connect [host] [port] [--llrp auto\|1.0.1\|1.1] [--vendor auto\|impinj\|seuic\|none]` | `LlrpReader.CreateBuilder(host)`<br>`builder.Build()`<br>`reader.ConnectAsync()` | `GET_SUPPORTED_VERSION`<br>`SET_PROTOCOL_VERSION`<br>`GET_READER_CAPABILITIES(Discovery)`<br>`IMPINJ_ENABLE_EXTENSIONS`<br>`GET_READER_CAPABILITIES(All)` | 拦截并渲染握手过程中的 5 步收发报文；若连接成功更新控制台标题，失败则清空会话。 |
 | `disconnect` | `reader.DisconnectAsync()`<br>`reader.DisposeAsync()` | `CLOSE_CONNECTION`<br>`CLOSE_CONNECTION_RESPONSE` | 优雅停止后台盘点泵，发送关闭连接报文，重置 CLI 为离线状态。 |
 | `status` | `reader.ConnectionState`<br>`reader.NegotiatedVersion`<br>`reader.Identity`<br>`reader.IsManagedStateSynchronized` | - (只读 SDK 内存状态) | 打印当前连接状态、版本、厂商 ID、型号、固件版本以及托管同步标记。 |
 | `caps` | `reader.Capabilities` | - (只读 SDK 内存状态) | 格式化展示天线数、GPI/GPO 限制、UTC 时钟及接收灵敏度全量快照。 |
@@ -39,9 +39,9 @@ CLI 旨在提供双轨视角：
 | `inventory stop` | `reader.StopAsync()` | `STOP_ROSPEC`<br>`DISABLE_ROSPEC`<br>`DELETE_ROSPEC` | 停止盘点并删除 SDK 托管的临时 ROSpec。 |
 | `inventory status` | `reader.CurrentSettings`<br>`reader.OperationState` | - (只读 SDK 内存状态) | 查看当前托管盘点配置、已接收标签统计与运行状态。 |
 | `tag read <epc> --bank <bank> --word <addr> --count <cnt>` | `reader.ReadTagMemoryAsync(req)` | `ADD_ACCESSSPEC`<br>`ENABLE_ACCESSSPEC`<br>`RO_ACCESS_REPORT` (TagReport)<br>`DISABLE_ACCESSSPEC`<br>`DELETE_ACCESSSPEC` | 创建临时 AccessSpec (ID 24000+)；等待带有 C1G2ReadOpSpecResult 的标签报告；自动清理临时 AccessSpec。 |
-| `tag write <host> <epc> ... [--yes]` | `reader.WriteTagMemoryAsync(req)` | `ADD_ACCESSSPEC` ➔ `ENABLE_ACCESSSPEC` ➔ `RO_ACCESS_REPORT` ➔ 清理 | 省略 `--yes` 时离线预览请求；显式确认后才建立临时 Reader 并执行标准 C1G2 写。 |
-| `tag sequence <host> <epc> --op ... [--yes]` | `reader.ExecuteTagAccessSequenceAsync(req)` | 一个 `AccessSpec` 内多个 C1G2 OpSpec ➔ `RO_ACCESS_REPORT` ➔ 清理 | 外层组合操作的薄封装；纯读无需确认，任何写/擦/锁/销毁操作要求 `--yes`。 |
-| `tag lock\|kill\|erase <host> <epc> --yes`（及 Live 同名命令） | `reader.LockTagMemoryAsync` / `KillTagAsync` / `BlockEraseTagMemoryAsync` | 对应标准 C1G2 OpSpec + 临时 AccessSpec 生命周期 | 均为高层 SDK 调用；所有修改或不可逆操作必须给出 `--yes`。 |
+| `tag write <epc> ... [--yes]` | `reader.WriteTagMemoryAsync(req)` | `ADD_ACCESSSPEC` ➔ `ENABLE_ACCESSSPEC` ➔ `RO_ACCESS_REPORT` ➔ 清理 | Live Shell 省略 `--yes` 时仅预览请求；显式确认后使用当前 Reader 执行标准 C1G2 写。 |
+| `tag sequence <epc> --op ... [--yes]` | `reader.ExecuteTagAccessSequenceAsync(req)` | 一个 `AccessSpec` 内多个 C1G2 OpSpec ➔ `RO_ACCESS_REPORT` ➔ 清理 | Live Shell 的组合操作；纯读无需确认，任何写/擦/锁/销毁操作要求 `--yes`。 |
+| `tag lock\|kill\|erase <epc> --yes` | `reader.LockTagMemoryAsync` / `KillTagAsync` / `BlockEraseTagMemoryAsync` | 对应标准 C1G2 OpSpec + 临时 AccessSpec 生命周期 | 均为高层 SDK 调用；所有修改或不可逆操作必须给出 `--yes`。 |
 | `rospec add\|list\|enable\|disable\|start\|stop\|delete` | `reader.RoSpecs.*` | `ADD_ROSPEC`<br>`DELETE_ROSPEC`<br>`ENABLE_ROSPEC`<br>`DISABLE_ROSPEC`<br>`START_ROSPEC`<br>`STOP_ROSPEC`<br>`GET_ROSPECS` | 显式管理设备上的 ROSpec 资源，直接向读写器下发协议指令。 |
 | `accessspec list\|enable\|disable\|delete` | `reader.AccessSpecs.*` | `ADD_ACCESSSPEC`<br>`DELETE_ACCESSSPEC`<br>`ENABLE_ACCESSSPEC`<br>`DISABLE_ACCESSSPEC`<br>`GET_ACCESSSPEC` | 显式管理设备上的 AccessSpec 资源。 |
 | `raw send\|transact <hex> --yes` | `reader.Protocol.SendAsync`<br>`reader.Protocol.SendRawAsync`<br>`reader.Protocol.TransactRawAsync` | 任意自定义 Hex 帧 | 发送原始 LLRP 报文；发送后将 SDK 标记为 `IsManagedStateSynchronized = false`。 |

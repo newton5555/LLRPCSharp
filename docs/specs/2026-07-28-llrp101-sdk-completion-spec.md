@@ -40,7 +40,7 @@
 | | 5.4 锁标签 Memory | **已实现** | `reader.LockTagMemoryAsync(LockTagRequest)` ➔ `C1G2Lock` / `C1G2LockPayload`；Result 投影为 `TagAccessResult` | — |
 | | 5.5 销毁标签 (Kill Tag) | **已实现** | `reader.KillTagAsync(KillTagRequest)` ➔ `C1G2Kill`；Result 投影为 `TagAccessResult` | — |
 | | 5.6 块擦除 (BlockErase) | **已实现** | `reader.BlockEraseTagMemoryAsync(BlockEraseTagRequest)` ➔ `C1G2BlockErase`；Result 投影为 `TagAccessResult` | — |
-| | 5.7 组合操作序列 (`TagOpSequence`) | **已实现** | `reader.ExecuteTagAccessSequenceAsync(TagAccessSequenceRequest)`；一个 AccessSpec 内包含多个 C1G2 OpSpec，复用每项请求中的标准 BitPointer/Mask TargetTag，返回完整结果集合；Live 与外层 CLI `tag sequence --op ...` 均为薄封装 | 外层 CLI 对非只读操作要求 `--yes`。 |
+| | 5.7 组合操作序列 (`TagOpSequence`) | **已实现** | `reader.ExecuteTagAccessSequenceAsync(TagAccessSequenceRequest)`；一个 AccessSpec 内包含多个 C1G2 OpSpec，复用每项请求中的标准 BitPointer/Mask TargetTag，返回完整结果集合；Live Shell `tag sequence --op ...` 为薄封装 | 非只读操作要求 `--yes`。 |
 | **6. GPIO 与硬件事件通知** | 6.1 GPO 快捷高低电平控制 | **已实现** | `reader.SetGpoAsync(port, state)` ➔ `SET_READER_CONFIG` | — |
 | | 6.2 GPI 电平变化事件 | **已实现** | `reader.GpiChanged`，解析 `READER_EVENT_NOTIFICATION` | — |
 | | 6.3 心跳接收与超时事件 | **已实现（观察型）** | `reader.KeepaliveReceived`；`builder.WithKeepaliveTimeout(...)` 启用后，连续静默会触发一次 `reader.KeepaliveTimedOut` | 超时不会强制断开；TLS 与显式强制断开属于后续连接增强。 |

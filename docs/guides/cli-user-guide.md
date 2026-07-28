@@ -1,6 +1,6 @@
 # LLRPCSharp CLI 工具链与 Studio 使用指南
 
-本文档面向 RFID 现场工程师、测试人员及系统集成开发者，详细介绍 `LLRPCSharp` CLI 工具链（`LlrpCli`）的功能架构、单发命令行模式与交互式 Studio 模式（Live Shell Terminal）的全量指令手册与诊断调试指南。
+本文档面向 RFID 现场工程师、测试人员及系统集成开发者，介绍 `LLRPCSharp` CLI 工具链（`LlrpCli`）的交互式 Live Shell 与离线协议诊断工具。
 
 ---
 
@@ -13,7 +13,7 @@
                                           │
     ┌─────────────────────────────────────┴─────────────────────────────────────┐
     ▼                                                                           ▼
-【在线托管业务视口 (Live Shell & One-shot)】                         【离线协议诊断工具箱 (Protocol Codec)】
+【在线托管业务视口 (Live Shell)】                                    【离线协议诊断工具箱 (Protocol Codec)】
  严格对接 LlrpReader SDK 公开能力                                    不需要连接读写器即可使用
  ├─ connect / disconnect / status / caps                             ├─ inspect <hex>  (Header 解包)
  ├─ inventory start / stop / status                                  ├─ decode <hex>   (Tree 报文树)
@@ -37,12 +37,12 @@ dotnet run --project src/LlrpCli
 **特点**：
 - **实时 Prompt**：动态显示当前连接设备 IP、端口及会话状态（如 `📡 llrp (192.168.1.100:5084) >`）。
 - **智能提示与自动补全**：按 `Tab` 键自动补全指令、子命令及标志参数，底部独创智能提示线（Hint）。
-- **报文自动渲染**：执行连接、配置调整、资源操控时，自动高亮渲染收发的底层 LLRP 帧（TX/RX）。
+- **报文自动渲染**：连接后自动高亮渲染全部非标签收发 LLRP 帧（TX/RX）；`RO_ACCESS_REPORT` 进入标签聚合，只有 `monitor frames` 才将标签报告也按原始帧打印。
 - **命令历史**：使用 `↑` / `↓` 方向键浏览历史输入记录。
 
-### 2. 单发命令行模式 (One-shot Mode)
+### 2. 离线命令行模式
 
-支持在脚本或 CI/CD 自动化中作为单发命令行工具使用：
+根命令只提供不连接读写器的协议分析、验证与编码，可安全用于脚本或 CI/CD：
 
 ```powershell
 # 单发解码
@@ -60,16 +60,17 @@ dotnet run --project src/LlrpCli -- validate 043E0000000A01020304
 
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
-| `connect` | `connect [host] [port] [--llrp auto\|1.0.1\|1.1] [--vendor auto\|impinj\|none]` | 连接目标读写器并执行握手。<br>例：`connect 192.168.1.100` |
+| `connect` | `connect [host] [port] [--llrp auto\|1.0.1\|1.1] [--vendor auto\|impinj\|seuic\|none]` | 连接目标读写器并执行握手。<br>例：`connect 192.168.1.100` |
 | `disconnect` | `disconnect` | 停止后台盘点流并优雅断开当前 TCP 连接。 |
 | `status` | `status` | 显示连接状态、设备厂商、固件版本及累积捕获帧数。 |
+| `caps` | `caps` | 显示能力与 Tx/Rx 索引到实际 dBm 的映射；修改功率、灵敏度或频道前先执行。 |
 | `caps` | `caps` | 显示读写器硬件能力快照（天线数、灵敏度表、UTC 时钟等）。 |
 
 ---
 
 ### 托管盘点（inventory）
 
-盘点意图保存在当前 Live Shell 会话的本地草稿中；编辑草稿不需要连接读写器。`inventory start` 只消费该草稿，并只接受一次性的天线覆盖：
+盘点意图保存在当前 Live Shell 会话的本地草稿中；编辑草稿不需要连接读写器。`inventory settings`、`inventory settings show` 和 `inventory settings get` 都显示草稿；`inventory settings set --antennas 1` 与简写 `inventory settings --antennas 1` 都会更新草稿。`inventory start` 只消费该草稿，并可接受一次性的天线和监控覆盖：
 
 ```
 inventory settings show
@@ -77,7 +78,7 @@ inventory settings set [options]
 inventory settings load <path.json>
 inventory settings save <path.json>
 inventory settings reset
-inventory start [--antennas <id,id|all>]
+inventory start [--antennas <id,id|all>] [--monitor live|frames|none]
 ```
 
 `inventory status` 显示 SDK 的运行中 `CurrentSettings`，并明确提示它是否已与本会话的下一次盘点草稿不同；草稿变化永远不会修改正在运行的盘点。
@@ -85,6 +86,7 @@ inventory start [--antennas <id,id|all>]
 | 参数 | 类型 | 说明 |
 |---|---|---|
 | `--antennas` | `id,id\|all` | 草稿或本次启动使用的天线；`all` 映射为 LLRP 全部天线（ID 0）。 |
+| `--monitor` | `live\|frames\|none` | 本次启动的前台监控方式；默认 `live`。Ctrl+C 只退出监控，不停止盘点。 |
 | `--session` | 0..3 | C1G2 单例化会话号（默认 0）。 |
 | `--population` | ushort | 标签数量估计（默认 32）。 |
 | `--mode` | ushort | ModeIndex（RF 模式索引）。 |
@@ -106,6 +108,20 @@ inventory start
 
 # 不改动草稿，仅在本次启动改用天线 1 和 3
 inventory start --antennas 1,3
+
+# 默认显示聚合标签表；Ctrl+C 回到 Prompt，盘点仍然运行
+inventory start
+
+# 连标签报告也显示为底层 TX/RX LLRP 报文；Ctrl+C 回到 Prompt
+inventory start --monitor frames
+
+# 只启动盘点，不进入前台监控
+inventory start --monitor none
+
+# 添加一个 Disabled 默认 ROSpec；把参数编译为 AISpec 内的 C1G2 RF / singulation 参数
+rospec add --id 14151 --antennas 1,2 --mode 1000 --tari 25000 --session 2 --population 64
+rospec enable 14151
+rospec start 14151
 ```
 
 使用 `inventory settings load <path>` 或 `save <path>` 导入、导出 JSON 格式的完整 `ReaderSettings` 草稿。之后仍可通过 `settings set` 只修改个别字段。
@@ -171,6 +187,8 @@ config apply --antenna 1 --tx-power 10 --yes         # 实际写入
 config apply --keepalive-type periodic --keepalive-interval 5000 --yes
 ```
 
+`config get` 会显示每根天线的 Tx/Rx/Channel 索引、GPIO、全部事件开关及已启用的 Impinj 配置摘要。`--tx-power`、`--rx-sens` 与 `--channel` 接受的是设备能力表索引，不是 dBm、mW 或频率；先运行 `caps`，再把对应索引传给 `config apply`。CLI 会拒绝当前设备未报告的 Tx/Rx 索引。
+
 ---
 
 ### 标签读写（tag）
@@ -178,11 +196,11 @@ config apply --keepalive-type periodic --keepalive-interval 5000 --yes
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
 | `tag read` | `tag read <epc> --bank <bank> --word <addr> --count <n> [--antenna <id>] [--password <hex>] [--timeout <sec>]` | 读取指定 EPC 标签的内存 Bank 数据。 |
-| `tag write` | `llrp tag write <host> <epc> --bank <bank> --word <addr> --data <hex> [--antenna <id>] [--password <hex>] [--yes]` | 写入标签内存；省略 `--yes` 时只预览 OpSpec，不连接设备。Live Shell 实写也要求 `--yes`。 |
-| `tag lock` | `llrp tag lock <host> <epc> --privilege <lock\|unlock\|perma-lock\|perma-unlock\|no-change> [--target all\|epc\|tid\|user\|access-pwd\|kill-pwd] [--antenna <id>] [--password <hex>] --yes` | 锁定/解锁标签内存区域，必须确认。 |
-| `tag kill` | `llrp tag kill <host> <epc> [--kill-pwd <hex>] [--antenna <id>] --yes` | 永久销毁标签，必须确认。 |
-| `tag erase` | `llrp tag erase <host> <epc> --bank <bank> --word <addr> --count <n> [--antenna <id>] [--password <hex>] --yes` | 块擦除（Block Erase）标签内存区域，必须确认。 |
-| `tag sequence` | Live：`tag sequence <epc> --op <operation> ...`；外层：`llrp tag sequence <host> <epc> --op <operation> ...` | 在一个 AccessSpec 内执行多个同 EPC/天线目标的标准操作；外层 CLI 包含非读取操作时必须给出 `--yes`。 |
+| `tag write` | `tag write <epc> --bank <bank> --word <addr> --data <hex> [--antenna <id>] [--password <hex>] [--yes]` | 写入标签内存；省略 `--yes` 时只预览 OpSpec，实写必须确认。 |
+| `tag lock` | `tag lock <epc> --privilege <lock\|unlock\|perma-lock\|perma-unlock\|no-change> [--target all\|epc\|tid\|user\|access-pwd\|kill-pwd] [--antenna <id>] [--password <hex>] --yes` | 锁定/解锁标签内存区域，必须确认。 |
+| `tag kill` | `tag kill <epc> [--kill-pwd <hex>] [--antenna <id>] --yes` | 永久销毁标签，必须确认。 |
+| `tag erase` | `tag erase <epc> --bank <bank> --word <addr> --count <n> [--antenna <id>] [--password <hex>] --yes` | 块擦除（Block Erase）标签内存区域，必须确认。 |
+| `tag sequence` | `tag sequence <epc> --op <operation> ...` | 在一个 AccessSpec 内执行多个同 EPC/天线目标的标准操作；含非读取操作时必须给出 `--yes`。 |
 
 **Bank 别名**：`epc`(1) / `tid`(2) / `user`(3) / `reserved`(0)
 
@@ -193,7 +211,7 @@ config apply --keepalive-type periodic --keepalive-interval 5000 --yes
 tag read E2801171 --bank user --word 0 --count 2
 
 # 写入（dry-run 预览）
-llrp tag write 192.168.1.27 E2801171 --bank user --word 0 --data CAFEBABE
+tag write E2801171 --bank user --word 0 --data CAFEBABE
 
 # 锁定 User Bank（需要访问密码）
 tag lock E2801171 --privilege lock --target user --password 00000000
@@ -215,10 +233,10 @@ tag erase E2801171 --bank user --word 0 --count 4 --password 00000000
 
 ```
 # 先读 TID 两个字，再写入 User Memory；两项在同一个 AccessSpec 内执行
-llrp tag sequence 192.168.1.27 E2801171 --op read:tid:0:2 --op write:user:0:1234 --password 00000000 --yes
+tag sequence E2801171 --op read:tid:0:2 --op write:user:0:1234 --password 00000000 --yes
 ```
 
-序列中的 write/erase/lock/kill 与单操作一样会修改或销毁标签；外层 CLI 必须显式添加 `--yes`，并应先在测试标签上验证。
+序列中的 write/erase/lock/kill 与单操作一样会修改或销毁标签；Live Shell 必须显式添加 `--yes`，并应先在测试标签上验证。
 
 ---
 
@@ -286,7 +304,7 @@ exit / quit / q               # 断开连接并退出
 ## 四、常见问题与调试建议
 
 **1. 如何在 Live Shell 中即时看到底层收发的 LLRP 报文？**
-- 执行 `connect`、`config get`、`config apply`、`rospec`、`sync` 等操作时，控制台自动渲染收发的原始 LLRP 帧。
+- 连接后，控制台自动渲染所有非标签收发的原始 LLRP 帧；标签报告默认进入汇总。使用 `monitor frames` 可连同标签报告一起按原始帧查看。
 - 也可随时输入 `frames 10` 查看最近 10 条报文，或使用 `monitor` 开启实时抓包。
 
 **2. `config apply` 如何避免误操作写坏设备？**
@@ -297,7 +315,7 @@ exit / quit / q               # 断开连接并退出
 - 如需改变个别字段，执行 `inventory settings set --session 0`；如只想临时换天线，使用 `inventory start --antennas 1`。
 
 **4. `tag write` 如何防止意外覆盖标签数据？**
-- 先执行 `llrp tag write <host> <epc> ...`，CLI 会打印完整的 OpSpec 计划（包含 Bank、Word Pointer、待写数据）且不连接设备；确认无误后在同一命令加 `--yes` 才会实际执行。访问受保护标签时再加 `--password`。
+- 在已连接的 Live Shell 中先执行 `tag write <epc> ...`，CLI 会打印完整的 OpSpec 计划（包含 Bank、Word Pointer、待写数据）且不写标签；确认无误后在同一命令加 `--yes` 才会实际执行。访问受保护标签时再加 `--password`。
 
 **5. `tag lock perma-lock` 操作是不可逆的，请谨慎使用！**
 - `perma-lock` 将标签对应区域设为永久只读/永久不可访问，**无法撤销**。

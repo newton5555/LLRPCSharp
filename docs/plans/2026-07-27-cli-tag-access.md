@@ -1,6 +1,6 @@
 # CLI Tag Access Implementation Plan
 
-> Status: In progress
+> Status: Superseded on 2026-07-28. The current architecture is Live Shell-only for online commands; see [`../architecture/cli-command-system.md`](../architecture/cli-command-system.md).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

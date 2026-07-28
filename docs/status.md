@@ -7,7 +7,7 @@
 
 在保持项目架构对多厂商自定义扩展（Vendor Extensions，如 Impinj/Zebra 等）以及未来 LLRP 协议版本（LLRP 1.1/2.0）具备长期解耦与可扩展性的前提下，**当前阶段的核心主线交付目标是：完成 LLRP 1.0.1 标准协议与 Impinj 默认扩展（Impinj Default Extensions）的 SDK 与 CLI 全量功能实现与设备闭环验收。**
 
-当前源码已具备 LLRP 1.0.1 与 Impinj 扩展的核心 SDK API（连接/协商/托管盘点/标签读写/配置管理/高级 ROSpec/AccessSpec）及 CLI（Live Shell、高层命令、帧观察器、自动补全和离线 Codec 工具）。组合 Tag Access 序列已在 SDK、Live Shell 与外层 CLI 完成；Keepalive 超时可选监测已完成，最终实机验收仍在推进；不得将构建或单元测试通过表述为全量设备验收。
+当前源码已具备 LLRP 1.0.1 与 Impinj 扩展的核心 SDK API（连接/协商/托管盘点/标签读写/配置管理/高级 ROSpec/AccessSpec）及 CLI（Live Shell、高层命令、帧观察器、自动补全和离线 Codec 工具）。组合 Tag Access 序列已在 SDK 与 Live Shell 完成；Keepalive 超时可选监测已完成，最终实机验收仍在推进；不得将构建或单元测试通过表述为全量设备验收。
 
 ## 支持矩阵
 
@@ -26,7 +26,7 @@
 
 ### 盘点与资源服务
 
-- `LlrpReader.StartAsync(ReaderSettings)`、`StopAsync()`、`InventoryAsync(ReaderSettings?)`。
+- `LlrpReader.StartAsync(ReaderSettings)`、`StopAsync()`、`InventoryAsync(ReaderSettings?)`。默认托管盘点以 Null Start Trigger 建立 ROSpec，随后显式发送 `START_ROSPEC`；未指定的 AISpec C1G2 参数回退到读写器天线默认配置。Seuic UF40 的兼容默认值由 `LlrpSdk.Extensions.Seuic` 提供，实机盘点验收待补。
 - `ReadTagReportsAsync()`、`GetTagReportsAsync()` 与 `TagsReported`，并共用同一份已翻译的 `TagReport`。
 - `ReaderSettings` 是版本无关的盘点意图模型，包含 C1G2 参数、标准 ROSpec Start/Stop Trigger 与 `AttachedDataOptions`；启用 AttachedData 时，`StartAsync` 创建并启用关联的标准 C1G2 Read AccessSpec，`StopAsync` 清理它，临时 Tag Access 会暂停后恢复它。
 - `ReaderMetadata` 新增物理参数表（`TxPowers`、`RxSensitivities`、`TxFrequencies`、`HopTables`、`RfModes`）与门控能力标志位（`IsTagAccessAvailable`、`IsMultiwordBlockWriteAvailable`、`IsMultiwordBlockEraseAvailable`、`CanDoTagInventoryStateAwareSingulation`）。
@@ -65,8 +65,10 @@
 - `TagReport` 会投影标准 C1G2 Read/Write/BlockWrite/Lock/Kill/BlockErase OpSpec Result。
 - 2026-07-27：Impinj R420（LLRP 1.0.1、固件 6.4.1.240）通过直接 SDK 调用完成连接、Impinj 扩展激活、盘点和 User Memory 读；详见互操作验收文档。
 - `Interop.Tests` 使用 Virtual Reader 覆盖 SDK 托管盘存、TagReport 翻译、临时 AccessSpec 读取结果与清理路径；Virtual Reader 是固定 LLRP 1.0.1，因此测试显式使用 `Force101`。
-- CLI 提供外层 `tag read/write/lock/erase/kill <host> <epc> ...`、`tag sequence <host> <epc> --op ...` 与对应 Live Shell 命令，均复用标准 SDK Tag Access API；若读取方没有托管盘点，会临时启动并在结束后清理。外层写入、擦除、锁定、销毁或含这些操作的序列均要求显式 `--yes`；省略确认时 `tag write` 只显示 dry-run 计划。
-- 2026-07-27：外层 CLI 已通过 R420 的实际非破坏性 User Memory 读取验收，目标 EPC `E28011710000020D056E9BEE` 的 word 0 返回 `0000`。
+- 在线 CLI 功能统一由 Live Shell 提供：`tag read/write/lock/erase/kill <epc> ...` 与 `tag sequence <epc> --op ...` 均复用标准 SDK Tag Access API；若读取方没有托管盘点，会临时启动并在结束后清理。写入、擦除、锁定、销毁或含这些操作的序列均要求显式 `--yes`；省略确认时 `tag write` 只显示 dry-run 计划。根命令仅保留离线 `inspect/decode/validate/encode`。
+- Live Shell 的 `config get` 已显示完整标准配置（天线、GPIO、事件）及已启用的 Impinj 配置摘要；`caps` 显示 Tx/Rx 索引到 dBm 的能力表，`config apply` 会校验 Tx/Rx 索引属于当前读写器报告的能力表。
+- Live Shell 默认渲染全部非标签 TX/RX LLRP 帧，`RO_ACCESS_REPORT` 交给标签汇总；`inventory start [--monitor live|frames|none]` 默认进入前台聚合标签监控，`--monitor frames` 连标签报告也按底层 TX/RX 帧显示。两个模式下 Ctrl+C 只退出监控并返回 Prompt，盘点继续运行，随后可用 `inventory stop` 清理托管 ROSpec。
+- 2026-07-27：Live Shell 已通过 R420 的实际非破坏性 User Memory 读取验收，目标 EPC `E28011710000020D056E9BEE` 的 word 0 返回 `0000`。
 
 ### Reader 配置查询与应用
 

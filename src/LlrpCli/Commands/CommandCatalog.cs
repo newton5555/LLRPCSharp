@@ -47,14 +47,14 @@ public static class CommandCatalog
 {
     public static IReadOnlyList<CommandSpec> Commands { get; } =
     [
-        new("connect", LiveCommandRoute.Connect, "connect [host] [port] [--llrp auto|1.0.1|1.1] [--vendor auto|impinj|none]", "Connect to an LLRP Reader.")
+        new("connect", LiveCommandRoute.Connect, "connect [host] [port] [--llrp auto|1.0.1|1.1] [--vendor auto|impinj|seuic|none]", "Connect to an LLRP Reader.")
         {
-            CompletionCandidates = ["--llrp", "--vendor", "auto", "1.0.1", "1.1", "impinj", "none"],
+            CompletionCandidates = ["--llrp", "--vendor", "auto", "1.0.1", "1.1", "impinj", "seuic", "none"],
         },
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
-        new("caps", LiveCommandRoute.Capabilities, "caps", "Query Reader capabilities.", RequiresConnection: true),
-        new("config", LiveCommandRoute.Configuration, "config get | defaults | apply [options] [--dry-run] --yes", "Query, resolve defaults, or safely apply reader configuration.", RequiresConnection: true)
+        new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index-to-dBm tables.", RequiresConnection: true),
+        new("config", LiveCommandRoute.Configuration, "config get | defaults | apply [options] [--dry-run] --yes", "Query full configuration, resolve defaults, or safely apply reader configuration.", RequiresConnection: true)
         {
             CompletionCandidates =
             [
@@ -81,13 +81,13 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory settings show|set|load|save|reset | start [--antennas <id,id|all>] | stop | status", "Manage SDK inventory intent and display tag reports.")
+        new("inventory", LiveCommandRoute.Inventory, "inventory settings [show|get] | set [options] | load|save <path> | reset | start [--antennas <id,id|all>] [--monitor live|frames|none] | stop | status", "Manage SDK inventory intent and foreground monitoring.")
         {
-            CompletionCandidates = ["settings", "start", "stop", "status", "show", "set", "load", "save", "reset", "--antennas", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "epc", "tid", "user", "reserved", "all", "none"],
+            CompletionCandidates = ["settings", "start", "stop", "status", "show", "get", "set", "load", "save", "reset", "--antennas", "--monitor", "live", "frames", "none", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "epc", "tid", "user", "reserved", "all"],
         },
-        new("rospec", LiveCommandRoute.RoSpec, "rospec add|list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
+        new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
         {
-            CompletionCandidates = ["list", "enable", "disable", "start", "stop", "delete"],
+            CompletionCandidates = ["add", "list", "enable", "disable", "start", "stop", "delete", "--id", "--antennas", "--mode", "--tari", "--session", "--population", "all"],
         },
         new("accessspec", LiveCommandRoute.AccessSpec, "accessspec list|enable|disable|delete [id]", "Manage AccessSpecs.", RequiresConnection: true)
         {
@@ -103,7 +103,7 @@ public static class CommandCatalog
         new("decode", LiveCommandRoute.Decode, "decode <hex>", "Decode LLRP hexadecimal payload into parameter tree."),
         new("validate", LiveCommandRoute.Validate, "validate <hex>", "Validate structural integrity of an LLRP payload."),
         new("encode", LiveCommandRoute.Encode, "encode <message-type-or-json>", "Encode message template to hex."),
-        new("monitor", LiveCommandRoute.Monitor, "monitor [duration-sec]", "Monitor live LLRP frames in real-time.", RequiresConnection: true),
+        new("monitor", LiveCommandRoute.Monitor, "monitor [live|frames] [duration-sec]", "Foreground monitor for tags or raw LLRP frames; Ctrl+C returns to the prompt.", RequiresConnection: true),
         new("clear", LiveCommandRoute.Clear, "clear", "Clear console screen.", Aliases: ["cls"]),
         new("help", LiveCommandRoute.Help, "help [command]", "Show command help or list commands.", Aliases: ["?"]),
         new("exit", LiveCommandRoute.Exit, "exit", "Exit session.", Aliases: ["quit", "q"]),
@@ -178,6 +178,15 @@ public static class CommandCatalog
             return InputAssist.Empty;
         }
 
+        if (spec.Name.Equals("config", StringComparison.OrdinalIgnoreCase))
+        {
+            InputAssist? configurationAssist = AssistConfiguration(input, parts);
+            if (configurationAssist is not null)
+            {
+                return configurationAssist;
+            }
+        }
+
         if (parts.Length > 1 && spec.CompletionCandidates.Count > 0)
         {
             string lastToken = parts[^1].ToLowerInvariant();
@@ -201,6 +210,39 @@ public static class CommandCatalog
         }
 
         return new InputAssist([], string.Empty, spec.Usage);
+    }
+
+    private static InputAssist? AssistConfiguration(string input, IReadOnlyList<string> parts)
+    {
+        if (parts.Count == 1 && char.IsWhiteSpace(input[^1]))
+        {
+            return new InputAssist(["get", "defaults", "apply"], string.Empty, "get reads full device configuration; defaults is local SDK data; apply writes only with --yes");
+        }
+        if (parts.Count < 2 || !parts[1].Equals("apply", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        string last = parts[^1].ToLowerInvariant();
+        bool awaitingValue = char.IsWhiteSpace(input[^1]);
+        if ((last == "--tx-power" && awaitingValue) || last == "--tx-power")
+        {
+            return new InputAssist([], string.Empty, "Transmit power is a reader capability-table index, not dBm or mW. Run caps first.");
+        }
+        if ((last == "--rx-sens" && awaitingValue) || last == "--rx-sens")
+        {
+            return new InputAssist([], string.Empty, "Receiver sensitivity is a reader capability-table index, not dBm. Run caps first.");
+        }
+        if ((last == "--channel" && awaitingValue) || last == "--channel")
+        {
+            return new InputAssist([], string.Empty, "Channel is a reader-specific frequency-table index. Run caps first.");
+        }
+        if (awaitingValue)
+        {
+            return new InputAssist([], string.Empty, "config apply is a patch: use --dry-run to preview, then add --yes to write. Tx/Rx/Channel values are indices.");
+        }
+
+        return null;
     }
 
     public static InputAssist GetAssist(string input)

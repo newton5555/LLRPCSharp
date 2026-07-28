@@ -36,11 +36,12 @@ dotnet run --project tools/LlrpSdk.LiveSmoke -- <reader-host>
 | 日期 | 设备 | 结果 |
 |---|---|---|
 | 2026-07-28 | 纯标准 LLRP 设备 `192.168.1.148`，强制 LLRP 1.0.1 | CLI 只读连接和 `config get --vendor none` 成功：Manufacturer `57690`、Model `40`、Firmware `1.0.0.233`、4 天线；读取 Keepalive、事件、天线、GPI/GPO 当前状态。未创建资源、未写设备配置。 |
+| 2026-07-28 | Seuic UF40 `192.168.1.148`，强制 LLRP 1.0.1 | 已为默认 ROSpec 加入旧 SDK 等价的显式 AISpec 兼容基线（4 个物理天线、能力表最大 Tx、默认 Rx、Hop/Channel `1/1`、RF/Singulation 默认值）。尚未在设备上创建 ROSpec 或执行盘点，待实机验收。 |
 | 2026-07-28 | Impinj R420 `192.168.1.27`，强制 LLRP 1.0.1 + Impinj | CLI 只读连接和 `config get --vendor impinj` 成功：Manufacturer `25882`、Model `2001002`、Firmware `6.4.1.240`、4 天线；标准配置查询与 Impinj Contributor 请求均完成。未创建资源、未写设备配置。 |
 | 2026-07-28 | Impinj R420 `192.168.1.27`，直接 SDK 短时盘点 | `LlrpSdk.LiveSmoke --inventory --read E28011710000020D056E9BEE` 成功完成初始化、Impinj 扩展激活、能力/配置读取；10 秒内未收到标签报告，因此未执行读操作。随后只读 `GET_ROSPECS` 显示空集合，确认没有残留临时 ROSpec。未写标签或设备配置。 |
 | 2026-07-27 | Impinj R420，LLRP 1.0.1，Firmware 6.4.1.240 | 直接使用 `LlrpReader + UseImpinj()` 完成连接、扩展激活、配置查询和短时盘点；读取 EPC `E28011710000020D056E9BEE` 的 User Memory word 0 成功，返回 `0000`。`GetDefaultConfiguration()` 在配置查询前成功返回无网络副作用的安全基线（Keepalive=None、0 条天线/GPO 覆盖）。Impinj 设置查询返回 China 920–925 MHz、35°C、4 路 GPI 防抖、Normal Report Buffer 与 FIFO AccessSpec 设置。未写标签或设备配置。 |
 | 2026-07-27 | Impinj R420，LLRP 1.0.1，Firmware 6.4.1.240 | 同时启用 `ReaderSettings.Extensions["impinj.inventoryReport"]` 的 `IncludeSerializedTid`、`IncludeRfPhaseAngle`、`IncludePeakRssi` 后，SDK 成功添加并启动 ROSpec，收到 EPC `E28011710000020D056E9BEE`，且 `TagReport.Extensions` 返回 `impinj.serializedTid = E2801171200003EEADD309A0`、`impinj.rfPhaseAngle = 1276`、`impinj.peakRssi = -6700`。停止后 `GET_ROSPECS` 返回空集合；未写标签或设备配置。 |
-| 2026-07-27 | Impinj R420，LLRP 1.0.1，Firmware 6.4.1.240 | 通过外层 CLI 执行 `llrp tag read 192.168.1.27 E28011710000020D056E9BEE --llrp 1.0.1 --bank user --word 0 --count 1 --timeout 10` 成功，输出 `Success=True Data=0000`。命令仅使用临时 SDK 托管盘点与 AccessSpec；未写标签或设备配置。 |
+| 2026-07-27 | Impinj R420，LLRP 1.0.1，Firmware 6.4.1.240 | 当时的一次性 CLI 曾执行 `llrp tag read 192.168.1.27 E28011710000020D056E9BEE --llrp 1.0.1 --bank user --word 0 --count 1 --timeout 10` 并成功，输出 `Success=True Data=0000`。该入口已在 2026-07-28 移除；等价验收应使用下一行的 Live Shell 命令。命令仅使用临时 SDK 托管盘点与 AccessSpec；未写标签或设备配置。 |
 | 2026-07-27 | Impinj R420，LLRP 1.0.1，Firmware 6.4.1.240 | Live Shell 连接后执行 `tag read E28011710000020D056E9BEE --bank user --word 0 --count 1 --timeout 10` 成功，输出 `Success=True Data=0000`。命令复用当前会话，仅使用临时 SDK 托管盘点与 AccessSpec；未写标签或设备配置。 |
 
 ## 已知设备能力差异

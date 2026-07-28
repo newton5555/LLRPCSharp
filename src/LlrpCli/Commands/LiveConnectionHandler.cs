@@ -1,4 +1,7 @@
 using Spectre.Console;
+using LlrpNet.Core.Diagnostics;
+using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
 using LlrpSdk;
@@ -13,6 +16,8 @@ internal sealed class LiveConnectionHandler(
     LiveSessionContext session,
     LiveInventoryHandler inventory)
 {
+    private readonly object frameRenderLock = new();
+
     public async Task<bool> ConnectAsync(CliConnectionOptions options, CancellationToken cancellationToken)
     {
         if (session.Reader is not null)
@@ -24,15 +29,16 @@ internal sealed class LiveConnectionHandler(
 
         session.FrameObserver = new DelegateFrameObserver(frame =>
         {
-            if (session.IsMonitoring)
+            if (IsTagReport(frame) && !session.IsMonitoring)
+            {
+                // Live inventory aggregates tag reports. Frame monitor remains the explicit raw-report mode.
+                return;
+            }
+
+            lock (frameRenderLock)
             {
                 FrameRenderer.RenderObservedFrame(frame, console, includeHexDump: true);
                 console.WriteLine();
-            }
-
-            if (session.IsMonitoringTable)
-            {
-                session.MonitorFrameCallback?.Invoke(frame);
             }
         });
 
@@ -62,8 +68,6 @@ internal sealed class LiveConnectionHandler(
             UpdateWindowTitle($"{options.Host}:{options.Port}");
 
             console.MarkupLine("[bold springgreen2]✔ Connected successfully![/]");
-            console.WriteLine();
-            RenderNegotiationFrames(session.FrameObserver.CapturedFrames);
             return true;
         }
         catch (Exception exception)
@@ -108,18 +112,21 @@ internal sealed class LiveConnectionHandler(
         UpdateWindowTitle("offline");
     }
 
-    private void RenderNegotiationFrames(IReadOnlyList<CapturedFrame> frames)
+    private static bool IsTagReport(CapturedFrame frame)
     {
-        if (frames.Count == 0)
+        if (frame.Direction != LlrpFrameDirection.Receive)
         {
-            return;
+            return false;
         }
 
-        console.Write(new Rule($"[bold cyan1]Exchanged Connection Negotiation LLRP Messages ({frames.Count})[/]"));
-        foreach (CapturedFrame frame in frames)
+        try
         {
-            FrameRenderer.RenderObservedFrame(frame, console, includeHexDump: true);
-            console.WriteLine();
+            return LlrpMessageHeader.Decode(frame.Bytes).MessageType == RO_ACCESS_REPORT.MessageType;
+        }
+        catch
+        {
+            // If the header cannot be decoded, render it as a diagnostic frame instead of hiding it.
+            return false;
         }
     }
 

@@ -160,6 +160,7 @@ internal static class Llrp11InventoryCompiler
 
     private static ROSpecStartTrigger CompileStartTrigger(InventoryStartTrigger trigger) => trigger.Type switch
     {
+        InventoryStartTriggerType.None => new(V11Enumerations.ROSpecStartTriggerType.Null, null, null),
         InventoryStartTriggerType.Immediate => new(V11Enumerations.ROSpecStartTriggerType.Immediate, null, null),
         InventoryStartTriggerType.Periodic => new(
             V11Enumerations.ROSpecStartTriggerType.Periodic,

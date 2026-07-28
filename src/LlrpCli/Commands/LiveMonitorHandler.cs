@@ -1,14 +1,17 @@
 using System.Collections.Concurrent;
 using Spectre.Console;
-using LlrpNet.Core.Protocol;
-using LlrpNet.Protocol.Messages;
 using LlrpSdk;
 
 namespace LlrpCli.Commands;
 
-/// <summary>
-/// Owns temporary raw-frame and aggregated tag-table monitor scopes.
-/// </summary>
+internal enum LiveMonitorMode
+{
+    None,
+    Live,
+    Frames,
+}
+
+/// <summary>Owns foreground tag and raw-frame monitor scopes for one Live Shell session.</summary>
 internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContext session)
 {
     private sealed class TagStat
@@ -28,99 +31,122 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
             return;
         }
 
-        bool useTable = false;
-        int seconds = 10;
-        for (int i = 1; i < tokens.Length; i++)
-        {
-            string token = tokens[i].ToLowerInvariant();
-            if (token is "--table" or "-t" or "table")
-            {
-                useTable = true;
-            }
-            else if (token is "--frames" or "-f" or "frames" or "raw")
-            {
-                useTable = false;
-            }
-            else if (int.TryParse(token, out int parsedSec))
-            {
-                seconds = parsedSec;
-            }
-        }
+        (LiveMonitorMode mode, int? seconds) = ParseMonitorArguments(tokens, startIndex: 1);
+        await MonitorAsync(mode, seconds, cancellationToken);
+    }
 
-        if (!useTable)
+    /// <summary>Runs an exclusive foreground monitor. Ctrl+C leaves the monitor but does not stop inventory.</summary>
+    public async Task MonitorAsync(LiveMonitorMode mode, int? seconds, CancellationToken cancellationToken)
+    {
+        if (mode == LiveMonitorMode.None)
         {
-            await MonitorFramesAsync(seconds, cancellationToken);
+            return;
+        }
+        if (session.Reader is null || !session.Reader.IsConnected)
+        {
+            console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
         }
 
-        await MonitorTagTableAsync(seconds, cancellationToken);
+        using var monitorCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        if (seconds is int duration)
+        {
+            monitorCancellation.CancelAfter(TimeSpan.FromSeconds(duration));
+        }
+
+        ConsoleCancelEventHandler cancelHandler = (_, args) =>
+        {
+            args.Cancel = true;
+            monitorCancellation.Cancel();
+        };
+        Console.CancelKeyPress += cancelHandler;
+        try
+        {
+            if (mode == LiveMonitorMode.Frames)
+            {
+                await MonitorFramesAsync(monitorCancellation.Token);
+            }
+            else
+            {
+                await MonitorTagTableAsync(monitorCancellation.Token);
+            }
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelHandler;
+        }
     }
 
-    private async Task MonitorFramesAsync(int seconds, CancellationToken cancellationToken)
+    public static (LiveMonitorMode Mode, int? Seconds) ParseMonitorArguments(string[] tokens, int startIndex)
     {
-        console.MarkupLine($"[bold springgreen2]📡 Listening to passive LLRP frame logs for {seconds} seconds...[/]");
-        console.MarkupLine("[grey]Raw Frame Mode: printing raw RX/TX frame trees and hex dumps.[/]");
-        console.WriteLine();
+        LiveMonitorMode mode = LiveMonitorMode.Live;
+        int? seconds = null;
+        for (int index = startIndex; index < tokens.Length; index++)
+        {
+            string token = tokens[index].ToLowerInvariant();
+            mode = token switch
+            {
+                "live" or "--live" or "--table" or "-t" => LiveMonitorMode.Live,
+                "frames" or "--frames" or "-f" or "raw" => LiveMonitorMode.Frames,
+                "none" => LiveMonitorMode.None,
+                _ when int.TryParse(token, out int parsed) && parsed > 0 => mode,
+                _ => throw new CliUsageException("Usage: monitor [live|frames] [duration-sec]")
+            };
+            if (int.TryParse(token, out int parsedSeconds) && parsedSeconds > 0)
+            {
+                seconds = parsedSeconds;
+            }
+        }
+        return (mode, seconds);
+    }
 
-        session.IsMonitoringTable = false;
+    private async Task MonitorFramesAsync(CancellationToken cancellationToken)
+    {
+        console.MarkupLine("[bold springgreen2]📡 Monitoring raw LLRP frames. Press Ctrl+C to return to the prompt; inventory keeps running.[/]");
         session.IsMonitoring = true;
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken);
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         }
         catch (OperationCanceledException)
         {
-            // Expected if user cancels.
+            // Ctrl+C, a duration expiry, or host cancellation ends only this monitor scope.
         }
         finally
         {
             session.IsMonitoring = false;
-            console.MarkupLine("[bold cyan1]✔ Passive frame monitoring ended.[/]");
+            console.MarkupLine("[bold cyan1]✔ Frame monitor ended; inventory state was unchanged.[/]");
         }
     }
 
-    private async Task MonitorTagTableAsync(int seconds, CancellationToken cancellationToken)
+    private async Task MonitorTagTableAsync(CancellationToken cancellationToken)
     {
-        console.MarkupLine($"[bold springgreen2]📊 Streaming live tag statistics table for {seconds} seconds...[/]");
-        console.MarkupLine("[grey]Live Table Mode: aggregated unique EPC tag counts, RSSI, and antennas.[/]");
+        console.MarkupLine("[bold springgreen2]📊 Monitoring live tag statistics. Press Ctrl+C to return to the prompt; inventory keeps running.[/]");
         var tagStats = new ConcurrentDictionary<string, TagStat>();
-
-        session.MonitorFrameCallback = frame =>
+        EventHandler<TagReportEventArgs>? reportHandler = (_, args) =>
         {
-            try
+            TagReport report = args.Report;
+            string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
+            if (string.IsNullOrEmpty(epc))
             {
-                ILlrpMessage message = session.Reader!.Registry.DecodeMessage(frame.Bytes);
-                foreach (TagReport report in session.Reader.TranslateTagReports(message))
-                {
-                    string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
-                    if (string.IsNullOrEmpty(epc))
-                    {
-                        continue;
-                    }
+                return;
+            }
 
-                    tagStats.AddOrUpdate(
-                        epc,
-                        key => new TagStat { Epc = key, AntennaId = report.AntennaId ?? 0, PeakRssi = report.PeakRssi ?? 0, ReadCount = 1, LastSeen = DateTime.Now },
-                        (_, existing) =>
-                        {
-                            existing.ReadCount++;
-                            existing.AntennaId = report.AntennaId ?? existing.AntennaId;
-                            existing.PeakRssi = report.PeakRssi ?? existing.PeakRssi;
-                            existing.LastSeen = DateTime.Now;
-                            return existing;
-                        });
-                }
-            }
-            catch
-            {
-                // Non-report messages are ignored in the tag table.
-            }
+            tagStats.AddOrUpdate(
+                epc,
+                key => new TagStat { Epc = key, AntennaId = report.AntennaId ?? 0, PeakRssi = report.PeakRssi ?? 0, ReadCount = 1, LastSeen = DateTime.Now },
+                (_, existing) =>
+                {
+                    existing.ReadCount++;
+                    existing.AntennaId = report.AntennaId ?? existing.AntennaId;
+                    existing.PeakRssi = report.PeakRssi ?? existing.PeakRssi;
+                    existing.LastSeen = DateTime.Now;
+                    return existing;
+                });
         };
 
-        session.IsMonitoringTable = true;
+        session.Reader!.TagsReported += reportHandler;
         session.IsMonitoring = false;
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(seconds));
 
         var table = new Table { Border = TableBorder.Rounded, BorderStyle = new Style(Color.DeepSkyBlue1) };
         table.AddColumn("[bold deepskyblue1]🏷️ EPC (Hex)[/]");
@@ -133,32 +159,26 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         {
             await console.Live(table).AutoClear(false).Overflow(VerticalOverflow.Ellipsis).StartAsync(async context =>
             {
-                while (!cts.IsCancellationRequested)
+                while (!cancellationToken.IsCancellationRequested)
                 {
                     table.Rows.Clear();
-                    var topTags = tagStats.Values.OrderByDescending(stat => stat.LastSeen).Take(15).ToList();
+                    IReadOnlyList<TagStat> topTags = tagStats.Values.OrderByDescending(stat => stat.LastSeen).Take(15).ToArray();
                     long totalReads = tagStats.Values.Sum(stat => stat.ReadCount);
                     foreach (TagStat tag in topTags)
                     {
                         table.AddRow($"[bold white]{tag.Epc}[/]", $"[cyan1]{tag.AntennaId}[/]", $"[yellow1]{tag.PeakRssi} dBm[/]", $"[bold springgreen2]{tag.ReadCount:N0}[/]", $"[grey]{tag.LastSeen:HH:mm:ss.fff}[/]");
                     }
-
                     table.Title = new TableTitle($"[bold white on deepskyblue1] 🏷️ LIVE TAG MONITOR [/] [grey]Unique Tags:[/] [bold yellow]{tagStats.Count}[/] | [grey]Total Reads:[/] [bold springgreen2]{totalReads:N0}[/]");
                     context.Refresh();
-                    try { await Task.Delay(100, cts.Token); }
+                    try { await Task.Delay(100, cancellationToken); }
                     catch (OperationCanceledException) { break; }
                 }
             });
         }
-        catch (OperationCanceledException)
-        {
-            // Expected when canceled.
-        }
         finally
         {
-            session.IsMonitoringTable = false;
-            session.MonitorFrameCallback = null;
-            console.MarkupLine($"[bold cyan1]✔ Live tag summary ended. Total Unique Tags: {tagStats.Count}[/]");
+            session.Reader.TagsReported -= reportHandler;
+            console.MarkupLine($"[bold cyan1]✔ Live tag monitor ended ({tagStats.Count} unique tags); inventory state was unchanged.[/]");
         }
     }
 }

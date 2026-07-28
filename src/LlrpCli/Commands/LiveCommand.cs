@@ -28,7 +28,7 @@ public sealed class LiveSettings : CommandSettings
     public string LlrpVersion { get; init; } = "auto";
 
     [CommandOption("--vendor <VENDOR>")]
-    [Description("Vendor extensions mode for automatic connection: auto, impinj, or none.")]
+    [Description("Vendor extensions mode for automatic connection: auto, impinj, seuic, or none.")]
     [DefaultValue("auto")]
     public string Vendor { get; init; } = "auto";
 }
@@ -47,8 +47,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     public LiveCommand(IAnsiConsole console)
     {
         _console = console ?? AnsiConsole.Console;
-        _inventoryHandler = new LiveInventoryHandler(_console, _session);
         _monitorHandler = new LiveMonitorHandler(_console, _session);
+        _inventoryHandler = new LiveInventoryHandler(_console, _session, _monitorHandler);
         _connectionHandler = new LiveConnectionHandler(_console, _session, _inventoryHandler);
         _tagAccessHandler = new LiveTagAccessHandler(_console, _session);
     }
@@ -310,6 +310,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             table.AddRow("Max Antennas", $"[white]{capabilities.MaxNumberOfAntennas}[/]");
             table.AddRow("Set Antenna Props", capabilities.CanSetAntennaProperties ? "[green]Yes[/]" : "[grey]No[/]");
             table.AddRow("UTC Clock", capabilities.HasUtcClockCapability ? "[green]Yes[/]" : "[grey]No[/]");
+            table.AddRow("Tx power entries", capabilities.TxPowers.Count.ToString());
+            table.AddRow("Rx sensitivity entries", capabilities.RxSensitivities.Count.ToString());
+            table.AddRow("Transmit frequencies", capabilities.TxFrequencies.Count.ToString());
             table.AddRow("Additional Parameters", $"[cyan1]{capabilities.AdditionalParameters.Count}[/]");
 
             var panel = new Panel(table)
@@ -317,6 +320,48 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 .Border(BoxBorder.Rounded);
 
             _console.Write(panel);
+
+            if (capabilities.TxPowers.Count > 0)
+            {
+                var txTable = new Table().Border(TableBorder.Rounded);
+                txTable.AddColumn("[bold grey70]Tx index[/]");
+                txTable.AddColumn("[bold grey70]dBm[/]");
+                foreach (TxPowerEntry power in capabilities.TxPowers)
+                {
+                    txTable.AddRow(power.Index.ToString(), power.TransmitPowerDbm.ToString("F2"));
+                }
+                _console.Write(new Panel(txTable)
+                    .Header("[bold yellow] TRANSMIT POWER TABLE — use index with config apply --tx-power [/]")
+                    .Border(BoxBorder.Rounded));
+            }
+
+            if (capabilities.RxSensitivities.Count > 0)
+            {
+                var rxTable = new Table().Border(TableBorder.Rounded);
+                rxTable.AddColumn("[bold grey70]Rx index[/]");
+                rxTable.AddColumn("[bold grey70]dBm[/]");
+                foreach (RxSensitivityEntry sensitivity in capabilities.RxSensitivities)
+                {
+                    rxTable.AddRow(sensitivity.Index.ToString(), sensitivity.ReceiveSensitivityDbm.ToString("F2"));
+                }
+                _console.Write(new Panel(rxTable)
+                    .Header("[bold yellow] RECEIVE SENSITIVITY TABLE — use index with config apply --rx-sens [/]")
+                    .Border(BoxBorder.Rounded));
+            }
+
+            if (capabilities.TxFrequencies.Count > 0)
+            {
+                var frequencyTable = new Table().Border(TableBorder.Rounded);
+                frequencyTable.AddColumn("[bold grey70]Channel index[/]");
+                frequencyTable.AddColumn("[bold grey70]Frequency (MHz)[/]");
+                for (int index = 0; index < capabilities.TxFrequencies.Count; index++)
+                {
+                    frequencyTable.AddRow((index + 1).ToString(), (capabilities.TxFrequencies[index] / 1000.0).ToString("F3"));
+                }
+                _console.Write(new Panel(frequencyTable)
+                    .Header("[bold yellow] FIXED FREQUENCY TABLE — channel index is reader-specific [/]")
+                    .Border(BoxBorder.Rounded));
+            }
         }
         else
         {
@@ -361,7 +406,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         if (tokens.Length < 2)
         {
-            _console.MarkupLine("[red]Usage:[/] rospec add|list|enable|disable|start|stop|delete [[id]]");
+            _console.MarkupLine("[red]Usage:[/] rospec add [[--id n]] [[--antennas id,id|all]] [[--mode n]] [[--tari ns]] [[--session 0..3]] [[--population n]] | list|enable|disable|start|stop|delete [[id]]");
             return;
         }
 
@@ -372,17 +417,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             rospecId = parsedId;
         }
 
-        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
-
         switch (subAction)
         {
             case "add":
-                if (tokens.Length >= 3)
-                {
-                    _console.MarkupLine("[red]Usage:[/] rospec add");
-                    return;
-                }
-
                 var existingRoSpecs = await _session.Reader.RoSpecs.GetAllAsync(cancellationToken);
                 if (existingRoSpecs.Count != 0)
                 {
@@ -390,10 +427,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     return;
                 }
 
-                var defaultSettings = new ReaderSettings();
+                ReaderSettings defaultSettings = ParseDefaultRoSpecSettings(tokens);
                 _console.MarkupLine($"[grey]Creating disabled SDK-default ROSpec {defaultSettings.RoSpecId}...[/]");
                 await _session.Reader.RoSpecs.AddDefaultAsync(defaultSettings, cancellationToken);
-                _console.MarkupLine($"[bold springgreen2]✔ Default ROSpec {defaultSettings.RoSpecId} Created (Disabled).[/]");
+                _console.MarkupLine($"[bold springgreen2]✔ Default ROSpec {defaultSettings.RoSpecId} Created (Disabled).[/] [grey]AISpec: antennas={string.Join(',', defaultSettings.AntennaIds)}, mode/tari={defaultSettings.ModeIndex}/{defaultSettings.Tari}, session/population={defaultSettings.Session}/{defaultSettings.TagPopulationEstimate}.[/]");
                 break;
             case "list":
                 _console.MarkupLine("[grey]Querying installed ROSpecs...[/]");
@@ -430,7 +467,49 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 return;
         }
 
-        RenderNewlyCapturedFrames(startIndex);
+    }
+
+    private static ReaderSettings ParseDefaultRoSpecSettings(string[] tokens)
+    {
+        var settings = new ReaderSettings();
+        for (int index = 2; index < tokens.Length; index += 2)
+        {
+            if (index + 1 >= tokens.Length)
+            {
+                throw new CliUsageException($"Missing value for option '{tokens[index]}'.");
+            }
+
+            string option = tokens[index].ToLowerInvariant();
+            string value = tokens[index + 1];
+            settings = option switch
+            {
+                "--id" when uint.TryParse(value, out uint id) && id != 0 => settings with { RoSpecId = id },
+                "--antennas" => settings with { AntennaIds = ParseRoSpecAntennaIds(value) },
+                "--mode" when ushort.TryParse(value, out ushort mode) => settings with { ModeIndex = mode },
+                "--tari" when ushort.TryParse(value, out ushort tari) => settings with { Tari = tari },
+                "--session" when byte.TryParse(value, out byte session) && session <= 3 => settings with { Session = session },
+                "--population" when ushort.TryParse(value, out ushort population) && population != 0 => settings with { TagPopulationEstimate = population },
+                _ => throw new CliUsageException($"Invalid ROSpec add option '{tokens[index]}'."),
+            };
+        }
+
+        return settings;
+    }
+
+    private static IReadOnlyList<ushort> ParseRoSpecAntennaIds(string value)
+    {
+        if (value.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            return [0];
+        }
+
+        string[] values = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (values.Length == 0 || !values.All(static item => ushort.TryParse(item, out ushort antennaId) && antennaId != 0))
+        {
+            throw new CliUsageException("--antennas must be all or a comma-separated list of non-zero UInt16 antenna IDs.");
+        }
+
+        return values.Select(static item => ushort.Parse(item)).Distinct().ToArray();
     }
 
     private async Task HandleAccessSpecAsync(string[] tokens, CancellationToken cancellationToken)
@@ -453,8 +532,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             accessSpecId = parsedId;
         }
-
-        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
 
         switch (subAction)
         {
@@ -483,24 +560,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 return;
         }
 
-        RenderNewlyCapturedFrames(startIndex);
-    }
-
-    private void RenderNewlyCapturedFrames(int startIndex)
-    {
-        if (_session.FrameObserver != null)
-        {
-            IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
-            if (frames.Count > startIndex)
-            {
-                var newFrames = frames.Skip(startIndex).ToList();
-                foreach (CapturedFrame frame in newFrames)
-                {
-                    FrameRenderer.RenderObservedFrame(frame, _console, includeHexDump: true);
-                    _console.WriteLine();
-                }
-            }
-        }
     }
 
     private async Task HandleRawAsync(string[] tokens, CancellationToken cancellationToken)
@@ -552,11 +611,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         (!responseType.HasValue || (ushort)header.MessageType == responseType.Value),
                     cancellationToken: cancellationToken);
                 _console.MarkupLine("[bold springgreen2]✔ Raw transaction completed.[/]");
-                FrameRenderer.RenderFrameData(
-                    LlrpFrameDirection.Receive,
-                    DateTimeOffset.Now,
-                    response.ToArray(),
-                    _console);
                 break;
 
             default:
@@ -598,34 +652,21 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             throw new CliUsageException("Usage: config get | config defaults | config apply [options] [--dry-run] --yes");
         }
 
-        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
         ReaderConfiguration configuration = await _session.Reader.QueryConfigurationAsync(cancellationToken);
-        RenderNewlyCapturedFrames(startIndex);
 
-        var table = new Table().Border(TableBorder.Rounded);
-        table.AddColumn("[bold grey70]Setting[/]");
-        table.AddColumn("[bold grey70]Value[/]");
-        table.AddRow("Keepalive", $"[cyan1]{configuration.Keepalive.TriggerType}[/], {configuration.Keepalive.IntervalMs} ms");
-        table.AddRow("Antennas", configuration.Antennas.Count.ToString());
-        table.AddRow("GPI / GPO", $"{configuration.Gpis.Count} / {configuration.Gpos.Count}");
-        table.AddRow("ROSpec events", configuration.Events.RoSpecEventEnabled ? "[green]Enabled[/]" : "[grey]Disabled[/]");
-        table.AddRow("GPI events", configuration.Events.GpiEventEnabled ? "[green]Enabled[/]" : "[grey]Disabled[/]");
-        _console.Write(new Panel(table)
-            .Header("[bold yellow] READER CONFIGURATION [/]")
-            .Border(BoxBorder.Rounded));
+        ConfigurationRenderer.Render(_console, configuration, _session.Reader.Capabilities);
     }
 
     private async Task HandleConfigApplyAsync(string[] tokens, CancellationToken cancellationToken)
     {
         ConfigApplySettings settings = ParseLiveConfigApply(tokens, out bool confirmed);
-        if (!ConfigApplyCommand.TryValidateRequestedChanges(settings, out string? error))
+        if (!ConfigurationApplyUtilities.TryValidateRequestedChanges(settings, _session.Reader!.Capabilities, out string? error))
         {
             throw new CliUsageException(error!);
         }
 
-        int startIndex = _session.FrameObserver?.CapturedFrames.Count ?? 0;
         ReaderConfiguration current = await _session.Reader!.QueryConfigurationAsync(cancellationToken);
-        ReaderConfiguration updated = ConfigApplyCommand.BuildUpdatedConfiguration(settings, current);
+        ReaderConfiguration updated = ConfigurationApplyUtilities.BuildUpdatedConfiguration(settings, current);
         RenderLiveConfigChange(settings, updated, settings.DryRun || !confirmed);
         if (settings.DryRun)
         {
@@ -638,7 +679,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         await _session.Reader.ApplyConfigurationAsync(updated, cancellationToken);
-        RenderNewlyCapturedFrames(startIndex);
         _console.MarkupLine("[bold springgreen2]✔ Configuration applied successfully.[/]");
         _console.MarkupLine("[yellow]SDK-managed state is now unsynchronized. Run [cyan1]sync[/] before the next managed operation.[/]");
     }
@@ -726,7 +766,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         if (settings.AntennaId is ushort antennaId)
         {
             AntennaConfigurationSettings antenna = configuration.Antennas.Single(item => item.AntennaId == antennaId);
-            table.AddRow($"Antenna {antennaId}", $"Tx={antenna.TransmitPowerIndex}, Rx={antenna.ReceiverSensitivityIndex}, Channel={antenna.ChannelIndex}");
+            table.AddRow($"Antenna {antennaId}", $"Tx index={antenna.TransmitPowerIndex}, Rx index={antenna.ReceiverSensitivityIndex}, Channel index={antenna.ChannelIndex}");
         }
         if (settings.GpoPort is ushort gpoPort)
         {
@@ -846,7 +886,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 1: 连接与会话状态
         table.AddRow("[bold yellow1]─── 🌐 连接与会话状态 (Connection & Status) ───[/]", "");
-        table.AddRow("  [cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]] [[--vendor auto|impinj|none]][/]", "连接读写器并完成版本协商/厂商扩展选择");
+        table.AddRow("  [cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]] [[--vendor auto|impinj|seuic|none]][/]", "连接读写器并完成版本协商/厂商扩展选择");
         table.AddRow("  [cyan1]disconnect[/]", "断开当前读写器 TCP 会话");
         table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
         table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");
@@ -857,11 +897,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         // 分组 2: 高层托管盘点 (Managed Inventory)
         table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
         table.AddRow("  [cyan1]inventory settings show|set|load|save|reset[/]", "管理下一次托管盘点的本地意图草稿；无需连接读写器");
-        table.AddRow("  [cyan1]inventory start [[--antennas id,id|all]] | stop | status[/]", "按草稿启动盘点；--antennas 仅覆盖本次启动 (SDK 自动处理 ROSpec)");
+        table.AddRow("  [cyan1]inventory start [[--antennas id,id|all]] [[--monitor live|frames|none]] | stop | status[/]", "按草稿启动盘点并默认进入 Live 监控；Ctrl+C 只退出监控");
 
         // 分组 3: 纯被动推流监听 (Passive Monitoring)
         table.AddRow("[bold yellow1]─── 📡 纯被动推流监听 (Passive Monitoring) ───[/]", "");
-        table.AddRow("  [cyan1]monitor [[seconds]] [[--table | --frames]][/]", "被动推流监听 (--table 实时汇总表, --frames 原始报文树)");
+        table.AddRow("  [cyan1]monitor [[live|frames]] [[seconds]][/]", "前台监控：Live 标签汇总或原始报文；Ctrl+C 返回 Prompt");
         table.AddRow("  [cyan1]frames [[count]][/]", "展示最近捕获的原始收发 LLRP 帧日志");
 
         // 分组 4: 进阶底层资源操控 (Advanced Resource API)
@@ -918,9 +958,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             optionsTable.AddRow("--dry-run", "Flag", "Show configuration change preview without writing to device");
             optionsTable.AddRow("--yes", "Flag", "Explicitly confirm configuration write to reader");
             optionsTable.AddRow("--antenna", "<ushort>", "Target antenna ID (e.g. 1)");
-            optionsTable.AddRow("--tx-power", "<ushort>", "Transmit power level index");
-            optionsTable.AddRow("--rx-sens", "<ushort>", "Receiver sensitivity index");
-            optionsTable.AddRow("--channel", "<ushort>", "Channel / frequency index");
+            optionsTable.AddRow("--tx-power", "<ushort index>", "Transmit-power table index, not dBm/mW; run caps first");
+            optionsTable.AddRow("--rx-sens", "<ushort index>", "Receiver-sensitivity table index, not dBm; run caps first");
+            optionsTable.AddRow("--channel", "<ushort index>", "Channel / frequency-table index; run caps first");
             optionsTable.AddRow("--keepalive-type", "none|periodic", "Keepalive trigger type");
             optionsTable.AddRow("--keepalive-interval", "<uint ms>", "Keepalive interval in milliseconds");
             optionsTable.AddRow("--gpo-port", "<ushort>", "GPO port number (e.g. 1)");

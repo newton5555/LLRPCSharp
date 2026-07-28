@@ -24,8 +24,10 @@ public sealed record AttachedDataOptions
 /// <summary>Defines how a managed ROSpec begins executing after it is enabled.</summary>
 public sealed record InventoryStartTrigger
 {
-    /// <summary>Gets the trigger kind. The default starts immediately.</summary>
-    public InventoryStartTriggerType Type { get; init; } = InventoryStartTriggerType.Immediate;
+    /// <summary>
+    /// Gets the trigger kind. The default keeps the ROSpec inactive until the caller explicitly starts it.
+    /// </summary>
+    public InventoryStartTriggerType Type { get; init; } = InventoryStartTriggerType.None;
 
     /// <summary>Gets the periodic-trigger offset in milliseconds.</summary>
     public uint OffsetMilliseconds { get; init; }
@@ -46,6 +48,9 @@ public sealed record InventoryStartTrigger
 /// <summary>Defines the supported standard ROSpec start trigger kinds.</summary>
 public enum InventoryStartTriggerType
 {
+    /// <summary>Do not start when the ROSpec is enabled; start it with START_ROSPEC.</summary>
+    None,
+
     Immediate,
     Periodic,
     Gpi,

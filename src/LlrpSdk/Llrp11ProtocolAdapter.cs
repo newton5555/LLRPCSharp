@@ -148,7 +148,8 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
     public ILlrpParameter CompileInventory(
         ReaderSettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
-        bool supportsStateAwareSingulation) =>
+        bool supportsStateAwareSingulation,
+        InventoryCompilationDefaults? compilationDefaults) =>
         Llrp11InventoryCompiler.Compile(settings, roReportSpecCustomItems, supportsStateAwareSingulation);
 
     public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false) =>

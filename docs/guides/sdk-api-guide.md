@@ -140,7 +140,7 @@
 
 #### `Task StartAsync(ReaderSettings? settings = null, CancellationToken cancellationToken = default)`
 - **说明**：以指定的 `ReaderSettings` 启动 SDK 托管的 RFID 盘点。若 `settings` 为空，使用默认设置。
-- **报文流**：发送 `ADD_ROSPEC` (ID 14150) -> `ENABLE_ROSPEC` -> `START_ROSPEC`。
+- **报文流**：默认以 Null Start Trigger 创建 ROSpec，再发送 `ADD_ROSPEC` (ID 14150) -> `ENABLE_ROSPEC` -> `START_ROSPEC`。未显式给出的 AISpec C1G2 参数由读写器的天线默认配置提供；若指定 `StartTrigger` 为 Periodic 或 GPI，则保留该标准自动触发语义，不发送 `START_ROSPEC`。
 
 #### `Task StopAsync(CancellationToken cancellationToken = default)`
 - **说明**：停止当前托管盘点。

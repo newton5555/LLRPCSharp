@@ -202,6 +202,7 @@ public sealed class LlrpReaderTagAccessAndEventTests
         Assert.Contains(requests, message => message is V101.ENABLE_ACCESSSPEC enable && enable.AccessSpecID == accessSpecId);
         Assert.Contains(requests, message => message is V101.DISABLE_ACCESSSPEC disable && disable.AccessSpecID == accessSpecId);
         Assert.Contains(requests, message => message is V101.DELETE_ACCESSSPEC delete && delete.AccessSpecID == accessSpecId);
+        Assert.Contains(requests, message => message is V101.START_ROSPEC start && start.ROSpecID == 14150);
     }
 
     [Fact]
@@ -288,6 +289,7 @@ public sealed class LlrpReaderTagAccessAndEventTests
             {
                 V101.ADD_ROSPEC.MessageType => new V101.ADD_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.ENABLE_ROSPEC.MessageType => new V101.ENABLE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.START_ROSPEC.MessageType => new V101.START_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.DISABLE_ROSPEC.MessageType => new V101.DISABLE_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.STOP_ROSPEC.MessageType => new V101.STOP_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.DELETE_ROSPEC.MessageType => new V101.DELETE_ROSPEC_RESPONSE(header.MessageId, status),
@@ -349,6 +351,7 @@ public sealed class LlrpReaderTagAccessAndEventTests
             {
                 V101.ADD_ROSPEC.MessageType => new V101.ADD_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.ENABLE_ROSPEC.MessageType => new V101.ENABLE_ROSPEC_RESPONSE(header.MessageId, status),
+                V101.START_ROSPEC.MessageType => new V101.START_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.DISABLE_ROSPEC.MessageType => new V101.DISABLE_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.STOP_ROSPEC.MessageType => new V101.STOP_ROSPEC_RESPONSE(header.MessageId, status),
                 V101.DELETE_ROSPEC.MessageType => new V101.DELETE_ROSPEC_RESPONSE(header.MessageId, status),

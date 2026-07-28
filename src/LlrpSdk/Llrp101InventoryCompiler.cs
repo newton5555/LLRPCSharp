@@ -13,13 +13,22 @@ internal static class Llrp101InventoryCompiler
     public static ROSpec Compile(
         ReaderSettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
-        bool supportsStateAwareSingulation = false)
+        bool supportsStateAwareSingulation = false) =>
+        CompileWithDefaults(settings, roReportSpecCustomItems, supportsStateAwareSingulation, compilationDefaults: null);
+
+    public static ROSpec CompileWithDefaults(
+        ReaderSettings settings,
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        bool supportsStateAwareSingulation,
+        InventoryCompilationDefaults? compilationDefaults)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(roReportSpecCustomItems);
         Validate(settings);
 
-        ushort[] antennaIds = settings.AntennaIds.ToArray();
+        ushort[] antennaIds = compilationDefaults is not null && settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0
+            ? compilationDefaults.AntennaIds.ToArray()
+            : settings.AntennaIds.ToArray();
         ROSpecStartTrigger startTrigger = CompileStartTrigger(settings.StartTrigger);
         ROSpecStopTrigger stopTrigger = CompileStopTrigger(settings.StopTrigger);
         var boundary = new ROBoundarySpec(startTrigger, stopTrigger);
@@ -27,10 +36,11 @@ internal static class Llrp101InventoryCompiler
         C1G2TagInventoryStateAwareSingulationAction? stateAwareAction = CompileStateAwareAction(
             settings.StateAwareSingulation,
             supportsStateAwareSingulation);
-        C1G2SingulationControl? singulationControl = (settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
+        bool useExplicitCompatibilityDefaults = compilationDefaults is not null;
+        C1G2SingulationControl? singulationControl = (useExplicitCompatibilityDefaults || settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
             ? new C1G2SingulationControl(settings.Session, settings.TagPopulationEstimate, 0, stateAwareAction)
             : null;
-        C1G2RFControl? rfControl = (settings.ModeIndex != 0 || settings.Tari != 0)
+        C1G2RFControl? rfControl = (useExplicitCompatibilityDefaults || settings.ModeIndex != 0 || settings.Tari != 0)
             ? new C1G2RFControl(settings.ModeIndex, settings.Tari)
             : null;
 
@@ -43,7 +53,16 @@ internal static class Llrp101InventoryCompiler
                 C1G2RFControl: rfControl,
                 C1G2SingulationControl: singulationControl,
                 CustomItems: Array.Empty<ILlrpParameter>());
-            antennaConfigs = [new AntennaConfiguration(0, null, null, [invCmd])];
+            antennaConfigs = compilationDefaults is null
+                ? [new AntennaConfiguration(0, null, null, [invCmd])]
+                : antennaIds.Select(antennaId => new AntennaConfiguration(
+                    antennaId,
+                    new RFReceiver(compilationDefaults.ReceiverSensitivityIndex),
+                    new RFTransmitter(
+                        compilationDefaults.HopTableId,
+                        compilationDefaults.ChannelIndex,
+                        compilationDefaults.TransmitPowerIndex),
+                    [invCmd])).ToArray();
         }
 
         var aiSpec = new AISpec(
@@ -156,6 +175,7 @@ internal static class Llrp101InventoryCompiler
 
     private static ROSpecStartTrigger CompileStartTrigger(InventoryStartTrigger trigger) => trigger.Type switch
     {
+        InventoryStartTriggerType.None => new(ROSpecStartTriggerType.Null, null, null),
         InventoryStartTriggerType.Immediate => new(ROSpecStartTriggerType.Immediate, null, null),
         InventoryStartTriggerType.Periodic => new(
             ROSpecStartTriggerType.Periodic,

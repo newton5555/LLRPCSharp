@@ -782,6 +782,13 @@ public sealed class LlrpReader : IAsyncDisposable
                 await RoSpecs.EnableAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
                 enabled = true;
 
+                // A null boundary trigger gives the managed SDK an explicit, observable start step.
+                // Periodic and GPI triggers retain their standard autonomous semantics after enable.
+                if (settings.StartTrigger.Type == InventoryStartTriggerType.None)
+                {
+                    await RoSpecs.StartAsync(settings.RoSpecId, cancellationToken).ConfigureAwait(false);
+                }
+
                 _managedInventoryRoSpecId = settings.RoSpecId;
                 _managedInventoryAttachedDataAccessSpecId = attachedDataAccessSpecId;
                 Volatile.Write(ref _currentSettings, settings);
@@ -908,7 +915,41 @@ public sealed class LlrpReader : IAsyncDisposable
         return GetProtocolAdapter().CompileInventory(
             settings,
             BuildInventoryCustomItems(settings),
-            supportsStateAwareSingulation);
+            supportsStateAwareSingulation,
+            ResolveInventoryCompilationDefaults(settings));
+    }
+
+    private InventoryCompilationDefaults? ResolveInventoryCompilationDefaults(ReaderSettings settings)
+    {
+        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
+            "Inventory profile contributors require initialized reader metadata.");
+        var context = new InventoryContributionContext(
+            settings,
+            metadata.Identity,
+            metadata.Capabilities,
+            NegotiatedVersion);
+        InventoryCompilationDefaults? result = null;
+        var contributorIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (IInventoryProfileContributor contributor in Extensions.OfType<IInventoryProfileContributor>())
+        {
+            if (string.IsNullOrWhiteSpace(contributor.Id))
+            {
+                throw new InvalidOperationException("An inventory profile contributor must declare a non-empty Id.");
+            }
+            if (!contributorIds.Add(contributor.Id))
+            {
+                throw new InvalidOperationException($"More than one inventory profile contributor uses Id '{contributor.Id}'.");
+            }
+
+            InventoryCompilationDefaults? candidate = contributor.GetCompilationDefaults(context);
+            if (candidate is not null && result is not null)
+            {
+                throw new InvalidOperationException("More than one active inventory profile supplied compilation defaults.");
+            }
+            result ??= candidate;
+        }
+
+        return result;
     }
 
     /// <inheritdoc />

@@ -25,7 +25,8 @@ internal interface ILlrpProtocolAdapter
     public ILlrpParameter CompileInventory(
         ReaderSettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
-        bool supportsStateAwareSingulation);
+        bool supportsStateAwareSingulation,
+        InventoryCompilationDefaults? compilationDefaults);
 
     public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false);
 

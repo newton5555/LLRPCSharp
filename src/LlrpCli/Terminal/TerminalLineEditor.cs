@@ -207,8 +207,7 @@ public sealed class TerminalLineEditor : IDisposable
 
     private static bool ShouldRenderAssistLine(Commands.InputAssist assist)
     {
-        return !string.IsNullOrEmpty(assist.GhostSuffix) &&
-            !string.IsNullOrWhiteSpace(assist.Hint);
+        return !string.IsNullOrWhiteSpace(assist.Hint);
     }
 
     private static void Redraw(

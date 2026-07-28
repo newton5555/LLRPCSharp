@@ -56,37 +56,6 @@ public sealed class LlrpCliApplication
             config.AddCommand<EncodeCommand>("encode")
                 .WithDescription("Encode standard LLRP messages into hexadecimal format.");
 
-            config.AddCommand<ConnectCommand>("connect")
-                .WithDescription("Connect to an LLRP Reader and display device identity.");
-
-            config.AddCommand<MonitorCommand>("monitor")
-                .WithDescription("Connect to an LLRP Reader and stream real-time TX/RX LLRP frames.");
-
-            config.AddBranch("config", configBranch =>
-            {
-                configBranch.SetDescription("Manage reader configurations.");
-                configBranch.AddCommand<ConfigGetCommand>("get")
-                    .WithDescription("Query and display reader configuration.");
-                configBranch.AddCommand<ConfigDefaultsCommand>("defaults")
-                    .WithDescription("Display SDK-recommended defaults without writing the reader.");
-                configBranch.AddCommand<ConfigApplyCommand>("apply")
-                    .WithDescription("Apply configuration changes to the reader.");
-            });
-
-            config.AddBranch("tag", tagBranch =>
-            {
-                tagBranch.SetDescription("Access tag memory through SDK-managed temporary resources.");
-                tagBranch.AddCommand<TagReadCommand>("read");
-                tagBranch.AddCommand<TagWriteDryRunCommand>("write");
-                tagBranch.AddCommand<TagSequenceCommand>("sequence")
-                    .WithDescription("Execute one or more C1G2 operations through one temporary AccessSpec.");
-                tagBranch.AddCommand<TagMutationCommand>("lock")
-                    .WithDescription("Lock or unlock tag memory after explicit confirmation.");
-                tagBranch.AddCommand<TagMutationCommand>("erase")
-                    .WithDescription("Block-erase tag memory after explicit confirmation.");
-                tagBranch.AddCommand<TagMutationCommand>("kill")
-                    .WithDescription("Kill a tag after explicit confirmation.");
-            });
         });
 
         try

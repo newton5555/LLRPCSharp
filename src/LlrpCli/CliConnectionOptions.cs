@@ -1,6 +1,7 @@
 using Spectre.Console;
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
+using LlrpSdk.Extensions.Seuic;
 
 namespace LlrpCli;
 
@@ -35,7 +36,7 @@ internal sealed record CliConnectionOptions(
 
         if (!VendorExtensionModeParser.TryParse(vendor, out VendorExtensionMode vendorMode))
         {
-            error = "Vendor mode must be auto, impinj, or none.";
+            error = "Vendor mode must be auto, impinj, seuic, or none.";
             return false;
         }
 
@@ -49,9 +50,17 @@ internal sealed record CliConnectionOptions(
             .WithPort(Port)
             .WithProtocolVersionPolicy(ProtocolVersionPolicy);
 
-        if (VendorMode != VendorExtensionMode.None)
+        switch (VendorMode)
         {
-            builder.UseImpinj();
+            case VendorExtensionMode.Auto:
+                builder.UseImpinj().UseSeuic();
+                break;
+            case VendorExtensionMode.Impinj:
+                builder.UseImpinj();
+                break;
+            case VendorExtensionMode.Seuic:
+                builder.UseSeuic();
+                break;
         }
 
         return builder;
@@ -63,6 +72,7 @@ internal sealed record CliConnectionOptions(
         {
             VendorExtensionMode.None => "[grey]Vendor mode:[/] [yellow]disabled (pure standard LLRP mode)[/]",
             VendorExtensionMode.Impinj => "[grey]Vendor mode:[/] [springgreen2]forced Impinj mode[/]",
+            VendorExtensionMode.Seuic => "[grey]Vendor mode:[/] [springgreen2]forced Seuic mode[/]",
             _ => "[grey]Vendor mode:[/] [deepskyblue1]auto-detect (match on connect)[/]",
         });
     }

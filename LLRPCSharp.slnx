@@ -8,6 +8,7 @@
     <Project Path="src/LlrpNet.ProtocolModel/LlrpNet.ProtocolModel.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Abstractions/LlrpSdk.Extensions.Abstractions.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj" />
+    <Project Path="src/LlrpSdk.Extensions.Seuic/LlrpSdk.Extensions.Seuic.csproj" />
     <Project Path="src/LlrpSdk/LlrpSdk.csproj" />
     <Project Path="src/LlrpVirtualReader/LlrpVirtualReader.csproj" />
   </Folder>
@@ -44,6 +45,7 @@
     <File Path="docs/plans/2026-07-27-cli-c3-session-handlers.md" />
     <File Path="docs/plans/2026-07-27-cli-tag-access.md" />
     <File Path="docs/plans/2026-07-27-reader-first-delivery.md" />
+    <File Path="docs/plans/2026-07-28-reader-inventory-profiles.md" />
   </Folder>
   <Folder Name="/docs/specs/">
     <File Path="docs/specs/2026-07-27-cli-sdk-mapping-spec.md" />

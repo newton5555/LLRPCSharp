@@ -216,6 +216,41 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
+    public void ReaderSettings_DefaultStartTrigger_CompilesToNull()
+    {
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(new ReaderSettings(), []);
+
+        Assert.Equal(ROSpecStartTriggerType.Null, roSpec.ROBoundarySpec.ROSpecStartTrigger.ROSpecStartTriggerType);
+    }
+
+    [Fact]
+    public void ReaderSettings_SeuicCompatibilityDefaults_CompileExplicitPerAntennaAiSpec()
+    {
+        var defaults = new InventoryCompilationDefaults(
+            AntennaIds: [1, 2, 3, 4],
+            ReceiverSensitivityIndex: 1,
+            TransmitPowerIndex: 8,
+            HopTableId: 1,
+            ChannelIndex: 1);
+
+        ROSpec roSpec = Llrp101InventoryCompiler.CompileWithDefaults(
+            new ReaderSettings(),
+            [],
+            supportsStateAwareSingulation: false,
+            compilationDefaults: defaults);
+
+        var aiSpec = Assert.IsType<AISpec>(Assert.Single(roSpec.SpecParameterItems));
+        Assert.Equal([1, 2, 3, 4], aiSpec.AntennaIDs);
+        InventoryParameterSpec inventory = Assert.Single(aiSpec.InventoryParameterSpecItems);
+        Assert.Collection(
+            inventory.AntennaConfigurationItems,
+            antenna => AssertExplicitLegacyDefaults(antenna, 1),
+            antenna => AssertExplicitLegacyDefaults(antenna, 2),
+            antenna => AssertExplicitLegacyDefaults(antenna, 3),
+            antenna => AssertExplicitLegacyDefaults(antenna, 4));
+    }
+
+    [Fact]
     public void ReaderSettings_TriggerCompiler_EmitsPeriodicStartAndDurationStop()
     {
         var settings = new ReaderSettings
@@ -239,6 +274,21 @@ public sealed class LlrpReaderConfigurationTests
         Assert.Equal((uint)5_000, roSpec.ROBoundarySpec.ROSpecStartTrigger.PeriodicTriggerValue.Period);
         Assert.Equal(ROSpecStopTriggerType.Duration, roSpec.ROBoundarySpec.ROSpecStopTrigger.ROSpecStopTriggerType);
         Assert.Equal((uint)30_000, roSpec.ROBoundarySpec.ROSpecStopTrigger.DurationTriggerValue);
+    }
+
+    private static void AssertExplicitLegacyDefaults(AntennaConfiguration antenna, ushort antennaId)
+    {
+        Assert.Equal(antennaId, antenna.AntennaID);
+        Assert.Equal((ushort)1, antenna.RFReceiver!.ReceiverSensitivity);
+        Assert.Equal((ushort)1, antenna.RFTransmitter!.HopTableID);
+        Assert.Equal((ushort)1, antenna.RFTransmitter.ChannelIndex);
+        Assert.Equal((ushort)8, antenna.RFTransmitter.TransmitPower);
+
+        var command = Assert.IsType<C1G2InventoryCommand>(Assert.Single(antenna.AirProtocolInventoryCommandSettingsItems));
+        Assert.Equal((ushort)0, command.C1G2RFControl!.ModeIndex);
+        Assert.Equal((ushort)0, command.C1G2RFControl.Tari);
+        Assert.Equal((byte)0, command.C1G2SingulationControl!.Session);
+        Assert.Equal((ushort)32, command.C1G2SingulationControl.TagPopulation);
     }
 
     [Fact]

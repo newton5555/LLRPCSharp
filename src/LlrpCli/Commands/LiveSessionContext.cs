@@ -32,9 +32,5 @@ internal sealed class LiveSessionContext
 
     public bool IsMonitoring { get; set; }
 
-    public bool IsMonitoringTable { get; set; }
-
-    public Action<CapturedFrame>? MonitorFrameCallback { get; set; }
-
     public bool IsConnected => Reader?.IsConnected == true;
 }
