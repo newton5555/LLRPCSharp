@@ -81,9 +81,9 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory settings [show|get] | set [options] | load|save <path> | reset | start [--antennas <id,id|all>] [--monitor live|frames|none] | stop | status", "Manage SDK inventory intent and foreground monitoring.")
+        new("inventory", LiveCommandRoute.Inventory, "inventory settings [show|get] | set [options] | load|save <path> | reset | start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration seconds] | stop | status", "Manage SDK inventory intent and foreground monitoring.")
         {
-            CompletionCandidates = ["settings", "start", "stop", "status", "show", "get", "set", "load", "save", "reset", "--antennas", "--monitor", "live", "frames", "none", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "epc", "tid", "user", "reserved", "all"],
+            CompletionCandidates = ["settings", "start", "stop", "status", "show", "get", "set", "load", "save", "reset", "--antennas", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "epc", "tid", "user", "reserved", "all"],
         },
         new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
         {
@@ -148,7 +148,9 @@ public static class CommandCatalog
     {
         if (string.IsNullOrWhiteSpace(input))
         {
-            return InputAssist.Empty;
+            return isConnected
+                ? new InputAssist(["status", "caps", "inventory", "config"], "status", "Next: status — inspect the connected reader · Commands: status, caps, inventory, config · Tab/→ accepts")
+                : new InputAssist(["connect", "inspect", "decode", "validate", "encode", "help"], "connect", "Next: connect <host> — establish an LLRP session · Commands: connect, inspect, decode, validate, encode, help · Tab/→ accepts");
         }
 
         string[] parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -169,7 +171,7 @@ public static class CommandCatalog
                 return new InputAssist([match], match[firstWord.Length..], $"Press Tab to complete '{match}'");
             }
 
-            return new InputAssist(matches, string.Empty, matches.Count > 0 ? $"{matches.Count} matching commands" : string.Empty);
+            return new InputAssist(matches, string.Empty, BuildCandidateHint("Commands", matches));
         }
 
         // Command requires connection but we are disconnected – no assist.
@@ -200,13 +202,13 @@ public static class CommandCatalog
                 return new InputAssist([match], match[lastToken.Length..], $"Press Tab to complete '{match}'");
             }
 
-            return new InputAssist(matches, string.Empty, matches.Count > 0 ? $"{matches.Count} matching options" : string.Empty);
+            return new InputAssist(matches, string.Empty, BuildCandidateHint("Options", matches));
         }
 
         // Input ends with whitespace but has no trailing token (e.g. "tag ") – return all candidates.
         if (input.Length > 0 && char.IsWhiteSpace(input[^1]) && spec.CompletionCandidates.Count > 0)
         {
-            return new InputAssist(spec.CompletionCandidates.ToList(), string.Empty, $"{spec.CompletionCandidates.Count} matching options");
+            return new InputAssist(spec.CompletionCandidates.ToList(), string.Empty, BuildCandidateHint("Options", spec.CompletionCandidates));
         }
 
         return new InputAssist([], string.Empty, spec.Usage);
@@ -243,6 +245,19 @@ public static class CommandCatalog
         }
 
         return null;
+    }
+
+    private static string BuildCandidateHint(string label, IReadOnlyList<string> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        const int displayedCandidateLimit = 8;
+        string visibleCandidates = string.Join(", ", candidates.Take(displayedCandidateLimit));
+        string remaining = candidates.Count > displayedCandidateLimit ? $", +{candidates.Count - displayedCandidateLimit}" : string.Empty;
+        return $"{label}: {visibleCandidates}{remaining} · Tab cycles · Shift+Tab reverses";
     }
 
     public static InputAssist GetAssist(string input)

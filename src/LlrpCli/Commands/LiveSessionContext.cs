@@ -12,6 +12,9 @@ namespace LlrpCli.Commands;
 /// </remarks>
 internal sealed class LiveSessionContext
 {
+    private readonly object monitorStateLock = new();
+    private readonly List<CapturedFrame> deferredFrames = [];
+
     public LlrpReader? Reader { get; set; }
 
     public DelegateFrameObserver? FrameObserver { get; set; }
@@ -30,7 +33,51 @@ internal sealed class LiveSessionContext
 
     public int Port { get; set; } = 5084;
 
-    public bool IsMonitoring { get; set; }
+    /// <summary>Serializes terminal frame rendering outside Spectre's Live display.</summary>
+    public object FrameRenderLock { get; } = new();
 
     public bool IsConnected => Reader?.IsConnected == true;
+
+    public void BeginMonitor(LiveMonitorMode mode)
+    {
+        lock (monitorStateLock)
+        {
+            ActiveMonitorMode = mode;
+        }
+    }
+
+    public IReadOnlyList<CapturedFrame> EndMonitor()
+    {
+        lock (monitorStateLock)
+        {
+            ActiveMonitorMode = null;
+            CapturedFrame[] frames = deferredFrames.ToArray();
+            deferredFrames.Clear();
+            return frames;
+        }
+    }
+
+    public bool IsRawFrameMonitorActive()
+    {
+        lock (monitorStateLock)
+        {
+            return ActiveMonitorMode == LiveMonitorMode.Frames;
+        }
+    }
+
+    public bool TryDeferFrameDuringLiveMonitor(CapturedFrame frame)
+    {
+        lock (monitorStateLock)
+        {
+            if (ActiveMonitorMode != LiveMonitorMode.Live)
+            {
+                return false;
+            }
+
+            deferredFrames.Add(frame);
+            return true;
+        }
+    }
+
+    private LiveMonitorMode? ActiveMonitorMode { get; set; }
 }

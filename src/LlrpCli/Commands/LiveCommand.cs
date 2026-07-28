@@ -897,7 +897,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         // 分组 2: 高层托管盘点 (Managed Inventory)
         table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
         table.AddRow("  [cyan1]inventory settings show|set|load|save|reset[/]", "管理下一次托管盘点的本地意图草稿；无需连接读写器");
-        table.AddRow("  [cyan1]inventory start [[--antennas id,id|all]] [[--monitor live|frames|none]] | stop | status[/]", "按草稿启动盘点并默认进入 Live 监控；Ctrl+C 只退出监控");
+        table.AddRow("  [cyan1]inventory start [[--antennas id,id|all]] [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status[/]", "按草稿启动盘点；Ctrl+C 或监控时间到都只退出监控");
 
         // 分组 3: 纯被动推流监听 (Passive Monitoring)
         table.AddRow("[bold yellow1]─── 📡 纯被动推流监听 (Passive Monitoring) ───[/]", "");

@@ -94,6 +94,27 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
+    public void CommandCatalog_ListsCandidateNamesInsteadOfOnlyACount()
+    {
+        InputAssist assist = CommandCatalog.Assist("in", cursor: 2, isConnected: true);
+
+        Assert.Contains("Commands:", assist.Hint, StringComparison.Ordinal);
+        Assert.Contains("inspect", assist.Hint, StringComparison.Ordinal);
+        Assert.Contains("inventory", assist.Hint, StringComparison.Ordinal);
+        Assert.DoesNotContain("matching commands", assist.Hint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CommandCatalog_EmptyOfflinePromptOffersConnectAsTheNextAction()
+    {
+        InputAssist assist = CommandCatalog.Assist(string.Empty, cursor: 0, isConnected: false);
+
+        Assert.Contains("connect", assist.Candidates, StringComparer.Ordinal);
+        Assert.Equal("connect", assist.GhostSuffix);
+        Assert.Contains("Next: connect", assist.Hint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CommandCatalog_ConfigApplyPowerOptionExplainsIndexSemantics()
     {
         InputAssist assist = CommandCatalog.Assist("config apply --tx-power ", cursor: 24, isConnected: true);
@@ -290,6 +311,19 @@ public sealed class LlrpCliApplicationTests
 
         Assert.Equal([2], session.DesiredInventorySettings.AntennaIds);
         Assert.Equal([1, 3], settings.AntennaIds);
+    }
+
+    [Fact]
+    public void InventoryStart_MonitorDurationIsParsedAsPositiveSeconds()
+    {
+        System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
+            .GetMethod("ParseStartMonitorDurationSeconds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        int? seconds = (int?)parseMethod!.Invoke(
+            null,
+            [new[] { "inventory", "start", "--monitor", "live", "--monitor-duration", "30" }]);
+
+        Assert.Equal(30, seconds);
     }
 
     [Fact]

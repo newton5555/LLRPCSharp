@@ -67,7 +67,7 @@
 - `Interop.Tests` 使用 Virtual Reader 覆盖 SDK 托管盘存、TagReport 翻译、临时 AccessSpec 读取结果与清理路径；Virtual Reader 是固定 LLRP 1.0.1，因此测试显式使用 `Force101`。
 - 在线 CLI 功能统一由 Live Shell 提供：`tag read/write/lock/erase/kill <epc> ...` 与 `tag sequence <epc> --op ...` 均复用标准 SDK Tag Access API；若读取方没有托管盘点，会临时启动并在结束后清理。写入、擦除、锁定、销毁或含这些操作的序列均要求显式 `--yes`；省略确认时 `tag write` 只显示 dry-run 计划。根命令仅保留离线 `inspect/decode/validate/encode`。
 - Live Shell 的 `config get` 已显示完整标准配置（天线、GPIO、事件）及已启用的 Impinj 配置摘要；`caps` 显示 Tx/Rx 索引到 dBm 的能力表，`config apply` 会校验 Tx/Rx 索引属于当前读写器报告的能力表。
-- Live Shell 默认渲染全部非标签 TX/RX LLRP 帧，`RO_ACCESS_REPORT` 交给标签汇总；`inventory start [--monitor live|frames|none]` 默认进入前台聚合标签监控，`--monitor frames` 连标签报告也按底层 TX/RX 帧显示。两个模式下 Ctrl+C 只退出监控并返回 Prompt，盘点继续运行，随后可用 `inventory stop` 清理托管 ROSpec。
+- Live Shell 默认渲染全部非标签 TX/RX LLRP 帧，`RO_ACCESS_REPORT` 交给标签汇总；`inventory start [--monitor live|frames|none]` 默认进入前台聚合标签监控，`--monitor frames` 连标签报告也按底层 TX/RX 帧显示。Ctrl+C 或 `inventory start --monitor-duration <seconds>` 到期都只退出监控并返回 Prompt，盘点继续运行；只有 `inventory stop` 清理托管 ROSpec。
 - 2026-07-27：Live Shell 已通过 R420 的实际非破坏性 User Memory 读取验收，目标 EPC `E28011710000020D056E9BEE` 的 word 0 返回 `0000`。
 
 ### Reader 配置查询与应用

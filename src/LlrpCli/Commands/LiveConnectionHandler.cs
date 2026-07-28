@@ -16,8 +16,6 @@ internal sealed class LiveConnectionHandler(
     LiveSessionContext session,
     LiveInventoryHandler inventory)
 {
-    private readonly object frameRenderLock = new();
-
     public async Task<bool> ConnectAsync(CliConnectionOptions options, CancellationToken cancellationToken)
     {
         if (session.Reader is not null)
@@ -29,13 +27,19 @@ internal sealed class LiveConnectionHandler(
 
         session.FrameObserver = new DelegateFrameObserver(frame =>
         {
-            if (IsTagReport(frame) && !session.IsMonitoring)
+            if (IsTagReport(frame) && !session.IsRawFrameMonitorActive())
             {
-                // Live inventory aggregates tag reports. Frame monitor remains the explicit raw-report mode.
+                // Live mode aggregates tag reports in its table. Outside explicit frame mode they remain captured,
+                // but do not flood the command prompt after the user leaves the monitor with Ctrl+C.
                 return;
             }
 
-            lock (frameRenderLock)
+            if (session.TryDeferFrameDuringLiveMonitor(frame))
+            {
+                return;
+            }
+
+            lock (session.FrameRenderLock)
             {
                 FrameRenderer.RenderObservedFrame(frame, console, includeHexDump: true);
                 console.WriteLine();

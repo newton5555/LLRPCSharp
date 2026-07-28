@@ -41,9 +41,15 @@ internal sealed class LiveInventoryHandler(
 
                 ReaderSettings settings = ParseStartSettings(tokens);
                 LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
+                int? monitorDurationSeconds = ParseStartMonitorDurationSeconds(tokens);
+                if (monitorDurationSeconds is not null && monitorMode == LiveMonitorMode.None)
+                {
+                    throw new CliUsageException("inventory start --monitor-duration requires --monitor live or --monitor frames.");
+                }
+
                 await reader.StartAsync(settings, cancellationToken);
                 RenderStartedSummary(settings);
-                await monitor.MonitorAsync(monitorMode, seconds: null, cancellationToken);
+                await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, cancellationToken);
                 break;
             }
 
@@ -150,13 +156,14 @@ internal sealed class LiveInventoryHandler(
         {
             if (index + 1 >= tokens.Length)
             {
-                throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none]");
+                throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration <seconds>]");
             }
             switch (tokens[index].ToLowerInvariant())
             {
                 case "--antennas": antennas = ParseAntennaIds(tokens[index + 1]); break;
                 case "--monitor": _ = ParseMonitorMode(tokens[index + 1]); break;
-                default: throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none]");
+                case "--monitor-duration" when int.TryParse(tokens[index + 1], out int duration) && duration > 0: break;
+                default: throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration <seconds>]");
             }
         }
 
@@ -173,6 +180,24 @@ internal sealed class LiveInventoryHandler(
             }
         }
         return LiveMonitorMode.Live;
+    }
+
+    private static int? ParseStartMonitorDurationSeconds(string[] tokens)
+    {
+        for (int index = 2; index < tokens.Length; index += 2)
+        {
+            if (tokens[index].Equals("--monitor-duration", StringComparison.OrdinalIgnoreCase))
+            {
+                if (index + 1 >= tokens.Length || !int.TryParse(tokens[index + 1], out int seconds) || seconds <= 0)
+                {
+                    throw new CliUsageException("--monitor-duration must be a positive whole number of seconds.");
+                }
+
+                return seconds;
+            }
+        }
+
+        return null;
     }
 
     private static LiveMonitorMode ParseMonitorMode(string value) => value.ToLowerInvariant() switch
@@ -399,7 +424,7 @@ internal sealed class LiveInventoryHandler(
 
     private void RenderUsage()
     {
-        console.MarkupLine("[red]Usage:[/] inventory settings [[show|get]] | set [[options]] | load <path> | save <path> | reset | start [[--antennas <id,id|all>]] [[--monitor live|frames|none]] | stop | status");
+        console.MarkupLine("[red]Usage:[/] inventory settings [[show|get]] | set [[options]] | load <path> | save <path> | reset | start [[--antennas <id,id|all>]] [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status");
     }
 
 }

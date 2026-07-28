@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using Spectre.Console;
+using LlrpCli.Rendering;
+using LlrpCli.Terminal;
 using LlrpSdk;
 
 namespace LlrpCli.Commands;
@@ -48,6 +50,8 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
             return;
         }
 
+        session.BeginMonitor(mode);
+
         using var monitorCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         if (seconds is int duration)
         {
@@ -74,7 +78,10 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         finally
         {
             Console.CancelKeyPress -= cancelHandler;
+            IReadOnlyList<CapturedFrame> deferredFrames = session.EndMonitor();
+            RenderDeferredFrames(deferredFrames);
         }
+
     }
 
     public static (LiveMonitorMode Mode, int? Seconds) ParseMonitorArguments(string[] tokens, int startIndex)
@@ -103,7 +110,6 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
     private async Task MonitorFramesAsync(CancellationToken cancellationToken)
     {
         console.MarkupLine("[bold springgreen2]📡 Monitoring raw LLRP frames. Press Ctrl+C to return to the prompt; inventory keeps running.[/]");
-        session.IsMonitoring = true;
         try
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
@@ -114,7 +120,6 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         }
         finally
         {
-            session.IsMonitoring = false;
             console.MarkupLine("[bold cyan1]✔ Frame monitor ended; inventory state was unchanged.[/]");
         }
     }
@@ -146,8 +151,6 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         };
 
         session.Reader!.TagsReported += reportHandler;
-        session.IsMonitoring = false;
-
         var table = new Table { Border = TableBorder.Rounded, BorderStyle = new Style(Color.DeepSkyBlue1) };
         table.AddColumn("[bold deepskyblue1]🏷️ EPC (Hex)[/]");
         table.AddColumn("[bold springgreen2]📡 Antenna[/]");
@@ -179,6 +182,24 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         {
             session.Reader.TagsReported -= reportHandler;
             console.MarkupLine($"[bold cyan1]✔ Live tag monitor ended ({tagStats.Count} unique tags); inventory state was unchanged.[/]");
+        }
+    }
+
+    private void RenderDeferredFrames(IReadOnlyList<CapturedFrame> deferredFrames)
+    {
+        if (deferredFrames.Count == 0)
+        {
+            return;
+        }
+
+        console.MarkupLine($"[grey]Rendering {deferredFrames.Count} non-tag LLRP frame(s) deferred while the Live tag table was active:[/]");
+        lock (session.FrameRenderLock)
+        {
+            foreach (CapturedFrame frame in deferredFrames)
+            {
+                FrameRenderer.RenderObservedFrame(frame, console, includeHexDump: true);
+                console.WriteLine();
+            }
         }
     }
 }

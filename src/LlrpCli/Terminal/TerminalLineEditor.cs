@@ -38,8 +38,7 @@ public sealed class TerminalLineEditor : IDisposable
             var buffer = new StringBuilder();
             int cursor = 0;
             int historyIndex = _history.Count;
-            int tabIndex = -1;
-            string? preTabPrefix = null;
+            CompletionState? completionState = null;
 
             var assist = GetAssist(assistProvider, buffer.ToString(), cursor);
             bool renderAssistLine = ShouldRenderAssistLine(assist);
@@ -53,8 +52,7 @@ public sealed class TerminalLineEditor : IDisposable
 
                 if (key.Key != ConsoleKey.Tab)
                 {
-                    tabIndex = -1;
-                    preTabPrefix = null;
+                    completionState = null;
                 }
 
                 if (key.Key == ConsoleKey.Enter)
@@ -81,28 +79,17 @@ public sealed class TerminalLineEditor : IDisposable
                 }
                 else if (key.Key == ConsoleKey.Tab && assist.Candidates.Count > 0)
                 {
-                    if (preTabPrefix is null)
+                    bool reverse = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
+                    if (!reverse && cursor == buffer.Length && !string.IsNullOrEmpty(assist.GhostSuffix))
                     {
-                        preTabPrefix = buffer.ToString()[..cursor];
-                    }
-
-                    tabIndex = (tabIndex + 1) % assist.Candidates.Count;
-                    string candidate = assist.Candidates[tabIndex];
-
-                    string[] tokens = preTabPrefix.Split(' ');
-                    if (tokens.Length > 0 && !preTabPrefix.EndsWith(' '))
-                    {
-                        tokens[^1] = candidate;
-                        buffer.Clear();
-                        buffer.Append(string.Join(" ", tokens));
+                        buffer.Insert(cursor, assist.GhostSuffix);
+                        cursor += assist.GhostSuffix.Length;
+                        completionState = null;
                     }
                     else
                     {
-                        buffer.Clear();
-                        buffer.Append(preTabPrefix + candidate);
+                        completionState = Complete(buffer, ref cursor, assist.Candidates, completionState, reverse);
                     }
-
-                    cursor = buffer.Length;
                     redraw = true;
                 }
                 else if (key.Key == ConsoleKey.Backspace && cursor > 0)
@@ -235,7 +222,7 @@ public sealed class TerminalLineEditor : IDisposable
         if (renderAssistLine)
         {
             string hint = string.IsNullOrWhiteSpace(assist.Hint)
-                ? "Tab/→ accept suggestion · Esc clears"
+                ? "Tab/→ accepts · Shift+Tab reverses · Esc clears"
                 : assist.Hint;
 
             int windowWidth = 80;
@@ -285,6 +272,83 @@ public sealed class TerminalLineEditor : IDisposable
         {
             Console.Write("\u001b[1B\r\u001b[2K\u001b[1A\r");
         }
+    }
+
+    private static CompletionState? Complete(
+        StringBuilder buffer,
+        ref int cursor,
+        IReadOnlyList<string> candidates,
+        CompletionState? state,
+        bool reverse)
+    {
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        if (state is not null)
+        {
+            int direction = reverse ? -1 : 1;
+            int index = (state.Index + direction + state.Candidates.Count) % state.Candidates.Count;
+            ReplaceRange(buffer, state.TokenStart, cursor, state.Candidates[index]);
+            cursor = state.TokenStart + state.Candidates[index].Length;
+            return state with { Index = index };
+        }
+
+        int tokenStart = cursor;
+        while (tokenStart > 0 && !char.IsWhiteSpace(buffer[tokenStart - 1]))
+        {
+            tokenStart--;
+        }
+
+        if (candidates.Count == 1)
+        {
+            ReplaceRange(buffer, tokenStart, cursor, candidates[0]);
+            cursor = tokenStart + candidates[0].Length;
+            return null;
+        }
+
+        string commonPrefix = LongestCommonPrefix(candidates);
+        int currentLength = cursor - tokenStart;
+        if (!reverse && commonPrefix.Length > currentLength)
+        {
+            ReplaceRange(buffer, tokenStart, cursor, commonPrefix);
+            cursor = tokenStart + commonPrefix.Length;
+            return new CompletionState(candidates, tokenStart, -1);
+        }
+
+        int selected = reverse ? candidates.Count - 1 : 0;
+        ReplaceRange(buffer, tokenStart, cursor, candidates[selected]);
+        cursor = tokenStart + candidates[selected].Length;
+        return new CompletionState(candidates, tokenStart, selected);
+    }
+
+    private static string LongestCommonPrefix(IReadOnlyList<string> values)
+    {
+        string prefix = values[0];
+        foreach (string value in values.Skip(1))
+        {
+            int length = 0;
+            while (length < prefix.Length && length < value.Length &&
+                   char.ToUpperInvariant(prefix[length]) == char.ToUpperInvariant(value[length]))
+            {
+                length++;
+            }
+
+            prefix = prefix[..length];
+            if (prefix.Length == 0)
+            {
+                break;
+            }
+        }
+
+        return prefix;
+    }
+
+    private static void ReplaceRange(StringBuilder buffer, int start, int end, string value)
+    {
+        buffer.Remove(start, end - start);
+        buffer.Insert(start, value);
     }
 
     private void Remember(string text)
@@ -356,4 +420,6 @@ public sealed class TerminalLineEditor : IDisposable
     }
 
     public void Dispose() { }
+
+    private sealed record CompletionState(IReadOnlyList<string> Candidates, int TokenStart, int Index);
 }

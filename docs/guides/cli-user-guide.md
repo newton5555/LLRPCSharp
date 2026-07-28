@@ -36,7 +36,7 @@ dotnet run --project src/LlrpCli
 
 **特点**：
 - **实时 Prompt**：动态显示当前连接设备 IP、端口及会话状态（如 `📡 llrp (192.168.1.100:5084) >`）。
-- **智能提示与自动补全**：按 `Tab` 键自动补全指令、子命令及标志参数，底部独创智能提示线（Hint）。
+- **智能提示与自动补全**：空 Prompt 会显示推荐的下一步；输入时底部提示线直接列出匹配的命令、子命令或标志。`Tab` 接受建议或循环候选，`Shift+Tab` 反向循环。
 - **报文自动渲染**：连接后自动高亮渲染全部非标签收发 LLRP 帧（TX/RX）；`RO_ACCESS_REPORT` 进入标签聚合，只有 `monitor frames` 才将标签报告也按原始帧打印。
 - **命令历史**：使用 `↑` / `↓` 方向键浏览历史输入记录。
 
@@ -78,7 +78,7 @@ inventory settings set [options]
 inventory settings load <path.json>
 inventory settings save <path.json>
 inventory settings reset
-inventory start [--antennas <id,id|all>] [--monitor live|frames|none]
+inventory start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration <seconds>]
 ```
 
 `inventory status` 显示 SDK 的运行中 `CurrentSettings`，并明确提示它是否已与本会话的下一次盘点草稿不同；草稿变化永远不会修改正在运行的盘点。
@@ -87,6 +87,7 @@ inventory start [--antennas <id,id|all>] [--monitor live|frames|none]
 |---|---|---|
 | `--antennas` | `id,id\|all` | 草稿或本次启动使用的天线；`all` 映射为 LLRP 全部天线（ID 0）。 |
 | `--monitor` | `live\|frames\|none` | 本次启动的前台监控方式；默认 `live`。Ctrl+C 只退出监控，不停止盘点。 |
+| `--monitor-duration` | 正整数秒 | 仅可搭配 `live` 或 `frames`；计时到期后退出监控并返回 Prompt，盘点继续运行。 |
 | `--session` | 0..3 | C1G2 单例化会话号（默认 0）。 |
 | `--population` | ushort | 标签数量估计（默认 32）。 |
 | `--mode` | ushort | ModeIndex（RF 模式索引）。 |
@@ -114,6 +115,9 @@ inventory start
 
 # 连标签报告也显示为底层 TX/RX LLRP 报文；Ctrl+C 回到 Prompt
 inventory start --monitor frames
+
+# 监控 30 秒：时间到后退出表格，盘点继续运行
+inventory start --monitor live --monitor-duration 30
 
 # 只启动盘点，不进入前台监控
 inventory start --monitor none
