@@ -5,7 +5,7 @@
 
 ## 当前优先级
 
-1. **当前主线目标（完成）**：在保证架构对多厂商与多协议版本具备长期扩展性的前提下，全量交付 **LLRP 1.0.1 标准协议与 Impinj 默认扩展（Impinj Default Extensions）** 的 SDK 与 CLI 功能闭环（包含 R420/R700 实机与 Virtual Reader 互操作测试）。
+1. **当前主线交付推进（LLRP 1.0.1 完善收尾）**：按照规范文档 [`specs/2026-07-28-llrp101-sdk-completion-spec.md`](specs/2026-07-28-llrp101-sdk-completion-spec.md)，完成标准 LLRP 1.0.1 的全量功能覆盖对齐（包含自动 ROSpec 生命周期接管、5 大 C1G2 标签 Access 操作库、物理能力表暴露、快捷 GPIO 及高层 Reader 事件通知）。
 2. **硬件/扩展能力补充（按需）**：根据更多型号/固件实测证据扩充 Impinj Contributor 管道的能力目录及相关基线 Profile。
 3. **长期可扩展阶段**：按需接入其他厂商扩展（如 Zebra 扩展等）。
 4. **长期可扩展阶段**：接入 `Llrp20ProtocolAdapter` 及 LLRP 2.0 完整互操作闭环。

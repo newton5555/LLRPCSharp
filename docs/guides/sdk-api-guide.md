@@ -4,25 +4,38 @@
 
 ---
 
-## 一、 设计理念与架构分层
+## 一、 设计理念与三层 API 架构 (Three-Tier API Architecture)
 
-`LLRPCSharp` 提供现代 C# 面向对象的二代 RFID 读写器 SDK，支持 LLRP 1.0.1、LLRP 1.1 以及 Impinj 厂商扩展。
+`LLRPCSharp` 提供现代 C# 面向对象的二代 RFID 读写器 SDK，支持 LLRP 1.0.1、LLRP 1.1 以及 Impinj 等厂商扩展。
 
-SDK 遵循 **双层 API 入口架构**：
+为了同时满足**开箱即用业务集成**、**精细化资源控制**以及**协议级底盘逃生/诊断**的需求，SDK 设计了**无冲突的三层 API 体系（Three-Tier API Architecture）**：
 
 ```text
-                             应用代码 (App Code)
-                                    │
-       ┌────────────────────────────┴────────────────────────────┐
-       ▼                                                         ▼
-【高层托管封装 (High-Level API)】                     【高级资源服务 (Advanced Services)】
- 隐藏协议细节、托管生命周期、投影 TagReport            保留标准 ROSpec/AccessSpec 显式掌控力
-  └─ ConnectAsync                                       ├─ reader.RoSpecs (IRoSpecService)
-  ├─ QuerySettingsAsync / ApplySettingsAsync            ├─ reader.AccessSpecs (IAccessSpecService)
-  ├─ StartAsync / StopAsync / InventoryAsync            └─ reader.Protocol (Raw 透传与诊断)
-  ├─ ReadTagMemoryAsync / WriteTagMemoryAsync
-  └─ TagsReported / ReadTagReportsAsync
+                                       应用层代码 (App Code)
+                                                │
+         ┌──────────────────────────────────────┼──────────────────────────────────────┐
+         ▼                                      ▼                                      ▼
+【第一层：高层托管封装 API】            【第二层：高级资源操控服务 API】          【第三层：底层 Raw 报文 API】
+ (High-Level Managed API)               (Advanced Resource Services API)         (Low-Level Raw Message API)
+ 隐藏协议细节，托管 ROSpec/               直接掌控 ROSpec/AccessSpec               直接透传二进制 LLRP 帧与
+ AccessSpec 生命周期与标签解析             资源生命周期与物理配置                   自定义 Custom Message 报文
+  ├─ reader.StartAsync / StopAsync       ├─ reader.RoSpecs (IRoSpecService)      ├─ reader.Protocol.TransactAsync<T>
+  ├─ reader.ReadTagMemoryAsync           ├─ reader.AccessSpecs (IAccessSpecService)├─ reader.Protocol.SendRawAsync
+  └─ reader.TagsReported / ReadTagReports └─ reader.QuerySettingsAsync / Apply    └─ reader.Protocol.TransactRawAsync
 ```
+
+---
+
+### 三层 API 互不冲突与状态互锁机制（核心验收标准）
+
+三层 API 可以在同一个 `LlrpReader` 实例的生命周期内协同工作，其**互不冲突与安全互锁机制**已作为 SDK 的核心验收标准：
+
+1. **状态互锁防护 (State Synchronization Guard)**：
+   - **托管状态 (`IsManagedStateSynchronized = true`)**：当使用第一层托管 API（如 `StartAsync` / `ReadTagMemoryAsync`）时，SDK 维持对读写器 ROSpec/AccessSpec 生命周期的完全追踪；
+   - **Raw/直接操控追踪**：一旦开发者调用了第三层 Raw 报文 API（如 `SendRawAsync`）或第二层修改了全局配置 (`ApplySettingsAsync`)，SDK 会**自动将 `IsManagedStateSynchronized` 标记为 `false`**；
+   - **防踩踏断言**：在 `IsManagedStateSynchronized == false` 时，若再次调用第一层托管 API，SDK 会抛出明确异常，防止托管逻辑与裸报文操作产生混乱或状态覆盖。
+2. **恢复机制 (`SynchronizeStateAsync`)**：
+   - 开发者完成第三层 Raw 报文调试或自定义操作后，只需显式调用 `await reader.SynchronizeStateAsync()`，SDK 就会重新向设备拉取现存的 ROSpec/AccessSpec 列表，恢复托管状态同步。
 
 ---
 
@@ -164,79 +177,151 @@ SDK 遵循 **双层 API 入口架构**：
 
 ---
 
-## 四、 核心代码使用示例
+## 四、 核心代码使用示例 (以标准 LLRP 1.0.1 读写器为例)
 
-### 示例 1：基础连接、Impinj 扩展使能与标签盘点
+以下代码全面展示基于标准 LLRP 1.0.1 读写器连接时，三层 API 的典型用法与协同模式：
+
+---
+
+### 示例 1：【第一层】高层托管封装 API (托管盘点与 C1G2 标签读取)
+
+> **适用场景**：最常见的业务集成，开发者无需关心 LLRP 的 ROSpec/AccessSpec 的添加、使能、启动与删除细节。
 
 ```csharp
 using LlrpSdk;
-using LlrpSdk.Extensions.Impinj;
 
-// 1. 创建 Builder 并启用 Impinj 扩展
-LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
+// 1. 构建标准 LLRP 1.0.1 读写器（纯标准模式，无需厂商扩展）
+LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.148")
     .WithPort(5084)
-    .WithConnectTimeout(TimeSpan.FromSeconds(5))
-    .UseImpinj() // 注册 Impinj 编解码器及扩展管道
+    .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
     .Build();
 
-// 2. 订阅标签接收事件
+// 2. 订阅标签数据上报
 reader.TagsReported += (sender, e) =>
 {
     TagReport tag = e.Report;
-    Console.WriteLine($"[TAG] EPC: {tag.EPC}, Antenna: {tag.AntennaId}");
-    
-    // 获取 Impinj 扩展属性 (前提是 ReaderSettings 中配置了响应选项)
-    if (tag.Extensions.TryGetValue("impinj.serializedTid", out object? tid))
-        Console.WriteLine($"      TID: {tid}");
-    if (tag.Extensions.TryGetValue("impinj.peakRssi", out object? rssi))
-        Console.WriteLine($"      RSSI: {rssi} dBm");
+    Console.WriteLine($"[TAG] EPC: {tag.EPC}, 天线端口: {tag.AntennaId}, 时间: {tag.Timestamp}");
 };
 
 // 3. 建立连接
 await reader.ConnectAsync();
-Console.WriteLine($"已连通读写器: {reader.Identity?.ModelName}, 固件: {reader.Identity?.FirmwareVersion}");
+Console.WriteLine($"已连通标准 1.0.1 读写器: {reader.Identity?.ManufacturerId}, 固件: {reader.Identity?.FirmwareVersion}");
 
-// 4. 配置 Impinj 盘点报告选项（请求 Serialized TID 与 Peak RSSI）
-var settings = new ReaderSettings();
-settings.Extensions[ImpinjInventoryReportOptions.ExtensionKey] = new ImpinjInventoryReportOptions
-{
-    IncludeSerializedTid = true,
-    IncludePeakRssi = true,
-    IncludeRfPhaseAngle = true,
-};
+// 4. 启动托管盘点（SDK 自动下发、使能并启动临时 ROSpec 14150）
+await reader.StartAsync();
+await Task.Delay(TimeSpan.FromSeconds(5));
 
-// 5. 启动托管盘点
-await reader.StartAsync(settings);
-await Task.Delay(TimeSpan.FromSeconds(10)); // 盘点 10 秒
-
-// 6. 停止盘点并断开连接
+// 5. 停止托管盘点（SDK 自动停止、禁用并清理临时 ROSpec 14150）
 await reader.StopAsync();
-await reader.DisconnectAsync();
-await reader.DisposeAsync();
-```
 
-### 示例 2：读取标签 User Memory 存储区
-
-```csharp
-await reader.ConnectAsync();
-
-// 建立标签读取请求
+// 6. 执行 C1G2 标签 User Memory 读取（SDK 自动下发并清理临时 AccessSpec）
 var request = new ReadTagRequest(
     targetEpc: "E28011710000020D056E9BEE",
     memoryBank: MemoryBank.User,
     wordAddress: 0,
-    wordCount: 2
+    wordCount: 1
 );
-
 ReadTagResponse response = await reader.ReadTagMemoryAsync(request);
-if (response.IsSuccess)
+Console.WriteLine(response.IsSuccess 
+    ? $"读取成功: Data={response.DataHex}" 
+    : $"读取失败: {response.Status}");
+
+// 7. 断开与销毁
+await reader.DisconnectAsync();
+await reader.DisposeAsync();
+```
+
+---
+
+### 示例 2：【第二层】高级资源操控服务 API (显式 ROSpec/AccessSpec 控制)
+
+> **适用场景**：面向熟悉 LLRP 规范的高级开发者，需要手动创建、使能、触发或清理特定的 ROSpec/AccessSpec 资源。
+
+```csharp
+await reader.ConnectAsync();
+
+// 1. 查询设备中当前安装的所有 ROSpec 资源列表
+IReadOnlyList<global::LlrpNet.Protocol.Parameters.ILlrpParameter> installedRoSpecs = 
+    await reader.RoSpecs.GetAllAsync();
+Console.WriteLine($"设备当前存在 {installedRoSpecs.Count} 个 ROSpec 资源。");
+
+// 2. 显式创建 SDK 默认的 Disabled ROSpec (ID 14150)
+var settings = new ReaderSettings();
+await reader.RoSpecs.AddDefaultAsync(settings);
+
+// 3. 显式掌控 ROSpec 生命周期的每一个步骤
+uint targetRoSpecId = settings.RoSpecId;
+await reader.RoSpecs.EnableAsync(targetRoSpecId);  // 使能 ROSpec
+await reader.RoSpecs.StartAsync(targetRoSpecId);   // 手动触发 Start
+await Task.Delay(TimeSpan.FromSeconds(5));
+await reader.RoSpecs.StopAsync(targetRoSpecId);    // 手动 Stop
+await reader.RoSpecs.DisableAsync(targetRoSpecId); // 禁用 ROSpec
+await reader.RoSpecs.DeleteAsync(targetRoSpecId);  // 删除 ROSpec
+
+// 4. 显式查询设备运行物理配置 (GET_READER_CONFIG)
+ReaderConfiguration config = await reader.QuerySettingsAsync();
+Console.WriteLine($"Keepalive 模式: {config.Keepalive.Mode}, 天线数量: {config.AntennaConfigs.Count}");
+
+await reader.DisconnectAsync();
+```
+
+---
+
+### 3. 【第三层】底层 Raw 报文与帧 API (透传、自定义帧与状态恢复)
+
+> **适用场景**：发送厂家私有自定义报文、调试原始帧、或进行协议完整性验证。
+
+```csharp
+await reader.ConnectAsync();
+
+// 1. 使用协议层发送强类型自定义/原始报文
+ushort nextMessageId = reader.Protocol.NextMessageId();
+var rawCapabilitiesMsg = new GET_READER_CAPABILITIES(nextMessageId, RequestedData.General_Device_Capabilities);
+
+GET_READER_CAPABILITIES_RESPONSE response = 
+    await reader.Protocol.TransactAsync<GET_READER_CAPABILITIES_RESPONSE>(rawCapabilitiesMsg);
+Console.WriteLine($"收到响应: Status={response.LLRPStatus.StatusCode}");
+
+// 2. 使用 Hex 字节直接透传原始二进制 LLRP 帧
+byte[] rawFrameBytes = Convert.FromHexString("04010000000B0000000101");
+ReadOnlyMemory<byte> rawResponseBytes = await reader.Protocol.TransactRawAsync(rawFrameBytes);
+Console.WriteLine($"透传成功，接收二进制响应长度: {rawResponseBytes.Length} 字节");
+
+// 3. 检查托管状态同步标记（Raw 操作后会自动标为 false）
+if (!reader.IsManagedStateSynchronized)
 {
-    Console.WriteLine($"读取成功！Data Hex: {response.DataHex}");
+    Console.WriteLine("警告: 底层 Raw 操作已执行，托管状态已标记为未同步。");
+    
+    // 4. 显式重新同步设备状态，恢复第一层托管 API 操作能力
+    await reader.SynchronizeStateAsync();
+    Console.WriteLine("托管状态已重新同步！");
 }
-else
-{
-    Console.WriteLine($"读取失败: {response.Status}");
-}
+
+await reader.DisconnectAsync();
+```
+
+---
+
+### 4. 【三层混合安全协同示例】验证三层互不冲突的完整闭环
+
+```csharp
+await reader.ConnectAsync();
+
+// 阶段 A：使用第一层托管 API 启动盘点
+await reader.StartAsync();
+await Task.Delay(2000);
+await reader.StopAsync();
+
+// 阶段 B：使用第二层高级服务查询设备 ROSpec
+var roSpecs = await reader.RoSpecs.GetAllAsync();
+
+// 阶段 C：使用第三层 Raw API 透传底层查询
+var customMsg = new GET_READER_CONFIG(reader.Protocol.NextMessageId(), ...);
+await reader.Protocol.TransactAsync<GET_READER_CONFIG_RESPONSE>(customMsg);
+
+// 阶段 D：安全重新同步后，无缝切回第一层托管 API 读标签
+await reader.SynchronizeStateAsync();
+ReadTagResponse tagRes = await reader.ReadTagMemoryAsync(new ReadTagRequest("E28011710000020D056E9BEE"));
 
 await reader.DisconnectAsync();
 ```
