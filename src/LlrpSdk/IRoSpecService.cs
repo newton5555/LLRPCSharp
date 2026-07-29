@@ -20,7 +20,7 @@ public interface IRoSpecService
     /// explicitly when the reader should begin inventorying.
     /// </remarks>
     public Task AddDefaultAsync(
-        ReaderSettings settings,
+        InventorySettings settings,
         CancellationToken cancellationToken = default);
 
     /// <summary>

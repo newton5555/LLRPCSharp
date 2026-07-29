@@ -1,4 +1,4 @@
-using LlrpCli.Terminal;
+﻿using LlrpCli.Terminal;
 using LlrpSdk;
 
 namespace LlrpCli.Commands;
@@ -25,9 +25,9 @@ internal sealed class LiveSessionContext
 
     /// <summary>
     /// Gets or sets the local inventory-intent draft for the next managed inventory start.
-    /// This is distinct from <see cref="LlrpReader.CurrentSettings"/>, which exists only while inventory runs.
+    /// This is distinct from <see cref="LlrpReader.CurrentInventorySettings"/>, which exists only while inventory runs.
     /// </summary>
-    public ReaderSettings DesiredInventorySettings { get; set; } = new();
+    public InventorySettings DesiredInventorySettings { get; set; } = new();
 
     public string? Host { get; set; }
 

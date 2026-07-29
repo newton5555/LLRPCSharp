@@ -1,4 +1,4 @@
-# LLRPCSharp Architecture and Capability Map
+﻿# LLRPCSharp Architecture and Capability Map
 
 [中文](showcase.zh.md)
 
@@ -18,7 +18,7 @@ This showcase explains the project positioning, architecture boundaries, and cur
 ### 2. Clean Adapter Boundary
 
 - **Version isolation**: LLRP 1.0.1 and 1.1 are isolated behind `ILlrpProtocolAdapter`; LLRP 2.0 definitions are present, while the adapter is still planned.
-- **Version-neutral application entry points**: Application code works primarily with managed APIs such as `LlrpReader`, `ReaderSettings`, ROSpec services, and AccessSpec services instead of hand-assembling versioned protocol messages.
+- **Version-neutral application entry points**: Application code works primarily with managed APIs such as `LlrpReader`, `InventorySettings`, ROSpec services, and AccessSpec services instead of hand-assembling versioned protocol messages.
 
 ### 3. Pluggable Reader Extensions
 

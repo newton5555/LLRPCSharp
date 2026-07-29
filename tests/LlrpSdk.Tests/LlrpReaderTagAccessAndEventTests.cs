@@ -1,4 +1,4 @@
-using LlrpNet.Core.Protocol;
+﻿using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol;
 using LlrpNet.Protocol.Choices.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -174,7 +174,7 @@ public sealed class LlrpReaderTagAccessAndEventTests
 
         await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
-        await reader.StartAsync(new ReaderSettings
+        await reader.StartAsync(new InventorySettings
         {
             AttachedData = new AttachedDataOptions
             {

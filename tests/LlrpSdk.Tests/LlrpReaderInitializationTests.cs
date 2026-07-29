@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Reflection;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -409,7 +409,7 @@ public sealed class LlrpReaderInitializationTests
         MethodInfo buildInventoryCustomItems = typeof(LlrpReader).GetMethod(
             "BuildInventoryCustomItems",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        _ = buildInventoryCustomItems.Invoke(reader, [new ReaderSettings()]);
+        _ = buildInventoryCustomItems.Invoke(reader, [new InventorySettings()]);
 
         LlrpSdk.Extensions.InventoryContributionContext context = Assert.IsType<LlrpSdk.Extensions.InventoryContributionContext>(extension.Context);
         Assert.Equal(LlrpTestFrames.DefaultManufacturerId, context.Identity.ManufacturerId);
@@ -427,7 +427,7 @@ public sealed class LlrpReaderInitializationTests
             vendorId: 25_882,
             subtype: 53,
             data: [1]);
-        var settings = new ReaderSettings { RoSpecId = 1 };
+        var settings = new InventorySettings { RoSpecId = 1 };
 
         var v101 = (V101Parameters.ROSpec)InvokeInventoryCompiler(
             "LlrpSdk.Llrp101InventoryCompiler",
@@ -446,7 +446,7 @@ public sealed class LlrpReaderInitializationTests
 
     private static ILlrpParameter InvokeInventoryCompiler(
         string typeName,
-        ReaderSettings settings,
+        InventorySettings settings,
         IReadOnlyList<ILlrpParameter> customItems)
     {
         Type compilerType = typeof(LlrpReader).Assembly.GetType(typeName, throwOnError: true)!;

@@ -1,4 +1,4 @@
-using LlrpNet.Protocol.Parameters;
+﻿using LlrpNet.Protocol.Parameters;
 using LlrpNet.Core.Protocol;
 
 namespace LlrpSdk.Extensions;
@@ -19,7 +19,7 @@ public interface IInventoryContributor
 /// vendor parameter is safe for this concrete reader. They must not infer support solely from a registered codec.
 /// </remarks>
 public sealed record InventoryContributionContext(
-    ReaderSettings Settings,
+    InventorySettings Settings,
     ReaderIdentity Identity,
     ReaderCapabilities Capabilities,
     LlrpProtocolVersion ProtocolVersion);

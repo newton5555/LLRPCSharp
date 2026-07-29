@@ -1,4 +1,4 @@
-# 路线图
+﻿# 路线图
 
 > 基准日期：2026-07-27  
 > 目的：记录阶段性与中长期开发顺序。当前真实状态见 `status.md`。
@@ -19,7 +19,7 @@
 
 ### 2. Reader 配置查询与应用（已完成）
 
-- 定义 `ReaderSettings` 当前范围：只表示 Inventory 设置，还是升级为完整 Reader Config 聚合模型。
+- 定义 `InventorySettings` 当前范围：只表示 Inventory 设置，还是升级为完整 Reader Config 聚合模型。
 - 若保留轻量模型，新增独立的 `ReaderConfiguration` 或 `ReaderConfigSnapshot`。
 - 实现 `QueryConfigurationAsync` / `ApplyConfigurationAsync` 时走 Adapter，避免把版本化 Message 暴露到应用层。
 - CLI 增加 `config get` / `config apply` 的最小可用路径。

@@ -1,4 +1,4 @@
-# LLRPCSharp CLI 工具链与 Studio 使用指南
+﻿# LLRPCSharp CLI 工具链与 Studio 使用指南
 
 本文档面向 RFID 现场工程师、测试人员及系统集成开发者，介绍 `LLRPCSharp` CLI 工具链（`LlrpCli`）的交互式 Live Shell 与离线协议诊断工具。
 
@@ -81,7 +81,7 @@ inventory settings reset
 inventory start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration <seconds>]
 ```
 
-`inventory status` 显示 SDK 的运行中 `CurrentSettings`，并明确提示它是否已与本会话的下一次盘点草稿不同；草稿变化永远不会修改正在运行的盘点。
+`inventory status` 显示 SDK 的运行中 `CurrentInventorySettings`，并明确提示它是否已与本会话的下一次盘点草稿不同；草稿变化永远不会修改正在运行的盘点。
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
@@ -128,9 +128,9 @@ rospec enable 14151
 rospec start 14151
 ```
 
-使用 `inventory settings load <path>` 或 `save <path>` 导入、导出 JSON 格式的完整 `ReaderSettings` 草稿。之后仍可通过 `settings set` 只修改个别字段。
+使用 `inventory settings load <path>` 或 `save <path>` 导入、导出 JSON 格式的完整 `InventorySettings` 草稿。之后仍可通过 `settings set` 只修改个别字段。
 
-**ReaderSettings JSON 文件格式示例**（`my-settings.json`）：
+**InventorySettings JSON 文件格式示例**（`my-settings.json`）：
 
 ```json
 {

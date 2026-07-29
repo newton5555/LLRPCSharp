@@ -1,4 +1,4 @@
-using LlrpNet.Core.Diagnostics;
+﻿using LlrpNet.Core.Diagnostics;
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
 using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
@@ -58,7 +58,7 @@ Console.WriteLine($"Capabilities: antennas={reader.Capabilities?.MaxNumberOfAnte
 Console.WriteLine($"Defaults: keepalive={defaults.Keepalive.TriggerType}/{defaults.Keepalive.IntervalMs}ms, antennas={defaults.Antennas.Count}, gpo={defaults.Gpos.Count}");
 Console.WriteLine($"Configuration: antennas={configuration.Antennas.Count}, gpi={configuration.Gpis.Count}, gpo={configuration.Gpos.Count}");
 Console.WriteLine($"ROSpecs: {string.Join(", ", configuredRoSpecs.Select(DescribeRoSpec))}");
-if (configuration.Extensions.TryGetValue("impinj.readerSettings", out object? extensionValue) &&
+if (configuration.Extensions.TryGetValue("impinj.InventorySettings", out object? extensionValue) &&
     extensionValue is ImpinjReaderSettings impinjSettings)
 {
     Console.WriteLine(
@@ -72,7 +72,7 @@ if (args.Length >= 2)
     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
     await reader.SynchronizeStateAsync(timeout.Token);
     uint smokeRoSpecId = (uint)Random.Shared.Next(1_500_000_000, 2_000_000_000);
-    var inventorySettings = new ReaderSettings
+    var inventorySettings = new InventorySettings
     {
         RoSpecId = smokeRoSpecId,
         Extensions = requestImpinjReportFields

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -142,7 +142,7 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
     }
 
     public ILlrpParameter CompileInventory(
-        ReaderSettings settings,
+        InventorySettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         bool supportsStateAwareSingulation,
         InventoryCompilationDefaults? compilationDefaults) =>

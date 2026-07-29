@@ -1,4 +1,4 @@
-using LlrpSdk;
+﻿using LlrpSdk;
 using LlrpVirtualReader;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -105,7 +105,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         await Assert.ThrowsAsync<TimeoutException>(
-            () => reader.StartAsync(new ReaderSettings { RoSpecId = 992 }, timeout.Token));
+            () => reader.StartAsync(new InventorySettings { RoSpecId = 992 }, timeout.Token));
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         LlrpReaderOperationException exception = await Assert.ThrowsAsync<LlrpReaderOperationException>(
-            () => reader.StartAsync(new ReaderSettings { RoSpecId = 993 }, timeout.Token));
+            () => reader.StartAsync(new InventorySettings { RoSpecId = 993 }, timeout.Token));
 
         Assert.Equal((ushort)StatusCode.M_ParameterError, exception.StatusCode);
         Assert.Equal("Injected ADD_ROSPEC failure.", exception.ErrorDescription);
@@ -178,7 +178,7 @@ public sealed class VirtualReaderSdkInteropTests
         await reconnected.Task.WaitAsync(timeout.Token);
 
         Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
-        Assert.Null(reader.CurrentSettings);
+        Assert.Null(reader.CurrentInventorySettings);
     }
 
     [Fact]
@@ -294,7 +294,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         _ = await reader.QueryConfigurationAsync(timeout.Token);
-        await reader.StartAsync(new ReaderSettings { RoSpecId = 994 }, timeout.Token);
+        await reader.StartAsync(new InventorySettings { RoSpecId = 994 }, timeout.Token);
         try
         {
             Assert.Equal(ReaderOperationState.Inventorying, reader.OperationState);
@@ -320,7 +320,7 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        await reader.StartAsync(new ReaderSettings { RoSpecId = 991 }, timeout.Token);
+        await reader.StartAsync(new InventorySettings { RoSpecId = 991 }, timeout.Token);
         try
         {
             await using IAsyncEnumerator<TagReport> reports = reader.ReadTagReportsAsync(timeout.Token)

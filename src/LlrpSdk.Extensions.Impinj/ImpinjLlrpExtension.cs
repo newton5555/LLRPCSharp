@@ -1,4 +1,4 @@
-using LlrpNet.Core.Protocol;
+﻿using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
 using LlrpSdk.Extensions.Impinj.Enumerations.V1_0_1;
@@ -86,7 +86,7 @@ public sealed class ImpinjReaderExtension :
             .OrderBy(static item => item.GpiPortNumber)
             .ToArray();
 
-        extensions.Add("impinj.readerSettings", new ImpinjReaderSettings
+        extensions.Add("impinj.InventorySettings", new ImpinjReaderSettings
         {
             RegulatoryRegion = region?.RegulatoryRegion,
             GpiDebounce = debounce,
@@ -128,7 +128,7 @@ public sealed class ImpinjReaderExtension :
         if (value is not ImpinjInventoryReportOptions options)
         {
             throw new ArgumentException(
-                $"ReaderSettings.Extensions['{ImpinjInventoryReportOptions.ExtensionKey}'] must be an " +
+                $"InventorySettings.Extensions['{ImpinjInventoryReportOptions.ExtensionKey}'] must be an " +
                 $"{nameof(ImpinjInventoryReportOptions)} instance.");
         }
 

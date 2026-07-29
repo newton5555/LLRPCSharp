@@ -61,25 +61,30 @@
 
 ### 0. 两类设置与一个运行中快照
 
-`ReaderConfiguration` 和 `ReaderSettings` 不是同一类对象：
+`ReaderConfiguration` 和 `InventorySettings` 是职责明确的二分领域模型：
 
-| 对象 | 用途 | 生命周期 |
-|---|---|---|
-| `ReaderConfiguration` / `ReaderConfigurationPatch` | 设备硬件、事件与厂商配置；对应 `GET/SET_READER_CONFIG` | 设备状态与显式写入 |
-| `ReaderSettings`（计划规范名：`InventorySettings`） | 盘点意图；SDK 编译为 ROSpec 和必要的托管资源 | 每次 `StartAsync` 的输入快照 |
-| `CurrentSettings`（计划规范名：`CurrentInventorySettings`） | SDK 当前托管盘点的实际输入 | 仅在盘点运行期间有效 |
+| 对象 | 用途 | 生命周期 | 对应的协议报文 |
+|---|---|---|---|
+| `ReaderConfiguration` / `ReaderConfigurationPatch` | 设备物理硬件、天线基础参数、GPIO 与厂商全局配置 | 设备运行期间持久 | `GET_READER_CONFIG` / `SET_READER_CONFIG` |
+| `InventorySettings` | 盘点意图；由 SDK 协议 Adapter 编译为 ROSpec / AISpec 和必要的 AccessSpec 资源 | 每次 `StartAsync` 的输入快照 | `ADD_ROSPEC` / `ENABLE_ROSPEC` / `START_ROSPEC` |
+| `CurrentInventorySettings` | `LlrpReader.CurrentInventorySettings` 属性，SDK 当前托管盘点的实际输入快照 | 仅在盘点运行期间有效 (`null` 当 Idle) | 本地托管快照 |
+
+> **架构对比说明：Impinj Octane SDK vs 标准 LLRP 模式**
+> - **Impinj Octane SDK 模式**：Impinj 官方 Octane SDK 采用单一大对象设计（`Settings` / `ReaderSettings`），将天线功率/灵敏度（ReaderConfig）、Session/SearchMode（ROSpec）和 RSSI/SerializedTID 报告选择（ROReportSpec）全部打包在一起。在 `ApplySettings` 时底层同时隐式下发 `SET_READER_CONFIG` 和 `ADD_ROSPEC`。
+> - **`LLRPCSharp` 解耦设计**：现代二代 LLRP SDK 将硬件运行配置 (`ReaderConfiguration`) 与单次盘点意图 (`InventorySettings`) 严格解耦。好处是频繁调整盘点参数（如切换 Session 或盘点天线）时避免重复擦写硬件功率，降低时延与设备磨损，同时天然具备多厂商通用性。
+> - **厂商 Facade 规划**：为了降低从 Impinj Octane SDK 迁移代码的门槛，SDK 在核心解耦设计之外，规划未来可选评估 Impinj 专用快捷 Facade 包（如 `ImpinjReaderFacade`），允许习惯单入口 Settings 的开发者一行代码联动 Apply 配置与盘点。
 
 `GetDefaultConfiguration()` 只是不发送配置查询报文；目前仍需 Reader 已连接并完成初始化，才能依照身份、能力和激活扩展解析 Profile。它不是设备当前配置，也不是完全离线 API。
 
-配置 API 统一使用 `QueryConfigurationAsync` / `ApplyConfigurationAsync`；未发布版本不保留含糊的旧名称。
+配置 API 统一使用 `QueryConfigurationAsync` / `ApplyConfigurationAsync`；盘点意图在源码和设计文档中统一为 `InventorySettings`。
 
-`ReaderSettings` 表示一次托管盘点的意图。除天线、C1G2 Session、标签数量、RF Mode 和 Tari 外，它还可通过 `StartTrigger` / `StopTrigger` 表达标准 ROSpec 的周期、GPI 或时长触发；这些字段由协商的协议 Adapter 编译，应用层不需要引用版本化协议类型。
+`InventorySettings` 表示一次托管盘点的意图。除天线、C1G2 Session、标签数量、RF Mode 和 Tari 外，它还可通过 `StartTrigger` / `StopTrigger` 表达标准 ROSpec 的周期、GPI 或时长触发；这些字段由协商的协议 Adapter 编译，应用层不需要引用版本化协议类型。
 
 `AttachedData.Enabled` 会让 SDK 为该托管 ROSpec 创建标准 C1G2 Read AccessSpec；停止盘点时该资源会被清理。若调用单次 Read/Write/Lock/Kill/Erase，SDK 会暂时禁用该常驻读取并在操作结束后恢复，以避免两个 AccessSpec 竞争。
 
 需要在一个目标标签上执行多个标准操作时，使用 `ExecuteTagAccessSequenceAsync(new TagAccessSequenceRequest { Operations = [...] })`。每项操作必须使用相同的 `TagSelection` 与天线；SDK 将它们编译到同一个 AccessSpec，并返回按 OpSpec ID 排序的完整结果集合。
 
-若使用 `ReaderSettings.StateAwareSingulation` 指定 C1G2 Target A/B，SDK 会先检查 `ReaderCapabilities.CanDoTagInventoryStateAwareSingulation`；读写器未声明支持时启动将明确失败，绝不静默下发会被忽略的状态感知参数。
+若使用 `InventorySettings.StateAwareSingulation` 指定 C1G2 Target A/B，SDK 会先检查 `ReaderCapabilities.CanDoTagInventoryStateAwareSingulation`；读写器未声明支持时启动将明确失败，绝不静默下发会被忽略的状态感知参数。
 
 ### 1. 构建与连接管理 API
 
@@ -126,7 +131,7 @@
 
 #### `Task<ReaderConfiguration> QueryConfigurationAsync(CancellationToken cancellationToken = default)`
 - **说明**：向读写器发送 `GET_READER_CONFIG`（包含 Impinj 查询扩展），获取设备当前运行参数。
-- **返回**：`ReaderConfiguration` 对象。对于 Impinj 读写器，扩展配置存储在 `configuration.Extensions["impinj.readerSettings"]`（类型为 `ImpinjReaderSettings`），包含区域、温度 Celsius、GPI 防抖、Link Monitor 等。
+- **返回**：`ReaderConfiguration` 对象。对于 Impinj 读写器，扩展配置存储在 `configuration.Extensions["impinj.InventorySettings"]`（类型为 `ImpinjReaderSettings`），包含区域、温度 Celsius、GPI 防抖、Link Monitor 等。
 
 #### `ReaderConfiguration GetDefaultConfiguration()` / `ReaderConfigurationDefaultsResult GetDefaultConfigurationResult()`
 - **说明**：获取 SDK 推荐的离线安全配置基线（不向设备发送报文）。
@@ -138,15 +143,15 @@
 
 ### 4. 托管盘点 API (Managed Inventory)
 
-#### `Task StartAsync(ReaderSettings? settings = null, CancellationToken cancellationToken = default)`
-- **说明**：以指定的 `ReaderSettings` 启动 SDK 托管的 RFID 盘点。若 `settings` 为空，使用默认设置。
+#### `Task StartAsync(InventorySettings? settings = null, CancellationToken cancellationToken = default)`
+- **说明**：以指定的 `InventorySettings` 启动 SDK 托管的 RFID 盘点。若 `settings` 为空，使用默认设置。
 - **报文流**：默认以 Null Start Trigger 创建 ROSpec，再发送 `ADD_ROSPEC` (ID 14150) -> `ENABLE_ROSPEC` -> `START_ROSPEC`。未显式给出的 AISpec C1G2 参数由读写器的天线默认配置提供；若指定 `StartTrigger` 为 Periodic 或 GPI，则保留该标准自动触发语义，不发送 `START_ROSPEC`。
 
 #### `Task StopAsync(CancellationToken cancellationToken = default)`
 - **说明**：停止当前托管盘点。
 - **报文流**：发送 `STOP_ROSPEC` -> `DISABLE_ROSPEC` -> `DELETE_ROSPEC` 并清理状态。
 
-#### `Task<IReadOnlyList<TagReport>> InventoryAsync(ReaderSettings? settings = null, CancellationToken cancellationToken = default)`
+#### `Task<IReadOnlyList<TagReport>> InventoryAsync(InventorySettings? settings = null, CancellationToken cancellationToken = default)`
 - **说明**：一次性盘点快捷 API（启动盘点 -> 收集数据 -> 停止盘点）。
 
 #### 标签数据订阅：
@@ -280,7 +285,7 @@ IReadOnlyList<global::LlrpNet.Protocol.Parameters.ILlrpParameter> installedRoSpe
 Console.WriteLine($"设备当前存在 {installedRoSpecs.Count} 个 ROSpec 资源。");
 
 // 2. 显式创建 SDK 默认的 Disabled ROSpec (ID 14150)
-var settings = new ReaderSettings();
+var settings = new InventorySettings();
 await reader.RoSpecs.AddDefaultAsync(settings);
 
 // 3. 显式掌控 ROSpec 生命周期的每一个步骤

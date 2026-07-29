@@ -1,4 +1,4 @@
-# Reader-first 交付计划：LLRP 1.0.1 与 Impinj 扩展
+﻿# Reader-first 交付计划：LLRP 1.0.1 与 Impinj 扩展
 
 - 状态：Approved，实施中
 - 决策依据：[ADR 0005](../adr/0005-llrp101-reader-first-delivery.md)
@@ -20,7 +20,7 @@
 | AccessSpec/标签操作 | `ReadTagMemoryAsync`、`WriteTagMemoryAsync` | `AccessSpecs` 生命周期 | 最小读写、选择、密码、清理和失败结果正确 |
 | TagReport | 版本无关 `TagReport` 流/事件 | 原始 Message/帧 | 标准字段与未知字段不丢失 |
 | Impinj 配置 | 标准配置加 Extensions/Profile | Impinj 原始 Custom 参数 | 只实现有定义和型号/固件依据的字段 |
-| Impinj 盘点/报告 | `ReaderSettings.Extensions`、`TagReport.Extensions` | Impinj Custom 参数与原始帧 | 默认拒绝；每个主动发送参数需实测证据 |
+| Impinj 盘点/报告 | `InventorySettings.Extensions`、`TagReport.Extensions` | Impinj Custom 参数与原始帧 | 默认拒绝；每个主动发送参数需实测证据 |
 
 ## 阶段 A：标准 LLRP 1.0.1 Reader API 补全
 
@@ -42,7 +42,7 @@
 
 1. 每个在线 CLI 命令列出其唯一的 Reader API 映射；没有映射的业务命令先停止扩展。
 2. 将 `config apply` 从 CLI 私有完整对象合并逐步收敛到 `ReaderConfigurationPatch` → `ResolveConfigurationPatchAsync` / `ApplyConfigurationPatchAsync`。
-3. 将 `ReaderSettings` 规范为盘点意图（目标名称 `InventorySettings`），并把 `CurrentSettings` 规范为运行中快照（目标名称 `CurrentInventorySettings`）。
+3. 将 `InventorySettings` 规范为盘点意图（目标名称 `InventorySettings`），并把 `CurrentInventorySettings` 规范为运行中快照（目标名称 `CurrentInventorySettings`）。
 4. Live Shell 在 `LiveSessionContext` 保存 `DesiredInventorySettings` 草稿；`inventory settings show|set|load|save|reset` 修改草稿，`inventory start [--antennas]` 只消费草稿快照并允许天线临时覆盖。
 5. 标准盘点 Profile 可 JSON 读写；厂商 Extension 必须注册强类型、版本化的 Profile 映射，不能直接持久化 `Extensions<object>`。
 6. 保持 `rospec`/`accessspec` 为高级接口的薄包装；默认 ROSpec 的创建规则与 SDK 盘点意图默认值保持一致。
@@ -52,7 +52,7 @@
 
 ### D1. 状态模型
 
-`LiveSessionContext` 必须区分：连接状态、SDK 托管盘点状态、CLI 所有的报告泵、被动监控、Raw 后同步需求、待处理的断线/清理任务，以及仅用于下一次盘点的 `DesiredInventorySettings`。不得仅凭一个 `IsConnected` 或 `reader.CurrentSettings` 推断其余状态。
+`LiveSessionContext` 必须区分：连接状态、SDK 托管盘点状态、CLI 所有的报告泵、被动监控、Raw 后同步需求、待处理的断线/清理任务，以及仅用于下一次盘点的 `DesiredInventorySettings`。不得仅凭一个 `IsConnected` 或 `reader.CurrentInventorySettings` 推断其余状态。
 
 ### D2. 所有权与清理
 

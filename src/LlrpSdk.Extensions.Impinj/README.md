@@ -1,4 +1,4 @@
-# LlrpSdk.Extensions.Impinj
+﻿# LlrpSdk.Extensions.Impinj
 
 Impinj RFID 读写器（Speedway R420, Revolution R700 等）针对 `LlrpSdk` 的官方扩展插件包。提供 `.UseImpinj()` 主动扩展激活、强类型 Impinj Codec 资产、以及 Serialized TID、RF Phase Angle、Peak RSSI 等专属扩展属性投影。
 
@@ -17,7 +17,7 @@ await using LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
 await reader.ConnectAsync();
 
 // 启动盘点，自动上报 Impinj 专属扩展属性
-await reader.StartAsync(new ReaderSettings { AntennaIds = [0] });
+await reader.StartAsync(new InventorySettings { AntennaIds = [0] });
 
 await foreach (TagReport report in reader.ReadTagReportsAsync(cts.Token))
 {

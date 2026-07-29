@@ -1,4 +1,4 @@
-# Agent Guide
+﻿# Agent Guide
 
 This file is the first stop for coding agents working in this repository.
 It is intentionally short and operational. For user-facing documentation, start at
@@ -53,7 +53,7 @@ instead, then regenerate and verify.
 
 - LLRP 1.0.1 and 1.1 have usable adapter baselines.
 - LLRP 2.0 definitions exist, but there is no `Llrp20ProtocolAdapter` yet.
-- `ReaderSettings` currently represents inventory intent, not a full reader
+- `InventorySettings` currently represents inventory intent, not a full reader
   configuration snapshot.
 - `QueryConfigurationAsync`, `ApplyConfigurationAsync`, tag memory access APIs, dynamic
   YAML runtime loading, Settings Contributor, and TagReport Contributor are

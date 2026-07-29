@@ -1,4 +1,4 @@
-using LlrpNet.Protocol.Parameters;
+﻿using LlrpNet.Protocol.Parameters;
 using LlrpSdk.Extensions;
 using LlrpSdk.Extensions.Impinj.Enumerations.V1_0_1;
 using LlrpSdk.Extensions.Impinj.Parameters.V1_0_1;
@@ -7,12 +7,12 @@ namespace LlrpSdk.Extensions.Impinj;
 
 /// <summary>Requests optional Impinj fields in reports from an SDK-managed inventory operation.</summary>
 /// <remarks>
-/// Set this value under <see cref="ExtensionKey"/> in <see cref="ReaderSettings.Extensions"/>. The reader's
+/// Set this value under <see cref="ExtensionKey"/> in <see cref="InventorySettings.Extensions"/>. The reader's
 /// concrete model and firmware must have a verified capability profile before any requested field is sent.
 /// </remarks>
 public sealed record ImpinjInventoryReportOptions
 {
-    /// <summary>Gets the stable <see cref="ReaderSettings.Extensions"/> key for this value.</summary>
+    /// <summary>Gets the stable <see cref="InventorySettings.Extensions"/> key for this value.</summary>
     public const string ExtensionKey = "impinj.inventoryReport";
 
     /// <summary>Gets whether serialized TID should be requested.</summary>

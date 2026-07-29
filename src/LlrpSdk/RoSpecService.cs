@@ -26,7 +26,7 @@ internal sealed class RoSpecService : IRoSpecService
         return protocolAdapter().AddRoSpecAsync(reader, messageIds.Next(), roSpec, cancellationToken);
     }
 
-    public Task AddDefaultAsync(ReaderSettings settings, CancellationToken cancellationToken = default)
+    public Task AddDefaultAsync(InventorySettings settings, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
         return AddAsync(reader.CompileDefaultInventoryRoSpec(settings), cancellationToken);

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Reflection;
 using LlrpCli.Commands;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -236,7 +236,7 @@ public sealed class LlrpCliApplicationTests
     [Fact]
     public void ReaderSettingsSerializer_SerializesAndDeserializesCorrectly()
     {
-        var original = new LlrpSdk.ReaderSettings
+        var original = new LlrpSdk.InventorySettings
         {
             Session = 2,
             TagPopulationEstimate = 64,
@@ -252,8 +252,8 @@ public sealed class LlrpCliApplicationTests
             }
         };
 
-        string json = LlrpSdk.ReaderSettingsSerializer.SerializeToJson(original);
-        LlrpSdk.ReaderSettings deserialized = LlrpSdk.ReaderSettingsSerializer.DeserializeFromJson(json);
+        string json = LlrpSdk.InventorySettingsSerializer.SerializeToJson(original);
+        LlrpSdk.InventorySettings deserialized = LlrpSdk.InventorySettingsSerializer.DeserializeFromJson(json);
 
         Assert.Equal((byte)2, deserialized.Session);
         Assert.Equal((ushort)64, deserialized.TagPopulationEstimate);
@@ -266,7 +266,7 @@ public sealed class LlrpCliApplicationTests
     [Fact]
     public void ReaderSettingsSerializer_RejectsUntypedVendorExtensions()
     {
-        var settings = new LlrpSdk.ReaderSettings
+        var settings = new LlrpSdk.InventorySettings
         {
             Extensions = new Dictionary<string, object?>
             {
@@ -274,7 +274,7 @@ public sealed class LlrpCliApplicationTests
             },
         };
 
-        Assert.Throws<NotSupportedException>(() => LlrpSdk.ReaderSettingsSerializer.SerializeToJson(settings));
+        Assert.Throws<NotSupportedException>(() => LlrpSdk.InventorySettingsSerializer.SerializeToJson(settings));
     }
 
     [Fact]
@@ -303,11 +303,11 @@ public sealed class LlrpCliApplicationTests
     public void InventoryStart_AntennasOverrideTheDraftOnlyForThisStart()
     {
         (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-        session.DesiredInventorySettings = new LlrpSdk.ReaderSettings { AntennaIds = [2] };
+        session.DesiredInventorySettings = new LlrpSdk.InventorySettings { AntennaIds = [2] };
         string[] tokens = ["inventory", "start", "--antennas", "1,3"];
         System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
             .GetMethod("ParseStartSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var settings = (LlrpSdk.ReaderSettings)parseMethod!.Invoke(handler, [tokens])!;
+        var settings = (LlrpSdk.InventorySettings)parseMethod!.Invoke(handler, [tokens])!;
 
         Assert.Equal([2], session.DesiredInventorySettings.AntennaIds);
         Assert.Equal([1, 3], settings.AntennaIds);
@@ -341,7 +341,7 @@ public sealed class LlrpCliApplicationTests
     public async Task InventorySettings_ResetRestoresSdkDefaults()
     {
         (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-        session.DesiredInventorySettings = new LlrpSdk.ReaderSettings { Session = 3, AntennaIds = [1] };
+        session.DesiredInventorySettings = new LlrpSdk.InventorySettings { Session = 3, AntennaIds = [1] };
         await handler.HandleAsync(["inventory", "settings", "reset"], CancellationToken.None);
 
         Assert.Equal((byte)0, session.DesiredInventorySettings.Session);
@@ -353,8 +353,8 @@ public sealed class LlrpCliApplicationTests
     {
         // 写入临时 JSON settings 文件
         string tempFile = System.IO.Path.GetTempFileName() + ".json";
-        var fileSettings = new LlrpSdk.ReaderSettings { Session = 3, TagPopulationEstimate = 128 };
-        System.IO.File.WriteAllText(tempFile, LlrpSdk.ReaderSettingsSerializer.SerializeToJson(fileSettings));
+        var fileSettings = new LlrpSdk.InventorySettings { Session = 3, TagPopulationEstimate = 128 };
+        System.IO.File.WriteAllText(tempFile, LlrpSdk.InventorySettingsSerializer.SerializeToJson(fileSettings));
         try
         {
             (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();

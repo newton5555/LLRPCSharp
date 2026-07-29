@@ -1,4 +1,4 @@
-using LlrpNet.Core.Protocol;
+﻿using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Registry;
@@ -23,7 +23,7 @@ internal interface ILlrpProtocolAdapter
         CancellationToken cancellationToken);
 
     public ILlrpParameter CompileInventory(
-        ReaderSettings settings,
+        InventorySettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         bool supportsStateAwareSingulation,
         InventoryCompilationDefaults? compilationDefaults);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -183,7 +183,7 @@ public sealed class LlrpReaderConfigurationTests
     [Fact]
     public void ReaderSettings_C1G2SingulationCompiler_IncludesSingulationAndRFControl()
     {
-        var settings = new ReaderSettings
+        var settings = new InventorySettings
         {
             Session = 2,
             TagPopulationEstimate = 128,
@@ -218,7 +218,7 @@ public sealed class LlrpReaderConfigurationTests
     [Fact]
     public void ReaderSettings_DefaultStartTrigger_CompilesToNull()
     {
-        ROSpec roSpec = Llrp101InventoryCompiler.Compile(new ReaderSettings(), []);
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(new InventorySettings(), []);
 
         Assert.Equal(ROSpecStartTriggerType.Null, roSpec.ROBoundarySpec.ROSpecStartTrigger.ROSpecStartTriggerType);
     }
@@ -234,7 +234,7 @@ public sealed class LlrpReaderConfigurationTests
             ChannelIndex: 1);
 
         ROSpec roSpec = Llrp101InventoryCompiler.CompileWithDefaults(
-            new ReaderSettings(),
+            new InventorySettings(),
             [],
             supportsStateAwareSingulation: false,
             compilationDefaults: defaults);
@@ -253,7 +253,7 @@ public sealed class LlrpReaderConfigurationTests
     [Fact]
     public void ReaderSettings_TriggerCompiler_EmitsPeriodicStartAndDurationStop()
     {
-        var settings = new ReaderSettings
+        var settings = new InventorySettings
         {
             StartTrigger = new InventoryStartTrigger
             {
@@ -294,7 +294,7 @@ public sealed class LlrpReaderConfigurationTests
     [Fact]
     public void ReaderSettings_StateAwareSingulation_RequiresCapabilityAndCompilesTarget()
     {
-        var settings = new ReaderSettings
+        var settings = new InventorySettings
         {
             StateAwareSingulation = new InventoryStateAwareSingulation
             {

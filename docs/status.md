@@ -1,4 +1,4 @@
-# 当前状态
+﻿# 当前状态
 
 > 基准日期：2026-07-28
 > 目的：作为仓库当前真实状态的事实源。README 面向使用者，长期规划面向设计；本文件回答“现在已经有什么、还缺什么、当前阶段的核心交付目标是什么”。
@@ -26,9 +26,9 @@
 
 ### 盘点与资源服务
 
-- `LlrpReader.StartAsync(ReaderSettings)`、`StopAsync()`、`InventoryAsync(ReaderSettings?)`。默认托管盘点以 Null Start Trigger 建立 ROSpec，随后显式发送 `START_ROSPEC`；未指定的 AISpec C1G2 参数回退到读写器天线默认配置。Seuic UF40 的兼容默认值由 `LlrpSdk.Extensions.Seuic` 提供，实机盘点验收待补。
+- `LlrpReader.StartAsync(InventorySettings)`、`StopAsync()`、`InventoryAsync(InventorySettings?)`。默认托管盘点以 Null Start Trigger 建立 ROSpec，随后显式发送 `START_ROSPEC`；未指定的 AISpec C1G2 参数回退到读写器天线默认配置。Seuic UF40 的兼容默认值由 `LlrpSdk.Extensions.Seuic` 提供，实机盘点验收待补。
 - `ReadTagReportsAsync()`、`GetTagReportsAsync()` 与 `TagsReported`，并共用同一份已翻译的 `TagReport`。
-- `ReaderSettings` 是版本无关的盘点意图模型，包含 C1G2 参数、标准 ROSpec Start/Stop Trigger 与 `AttachedDataOptions`；启用 AttachedData 时，`StartAsync` 创建并启用关联的标准 C1G2 Read AccessSpec，`StopAsync` 清理它，临时 Tag Access 会暂停后恢复它。
+- `InventorySettings` 是版本无关的盘点意图模型，包含 C1G2 参数、标准 ROSpec Start/Stop Trigger 与 `AttachedDataOptions`；启用 AttachedData 时，`StartAsync` 创建并启用关联的标准 C1G2 Read AccessSpec，`StopAsync` 清理它，临时 Tag Access 会暂停后恢复它。
 - `ReaderMetadata` 新增物理参数表（`TxPowers`、`RxSensitivities`、`TxFrequencies`、`HopTables`、`RfModes`）与门控能力标志位（`IsTagAccessAvailable`、`IsMultiwordBlockWriteAvailable`、`IsMultiwordBlockEraseAvailable`、`CanDoTagInventoryStateAwareSingulation`）。
 - `IRoSpecService` 提供 Add/Delete/Enable/Disable/Start/Stop/GetAll。
 - `IAccessSpecService` 提供 Add/Delete/Enable/Disable/GetAll。
@@ -83,9 +83,9 @@
 
 - `ITagReportContributor` 会在标准协议翻译后投影厂商 Custom Parameter 到 `TagReport.Extensions`；Impinj 扩展当前识别 Serialized TID、RF Phase Angle 和 Peak RSSI（前提是读写器报告中包含这些字段）。
 - `IReaderSettingsContributor` 可以把 `GET_READER_CONFIG_RESPONSE` 的 Custom Parameter 投影到 `ReaderConfiguration.Extensions`，并在 `ApplyConfigurationAsync` 时生成 `SET_READER_CONFIG` 的 Custom Parameter。
-- `UseImpinj()` 会在配置查询中请求 `ImpinjRequestedData(All_Configuration)`，并将区域、温度、GPI 防抖、Link Monitor、Report Buffer 与 AccessSpec 设置投影为 `ReaderConfiguration.Extensions["impinj.readerSettings"]`。
+- `UseImpinj()` 会在配置查询中请求 `ImpinjRequestedData(All_Configuration)`，并将区域、温度、GPI 防抖、Link Monitor、Report Buffer 与 AccessSpec 设置投影为 `ReaderConfiguration.Extensions["impinj.InventorySettings"]`。
 - 2026-07-27：R420 直测返回区域 `China_920_925_MHz`、温度 `35°C`、4 路 GPI 防抖、正常 Report Buffer 以及 AccessSpec 的 FIFO 设置。该 Contributor 当前故意不生成写入参数，避免 `ApplyConfigurationAsync` 隐式修改 Impinj 私有配置。
-- `IInventoryContributor` 现在可读取初始化后的身份、能力和协商版本。Impinj 已接入 `ImpinjInventoryReportOptions`（`ReaderSettings.Extensions["impinj.inventoryReport"]`）及默认拒绝的能力目录；R420 Model `2001002` Firmware `6.4.1.x` 的 ItemTest 抓包已验证 `ImpinjTagReportContentSelector` 位于 `ROReportSpec` 时可被接受，SDK 编译器已修正为相同挂载位置。
+- `IInventoryContributor` 现在可读取初始化后的身份、能力和协商版本。Impinj 已接入 `ImpinjInventoryReportOptions`（`InventorySettings.Extensions["impinj.inventoryReport"]`）及默认拒绝的能力目录；R420 Model `2001002` Firmware `6.4.1.x` 的 ItemTest 抓包已验证 `ImpinjTagReportContentSelector` 位于 `ROReportSpec` 时可被接受，SDK 编译器已修正为相同挂载位置。
 - 2026-07-27：R420 直接 SDK 盘点同时启用 `IncludeSerializedTid`、`IncludeRfPhaseAngle`、`IncludePeakRssi` 成功，收到 EPC `E28011710000020D056E9BEE` 的扩展字段 `impinj.serializedTid = E2801171200003EEADD309A0`、`impinj.rfPhaseAngle = 1276`、`impinj.peakRssi = -6700`；临时 SDK ROSpec 已在停止后确认清理。
 
 ## 未完成
@@ -112,9 +112,9 @@ Virtual Reader 已能生成可配置 EPC 的基础 TagReport，对 EPC bit mask 
 
 本轮（2026-07-28）完成的主要工作：
 
-- **CLI `inventory` 草稿化**：Live Shell 将下一次盘点意图保存在 `DesiredInventorySettings`；`inventory settings show|set|load|save|reset` 可离线维护 JSON 草稿，`inventory start [--antennas <id,id|all>]` 只按草稿启动并允许一次性天线覆盖。运行中的 `CurrentSettings` 不再被误用为会话草稿。
+- **CLI `inventory` 草稿化**：Live Shell 将下一次盘点意图保存在 `DesiredInventorySettings`；`inventory settings show|set|load|save|reset` 可离线维护 JSON 草稿，`inventory start [--antennas <id,id|all>]` 只按草稿启动并允许一次性天线覆盖。运行中的 `CurrentInventorySettings` 不再被误用为会话草稿。
 - **CLI `tag` 全量对齐**：`tag lock`、`tag kill`、`tag erase` 已补全；`TagAccessRenderer` 错误字段修正为 `Error`。
-- **`ReaderSettingsSerializer`**：提供 JSON 序列化、反序列化、加载和保存帮助类，供盘点草稿使用；厂商 Extension 的强类型 Profile 序列化仍待扩展自身实现。
+- **`InventorySettingsSerializer`**：提供 JSON 序列化、反序列化、加载和保存帮助类，供盘点草稿使用；厂商 Extension 的强类型 Profile 序列化仍待扩展自身实现。
 - **`CommandCatalog` 扩展**：新增 `Require`、`TryResolve(name, isConnected)`、`Assist(input, cursor, isConnected)` 方法，支持连接状态门控与末尾空格自动补全场景。
 - **`LlrpCli.csproj`**：添加 `InternalsVisibleTo("LlrpCli.Tests")`，允许测试项目访问 internal 命令处理器。
 - **CLI 用户指南**：[cli-user-guide.md](file:///f:/Projects/LLRP/LLRPCSharp/docs/guides/cli-user-guide.md) 全量更新，覆盖所有命令语法、参数表、settings 文件 JSON 格式示例与常见问题。

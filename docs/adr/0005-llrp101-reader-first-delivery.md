@@ -1,4 +1,4 @@
-# ADR 0005：以 LLRP 1.0.1 Reader 能力为当前交付主线
+﻿# ADR 0005：以 LLRP 1.0.1 Reader 能力为当前交付主线
 
 - 状态：Accepted（实施中）
 - 日期：2026-07-27
@@ -50,7 +50,7 @@
 在线 CLI 命令必须映射到公开的 Reader API。CLI 仅负责：
 
 - 命令/文件参数解析、默认值和确认提示；
-- 将输入映射为 `ReaderSettings`、`ReaderConfigurationPatch`、Tag Access 请求或高级资源请求；
+- 将输入映射为 `InventorySettings`、`ReaderConfigurationPatch`、Tag Access 请求或高级资源请求；
 - 渲染结果、帧观察和交互会话体验。
 
 离线 `encode`、`decode`、`inspect`、`validate` 可直接使用 Protocol 层；它们不属于 Reader 业务 API。
@@ -68,13 +68,13 @@ Live Shell 必须清晰管理一个 Reader 会话的连接、托管资源所有�
 | 层 | SDK 对象 | 语义与生命周期 | CLI 归属 |
 |---|---|---|---|
 | 设备配置 | `ReaderConfiguration` / `ReaderConfigurationPatch` | `GET/SET_READER_CONFIG` 的设备状态与显式改动；可能持久在设备 | `config` 命令组 |
-| 盘点意图 | 当前 `ReaderSettings`（后续规范名为 `InventorySettings`） | 编译为 ROSpec 及相关托管资源；影响一次盘点启动 | `inventory settings` 命令组 |
-| 运行中快照 | 当前 `CurrentSettings`（后续规范名为 `CurrentInventorySettings`） | SDK 正在托管的盘点参数；停止后失效 | `inventory status` 只读显示 |
+| 盘点意图 | 当前 `InventorySettings`（后续规范名为 `InventorySettings`） | 编译为 ROSpec 及相关托管资源；影响一次盘点启动 | `inventory settings` 命令组 |
+| 运行中快照 | 当前 `CurrentInventorySettings`（后续规范名为 `CurrentInventorySettings`） | SDK 正在托管的盘点参数；停止后失效 | `inventory status` 只读显示 |
 | 会话草稿 | `LiveSessionContext.DesiredInventorySettings` | 用户准备给下一次盘点使用的本地草稿；断开后丢弃 | Live Shell 内部状态 |
 
-`CurrentSettings` 不能承担 CLI 会话草稿：它只反映当前运行的 SDK 托管盘点。CLI 也不得自行编译 ROSpec 或管理 AttachedData 所需的 AccessSpec；它只将草稿快照传给 `LlrpReader.StartAsync(...)`。
+`CurrentInventorySettings` 不能承担 CLI 会话草稿：它只反映当前运行的 SDK 托管盘点。CLI 也不得自行编译 ROSpec 或管理 AttachedData 所需的 AccessSpec；它只将草稿快照传给 `LlrpReader.StartAsync(...)`。
 
-`ReaderSettings.Extensions` 不构成通用 JSON 持久化协议。标准盘点 Profile 可以序列化；厂商扩展必须由其 Extension 注册强类型 JSON 映射、版本和类型标识。未知扩展不得反序列化成不安全的 `object` 后再发送给设备。
+`InventorySettings.Extensions` 不构成通用 JSON 持久化协议。标准盘点 Profile 可以序列化；厂商扩展必须由其 Extension 注册强类型 JSON 映射、版本和类型标识。未知扩展不得反序列化成不安全的 `object` 后再发送给设备。
 
 ## 后果
 

@@ -1,4 +1,4 @@
-# LLRPCSharp 架构与能力图谱
+﻿# LLRPCSharp 架构与能力图谱
 
 [English](showcase.md)
 
@@ -18,7 +18,7 @@
 ### 2. 干净的适配器边界
 
 - **协议版本隔离**：LLRP 1.0.1 与 LLRP 1.1 通过 `ILlrpProtocolAdapter` 实现隔离；LLRP 2.0 定义已入库，Adapter 仍在规划中。
-- **版本无关的上层入口**：应用层优先面对 `LlrpReader`、`ReaderSettings`、ROSpec 和 AccessSpec 服务等托管 API，减少业务代码直接拼装协议报文的需要。
+- **版本无关的上层入口**：应用层优先面对 `LlrpReader`、`InventorySettings`、ROSpec 和 AccessSpec 服务等托管 API，减少业务代码直接拼装协议报文的需要。
 
 ### 3. 可插拔的厂商扩展系统
 

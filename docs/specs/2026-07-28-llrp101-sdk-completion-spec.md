@@ -1,4 +1,4 @@
-# LLRP 1.0.1 SDK 全量功能对齐与实施规范 (LLRP 1.0.1 SDK Completion Spec)
+﻿# LLRP 1.0.1 SDK 全量功能对齐与实施规范 (LLRP 1.0.1 SDK Completion Spec)
 
 > 基准日期：2026-07-28  
 > 目的：作为下一步具体开发工作的**指导与实施文档**。在最大限度保留未来 LLRP 1.1 / 2.0 协议及多厂商扩展（Impinj / Zebra 等）架构解耦的前提下，实现新的 `LLRPCSharp` SDK 与旧版 `LLRPClient` SDK 在标准 LLRP 1.0.1 功能上的 **1:1 全量功能覆盖**（已允许移除高层 `ResetToFactoryDefaults` API，报文层保留）。
@@ -27,9 +27,9 @@
 | | 3.3 应用物理配置 | **已实现** | `reader.ApplyConfigurationAsync(configuration)`<br>底层：`SET_READER_CONFIG` ➔ `SET_READER_CONFIG_RESPONSE` | — |
 | | 3.4 心跳 Keepalive 配置 | **已实现** | `configuration.Keepalive.TriggerType` / `IntervalMs`<br>底层：`KeepaliveSpec` | — |
 | | 3.5 天线功率/灵敏度配置 | **已实现** | `configuration.Antennas`<br>底层：`AntennaConfiguration` | — |
-| | 3.6 C1G2 盘点参数扩展 | **已实现（标准范围）** | `ReaderSettings.Session`、`TagPopulationEstimate`、`ModeIndex`、`Tari` 与 `StateAwareSingulation` 编译为 `C1G2SingulationControl` / `C1G2RFControl`；Target A/B 仅在能力快照明确支持时启用 | 厂商 SearchMode 保持为 Contributor/Profile 专有能力，不放入标准模型。 |
-| | 3.7 ROSpec 定时器/GPI 自动触发 | **已实现** | `ReaderSettings.StartTrigger` / `StopTrigger` 支持 Immediate、Periodic、GPI、Duration 与 GPI-with-timeout，并编译到 `ROBoundarySpec` | Live Shell 暂未暴露触发器旗标，保持为 SDK Reader-first API。 |
-| | 3.8 盘点附加数据配置 (`AttachedData`) | **已实现** | `ReaderSettings.AttachedData`；`StartAsync` 创建/启用关联 C1G2 Read AccessSpec，`StopAsync` 清理；临时 Tag Access 会暂停并恢复该常驻 AccessSpec | 厂商高效报告选择器仍由 Contributor 自主决定，不能替换标准语义。 |
+| | 3.6 C1G2 盘点参数扩展 | **已实现（标准范围）** | `InventorySettings.Session`、`TagPopulationEstimate`、`ModeIndex`、`Tari` 与 `StateAwareSingulation` 编译为 `C1G2SingulationControl` / `C1G2RFControl`；Target A/B 仅在能力快照明确支持时启用 | 厂商 SearchMode 保持为 Contributor/Profile 专有能力，不放入标准模型。 |
+| | 3.7 ROSpec 定时器/GPI 自动触发 | **已实现** | `InventorySettings.StartTrigger` / `StopTrigger` 支持 Immediate、Periodic、GPI、Duration 与 GPI-with-timeout，并编译到 `ROBoundarySpec` | Live Shell 暂未暴露触发器旗标，保持为 SDK Reader-first API。 |
+| | 3.8 盘点附加数据配置 (`AttachedData`) | **已实现** | `InventorySettings.AttachedData`；`StartAsync` 创建/启用关联 C1G2 Read AccessSpec，`StopAsync` 清理；临时 Tag Access 会暂停并恢复该常驻 AccessSpec | 厂商高效报告选择器仍由 Contributor 自主决定，不能替换标准语义。 |
 | **4. 托管盘点与数据上报** | 4.1 启动托管盘点 | **已实现** | `reader.StartAsync(settings)`<br>底层：`ADD_ROSPEC` (14150) ➔ `ENABLE_ROSPEC` ➔ `START_ROSPEC` | — |
 | | 4.2 停止托管盘点 | **已实现** | `reader.StopAsync()`<br>底层：`STOP_ROSPEC` ➔ `DISABLE_ROSPEC` ➔ `DELETE_ROSPEC` | — |
 | | 4.3 实时标签数据订阅 | **已实现** | `reader.TagsReported` 事件 / `ReadTagReportsAsync()` 异步流<br>底层：`RO_NOTIFICATION` / `TagReport` | — |
@@ -63,7 +63,7 @@
 
 在实施上述标准 1.0.1 功能时，坚决贯彻以下架构隔离原则：
 
-1. **协议与厂商无关的业务表达**：所有高层模型（如 `ReaderSettings` / `ReaderConfiguration` / `TagAccessRequest`）均为纯抽象接口。具体报文编译完全隔离在 `Llrp101ProtocolAdapter` 中。
+1. **协议与厂商无关的业务表达**：所有高层模型（如 `InventorySettings` / `ReaderConfiguration` / `TagAccessRequest`）均为纯抽象接口。具体报文编译完全隔离在 `Llrp101ProtocolAdapter` 中。
 2. **厂商扩展 Contributor 预留与解耦**：
    - 当前优先保障标准 LLRP 1.0.1 协议管道（如 `AttachedData` 下发标准 C1G2Read AccessSpec 1000）。
    - 保持 Contributor 接口的设计弹性：未来接入厂商扩展（如 Impinj 硬件直出）时，只需在 Contributor 中拦截对应设置并替换为厂商专属字段，无需改动高层 SDK API 或标准 1.0.1 核心逻辑。

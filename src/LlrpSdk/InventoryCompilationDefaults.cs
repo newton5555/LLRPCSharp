@@ -1,4 +1,4 @@
-namespace LlrpSdk;
+﻿namespace LlrpSdk;
 
 using LlrpSdk.Extensions;
 
@@ -6,7 +6,7 @@ using LlrpSdk.Extensions;
 /// Internal, capability-resolved defaults used only when a known reader requires a fully explicit AISpec.
 /// </summary>
 /// <remarks>
-/// This is deliberately not part of <see cref="ReaderSettings"/>. Applications express inventory intent there;
+/// This is deliberately not part of <see cref="InventorySettings"/>. Applications express inventory intent there;
 /// this type carries compatibility details derived from the connected reader's identity and capability tables.
 /// </remarks>
 public sealed record InventoryCompilationDefaults(

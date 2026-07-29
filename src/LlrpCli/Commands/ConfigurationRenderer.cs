@@ -1,4 +1,4 @@
-using Spectre.Console;
+﻿using Spectre.Console;
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
 
@@ -81,7 +81,7 @@ internal static class ConfigurationRenderer
         AddEvent(events, "Connection close", configuration.Events.ConnectionCloseEventEnabled);
         grid.AddRow(new Panel(events).Header("[bold yellow] EVENT NOTIFICATIONS [/]").Border(BoxBorder.Rounded));
 
-        if (configuration.Extensions.TryGetValue("impinj.readerSettings", out object? extension) && extension is ImpinjReaderSettings impinj)
+        if (configuration.Extensions.TryGetValue("impinj.InventorySettings", out object? extension) && extension is ImpinjReaderSettings impinj)
         {
             var vendor = new Table().Border(TableBorder.Rounded);
             vendor.AddColumn("[bold grey70]Impinj setting[/]");

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LlrpNet.Core.Diagnostics;
@@ -427,7 +427,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     return;
                 }
 
-                ReaderSettings defaultSettings = ParseDefaultRoSpecSettings(tokens);
+                InventorySettings defaultSettings = ParseDefaultRoSpecSettings(tokens);
                 _console.MarkupLine($"[grey]Creating disabled SDK-default ROSpec {defaultSettings.RoSpecId}...[/]");
                 await _session.Reader.RoSpecs.AddDefaultAsync(defaultSettings, cancellationToken);
                 _console.MarkupLine($"[bold springgreen2]✔ Default ROSpec {defaultSettings.RoSpecId} Created (Disabled).[/] [grey]AISpec: antennas={string.Join(',', defaultSettings.AntennaIds)}, mode/tari={defaultSettings.ModeIndex}/{defaultSettings.Tari}, session/population={defaultSettings.Session}/{defaultSettings.TagPopulationEstimate}.[/]");
@@ -469,9 +469,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     }
 
-    private static ReaderSettings ParseDefaultRoSpecSettings(string[] tokens)
+    private static InventorySettings ParseDefaultRoSpecSettings(string[] tokens)
     {
-        var settings = new ReaderSettings();
+        var settings = new InventorySettings();
         for (int index = 2; index < tokens.Length; index += 2)
         {
             if (index + 1 >= tokens.Length)

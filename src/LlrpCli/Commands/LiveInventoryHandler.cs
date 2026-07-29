@@ -1,4 +1,4 @@
-using Spectre.Console;
+﻿using Spectre.Console;
 using LlrpCli.Rendering;
 using LlrpSdk;
 
@@ -39,7 +39,7 @@ internal sealed class LiveInventoryHandler(
                     return;
                 }
 
-                ReaderSettings settings = ParseStartSettings(tokens);
+                InventorySettings settings = ParseStartSettings(tokens);
                 LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
                 int? monitorDurationSeconds = ParseStartMonitorDurationSeconds(tokens);
                 if (monitorDurationSeconds is not null && monitorMode == LiveMonitorMode.None)
@@ -110,17 +110,17 @@ internal sealed class LiveInventoryHandler(
                 return;
 
             case "reset" when tokens.Length == 3:
-                session.DesiredInventorySettings = new ReaderSettings();
+                session.DesiredInventorySettings = new InventorySettings();
                 console.MarkupLine("[bold springgreen2]✔ Inventory settings reset to SDK defaults.[/]");
                 return;
 
             case "load" when tokens.Length == 4:
-                session.DesiredInventorySettings = ReaderSettingsSerializer.LoadFromFile(tokens[3]);
+                session.DesiredInventorySettings = InventorySettingsSerializer.LoadFromFile(tokens[3]);
                 console.MarkupLine($"[bold springgreen2]✔ Inventory settings loaded from[/] [cyan1]{Markup.Escape(tokens[3])}[/].");
                 return;
 
             case "save" when tokens.Length == 4:
-                ReaderSettingsSerializer.SaveToFile(tokens[3], session.DesiredInventorySettings);
+                InventorySettingsSerializer.SaveToFile(tokens[3], session.DesiredInventorySettings);
                 console.MarkupLine($"[bold springgreen2]✔ Inventory settings saved to[/] [cyan1]{Markup.Escape(tokens[3])}[/].");
                 return;
 
@@ -144,7 +144,7 @@ internal sealed class LiveInventoryHandler(
         }
     }
 
-    private ReaderSettings ParseStartSettings(string[] tokens)
+    private InventorySettings ParseStartSettings(string[] tokens)
     {
         if (tokens.Length == 2)
         {
@@ -208,7 +208,7 @@ internal sealed class LiveInventoryHandler(
         _ => throw new CliUsageException("--monitor must be live, frames, or none.")
     };
 
-    private static ReaderSettings ParseSettingsOptions(ReaderSettings baseSettings, string[] tokens, int startIndex)
+    private static InventorySettings ParseSettingsOptions(InventorySettings baseSettings, string[] tokens, int startIndex)
     {
         if (tokens.Length == startIndex)
         {
@@ -338,7 +338,7 @@ internal sealed class LiveInventoryHandler(
         _ => throw new CliUsageException($"Invalid memory bank '{bank}'. Valid values: reserved|0, epc|1, tid|2, user|3.")
     };
 
-    private void RenderStartedSummary(ReaderSettings settings)
+    private void RenderStartedSummary(InventorySettings settings)
     {
         string scope = settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0 ? "All antennas" : $"Antenna {string.Join(',', settings.AntennaIds)}";
         string attachedInfo = settings.AttachedData.Enabled
@@ -358,7 +358,7 @@ internal sealed class LiveInventoryHandler(
         string statusText = isRunning ? "[springgreen2]SDK-managed inventory is running.[/]" : $"[yellow]SDK-managed inventory is not running (state: {session.Reader.OperationState}).[/]";
         console.MarkupLine(statusText);
 
-        if (session.Reader.CurrentSettings is { } settings)
+        if (session.Reader.CurrentInventorySettings is { } settings)
         {
             string scope = settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0 ? "All" : string.Join(',', settings.AntennaIds);
             console.MarkupLine($"  [dim]Antenna:[/] {scope} | [dim]Session:[/] {settings.Session} | [dim]Pop:[/] {settings.TagPopulationEstimate} | [dim]Mode:[/] {settings.ModeIndex} | [dim]Tari:[/] {settings.Tari}");
@@ -378,7 +378,7 @@ internal sealed class LiveInventoryHandler(
         }
     }
 
-    private static bool AreEquivalentInventorySettings(ReaderSettings left, ReaderSettings right)
+    private static bool AreEquivalentInventorySettings(InventorySettings left, InventorySettings right)
     {
         if (left.RoSpecId != right.RoSpecId ||
             left.Priority != right.Priority ||
@@ -401,7 +401,7 @@ internal sealed class LiveInventoryHandler(
             right.Extensions.TryGetValue(pair.Key, out object? value) && Equals(pair.Value, value));
     }
 
-    private void RenderSettings(string header, ReaderSettings settings)
+    private void RenderSettings(string header, InventorySettings settings)
     {
         string antennas = settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0
             ? "All"

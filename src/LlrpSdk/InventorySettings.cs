@@ -114,7 +114,7 @@ public enum InventorySelectedFlag
 /// The SDK compiles these settings into the protocol version selected for the reader. This type deliberately
 /// contains no LLRP message or parameter types.
 /// </remarks>
-public sealed record ReaderSettings
+public sealed record InventorySettings
 {
     /// <summary>Gets vendor-specific inventory options keyed by a contributor-owned stable name.</summary>
     /// <remarks>The core SDK never interprets these values; only an active vendor extension consumes its own key.</remarks>

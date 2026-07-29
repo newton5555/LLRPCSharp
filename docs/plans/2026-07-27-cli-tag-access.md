@@ -1,4 +1,4 @@
-# CLI Tag Access Implementation Plan
+﻿# CLI Tag Access Implementation Plan
 
 > Status: Superseded on 2026-07-28. The current architecture is Live Shell-only for online commands; see [`../architecture/cli-command-system.md`](../architecture/cli-command-system.md).
 
@@ -48,7 +48,7 @@ Also assert invalid odd-length EPC, zero word count, unknown bank, malformed pas
 
 - [ ] **Step 2: Implement parsing and lifecycle operations**
 
-`ParseRead` parses uppercase/lowercase hex EPC, converts bank names `reserved|epc|tid|user`, accepts hexadecimal `--password`, and validates every numeric range before creating an exact EPC-bank selection. `ReadAsync` starts `new ReaderSettings { AntennaIds = [request.AntennaId] }` only when the reader is not already inventorying, invokes `ReadTagMemoryAsync`, and stops only inventory it started in `finally`.
+`ParseRead` parses uppercase/lowercase hex EPC, converts bank names `reserved|epc|tid|user`, accepts hexadecimal `--password`, and validates every numeric range before creating an exact EPC-bank selection. `ReadAsync` starts `new InventorySettings { AntennaIds = [request.AntennaId] }` only when the reader is not already inventorying, invokes `ReadTagMemoryAsync`, and stops only inventory it started in `finally`.
 
 - [ ] **Step 3: Run parser tests**
 

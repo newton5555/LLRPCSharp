@@ -1,4 +1,4 @@
-using System.Runtime.ExceptionServices;
+﻿using System.Runtime.ExceptionServices;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
@@ -40,7 +40,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private Task? _keepaliveMonitorTask;
     private CancellationTokenSource? _automaticReconnectCancellation;
     private Task? _automaticReconnectTask;
-    private ReaderSettings? _currentSettings;
+    private InventorySettings? _currentInventorySettings;
     private ReaderMetadataSnapshot? _metadata;
     private uint? _managedInventoryRoSpecId;
     private uint? _managedInventoryAttachedDataAccessSpecId;
@@ -239,7 +239,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <summary>
     /// Gets the settings for the currently managed inventory operation, or <see langword="null"/> when idle.
     /// </summary>
-    public ReaderSettings? CurrentSettings => Volatile.Read(ref _currentSettings);
+    public InventorySettings? CurrentInventorySettings => Volatile.Read(ref _currentInventorySettings);
 
     /// <summary>
     /// Gets a value indicating whether SDK-managed resource state is known after the most recent raw protocol call.
@@ -712,7 +712,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// types, allowing later protocol adapters to compile the same intent for another negotiated version.
     /// </remarks>
     public async Task StartAsync(
-        ReaderSettings settings,
+        InventorySettings settings,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -791,7 +791,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
                 _managedInventoryRoSpecId = settings.RoSpecId;
                 _managedInventoryAttachedDataAccessSpecId = attachedDataAccessSpecId;
-                Volatile.Write(ref _currentSettings, settings);
+                Volatile.Write(ref _currentInventorySettings, settings);
                 Volatile.Write(ref _operationState, (int)ReaderOperationState.Inventorying);
             }
             catch
@@ -870,10 +870,10 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <param name="cancellationToken">Cancels inventory enumeration and then requests managed inventory cleanup.</param>
     /// <returns>An asynchronous sequence of observed tags.</returns>
     public async IAsyncEnumerable<TagReport> InventoryAsync(
-        ReaderSettings? settings = null,
+        InventorySettings? settings = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await StartAsync(settings ?? new ReaderSettings(), cancellationToken).ConfigureAwait(false);
+        await StartAsync(settings ?? new InventorySettings(), cancellationToken).ConfigureAwait(false);
         try
         {
             await foreach (TagReport report in ReadTagReportsAsync(cancellationToken))
@@ -907,7 +907,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// This is used by <see cref="IRoSpecService.AddDefaultAsync"/> for callers that need to create a
     /// disabled default resource and control its lifecycle explicitly.
     /// </remarks>
-    internal ILlrpParameter CompileDefaultInventoryRoSpec(ReaderSettings settings)
+    internal ILlrpParameter CompileDefaultInventoryRoSpec(InventorySettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         EnsureProtocolAvailable();
@@ -919,7 +919,7 @@ public sealed class LlrpReader : IAsyncDisposable
             ResolveInventoryCompilationDefaults(settings));
     }
 
-    private InventoryCompilationDefaults? ResolveInventoryCompilationDefaults(ReaderSettings settings)
+    private InventoryCompilationDefaults? ResolveInventoryCompilationDefaults(InventorySettings settings)
     {
         ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
             "Inventory profile contributors require initialized reader metadata.");
@@ -1062,7 +1062,7 @@ public sealed class LlrpReader : IAsyncDisposable
         bool isTemporaryRoSpec = false;
         if (OperationState != ReaderOperationState.Inventorying)
         {
-            await StartAsync(new ReaderSettings(), cancellationToken).ConfigureAwait(false);
+            await StartAsync(new InventorySettings(), cancellationToken).ConfigureAwait(false);
             isTemporaryRoSpec = true;
         }
 
@@ -1174,7 +1174,7 @@ public sealed class LlrpReader : IAsyncDisposable
         bool isTemporaryRoSpec = false;
         if (OperationState != ReaderOperationState.Inventorying)
         {
-            await StartAsync(new ReaderSettings(), cancellationToken).ConfigureAwait(false);
+            await StartAsync(new InventorySettings(), cancellationToken).ConfigureAwait(false);
             isTemporaryRoSpec = true;
         }
 
@@ -2023,7 +2023,7 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         _managedInventoryRoSpecId = null;
         _managedInventoryAttachedDataAccessSpecId = null;
-        Volatile.Write(ref _currentSettings, null);
+        Volatile.Write(ref _currentInventorySettings, null);
         Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
     }
 
@@ -2474,7 +2474,7 @@ public sealed class LlrpReader : IAsyncDisposable
         return contributors;
     }
 
-    private IReadOnlyList<ILlrpParameter> BuildInventoryCustomItems(ReaderSettings settings)
+    private IReadOnlyList<ILlrpParameter> BuildInventoryCustomItems(InventorySettings settings)
     {
         ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
             "Inventory contributors require initialized reader metadata.");

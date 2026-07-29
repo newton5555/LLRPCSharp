@@ -1,4 +1,4 @@
-# CLI 命令与 SDK 逻辑及 LLRP 报文对应关系规格计划 (Specification)
+﻿# CLI 命令与 SDK 逻辑及 LLRP 报文对应关系规格计划 (Specification)
 
 - 日期：2026-07-27
 - 依据：[ADR 0005](../adr/0005-llrp101-reader-first-delivery.md) & [2026-07-27-reader-first-delivery.md](../plans/2026-07-27-reader-first-delivery.md)
@@ -32,12 +32,12 @@ CLI 旨在提供双轨视角：
 | `disconnect` | `reader.DisconnectAsync()`<br>`reader.DisposeAsync()` | `CLOSE_CONNECTION`<br>`CLOSE_CONNECTION_RESPONSE` | 优雅停止后台盘点泵，发送关闭连接报文，重置 CLI 为离线状态。 |
 | `status` | `reader.ConnectionState`<br>`reader.NegotiatedVersion`<br>`reader.Identity`<br>`reader.IsManagedStateSynchronized` | - (只读 SDK 内存状态) | 打印当前连接状态、版本、厂商 ID、型号、固件版本以及托管同步标记。 |
 | `caps` | `reader.Capabilities` | - (只读 SDK 内存状态) | 格式化展示天线数、GPI/GPO 限制、UTC 时钟及接收灵敏度全量快照。 |
-| `config get` | `reader.QueryConfigurationAsync()` | `GET_READER_CONFIG`<br>`ImpinjRequestedData` (All_Configuration) | 查询读写器当前配置，并将 Impinj 延伸配置渲染在 `impinj.readerSettings` 下。 |
+| `config get` | `reader.QueryConfigurationAsync()` | `GET_READER_CONFIG`<br>`ImpinjRequestedData` (All_Configuration) | 查询读写器当前配置，并将 Impinj 延伸配置渲染在 `impinj.InventorySettings` 下。 |
 | `config defaults` | `reader.GetDefaultConfigurationResult()` | - (SDK 本地基线，不发报文) | 展示 SDK 针对当前设备型号推荐的安全配置基线及 Provider 来源。 |
 | `config apply [options] [--dry-run] --yes` | `reader.ApplyConfigurationAsync(config)` | `SET_READER_CONFIG` | 将命令行或 YAML 转化为 `ReaderConfigurationPatch` 并应用；使托管同步标记失效 (`IsManagedStateSynchronized = false`)。 |
 | `inventory start [antenna]` | `reader.StartAsync(settings)` | `ADD_ROSPEC`<br>`ENABLE_ROSPEC`<br>`START_ROSPEC`<br>`ImpinjTagReportContentSelector` | 编译默认 ROSpec 14150；启动后台标签接收泵；挂载 Impinj 标签选择器。 |
 | `inventory stop` | `reader.StopAsync()` | `STOP_ROSPEC`<br>`DISABLE_ROSPEC`<br>`DELETE_ROSPEC` | 停止盘点并删除 SDK 托管的临时 ROSpec。 |
-| `inventory status` | `reader.CurrentSettings`<br>`reader.OperationState` | - (只读 SDK 内存状态) | 查看当前托管盘点配置、已接收标签统计与运行状态。 |
+| `inventory status` | `reader.CurrentInventorySettings`<br>`reader.OperationState` | - (只读 SDK 内存状态) | 查看当前托管盘点配置、已接收标签统计与运行状态。 |
 | `tag read <epc> --bank <bank> --word <addr> --count <cnt>` | `reader.ReadTagMemoryAsync(req)` | `ADD_ACCESSSPEC`<br>`ENABLE_ACCESSSPEC`<br>`RO_ACCESS_REPORT` (TagReport)<br>`DISABLE_ACCESSSPEC`<br>`DELETE_ACCESSSPEC` | 创建临时 AccessSpec (ID 24000+)；等待带有 C1G2ReadOpSpecResult 的标签报告；自动清理临时 AccessSpec。 |
 | `tag write <epc> ... [--yes]` | `reader.WriteTagMemoryAsync(req)` | `ADD_ACCESSSPEC` ➔ `ENABLE_ACCESSSPEC` ➔ `RO_ACCESS_REPORT` ➔ 清理 | Live Shell 省略 `--yes` 时仅预览请求；显式确认后使用当前 Reader 执行标准 C1G2 写。 |
 | `tag sequence <epc> --op ... [--yes]` | `reader.ExecuteTagAccessSequenceAsync(req)` | 一个 `AccessSpec` 内多个 C1G2 OpSpec ➔ `RO_ACCESS_REPORT` ➔ 清理 | Live Shell 的组合操作；纯读无需确认，任何写/擦/锁/销毁操作要求 `--yes`。 |

@@ -1,4 +1,4 @@
-using LlrpNet.Protocol.Choices.V1_1;
+﻿using LlrpNet.Protocol.Choices.V1_1;
 using LlrpNet.Protocol.Enumerations.V1_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_1;
@@ -14,7 +14,7 @@ namespace LlrpSdk;
 internal static class Llrp11InventoryCompiler
 {
     public static ROSpec Compile(
-        ReaderSettings settings,
+        InventorySettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         bool supportsStateAwareSingulation = false)
     {
@@ -89,7 +89,7 @@ internal static class Llrp11InventoryCompiler
             reportSpec);
     }
 
-    private static void Validate(ReaderSettings settings)
+    private static void Validate(InventorySettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings.AntennaIds);
         if (settings.RoSpecId == 0)
