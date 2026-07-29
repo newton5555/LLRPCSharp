@@ -23,17 +23,21 @@ internal sealed class AccessSpecService : IAccessSpecService
     public Task AddAsync(ILlrpParameter accessSpec, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(accessSpec);
-        return protocolAdapter().AddAccessSpecAsync(reader, messageIds.Next(), accessSpec, cancellationToken);
+        return reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().AddAccessSpecAsync(reader, messageIds.Next(), accessSpec, cancellationToken), cancellationToken);
     }
 
     public Task DeleteAsync(uint accessSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().DeleteAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().DeleteAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
 
     public Task EnableAsync(uint accessSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().EnableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().EnableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
 
     public Task DisableAsync(uint accessSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().DisableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().DisableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
 
     public Task<IReadOnlyList<ILlrpParameter>> GetAllAsync(CancellationToken cancellationToken = default) =>
         protocolAdapter().GetAccessSpecsAsync(reader, messageIds.Next(), cancellationToken);

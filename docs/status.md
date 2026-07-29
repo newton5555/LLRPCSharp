@@ -35,7 +35,7 @@
 - `WriteTagMemoryAsync` 在设备能力快照确认支持时自动将多字写编译为 `C1G2BlockWrite`，否则保持 `C1G2Write`。
 - TagReport 翻译覆盖标准 C1G2 Read、Write、BlockWrite、Lock、Kill 与 BlockErase 的 OpSpec Result，因此所有现有单操作高层 API 都能取得成功/失败结果。
 - Reader 事件已公开 `GpiChanged`、`KeepaliveReceived`、`KeepaliveTimedOut`（通过 `WithKeepaliveTimeout` 选择启用）、`ReportBufferWarning`（含百分比）与 `ReportBufferOverflow`。
-- Raw Protocol 操作后会使托管状态失效，并通过 `SynchronizeStateAsync()` 恢复可继续 Managed 操作的状态。
+- 高层盘点和空闲 Tag Access 会独占并重建 ROSpec/AccessSpec 资源；专家资源写入必须先调用 `EnterManualResourceModeAsync()`。Raw Protocol 操作后资源状态变为未知，必须通过 `SynchronizeStateAsync()` 回到可继续 Managed 操作的状态。
 
 ### 版本协商与 Adapter
 

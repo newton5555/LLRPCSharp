@@ -149,6 +149,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     case LiveCommandRoute.AccessSpec:
                         await HandleAccessSpecAsync(tokens, cancellationToken);
                         break;
+                    case LiveCommandRoute.Resources:
+                        await HandleResourcesAsync(tokens, cancellationToken);
+                        break;
                     case LiveCommandRoute.Configuration:
                         await HandleConfigAsync(tokens, cancellationToken);
                         break;
@@ -510,6 +513,36 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         return values.Select(static item => ushort.Parse(item)).Distinct().ToArray();
+    }
+
+    private async Task HandleResourcesAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        if (_session.Reader is null || !_session.Reader.IsConnected)
+        {
+            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
+            return;
+        }
+
+        string action = tokens.Length >= 3 && tokens[1].Equals("manual", StringComparison.OrdinalIgnoreCase)
+            ? tokens[2].ToLowerInvariant()
+            : tokens.Length >= 2 ? tokens[1].ToLowerInvariant() : "status";
+        switch (action)
+        {
+            case "enter":
+                await _session.Reader.EnterManualResourceModeAsync(cancellationToken);
+                _console.MarkupLine("[green]Manual resource mode entered. ROSpec and AccessSpec writes are now enabled.[/]");
+                break;
+            case "exit":
+                await _session.Reader.ExitManualResourceModeAsync(cancellationToken);
+                _console.MarkupLine("[green]Manual resources deleted; reader returned to idle mode.[/]");
+                break;
+            case "status":
+                _console.MarkupLine($"Resource mode: [cyan]{_session.Reader.ResourceMode}[/]");
+                break;
+            default:
+                _console.MarkupLine("[red]Usage:[/] resources manual enter|exit|status");
+                break;
+        }
     }
 
     private async Task HandleAccessSpecAsync(string[] tokens, CancellationToken cancellationToken)

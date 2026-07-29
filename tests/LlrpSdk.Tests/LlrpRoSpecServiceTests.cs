@@ -26,6 +26,7 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureSuccessResponses(transport, returnedRoSpecs);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
+        await reader.EnterManualResourceModeAsync(timeout.Token);
         var addedRoSpec = RoSpec([0xCA, 0xFE]);
 
         await reader.RoSpecs.AddAsync(addedRoSpec, timeout.Token);
@@ -82,6 +83,7 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureStatusResponses(transport, failureStatus);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
+        await reader.EnterManualResourceModeAsync(timeout.Token);
         (string Operation, Func<Task> Invoke)[] cases =
         [
             ("ADD_ROSPEC", () => reader.RoSpecs.AddAsync(RoSpec([]), timeout.Token)),
@@ -127,6 +129,7 @@ public sealed class LlrpRoSpecServiceTests
         };
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
+        await reader.EnterManualResourceModeAsync(timeout.Token);
 
         LlrpReaderOperationException exception =
             await Assert.ThrowsAsync<LlrpReaderOperationException>(() =>
@@ -145,6 +148,7 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureSuccessResponses(transport);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
+        await reader.EnterManualResourceModeAsync(timeout.Token);
         int sentBefore = transport.SentFrames.Count;
         var wrongType = new UnknownParameter(
             LlrpProtocolVersion.Version101,
@@ -168,6 +172,7 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureSuccessResponses(transport);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
+        await reader.EnterManualResourceModeAsync(timeout.Token);
 
         Task[] operations = Enumerable.Range(1, 32)
             .Select(id => reader.RoSpecs.DeleteAsync((uint)id, timeout.Token))

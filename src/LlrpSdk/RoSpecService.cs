@@ -23,7 +23,8 @@ internal sealed class RoSpecService : IRoSpecService
     public Task AddAsync(ILlrpParameter roSpec, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(roSpec);
-        return protocolAdapter().AddRoSpecAsync(reader, messageIds.Next(), roSpec, cancellationToken);
+        return reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().AddRoSpecAsync(reader, messageIds.Next(), roSpec, cancellationToken), cancellationToken);
     }
 
     public Task AddDefaultAsync(InventorySettings settings, CancellationToken cancellationToken = default)
@@ -33,19 +34,24 @@ internal sealed class RoSpecService : IRoSpecService
     }
 
     public Task DeleteAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().DeleteRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().DeleteRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
     public Task EnableAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().EnableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().EnableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
     public Task DisableAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().DisableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().DisableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
     public Task StartAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().StartRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().StartRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
     public Task StopAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        protocolAdapter().StopRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken);
+        reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().StopRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
     public Task<IReadOnlyList<ILlrpParameter>> GetAllAsync(CancellationToken cancellationToken = default) =>
         protocolAdapter().GetRoSpecsAsync(reader, messageIds.Next(), cancellationToken);

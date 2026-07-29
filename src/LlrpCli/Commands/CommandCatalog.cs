@@ -11,6 +11,7 @@ public enum LiveCommandRoute
     Frames,
     RoSpec,
     AccessSpec,
+    Resources,
     Configuration,
     TagAccess,
     Raw,
@@ -92,6 +93,10 @@ public static class CommandCatalog
         new("accessspec", LiveCommandRoute.AccessSpec, "accessspec list|enable|disable|delete [id]", "Manage AccessSpecs.", RequiresConnection: true)
         {
             CompletionCandidates = ["list", "enable", "disable", "delete"],
+        },
+        new("resources", LiveCommandRoute.Resources, "resources manual enter|exit|status", "Enter or leave explicit manual ROSpec/AccessSpec control.", RequiresConnection: true)
+        {
+            CompletionCandidates = ["manual", "enter", "exit", "status"],
         },
         new("raw", LiveCommandRoute.Raw, "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame.", RequiresConnection: true),
         new("sync", LiveCommandRoute.Synchronize, "sync", "Synchronize SDK-managed resource state after raw access.", RequiresConnection: true),
