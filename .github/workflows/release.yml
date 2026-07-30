@@ -56,6 +56,12 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: NuGet login
+      uses: NuGet/login@v1
+      id: nuget-login
+      with:
+        user: newton5555
+
     - name: Push to NuGet.org (Trusted Publishing OIDC)
       run: |
-        dotnet nuget push "./artifacts/nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "github-actions" --skip-duplicate
+        dotnet nuget push "./artifacts/nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate
