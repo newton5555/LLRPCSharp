@@ -750,8 +750,7 @@ public sealed class LlrpReader : IAsyncDisposable
             settings,
             roSpecId,
             BuildInventoryCustomItems(settings),
-            supportsStateAwareSingulation,
-            ResolveInventoryCompilationDefaults(settings));
+            supportsStateAwareSingulation);
     }
 
     /// <summary>
@@ -807,6 +806,55 @@ public sealed class LlrpReader : IAsyncDisposable
             AdoptManagedInventorySnapshot(managed, accessSpecs, snapshot);
             InventorySettings? inventory = snapshot?.Settings;
             return new ReaderSettingsSnapshot(new ReaderSettings { Configuration = configuration, Inventory = inventory }, snapshot);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Generates an editable SDK-recommended settings baseline for the initialized connected reader.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="QuerySettingsAsync(CancellationToken)"/>, this method does not read current reader
+    /// configuration or resources. It resolves portable defaults and, when available, a single active vendor/model
+    /// profile from the negotiated identity and capabilities.
+    /// </remarks>
+    public async Task<ReaderSettingsDefaults> GetDefaultSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
+                "SDK defaults require initialized reader metadata. Connect the reader first.");
+            var context = new ReaderSettingsDefaultContext(
+                metadata.Identity,
+                metadata.Capabilities,
+                NegotiatedVersion);
+            ReaderSettingsDefaults? result = null;
+            var contributorIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (IReaderSettingsDefaultsContributor contributor in Extensions.OfType<IReaderSettingsDefaultsContributor>())
+            {
+                if (string.IsNullOrWhiteSpace(contributor.Id))
+                {
+                    throw new InvalidOperationException("A settings-default contributor must declare a non-empty Id.");
+                }
+                if (!contributorIds.Add(contributor.Id))
+                {
+                    throw new InvalidOperationException($"More than one active settings-default contributor uses Id '{contributor.Id}'.");
+                }
+
+                ReaderSettingsDefaults? candidate = contributor.GetDefaultSettings(context);
+                if (candidate is not null && result is not null)
+                {
+                    throw new InvalidOperationException("More than one active reader profile supplied settings defaults.");
+                }
+                result ??= candidate;
+            }
+
+            return result ?? ReaderSettingsDefaults.CreateGeneric();
         }
         finally
         {
@@ -1060,39 +1108,6 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             _operationLock.Release();
         }
-    }
-
-    private InventoryCompilationDefaults? ResolveInventoryCompilationDefaults(InventorySettings settings)
-    {
-        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
-            "Inventory profile contributors require initialized reader metadata.");
-        var context = new InventoryContributionContext(
-            settings,
-            metadata.Identity,
-            metadata.Capabilities,
-            NegotiatedVersion);
-        InventoryCompilationDefaults? result = null;
-        var contributorIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (IInventoryProfileContributor contributor in Extensions.OfType<IInventoryProfileContributor>())
-        {
-            if (string.IsNullOrWhiteSpace(contributor.Id))
-            {
-                throw new InvalidOperationException("An inventory profile contributor must declare a non-empty Id.");
-            }
-            if (!contributorIds.Add(contributor.Id))
-            {
-                throw new InvalidOperationException($"More than one inventory profile contributor uses Id '{contributor.Id}'.");
-            }
-
-            InventoryCompilationDefaults? candidate = contributor.GetCompilationDefaults(context);
-            if (candidate is not null && result is not null)
-            {
-                throw new InvalidOperationException("More than one active inventory profile supplied compilation defaults.");
-            }
-            result ??= candidate;
-        }
-
-        return result;
     }
 
     /// <inheritdoc />
@@ -2443,6 +2458,16 @@ public sealed class LlrpReader : IAsyncDisposable
             TagPopulationEstimate = command?.C1G2SingulationControl?.TagPopulation ?? 32,
             ModeIndex = command?.C1G2RFControl?.ModeIndex ?? 0,
             Tari = command?.C1G2RFControl?.Tari ?? 0,
+            AntennaConfigurations = inventorySpec.AntennaConfigurationItems
+                .Where(configuration => configuration.RFReceiver is not null || configuration.RFTransmitter is not null)
+                .Select(configuration => new InventoryAntennaConfiguration
+                {
+                    AntennaId = configuration.AntennaID,
+                    ReceiverSensitivityIndex = configuration.RFReceiver?.ReceiverSensitivity,
+                    TransmitPowerIndex = configuration.RFTransmitter?.TransmitPower,
+                    HopTableId = configuration.RFTransmitter?.HopTableID,
+                    ChannelIndex = configuration.RFTransmitter?.ChannelIndex,
+                }).ToArray(),
             Filters = command?.C1G2FilterItems.Select(ParseFilter).ToArray() ?? [],
             StartTrigger = ParseStartTrigger(roSpec.ROBoundarySpec.ROSpecStartTrigger),
             StopTrigger = ParseStopTrigger(roSpec.ROBoundarySpec.ROSpecStopTrigger),

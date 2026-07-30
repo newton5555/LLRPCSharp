@@ -17,7 +17,7 @@ Precedence is: explicit application settings > matched profile > standard sparse
 
 ## Initial extension point
 
-`IInventoryProfileContributor` is a reader-extension contract. It may return `InventoryCompilationDefaults` for a matched model. The core SDK consumes at most one active profile and compiles its values into the standard AISpec; it does not contain vendor/model branches.
+Superseded by the core `InventorySettings.AntennaConfigurations` model. A reader extension now generates `ReaderSettingsDefaults` whose standard antenna/RF values are explicit core settings; the compiler has no vendor/model branches or hidden profile-default input.
 
 The first implementation is `LlrpSdk.Extensions.Seuic` for UF40. It uses only standard LLRP parameters and has no custom message/type dependency.
 

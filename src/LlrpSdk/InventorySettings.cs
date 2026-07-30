@@ -193,6 +193,23 @@ public enum InventoryReportTrigger
 }
 
 /// <summary>
+/// Standard LLRP antenna-specific RF values used by an inventory AISpec.
+/// </summary>
+/// <remarks>
+/// These values are part of managed inventory intent, rather than reader-global configuration. Null omits the
+/// corresponding standard parameter; when an RF transmitter is specified, its three wire fields are supplied together.
+/// </remarks>
+public sealed record InventoryAntennaConfiguration
+{
+    /// <summary>Gets the LLRP antenna identifier. Zero applies this configuration to all selected antennas.</summary>
+    public ushort AntennaId { get; init; }
+    public ushort? ReceiverSensitivityIndex { get; init; }
+    public ushort? TransmitPowerIndex { get; init; }
+    public ushort? HopTableId { get; init; }
+    public ushort? ChannelIndex { get; init; }
+}
+
+/// <summary>
 /// Describes the version-independent intent for one managed inventory operation.
 /// </summary>
 /// <remarks>
@@ -213,6 +230,15 @@ public sealed record InventorySettings
     /// Gets the reader antenna identifiers to use. The default value <c>0</c> selects all reader antennas.
     /// </summary>
     public IReadOnlyList<ushort> AntennaIds { get; init; } = [0];
+
+    /// <summary>
+    /// Gets optional standard LLRP RF parameters for individual inventory antennas.
+    /// </summary>
+    /// <remarks>
+    /// Empty means no antenna-specific RFReceiver/RFTransmitter parameters are emitted. A vendor profile may resolve
+    /// capability-dependent recommendations here; vendor custom parameters belong in <see cref="Extensions"/>.
+    /// </remarks>
+    public IReadOnlyList<InventoryAntennaConfiguration> AntennaConfigurations { get; init; } = Array.Empty<InventoryAntennaConfiguration>();
 
     /// <summary>
     /// Gets the priority assigned to the SDK-managed ROSpec.

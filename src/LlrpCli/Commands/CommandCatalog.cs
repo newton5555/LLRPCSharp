@@ -56,9 +56,9 @@ public static class CommandCatalog
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
         new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index-to-dBm tables.", RequiresConnection: true),
-        new("settings", LiveCommandRoute.Settings, "settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", "Query, edit, draft, or apply high-level ReaderSettings.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, "settings get [--tree] | defaults show|export <path> | draft show|defaults|from-reader|generic|wizard|load|load-defaults|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", "Query, initialize, edit, draft, or apply high-level ReaderSettings.", RequiresConnection: true)
         {
-            CompletionCandidates = ["get", "draft", "show", "wizard", "load", "save", "reset", "export", "validate", "apply", "--yes"],
+            CompletionCandidates = ["get", "defaults", "draft", "show", "from-reader", "generic", "wizard", "load", "load-defaults", "save", "reset", "export", "validate", "apply", "--tree", "--yes"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {

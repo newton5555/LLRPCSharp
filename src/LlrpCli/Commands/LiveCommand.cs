@@ -680,7 +680,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
         if (tokens.Length < 2)
         {
-            throw new CliUsageException("Usage: settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes");
+            throw new CliUsageException(SettingsUsage);
         }
         switch (tokens[1].ToLowerInvariant())
         {
@@ -696,25 +696,71 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 }
                 return;
             }
+            case "get" when tokens.Length == 3 && tokens[2].Equals("--tree", StringComparison.OrdinalIgnoreCase):
+            {
+                ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken);
+                RenderSettingsTree("ReaderSettings from reader", snapshot.Settings, snapshot.Inventory?.State.ToString());
+                return;
+            }
+            case "defaults" when tokens.Length == 3 && tokens[2].Equals("show", StringComparison.OrdinalIgnoreCase):
+            {
+                ReaderSettingsDefaults defaults = await _session.Reader.GetDefaultSettingsAsync(cancellationToken);
+                RenderDefaultsTree(defaults);
+                return;
+            }
+            case "defaults" when tokens.Length == 4 && tokens[2].Equals("export", StringComparison.OrdinalIgnoreCase):
+            {
+                ReaderSettingsDefaults defaults = await _session.Reader.GetDefaultSettingsAsync(cancellationToken);
+                ReaderSettingsSerializer.SaveDefaultsToFile(tokens[3], defaults,
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                _console.MarkupLine("[bold springgreen2]✔ Profile defaults exported.[/]");
+                return;
+            }
             case "draft" when tokens.Length == 3 && tokens[2].Equals("show", StringComparison.OrdinalIgnoreCase):
-                RenderSettingsTree("ReaderSettings draft", _session.DesiredSettings);
+                RenderSettingsTree("ReaderSettings draft", _session.DesiredSettings, draftInfo: _session.DraftInfo);
+                return;
+            case "draft" when tokens.Length == 3 && tokens[2].Equals("defaults", StringComparison.OrdinalIgnoreCase):
+            {
+                ReaderSettingsDefaults defaults = await _session.Reader.GetDefaultSettingsAsync(cancellationToken);
+                SetDraft(defaults.Settings, SettingsDraftInfo.FromDefaults(defaults));
+                _console.MarkupLine($"[bold springgreen2]✔ Draft initialized from profile '{Markup.Escape(defaults.ProfileId)}'.[/]");
+                return;
+            }
+            case "draft" when tokens.Length == 3 && tokens[2].Equals("from-reader", StringComparison.OrdinalIgnoreCase):
+            {
+                ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken);
+                SetDraft(snapshot.Settings, SettingsDraftInfo.FromReader);
+                _console.MarkupLine("[bold springgreen2]✔ Draft initialized from current reader settings.[/]");
+                return;
+            }
+            case "draft" when tokens.Length == 3 && tokens[2].Equals("generic", StringComparison.OrdinalIgnoreCase):
+                SetDraft(ReaderSettingsDefaults.CreateGeneric().Settings, SettingsDraftInfo.Generic);
+                _console.MarkupLine("[bold springgreen2]✔ Draft initialized from the portable SDK generic baseline.[/]");
                 return;
             case "draft" when tokens.Length == 3 && tokens[2].Equals("wizard", StringComparison.OrdinalIgnoreCase):
                 RunDraftInventoryWizard();
                 return;
             case "draft" when tokens.Length == 4 && tokens[2].Equals("load", StringComparison.OrdinalIgnoreCase):
-                _session.DesiredSettings = ReaderSettingsSerializer.LoadFromFile(tokens[3],
-                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                SetDraft(ReaderSettingsSerializer.LoadFromFile(tokens[3],
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>()), SettingsDraftInfo.FromFile(tokens[3]));
                 _console.MarkupLine("[bold springgreen2]✔ ReaderSettings draft loaded.[/]");
                 return;
+            case "draft" when tokens.Length == 4 && tokens[2].Equals("load-defaults", StringComparison.OrdinalIgnoreCase):
+            {
+                ReaderSettingsDefaults defaults = ReaderSettingsSerializer.LoadDefaultsFromFile(tokens[3],
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                SetDraft(defaults.Settings, SettingsDraftInfo.FromDefaults(defaults));
+                _console.MarkupLine($"[bold springgreen2]✔ Draft initialized from exported profile '{Markup.Escape(defaults.ProfileId)}'.[/]");
+                return;
+            }
             case "draft" when tokens.Length == 4 && tokens[2].Equals("save", StringComparison.OrdinalIgnoreCase):
                 ReaderSettingsSerializer.SaveToFile(tokens[3], _session.DesiredSettings,
                     _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
                 _console.MarkupLine("[bold springgreen2]✔ ReaderSettings draft saved.[/]");
                 return;
             case "draft" when tokens.Length == 3 && tokens[2].Equals("reset", StringComparison.OrdinalIgnoreCase):
-                _session.DesiredSettings = new ReaderSettings { Inventory = new InventorySettings() };
-                _console.MarkupLine("[bold springgreen2]✔ ReaderSettings draft reset to SDK defaults.[/]");
+                SetDraft(ReaderSettingsDefaults.CreateGeneric().Settings, SettingsDraftInfo.Generic);
+                _console.MarkupLine("[bold springgreen2]✔ Draft reset to the portable SDK generic baseline. Use 'settings draft defaults' for this reader's profile.[/]");
                 return;
             case "draft" when tokens.Length == 4 && tokens[2].Equals("apply", StringComparison.OrdinalIgnoreCase) && tokens[3].Equals("--yes", StringComparison.OrdinalIgnoreCase):
                 await ApplySettingsAsync(_session.DesiredSettings, cancellationToken);
@@ -728,27 +774,48 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 return;
             }
             case "validate" when tokens.Length == 3:
-                _ = ReaderSettingsSerializer.LoadFromFile(tokens[2],
-                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
-                _console.MarkupLine("[bold springgreen2]✔ Settings file is valid.[/]");
+                try
+                {
+                    _ = ReaderSettingsSerializer.LoadFromFile(tokens[2],
+                        _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                    _console.MarkupLine("[bold springgreen2]✔ ReaderSettings file is valid.[/]");
+                }
+                catch (System.Text.Json.JsonException exception) when (exception.Message.StartsWith("Settings defaults documents", StringComparison.Ordinal))
+                {
+                    _ = ReaderSettingsSerializer.LoadDefaultsFromFile(tokens[2],
+                        _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                    _console.MarkupLine("[bold springgreen2]✔ ReaderSettings defaults file is valid. Load it with 'settings draft load-defaults <path>'.[/]");
+                }
                 return;
             case "apply" when tokens.Length == 4 && tokens[3].Equals("--yes", StringComparison.OrdinalIgnoreCase):
             {
                 ReaderSettings settings = ReaderSettingsSerializer.LoadFromFile(tokens[2],
                     _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
-                await ApplySettingsAsync(settings, cancellationToken);
+                await ApplySettingsAsync(settings, cancellationToken, SettingsDraftInfo.FromFile(tokens[2]));
                 return;
             }
             default:
-                throw new CliUsageException("Usage: settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes");
+                throw new CliUsageException(SettingsUsage);
         }
     }
 
-    private async Task ApplySettingsAsync(ReaderSettings settings, CancellationToken cancellationToken)
+    private const string SettingsUsage = "Usage: settings get [--tree] | defaults show|export <path> | draft show|defaults|from-reader|generic|wizard|load <path>|load-defaults <path>|save <path>|reset|apply --yes | export <path> | validate <path> | apply <path> --yes";
+
+    private async Task ApplySettingsAsync(ReaderSettings settings, CancellationToken cancellationToken, SettingsDraftInfo? draftInfo = null)
     {
         await _session.Reader!.ApplySettingsAsync(settings, cancellationToken);
         _session.DesiredSettings = settings;
-        _console.MarkupLine("[bold springgreen2]✔ High-level settings applied.[/]");
+        if (draftInfo is not null)
+        {
+            _session.DraftInfo = draftInfo;
+        }
+        _console.MarkupLine("[bold springgreen2]✔ High-level settings deployed in Disabled state. Run 'inventory start' to begin RF inventory.[/]");
+    }
+
+    private void SetDraft(ReaderSettings settings, SettingsDraftInfo draftInfo)
+    {
+        _session.DesiredSettings = settings;
+        _session.DraftInfo = draftInfo;
     }
 
     private void RunDraftInventoryWizard()
@@ -760,6 +827,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         if (!includeInventory)
         {
             _session.DesiredSettings = _session.DesiredSettings with { Inventory = null };
+            _session.DraftInfo = _session.DraftInfo.MarkLocallyModified();
             _console.MarkupLine("[bold springgreen2]✔ Draft now contains configuration only.[/]");
             return;
         }
@@ -816,40 +884,85 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 AttachedData = attached
             }
         };
+        _session.DraftInfo = _session.DraftInfo.MarkLocallyModified();
         _console.MarkupLine("[bold springgreen2]✔ Inventory fields updated in the local draft.[/] Filters, triggers, report fields, configuration, and vendor extensions were preserved.");
     }
 
-    private void RenderSettingsTree(string title, ReaderSettings settings)
+    private void RenderDefaultsTree(ReaderSettingsDefaults defaults)
+    {
+        RenderSettingsTree($"SDK defaults: {defaults.ProfileId}", defaults.Settings, draftInfo: SettingsDraftInfo.FromDefaults(defaults));
+    }
+
+    /// <summary>
+    /// Renders the exact strongly typed settings JSON as a static Tree. The Tree is a human view of the
+    /// same document emitted by <c>settings get</c>, rather than a lossy summary of selected fields.
+    /// </summary>
+    private void RenderSettingsTree(string title, ReaderSettings settings, string? inventoryState = null, SettingsDraftInfo? draftInfo = null)
     {
         var tree = new Tree($"[bold deepskyblue1]{Markup.Escape(title)}[/]");
-        TreeNode configuration = tree.AddNode("[yellow]Configuration[/]");
-        configuration.AddNode($"Keepalive: {Markup.Escape(settings.Configuration.Keepalive.TriggerType.ToString())}, interval {settings.Configuration.Keepalive.IntervalMs} ms");
-        configuration.AddNode($"Antennas: {settings.Configuration.Antennas.Count}; GPOs: {settings.Configuration.Gpos.Count}; GPIs: {settings.Configuration.Gpis.Count}");
-        configuration.AddNode($"Extensions: {Markup.Escape(FormatExtensionKeys(settings.Configuration.Extensions))}");
-
-        TreeNode inventory = tree.AddNode("[yellow]Inventory[/]");
-        if (settings.Inventory is null)
+        if (draftInfo is not null)
         {
-            inventory.AddNode("[dim]Not configured[/]");
+            TreeNode origin = tree.AddNode("[yellow]Draft origin[/]");
+            origin.AddNode($"Source: {Markup.Escape(draftInfo.Source)}");
+            if (draftInfo.ProfileId is not null)
+            {
+                origin.AddNode($"Profile: {Markup.Escape(draftInfo.ProfileId)}");
+            }
+            if (draftInfo.FilePath is not null)
+            {
+                origin.AddNode($"File: {Markup.Escape(draftInfo.FilePath)}");
+            }
+            origin.AddNode($"Locally modified: {(draftInfo.IsLocallyModified ? "yes" : "no")}");
+            foreach (string note in draftInfo.Notes ?? [])
+            {
+                origin.AddNode($"[dim]{Markup.Escape(note)}[/]");
+            }
         }
-        else
+        string json = ReaderSettingsSerializer.SerializeToJson(settings,
+            _session.Reader?.Extensions.OfType<IReaderSettingsSerializationContributor>());
+        System.Text.Json.Nodes.JsonObject document = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+        TreeNode documentNode = tree.AddNode(new Text("settings document", new Style(foreground: Color.Yellow)));
+        foreach ((string key, System.Text.Json.Nodes.JsonNode? value) in document)
         {
-            InventorySettings value = settings.Inventory;
-            inventory.AddNode($"Antennas: {Markup.Escape(FormatAntennaIds(value.AntennaIds))}");
-            inventory.AddNode($"Session: {value.Session}; population: {value.TagPopulationEstimate}; ModeIndex: {value.ModeIndex}; Tari: {value.Tari}");
-            inventory.AddNode($"Filters: {value.Filters.Count}; report trigger: {Markup.Escape(value.Report.Trigger.ToString())}");
-            inventory.AddNode(value.AttachedData.Enabled
-                ? $"AttachedData: bank {value.AttachedData.MemoryBank}, pointer {value.AttachedData.WordPointer}, words {value.AttachedData.WordCount}"
-                : "AttachedData: disabled");
-            inventory.AddNode($"Extensions: {Markup.Escape(FormatExtensionKeys(value.Extensions))}");
+            AddJsonNode(documentNode, key, value);
         }
-
-        tree.AddNode($"[yellow]Reader extensions:[/] {Markup.Escape(FormatExtensionKeys(settings.Extensions))}");
+        if (inventoryState is not null)
+        {
+            tree.AddNode(new Text($"inventoryState: {inventoryState}", new Style(foreground: Color.Yellow)));
+        }
         _console.Write(tree);
     }
 
-    private static string FormatExtensionKeys(IReadOnlyDictionary<string, object?> extensions)
-        => extensions.Count == 0 ? "none" : string.Join(", ", extensions.Keys.OrderBy(static key => key, StringComparer.Ordinal));
+    private static void AddJsonNode(TreeNode parent, string name, System.Text.Json.Nodes.JsonNode? value)
+    {
+        if (value is System.Text.Json.Nodes.JsonObject objectValue)
+        {
+            TreeNode node = parent.AddNode(new Text(name, new Style(foreground: Color.Yellow)));
+            if (objectValue.Count == 0)
+            {
+                node.AddNode(new Text("{}", new Style(foreground: Color.Grey)));
+                return;
+            }
+            foreach ((string childName, System.Text.Json.Nodes.JsonNode? childValue) in objectValue)
+            {
+                AddJsonNode(node, childName, childValue);
+            }
+            return;
+        }
+
+        if (value is System.Text.Json.Nodes.JsonArray arrayValue)
+        {
+            TreeNode node = parent.AddNode(new Text($"{name} [{arrayValue.Count}]", new Style(foreground: Color.Yellow)));
+            for (int index = 0; index < arrayValue.Count; index++)
+            {
+                AddJsonNode(node, $"[{index}]", arrayValue[index]);
+            }
+            return;
+        }
+
+        string scalar = value?.ToJsonString() ?? "null";
+        parent.AddNode(new Text($"{name}: {scalar}"));
+    }
 
     private static string FormatAntennaIds(IReadOnlyList<ushort> antennaIds)
         => antennaIds.Count == 1 && antennaIds[0] == 0 ? "all" : string.Join(',', antennaIds);

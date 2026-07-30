@@ -14,46 +14,28 @@ internal static class Llrp101InventoryCompiler
         InventorySettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         bool supportsStateAwareSingulation = false) =>
-        Compile(settings, roReportSpecCustomItems, [], supportsStateAwareSingulation);
+        Compile(settings, LlrpReader.ManagedInventoryRoSpecId, roReportSpecCustomItems, [], supportsStateAwareSingulation);
 
     public static ROSpec Compile(
         InventorySettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         IReadOnlyList<ILlrpParameter> c1G2InventoryCommandCustomItems,
         bool supportsStateAwareSingulation = false) =>
-        CompileWithDefaults(settings, LlrpReader.ManagedInventoryRoSpecId, roReportSpecCustomItems, c1G2InventoryCommandCustomItems, supportsStateAwareSingulation, compilationDefaults: null);
+        Compile(settings, LlrpReader.ManagedInventoryRoSpecId, roReportSpecCustomItems, c1G2InventoryCommandCustomItems, supportsStateAwareSingulation);
 
-    public static ROSpec CompileWithDefaults(
-        InventorySettings settings,
-        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
-        bool supportsStateAwareSingulation,
-        InventoryCompilationDefaults? compilationDefaults) =>
-        CompileWithDefaults(settings, roReportSpecCustomItems, [], supportsStateAwareSingulation, compilationDefaults);
-
-    public static ROSpec CompileWithDefaults(
-        InventorySettings settings,
-        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
-        IReadOnlyList<ILlrpParameter> c1G2InventoryCommandCustomItems,
-        bool supportsStateAwareSingulation,
-        InventoryCompilationDefaults? compilationDefaults) =>
-        CompileWithDefaults(settings, LlrpReader.ManagedInventoryRoSpecId, roReportSpecCustomItems, c1G2InventoryCommandCustomItems, supportsStateAwareSingulation, compilationDefaults);
-
-    public static ROSpec CompileWithDefaults(
+    public static ROSpec Compile(
         InventorySettings settings,
         uint roSpecId,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         IReadOnlyList<ILlrpParameter> c1G2InventoryCommandCustomItems,
-        bool supportsStateAwareSingulation,
-        InventoryCompilationDefaults? compilationDefaults)
+        bool supportsStateAwareSingulation)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(roReportSpecCustomItems);
         ArgumentNullException.ThrowIfNull(c1G2InventoryCommandCustomItems);
         Validate(settings, roSpecId);
 
-        ushort[] antennaIds = compilationDefaults is not null && settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0
-            ? compilationDefaults.AntennaIds.ToArray()
-            : settings.AntennaIds.ToArray();
+        ushort[] antennaIds = settings.AntennaIds.ToArray();
         ROSpecStartTrigger startTrigger = CompileStartTrigger(settings.StartTrigger);
         ROSpecStopTrigger stopTrigger = CompileStopTrigger(settings.StopTrigger);
         var boundary = new ROBoundarySpec(startTrigger, stopTrigger);
@@ -61,34 +43,33 @@ internal static class Llrp101InventoryCompiler
         C1G2TagInventoryStateAwareSingulationAction? stateAwareAction = CompileStateAwareAction(
             settings.StateAwareSingulation,
             supportsStateAwareSingulation);
-        bool useExplicitCompatibilityDefaults = compilationDefaults is not null;
-        C1G2SingulationControl? singulationControl = (useExplicitCompatibilityDefaults || settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
+        C1G2SingulationControl? singulationControl = (settings.AntennaConfigurations.Count != 0 || settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
             ? new C1G2SingulationControl(settings.Session, settings.TagPopulationEstimate, 0, stateAwareAction)
             : null;
-        C1G2RFControl? rfControl = (useExplicitCompatibilityDefaults || settings.ModeIndex != 0 || settings.Tari != 0)
+        C1G2RFControl? rfControl = (settings.AntennaConfigurations.Count != 0 || settings.ModeIndex != 0 || settings.Tari != 0)
             ? new C1G2RFControl(settings.ModeIndex, settings.Tari)
             : null;
 
-        AntennaConfiguration[] antennaConfigs = Array.Empty<AntennaConfiguration>();
-        if (singulationControl is not null || rfControl is not null || settings.Filters.Count != 0 || c1G2InventoryCommandCustomItems.Count != 0)
+        bool needsInventoryCommand = settings.AntennaConfigurations.Count != 0 || singulationControl is not null || rfControl is not null || settings.Filters.Count != 0 || c1G2InventoryCommandCustomItems.Count != 0;
+        C1G2InventoryCommand? invCmd = null;
+        if (needsInventoryCommand)
         {
-            var invCmd = new C1G2InventoryCommand(
+            invCmd = new C1G2InventoryCommand(
                 TagInventoryStateAware: stateAwareAction is not null,
                 C1G2FilterItems: CompileFilters(settings.Filters),
                 C1G2RFControl: rfControl,
                 C1G2SingulationControl: singulationControl,
                 CustomItems: c1G2InventoryCommandCustomItems);
-            antennaConfigs = compilationDefaults is null
-                ? [new AntennaConfiguration(0, null, null, [invCmd])]
-                : antennaIds.Select(antennaId => new AntennaConfiguration(
-                    antennaId,
-                    new RFReceiver(compilationDefaults.ReceiverSensitivityIndex),
-                    new RFTransmitter(
-                        compilationDefaults.HopTableId,
-                        compilationDefaults.ChannelIndex,
-                        compilationDefaults.TransmitPowerIndex),
-                    [invCmd])).ToArray();
         }
+        AntennaConfiguration[] antennaConfigs = settings.AntennaConfigurations.Count == 0
+            ? invCmd is null ? [] : [new AntennaConfiguration(0, null, null, [invCmd])]
+            : settings.AntennaConfigurations.Select(configuration => new AntennaConfiguration(
+                configuration.AntennaId,
+                configuration.ReceiverSensitivityIndex is ushort sensitivity ? new RFReceiver(sensitivity) : null,
+                configuration.TransmitPowerIndex is ushort transmitPower
+                    ? new RFTransmitter(configuration.HopTableId!.Value, configuration.ChannelIndex!.Value, transmitPower)
+                    : null,
+                invCmd is null ? [] : [invCmd])).ToArray();
 
         var aiSpec = new AISpec(
             antennaIds,
@@ -171,6 +152,25 @@ internal static class Llrp101InventoryCompiler
             throw new ArgumentException(
                 "Antenna identifier 0 selects all antennas and cannot be combined with explicit antenna identifiers.",
                 nameof(settings));
+        }
+
+        ushort[] configuredAntennaIds = settings.AntennaConfigurations.Select(static configuration => configuration.AntennaId).ToArray();
+        if (configuredAntennaIds.Distinct().Count() != configuredAntennaIds.Length ||
+            (configuredAntennaIds.Contains((ushort)0) && configuredAntennaIds.Length != 1))
+        {
+            throw new ArgumentException("Inventory antenna configurations must have unique identifiers; antenna 0 cannot be combined with explicit identifiers.", nameof(settings));
+        }
+        foreach (InventoryAntennaConfiguration configuration in settings.AntennaConfigurations)
+        {
+            bool hasAnyTransmitterValue = configuration.TransmitPowerIndex.HasValue || configuration.HopTableId.HasValue || configuration.ChannelIndex.HasValue;
+            if (hasAnyTransmitterValue && (!configuration.TransmitPowerIndex.HasValue || !configuration.HopTableId.HasValue || !configuration.ChannelIndex.HasValue))
+            {
+                throw new ArgumentException("An inventory RF transmitter requires transmit power, hop table, and channel index together.", nameof(settings));
+            }
+            if (configuration.AntennaId != 0 && !settings.AntennaIds.Contains((ushort)0) && !settings.AntennaIds.Contains(configuration.AntennaId))
+            {
+                throw new ArgumentException("Each inventory antenna configuration must target an antenna selected for inventory.", nameof(settings));
+            }
         }
 
         if (settings.Session > 3)

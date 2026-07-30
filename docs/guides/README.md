@@ -12,4 +12,4 @@
 
 2. **[CLI 工具链与 Studio 使用指南 (cli-user-guide.md)](cli-user-guide.md)**
    - **面向读者**：RFID 现场工程师、测试人员、集成调试人员。
-   - **核心内容**：交互式 Studio 终端 (Live Shell)、全量命令行语法（`connect`, `inventory`, `config`, `tag`, `monitor`, `rospec`, `raw` 等）、智能补全与格式化离线解码工具。
+   - **核心内容**：交互式 Studio 终端 (Live Shell)、全量命令行语法（`connect`, `settings`, `inventory`, `tag`, `monitor`, `rospec`, `raw` 等）、智能补全与格式化离线解码工具。

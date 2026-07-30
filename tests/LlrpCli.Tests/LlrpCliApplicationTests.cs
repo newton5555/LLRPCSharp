@@ -35,8 +35,9 @@ public sealed class LlrpCliApplicationTests
         CommandSpec config = CommandCatalog.Require("settings");
         InputAssist assist = CommandCatalog.Assist("settings ", cursor: 9, isConnected: true);
 
-        Assert.Equal("settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", config.Usage);
+        Assert.Equal("settings get [--tree] | defaults show|export <path> | draft show|defaults|from-reader|generic|wizard|load|load-defaults|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", config.Usage);
         Assert.Contains("get", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("defaults", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("draft", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("wizard", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("export", assist.Candidates, StringComparer.Ordinal);
@@ -124,6 +125,16 @@ public sealed class LlrpCliApplicationTests
         InputAssist assist = CommandCatalog.Assist("settings apply ", cursor: 15, isConnected: true);
 
         Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void LiveSessionContext_TracksGenericDraftAsAnExplicitSource()
+    {
+        var session = new LiveSessionContext();
+
+        Assert.Equal("SDK generic baseline", session.DraftInfo.Source);
+        Assert.Equal("llrp.generic", session.DraftInfo.ProfileId);
+        Assert.NotNull(session.DesiredSettings.Inventory);
     }
 
     [Fact]

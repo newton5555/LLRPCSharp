@@ -21,6 +21,10 @@ public static class ReaderSettingsSerializer
     {
         JsonObject document = JsonNode.Parse(json)?.AsObject()
             ?? throw new JsonException("Settings document must be a JSON object.");
+        if (string.Equals(document["documentType"]?.GetValue<string>(), "readerSettingsDefaults", StringComparison.Ordinal))
+        {
+            throw new JsonException("Settings defaults documents must be loaded into a draft before they can be applied as ReaderSettings.");
+        }
         if (document["schemaVersion"]?.GetValue<int>() != 1)
         {
             throw new JsonException("Settings document must declare schemaVersion 1.");
@@ -43,10 +47,68 @@ public static class ReaderSettingsSerializer
         return document.ToJsonString(Options);
     }
 
+    /// <summary>Serializes a profile-generated settings baseline together with its profile provenance.</summary>
+    public static string SerializeDefaultsToJson(
+        ReaderSettingsDefaults defaults,
+        IEnumerable<IReaderSettingsSerializationContributor>? contributors = null)
+    {
+        ArgumentNullException.ThrowIfNull(defaults);
+        JsonObject document = new()
+        {
+            ["schemaVersion"] = 1,
+            ["documentType"] = "readerSettingsDefaults",
+            ["profileId"] = defaults.ProfileId,
+            ["source"] = defaults.Source.ToString(),
+            ["notes"] = JsonSerializer.SerializeToNode(defaults.Notes, Options),
+            ["settings"] = SerializeSettings(defaults.Settings, contributors ?? [])
+        };
+        return document.ToJsonString(Options);
+    }
+
+    /// <summary>Deserializes a profile-generated settings baseline and its profile provenance.</summary>
+    public static ReaderSettingsDefaults DeserializeDefaultsFromJson(
+        string json,
+        IEnumerable<IReaderSettingsSerializationContributor>? contributors = null)
+    {
+        JsonObject document = JsonNode.Parse(json)?.AsObject()
+            ?? throw new JsonException("Settings defaults document must be a JSON object.");
+        if (document["schemaVersion"]?.GetValue<int>() != 1 ||
+            !string.Equals(document["documentType"]?.GetValue<string>(), "readerSettingsDefaults", StringComparison.Ordinal))
+        {
+            throw new JsonException("Settings defaults document must declare schemaVersion 1 and documentType readerSettingsDefaults.");
+        }
+        string profileId = document["profileId"]?.GetValue<string>()
+            ?? throw new JsonException("Settings defaults document must declare profileId.");
+        string sourceText = document["source"]?.GetValue<string>()
+            ?? throw new JsonException("Settings defaults document must declare source.");
+        if (!Enum.TryParse(sourceText, ignoreCase: true, out ReaderSettingsDefaultSource source))
+        {
+            throw new JsonException($"Unknown settings defaults source '{sourceText}'.");
+        }
+        IReadOnlyList<string> notes = document["notes"]?.Deserialize<string[]>(Options) ?? [];
+        JsonObject settings = document["settings"]?.AsObject()
+            ?? throw new JsonException("Settings defaults document must contain an object named settings.");
+        return new ReaderSettingsDefaults
+        {
+            ProfileId = profileId,
+            Source = source,
+            Notes = notes,
+            Settings = DeserializeSettings(settings, contributors ?? [])
+        };
+    }
+
     public static ReaderSettings LoadFromFile(string path, IEnumerable<IReaderSettingsSerializationContributor>? contributors = null)
         => DeserializeFromJson(File.ReadAllText(path), contributors);
     public static void SaveToFile(string path, ReaderSettings settings, IEnumerable<IReaderSettingsSerializationContributor>? contributors = null)
         => File.WriteAllText(path, SerializeToJson(settings, contributors));
+
+    /// <summary>Loads a profile-generated defaults document, retaining its provenance.</summary>
+    public static ReaderSettingsDefaults LoadDefaultsFromFile(string path, IEnumerable<IReaderSettingsSerializationContributor>? contributors = null)
+        => DeserializeDefaultsFromJson(File.ReadAllText(path), contributors);
+
+    /// <summary>Saves a profile-generated defaults document, including profile provenance.</summary>
+    public static void SaveDefaultsToFile(string path, ReaderSettingsDefaults defaults, IEnumerable<IReaderSettingsSerializationContributor>? contributors = null)
+        => File.WriteAllText(path, SerializeDefaultsToJson(defaults, contributors));
 
     private static JsonObject SerializeSettings(
         ReaderSettings settings,

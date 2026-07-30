@@ -126,8 +126,9 @@ inventory status            # 查看盘点运行状态（OperationState + 当前
 
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
-| `settings get` | `settings get` | 查询高层 `ReaderSettings` 与已识别托管盘点状态。 |
-| `settings draft` | `settings draft show|wizard|load <path>|save <path>|reset|apply --yes` | 管理 CLI 本地的完整 `ReaderSettings` 草稿。`show` 以静态 Tree 显示层级，`wizard` 用交互式 Prompts 编辑常用 Inventory 字段。 |
+| `settings get` | `settings get [--tree]` | 查询读写器当前事实与已识别托管盘点状态；默认输出 JSON，`--tree` 将同一份完整强类型 JSON（含数组与厂商扩展）递归显示为静态 Tree；不改变草稿。 |
+| `settings defaults` | `settings defaults show|export <path>` | 显示或导出 SDK 为当前型号、固件和能力解析的推荐 Profile；不写设备。 |
+| `settings draft` | `settings draft show|defaults|from-reader|generic|wizard|load <path>|load-defaults <path>|save <path>|reset|apply --yes` | 管理 CLI 本地的完整 `ReaderSettings` 草稿。`show` 以静态 Tree 显示层级和来源，`wizard` 用交互式 Prompts 编辑常用 Inventory 字段。 |
 | `settings export` | `settings export <path>` | 导出高层设置及已激活厂商扩展的强类型、版本化 JSON。 |
 | `settings validate` | `settings validate <path>` | 校验高层设置及已激活厂商扩展的 JSON。 |
 | `settings apply` | `settings apply <path> --yes` | 显式应用高层设置；含 Inventory 时接管资源。 |
@@ -135,16 +136,29 @@ inventory status            # 查看盘点运行状态（OperationState + 当前
 **示例**：
 
 ```
-settings get
-settings draft load warehouse.json
+# 新设备：以当前型号/能力匹配的推荐 Profile 建立草稿
+settings draft defaults
+settings draft show
 settings draft wizard
 settings draft save warehouse-draft.json
 settings validate warehouse-draft.json
-settings apply warehouse-draft.json --yes
-settings export reader-facts.json
+settings draft apply --yes
+inventory start
 ```
 
-如果已经用 `settings draft wizard` 或 `settings draft load` 准备好草稿，不必先保存文件，也可以明确确认后直接部署：
+草稿必须由一个明确来源初始化；来源只影响 CLI 的说明和审计，不会作为协议数据写到 Reader：
+
+| 起点 | 命令 | 适用情况 |
+|---|---|---|
+| 当前 Reader Profile | `settings draft defaults` | 新设备或希望采用 SDK 的厂商/能力推荐值。Seuic 等扩展会解析实际天线与 RF 索引。 |
+| 设备当前事实 | `settings draft from-reader` | 生产设备做最小修改，先读取后调整。 |
+| 通用 LLRP 基线 | `settings draft generic` | 准备可移植模板，或没有可用厂商 Profile。 |
+| JSON 文档 | `settings draft load <path>` | 使用已有的普通 `ReaderSettings` 文档。 |
+| 导出的 Profile 文档 | `settings draft load-defaults <path>` | 恢复 `settings defaults export` 产生的 Settings 与 Profile 来源。 |
+
+`settings draft reset` 为兼容命令，等价于 `settings draft generic`，不再表示当前 Reader 的推荐默认值。
+
+如果已经用 `settings draft defaults`、`settings draft from-reader`、向导或加载文件准备好草稿，不必先保存文件，也可以明确确认后直接部署：
 
 ```text
 settings draft apply --yes
@@ -152,9 +166,9 @@ settings draft apply --yes
 
 向导只编辑 Inventory 的天线、Session、标签数量估计、ModeIndex、Tari 与 AttachedData。Filters、触发器、报告字段、`Configuration` 和厂商扩展会保持原样；这些高级字段仍应在 JSON 文件中编辑、校验后应用。
 
-标准字段始终可序列化。厂商字段必须由已激活扩展的 `IReaderSettingsSerializationContributor` 提供强类型、版本化映射；未知扩展字段会明确失败，绝不静默丢失。启用 `.UseImpinj()` 的 Live CLI 已支持 `impinj.configuration`、只读的 `impinj.facts` 和 `impinj.inventoryReport`。其中 facts 仅用于记录/核对，不是可写配置。
+普通 Settings 文件与 Defaults Profile 文件是不同文档：`settings apply <path> --yes` 只接受普通 Settings 文件；Defaults 文件必须先通过 `settings draft load-defaults <path>` 进入草稿后才能应用。标准字段始终可序列化。厂商字段必须由已激活扩展的 `IReaderSettingsSerializationContributor` 提供强类型、版本化映射；未知扩展字段会明确失败，绝不静默丢失。启用 `.UseImpinj()` 的 Live CLI 已支持 `impinj.configuration`、只读的 `impinj.facts` 和 `impinj.inventoryReport`。其中 facts 仅用于记录/核对，不是可写配置。
 
-`settings apply` 的资源影响取决于文件内容：`Inventory == null` 时只写入配置；包含 `Inventory` 时才会清除全部 AO/RO 并重建 SDK 托管盘点。因此该命令始终要求 `--yes`。
+`settings apply` / `settings draft apply` 的资源影响取决于内容：`Inventory == null` 时只写入配置；包含 `Inventory` 时才会清除全部 AO/RO 并重建 SDK 托管盘点，但资源保持 Disabled。因此该命令始终要求 `--yes`；只有随后执行 `inventory start` 才会开始 RF 盘点。
 
 ---
 

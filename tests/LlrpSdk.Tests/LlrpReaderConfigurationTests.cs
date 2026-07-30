@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 using LlrpNet.Core.Protocol;
@@ -11,6 +12,7 @@ using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpSdk.Tests.Support;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using LlrpSdk.Extensions.Seuic;
 
 namespace LlrpSdk.Tests;
 
@@ -227,6 +229,70 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
+    public void ReaderSettingsDefaults_SerializesProfileProvenanceAndSettings()
+    {
+        var defaults = new ReaderSettingsDefaults
+        {
+            ProfileId = "llrp.generic",
+            Source = ReaderSettingsDefaultSource.Generic,
+            Notes = ["Portable baseline."],
+            Settings = new ReaderSettings { Inventory = new InventorySettings { AntennaIds = [1] } }
+        };
+
+        string json = ReaderSettingsSerializer.SerializeDefaultsToJson(defaults);
+        ReaderSettingsDefaults restored = ReaderSettingsSerializer.DeserializeDefaultsFromJson(json);
+
+        Assert.Contains("readerSettingsDefaults", json, StringComparison.Ordinal);
+        Assert.Equal(defaults.ProfileId, restored.ProfileId);
+        Assert.Equal(defaults.Source, restored.Source);
+        Assert.Equal(defaults.Notes, restored.Notes);
+        Assert.Equal([(ushort)1], restored.Settings.Inventory!.AntennaIds);
+    }
+
+    [Fact]
+    public void ReaderSettingsSerializer_DoesNotTreatDefaultsDocumentAsApplicableSettings()
+    {
+        string json = ReaderSettingsSerializer.SerializeDefaultsToJson(ReaderSettingsDefaults.CreateGeneric());
+
+        JsonException exception = Assert.Throws<JsonException>(() => ReaderSettingsSerializer.DeserializeFromJson(json));
+
+        Assert.Contains("loaded into a draft", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SeuicDefaults_ExposeAndRoundTripCapabilityResolvedStandardInventorySettings()
+    {
+        var capabilities = new ReaderCapabilities(
+            maxNumberOfAntennas: 4,
+            canSetAntennaProperties: true,
+            hasUtcClockCapability: false,
+            generalDeviceParameters: [],
+            rawResponse: new ENABLE_EVENTS_AND_REPORTS(1),
+            additionalParameters: [],
+            txPowers: [new TxPowerEntry(2, 2500), new TxPowerEntry(8, 3000)],
+            rxSensitivities: [new RxSensitivityEntry(1, -7000)]);
+        var context = new ReaderSettingsDefaultContext(
+            new ReaderIdentity(SeuicReaderExtension.ManufacturerId, SeuicReaderExtension.Uf40ModelId, "1.0"),
+            capabilities,
+            LlrpProtocolVersion.Version101);
+
+        ReaderSettingsDefaults defaults = Assert.IsType<ReaderSettingsDefaults>(SeuicReaderExtension.Instance.GetDefaultSettings(context));
+        InventorySettings inventory = defaults.Settings.Inventory!;
+        InventoryAntennaConfiguration profile = Assert.Single(inventory.AntennaConfigurations, configuration => configuration.AntennaId == 1);
+
+        Assert.Equal("seuic.uf40.llrp-1.0.1", defaults.ProfileId);
+        Assert.Equal([(ushort)1, 2, 3, 4], inventory.AntennaIds);
+        Assert.Equal((ushort)8, profile.TransmitPowerIndex);
+        Assert.Equal((ushort)1, profile.ReceiverSensitivityIndex);
+        Assert.Empty(inventory.Extensions);
+
+        string json = ReaderSettingsSerializer.SerializeDefaultsToJson(defaults);
+        ReaderSettingsDefaults restored = ReaderSettingsSerializer.DeserializeDefaultsFromJson(json);
+        InventoryAntennaConfiguration restoredProfile = Assert.Single(restored.Settings.Inventory!.AntennaConfigurations, configuration => configuration.AntennaId == 1);
+        Assert.Equal(profile, restoredProfile);
+    }
+
+    [Fact]
     public void ReaderSettings_DefaultStartTrigger_CompilesToNull()
     {
         ROSpec roSpec = Llrp101InventoryCompiler.Compile(new InventorySettings(), []);
@@ -235,20 +301,20 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
-    public void ReaderSettings_SeuicCompatibilityDefaults_CompileExplicitPerAntennaAiSpec()
+    public void ReaderSettings_ExplicitAntennaConfigurations_CompilePerAntennaAiSpec()
     {
-        var defaults = new InventoryCompilationDefaults(
-            AntennaIds: [1, 2, 3, 4],
-            ReceiverSensitivityIndex: 1,
-            TransmitPowerIndex: 8,
-            HopTableId: 1,
-            ChannelIndex: 1);
+        var settings = new InventorySettings
+        {
+            AntennaIds = [1, 2, 3, 4],
+            AntennaConfigurations = [
+                new() { AntennaId = 1, ReceiverSensitivityIndex = 1, TransmitPowerIndex = 8, HopTableId = 1, ChannelIndex = 1 },
+                new() { AntennaId = 2, ReceiverSensitivityIndex = 1, TransmitPowerIndex = 8, HopTableId = 1, ChannelIndex = 1 },
+                new() { AntennaId = 3, ReceiverSensitivityIndex = 1, TransmitPowerIndex = 8, HopTableId = 1, ChannelIndex = 1 },
+                new() { AntennaId = 4, ReceiverSensitivityIndex = 1, TransmitPowerIndex = 8, HopTableId = 1, ChannelIndex = 1 }
+            ]
+        };
 
-        ROSpec roSpec = Llrp101InventoryCompiler.CompileWithDefaults(
-            new InventorySettings(),
-            [],
-            supportsStateAwareSingulation: false,
-            compilationDefaults: defaults);
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(settings, []);
 
         var aiSpec = Assert.IsType<AISpec>(Assert.Single(roSpec.SpecParameterItems));
         Assert.Equal([1, 2, 3, 4], aiSpec.AntennaIDs);

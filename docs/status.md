@@ -28,6 +28,7 @@
 
 - `LlrpReader.StartAsync(InventorySettings)`、无参 `StartAsync()`、`StartInventoryAsync(...)`、`StopAsync()` 与 `ClearManagedSettingsAsync()`。Stop 停止并保留 SDK ROSpec `14150`（及 AttachedData `14151`），无参 Start 可再次启动；Clear 才释放资源域。`StartInventoryAsync` 返回隔离的 `InventorySession` 报告流；连接级 `ReadTagReportsAsync()` 与 `TagsReported` 保持为全量观察流。
 - `ReaderSettings`、`QuerySettingsAsync()` 与 `ApplySettingsAsync()` 是高层配置与盘点意图的统一入口；Apply 只部署 Inventory 资源并保持 Disabled，`StartAsync()` / `StartInventoryAsync()` 才启动它。Live Shell 使用 `settings get|draft|export|validate|apply`，不再提供 `config` 命令。
+- `GetDefaultSettingsAsync()` 提供第二种高层初始化来源：它不读取或修改读写器资源，而是按已连接 Reader 的 Identity、Firmware、Capabilities 与激活扩展生成 `ReaderSettingsDefaults`（Settings、ProfileId、Source、Notes）。`ReaderSettingsDefaults.CreateGeneric()` 可在离线时生成可移植标准基线；`ReaderSettingsSerializer` 可序列化带 Profile 来源的默认文档。
 - `ReadTagReportsAsync()`、`GetTagReportsAsync()` 与 `TagsReported`，并共用同一份已翻译的 `TagReport`。
 - `InventorySettings` 是版本无关的盘点意图模型，包含 C1G2 参数、标准 ROSpec Start/Stop Trigger 与 `AttachedDataOptions`；启用 AttachedData 时，`StartAsync` 创建并启用关联的标准 C1G2 Read AccessSpec，`StopAsync` 停用但保留它，`ClearManagedSettingsAsync()` 才清理它。临时 Tag Access 会暂停后恢复 AttachedData；在已停止的高层配置上执行 Tag Access 会复用 `14150`，结束后返回 `HighLevelConfigured`。
 - `ReaderMetadata` 新增物理参数表（`TxPowers`、`RxSensitivities`、`TxFrequencies`、`HopTables`、`RfModes`）与门控能力标志位（`IsTagAccessAvailable`、`IsMultiwordBlockWriteAvailable`、`IsMultiwordBlockEraseAvailable`、`CanDoTagInventoryStateAwareSingulation`）。
@@ -81,6 +82,7 @@
 
 - `ITagReportContributor` 会在标准协议翻译后投影厂商 Custom Parameter 到 `TagReport.Extensions`；Impinj 扩展当前识别 Serialized TID、RF Phase Angle 和 Peak RSSI（前提是读写器报告中包含这些字段）。
 - `IReaderSettingsContributor` 可以把 `GET_READER_CONFIG_RESPONSE` 的 Custom Parameter 投影到 `ReaderConfiguration.Extensions`，并在 Apply 时生成 `SET_READER_CONFIG` 的 Custom Parameter；`IInventorySettingsContributor` 负责把保留 ROSpec 的厂商报告参数反向恢复为高层扩展值。
+- `IReaderSettingsDefaultsContributor` 为已识别 Reader 生成可编辑的默认 Settings。Seuic UF40 根据能力表把实际天线和 Rx/Tx/Hop/Channel 直接写入标准 `InventorySettings.AntennaConfigurations`；编译器只读取核心标准模型，不再依赖隐藏的厂商 inventory profile extension。
 - `UseImpinj()` 会在配置查询中请求 `ImpinjRequestedData(All_Configuration)`，并将可写的 `ImpinjReaderConfiguration` 投影为 `ReaderConfiguration.Extensions["impinj.configuration"]`，将区域/温度投影为只读 `impinj.facts`。目前可编译 Search Mode、频率、低占空比、GPI 防抖、Link Monitor、Report Buffer、AccessSpec 与 Advanced GPO 参数；2026-07-30 已在 R420 6.4.1.240 对当前 GPI debounce、Link Monitor、Report Buffer 与 AccessSpec 配置完成同值 `ApplySettingsAsync()` / `QuerySettingsAsync()` 回读验收。
 - `IInventoryContributor` 现在可读取初始化后的身份、能力和协商版本。Impinj 已接入 `ImpinjInventoryReportOptions`（`InventorySettings.Extensions["impinj.inventoryReport"]`）及默认拒绝的能力目录；R420 Model `2001002` Firmware `6.4.1.x` 的 ItemTest 抓包已验证 `ImpinjTagReportContentSelector` 位于 `ROReportSpec` 时可被接受，SDK 编译器已修正为相同挂载位置。
 - 2026-07-27：R420 直接 SDK 盘点同时启用 `IncludeSerializedTid`、`IncludeRfPhaseAngle`、`IncludePeakRssi` 成功，收到 EPC `E28011710000020D056E9BEE` 的扩展字段 `impinj.serializedTid = E2801171200003EEADD309A0`、`impinj.rfPhaseAngle = 1276`、`impinj.peakRssi = -6700`；临时 SDK ROSpec 已在停止后确认清理。
@@ -110,7 +112,7 @@ Virtual Reader 已能生成可配置 EPC 的基础 TagReport，对 EPC bit mask 
 本轮（2026-07-28）完成的主要工作：
 
 - **CLI/SDK 边界**：SDK 将已应用的高层 Inventory 意图持久化为 Reader 上可查询的保留资源；Live Shell 作为第一个 SDK 应用，仍在 `DesiredSettings: ReaderSettings` 中保存尚未 Apply 的完整本地草稿，但草稿只由 `settings draft show|load|save|reset` 管理。`inventory start|stop|status` 只控制或显示 Reader 已部署的 Inventory，不接受草稿或一次性参数覆盖；`session inventory <settings-file>` 是自动 Stop/清场的临时示例工作负载。`CurrentInventorySettings` 是 Reader 托管配置，不是草稿。
-- **CLI 交互编辑（2026-07-30）**：`settings draft apply --yes` 可将内存草稿直接部署；`settings draft show` 以 Spectre.Console Tree 呈现层级，`settings draft wizard` 以 Prompts 编辑常用 Inventory 字段并保留 Filters、触发器、报告、配置和厂商扩展。高级字段仍使用 JSON `validate` / `apply` 工作流。
+- **CLI 草稿优先配置（2026-07-30）**：`settings draft defaults` 用已连接 Reader 的 SDK Profile 初始化草稿，`from-reader` 用设备实况初始化，`generic` 用可移植标准基线初始化；三者只更新 CLI 本地状态。`settings defaults show|export` 用于检查或保存带来源的 Profile 文档，`load-defaults` 将该文档恢复为草稿。`settings draft apply --yes` 可将内存草稿直接部署；`show` 以 Spectre.Console Tree 呈现层级和来源，`wizard` 以 Prompts 编辑常用 Inventory 字段并保留 Filters、触发器、报告、配置和厂商扩展。高级字段仍使用 JSON `validate` / `apply` 工作流。
 - **受控配置写入修正（2026-07-30）**：高层 `ApplySettingsAsync` 内部的 `SET_READER_CONFIG` 不再按外部 Raw Protocol 调用使自身事务进入 `StateUnknown`；因此配置写入后可继续创建 SDK 保留 ROSpec。通过 `reader.Protocol` 直接发送配置报文的失效与 `sync` 要求保持不变。
 - **CLI `tag` 全量对齐**：`tag lock`、`tag kill`、`tag erase` 已补全；`TagAccessRenderer` 错误字段修正为 `Error`。
 - **`InventorySettingsSerializer`**：提供 JSON 序列化、反序列化、加载和保存帮助类，供盘点草稿使用；厂商 Extension 的强类型 Profile 序列化仍待扩展自身实现。

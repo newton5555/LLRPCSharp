@@ -420,6 +420,30 @@ public sealed class LlrpReaderInitializationTests
     }
 
     [Fact]
+    public async Task GetDefaultSettings_UsesTheActiveReaderProfileAndDoesNotQueryResources()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        var extension = new DefaultSettingsExtension();
+        await using LlrpReader reader = LlrpReader.CreateBuilder("scripted.local")
+            .WithTransportFactory(_ => transport)
+            .UseReaderExtension(extension)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync(timeout.Token);
+
+        Assert.Equal("test.defaults", defaults.ProfileId);
+        Assert.Equal(ReaderSettingsDefaultSource.ReaderProfile, defaults.Source);
+        Assert.Equal([(ushort)2], defaults.Settings.Inventory!.AntennaIds);
+        Assert.Equal(0, transport.SentFrames.Count(frame =>
+        {
+            ushort messageType = LlrpMessageHeader.Decode(frame).MessageType;
+            return messageType is GET_READER_CONFIG.MessageType or GET_ROSPECS.MessageType or GET_ACCESSSPECS.MessageType;
+        }));
+    }
+
+    [Fact]
     public void InventoryCompilers_PlaceContributedCustomItemsOnRoReportSpec()
     {
         var customItem = new RawCustomParameter(
@@ -527,6 +551,24 @@ public sealed class LlrpReaderInitializationTests
         {
             Context = context;
         }
+    }
+
+    private sealed class DefaultSettingsExtension :
+        LlrpSdk.Extensions.IReaderExtension,
+        IReaderSettingsDefaultsContributor
+    {
+        public string Id => "test-default-settings";
+        public string? MutualExclusionGroup => null;
+
+        public bool Matches(LlrpSdk.Extensions.ReaderExtensionMatchContext context) =>
+            context.ManufacturerId == LlrpTestFrames.DefaultManufacturerId;
+
+        public ReaderSettingsDefaults? GetDefaultSettings(ReaderSettingsDefaultContext context) => new()
+        {
+            ProfileId = "test.defaults",
+            Source = ReaderSettingsDefaultSource.ReaderProfile,
+            Settings = new ReaderSettings { Inventory = new InventorySettings { AntennaIds = [2] } }
+        };
     }
 
     private static LlrpReader CreateReader(

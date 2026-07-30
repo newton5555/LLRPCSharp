@@ -26,8 +26,7 @@ internal interface ILlrpProtocolAdapter
         InventorySettings settings,
         uint roSpecId,
         InventoryCustomItems customItems,
-        bool supportsStateAwareSingulation,
-        InventoryCompilationDefaults? compilationDefaults);
+        bool supportsStateAwareSingulation);
 
     public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false);
 

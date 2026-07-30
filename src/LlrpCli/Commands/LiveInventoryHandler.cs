@@ -36,7 +36,7 @@ internal sealed class LiveInventoryHandler(
                 }
                 if (reader.CurrentInventorySettings is null)
                 {
-                    throw new CliUsageException("The reader has no deployed Inventory. Use 'settings apply <file> --yes' first.");
+                    throw new CliUsageException("The reader has no deployed Inventory. Run 'settings draft defaults', optionally 'settings draft wizard', then 'settings draft apply --yes'.");
                 }
 
                 LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
@@ -214,7 +214,7 @@ internal sealed class LiveInventoryHandler(
         }
         else
         {
-            console.MarkupLine("  [yellow]No deployed high-level Inventory. Use 'settings apply <file> --yes' first.[/]");
+            console.MarkupLine("  [yellow]No deployed high-level Inventory. Run 'settings draft defaults', optionally 'settings draft wizard', then 'settings draft apply --yes'.[/]");
         }
     }
 

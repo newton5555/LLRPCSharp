@@ -14,6 +14,22 @@
 
 ## 高层设置
 
+高层 Settings 有两种明确的初始化来源，不应混用：
+
+```csharp
+// 设备实况：读取设备当前配置以及 SDK 保留 ROSpec/AO。
+ReaderSettings current = (await reader.QuerySettingsAsync()).Settings;
+
+// SDK 推荐基线：根据已连接设备的身份、型号、固件和 Capabilities 生成；不读取或修改资源。
+ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
+ReaderSettings recommended = defaults.Settings;
+
+// 离线、厂商无关的可移植基线。
+ReaderSettings portable = ReaderSettingsDefaults.CreateGeneric().Settings;
+```
+
+`ReaderSettingsDefaults` 包含 `ProfileId`、`Source`（`Generic` 或 `ReaderProfile`）和决策说明。它的 `Settings` 可直接编辑并交给 `ApplySettingsAsync()`；`QuerySettingsAsync()` 返回的则是设备事实，适合先导出再做最小变更。`ReaderSettingsSerializer.SerializeDefaultsToJson()` / `DeserializeDefaultsFromJson()` 可保存或恢复带 Profile 来源的默认文档。
+
 `ReaderSettings` 是唯一的高层设置读写模型：
 
 ```csharp
@@ -107,6 +123,12 @@ finally
 扩展按照已识别的型号/固件能力目录拒绝未经验证的字段。当前 R420 6.4.1 Profile 已验证 Serialized TID、RF Phase 和 Peak RSSI 报告选择；其他字段不会静默下发。
 
 `ReaderSettingsSerializer` 可接收已启用扩展提供的 `IReaderSettingsSerializationContributor`，把这些强类型值写成版本化 Settings JSON；没有对应 contributor 的扩展字段会明确失败，避免导出后丢失。Live CLI 会自动使用连接读写器的扩展集合。`impinj.facts` 是只读事实，可随快照导出但不会由 `ApplySettingsAsync` 写回设备。
+
+## Seuic 默认 Profile
+
+`.UseSeuic()` 识别 UF40（Manufacturer `57690`、Model `40`、LLRP 1.0.1）后，`GetDefaultSettingsAsync()` 返回 `seuic.uf40.llrp-1.0.1`。它根据能力表选择全部实际天线、最高 Tx Power Index，以及 Rx Sensitivity Index `1`（不可用时选择最低可用值），并将 HopTable / Channel 设为 `1`。
+
+这些是标准 AISpec 参数，直接以 `InventorySettings.AntennaConfigurations` 表达：每项包含 Antenna ID、Rx Sensitivity、Tx Power、Hop Table 与 Channel。Seuic 扩展只负责依据能力表计算推荐值并填入核心模型；编译器不再读取 Seuic 的隐藏 inventory extension。真正无法由标准 LLRP 表达的厂商参数才放在 `Extensions`。
 
 ## CLI 与同步
 

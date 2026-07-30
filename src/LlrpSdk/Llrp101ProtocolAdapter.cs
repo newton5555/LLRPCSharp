@@ -145,9 +145,8 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
         InventorySettings settings,
         uint roSpecId,
         InventoryCustomItems customItems,
-        bool supportsStateAwareSingulation,
-        InventoryCompilationDefaults? compilationDefaults) =>
-        Llrp101InventoryCompiler.CompileWithDefaults(settings, roSpecId, customItems.RoReportSpec, customItems.C1G2InventoryCommand, supportsStateAwareSingulation, compilationDefaults);
+        bool supportsStateAwareSingulation) =>
+        Llrp101InventoryCompiler.Compile(settings, roSpecId, customItems.RoReportSpec, customItems.C1G2InventoryCommand, supportsStateAwareSingulation);
 
     public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false) =>
         Llrp101TagAccessCompiler.Compile(accessSpecId, roSpecId, request, useBlockWrite);

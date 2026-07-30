@@ -1,10 +1,11 @@
 using LlrpNet.Core.Protocol;
-using LlrpSdk.Extensions;
 
 namespace LlrpSdk.Extensions.Seuic;
 
 /// <summary>Provides standard LLRP inventory compatibility defaults for known Seuic readers.</summary>
-public sealed class SeuicReaderExtension : IReaderExtension, IInventoryProfileContributor
+public sealed class SeuicReaderExtension :
+    IReaderExtension,
+    IReaderSettingsDefaultsContributor
 {
     public const uint ManufacturerId = 57690;
     public const uint Uf40ModelId = 40;
@@ -21,10 +22,37 @@ public sealed class SeuicReaderExtension : IReaderExtension, IInventoryProfileCo
             context.ProtocolVersion == LlrpProtocolVersion.Version101;
     }
 
-    public InventoryCompilationDefaults? GetCompilationDefaults(InventoryContributionContext context)
+    /// <inheritdoc />
+    public ReaderSettingsDefaults? GetDefaultSettings(ReaderSettingsDefaultContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        ReaderCapabilities capabilities = context.Capabilities;
+        IReadOnlyList<InventoryAntennaConfiguration>? antennaConfigurations = ResolveAntennaConfigurations(context.Capabilities);
+        if (antennaConfigurations is null)
+        {
+            return null;
+        }
+        return new ReaderSettingsDefaults
+        {
+            ProfileId = "seuic.uf40.llrp-1.0.1",
+            Source = ReaderSettingsDefaultSource.ReaderProfile,
+            Notes =
+            [
+                "Resolved all installed antennas and explicit standard AISpec RF values from this reader's capabilities.",
+                "Transmit power uses the highest advertised index; receive sensitivity prefers index 1 and otherwise the lowest advertised index."
+            ],
+            Settings = new ReaderSettings
+            {
+                Inventory = new InventorySettings
+                {
+                    AntennaIds = antennaConfigurations.Select(static configuration => configuration.AntennaId).ToArray(),
+                    AntennaConfigurations = antennaConfigurations
+                }
+            }
+        };
+    }
+
+    private static IReadOnlyList<InventoryAntennaConfiguration>? ResolveAntennaConfigurations(ReaderCapabilities capabilities)
+    {
         ushort[] antennas = Enumerable.Range(1, capabilities.MaxNumberOfAntennas)
             .Select(static antenna => (ushort)antenna)
             .ToArray();
@@ -34,7 +62,14 @@ public sealed class SeuicReaderExtension : IReaderExtension, IInventoryProfileCo
 
         return antennas.Length == 0 || maximumTxPower is null || defaultRxSensitivity is null
             ? null
-            : new InventoryCompilationDefaults(antennas, defaultRxSensitivity.Index, maximumTxPower.Index, 1, 1);
+            : antennas.Select(antennaId => new InventoryAntennaConfiguration
+            {
+                AntennaId = antennaId,
+                ReceiverSensitivityIndex = defaultRxSensitivity.Index,
+                TransmitPowerIndex = maximumTxPower.Index,
+                HopTableId = 1,
+                ChannelIndex = 1,
+            }).ToArray();
     }
 }
 

@@ -12,7 +12,7 @@ llrp inspect | decode | validate | encode ──► 离线 Protocol Codec
 llrp ──► Live Shell ──► LiveSessionContext ──► LlrpReader SDK ──► Reader
                               │
                               ├─ connect / disconnect / status / caps
-                              ├─ inventory / config / tag
+                              ├─ settings / inventory / tag
                               ├─ rospec / accessspec / raw / sync
                               └─ monitor / frames
 ```
@@ -37,9 +37,9 @@ llrp ──► Live Shell ──► LiveSessionContext ──► LlrpReader SDK 
 
 - `connect` 建立一次连接并执行版本/厂商策略；`disconnect` 或 `exit` 负责停止后台任务并关闭会话。
 - `settings`、`inventory`、`session`、`tag`、`rospec`、`accessspec`、`raw`、`sync` 都要求已连接。
-- Live Shell 维护完整的 `DesiredSettings: ReaderSettings` 草稿，但仅由 `settings draft` 管理。`inventory` 只启动、停止或显示读写器已部署的 Inventory；运行中的 `CurrentInventorySettings` 与设备查询结果都不作为草稿。`session inventory <file>` 只使用文件中的 Inventory 子域并保证结束时清理资源，适合临时示例工作负载。
+- Live Shell 维护完整的 `DesiredSettings: ReaderSettings` 草稿及纯 CLI 来源元数据。草稿只能显式从 `settings draft defaults`（SDK 的 Reader Profile）、`from-reader`（设备事实）、`generic`（通用基线）或文件初始化；这些来源均不写设备。`inventory` 只启动、停止或显示读写器已部署的 Inventory；运行中的 `CurrentInventorySettings` 与设备查询结果都不自动覆盖草稿。`session inventory <file>` 只使用文件中的 Inventory 子域并保证结束时清理资源，适合临时示例工作负载。
 - `tag` 操作复用当前 Reader；若没有托管盘点，SDK 负责其临时 ROSpec/AccessSpec 生命周期。任何写入、擦除、锁定、销毁及含此类操作的序列均须 `--yes`。
-- `settings get|draft|export|validate|apply` 是唯一的高层设置入口：`get` 读取设备事实，`draft` 管理 CLI 应用意图，`apply <path> --yes` 会按文件中是否包含 Inventory 决定仅写配置或独占接管盘点资源。
+- `settings get|defaults|draft|export|validate|apply` 是唯一的高层设置入口：`get` 读取设备事实；`defaults` 通过 SDK 解析当前 Reader Profile；`draft` 管理 CLI 应用意图；`apply <path> --yes` 或 `draft apply --yes` 会按是否包含 Inventory 决定仅写配置或独占接管盘点资源。Apply 后资源保持 Disabled，只有 `inventory start` 会启动盘点。
 
 ## 自动化的后续边界
 
