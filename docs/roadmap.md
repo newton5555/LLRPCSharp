@@ -21,8 +21,8 @@
 
 - 定义 `InventorySettings` 当前范围：只表示 Inventory 设置，还是升级为完整 Reader Config 聚合模型。
 - 若保留轻量模型，新增独立的 `ReaderConfiguration` 或 `ReaderConfigSnapshot`。
-- 实现 `QueryConfigurationAsync` / `ApplyConfigurationAsync` 时走 Adapter，避免把版本化 Message 暴露到应用层。
-- CLI 增加 `config get` / `config apply` 的最小可用路径。
+- 以 `ReaderSettings.QuerySettingsAsync` / `ApplySettingsAsync` 维持版本无关高层模型；专家 `GET_READER_CONFIG` / `SET_READER_CONFIG` 继续走 `reader.Protocol`。
+- 完成 `settings` 文件的厂商强类型、版本化扩展映射；不恢复 `config` CLI 命令。
 
 ### 3. 标签访问 API（标准基线已完成）
 
@@ -58,11 +58,13 @@
 - 根 Spectre CLI 仅承载离线 `inspect/decode/validate/encode`；读写器连接与所有在线业务均收敛到 Live Shell，避免重复的临时连接生命周期。
 - C2 已完成 Live Shell 的命令元数据收敛：Usage、`help <command>`、别名、连接可用性、输入候选和执行路由均从 `CommandCatalog` 获取。
 - C3 已完成：`LiveSessionContext` 集中连接、监控与盘点状态；连接、盘点、监控和离线协议诊断分别由专用 Handler 处理，`LiveCommand` 保持为 Live Shell 宿主与路由层。
-- `config` 已接入 Live Shell；当前将按已批准设计安全接入 `tag read` 与 `tag write` dry-run，之后进入 C6 兼容性测试。
+- `settings` 已取代 `config` 并接入 Live Shell；专家配置继续由 `raw transact` / `reader.Protocol` 处理。
+- **后期 CLI 展示优化**：增加 `settings get --tree`，以 Spectre.Console 的静态 `Tree` 按层级显示 `ReaderSettings`。JSON 仍是完整、可导出与可应用的主表示；不在本阶段引入键盘展开/折叠的全屏 TUI JSON Inspector。
+- **后期 CLI 引导优化**：`settings draft wizard` 已完成；后续考虑显式 `connect wizard` 以及复杂 Filters、触发器、报告和厂商扩展的分步编辑。向导只编辑 CLI 的 `ReaderSettings` 草稿，保留 JSON 命令作为可复制、可自动化入口。`settings apply`、Raw 和破坏性 Tag 操作仍必须使用 `--yes`，不能由交互确认替代。
 
 ### 8. Reader 默认配置 Profile
 
-- 已完成连接后 `GetDefaultConfiguration()`：它不发协议请求、不自动写入设备，且与实际配置/持久化配置分离。
+- 原默认配置/Profile 与 Patch 公开 API 已由统一 `ReaderSettings` 模型取代；后续 Profile 只能作为高层 Settings Contributor 的实现细节。
 - 已定义可注册的 `IReaderConfigurationDefaultsProvider`；上下文包括厂商、型号、固件、协商版本、能力和激活扩展，最高优先级获选，同级冲突失败。
 - 已完成 `ReaderConfigurationPatch` 的只读解析和显式 Apply 合并；下一步仅在有资料或实测依据后增加 Impinj 型号 Profile，不放入本轮 CLI 重构。
 

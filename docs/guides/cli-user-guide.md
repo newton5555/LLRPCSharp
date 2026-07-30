@@ -18,7 +18,7 @@
  ├─ connect / disconnect / status / caps                             ├─ inspect <hex>  (Header 解包)
  ├─ inventory start / stop / status                                  ├─ decode <hex>   (Tree 报文树)
  ├─ tag read / write / lock / kill / erase / sequence               ├─ validate <hex> (完整性校验)
- ├─ config get / defaults / apply                                    └─ encode <msg>   (序列化生成)
+ ├─ settings get / draft / export / validate / apply                 └─ encode <msg>   (序列化生成)
  └─ rospec / accessspec / raw / sync
 ```
 
@@ -70,47 +70,28 @@ dotnet run --project src/LlrpCli -- validate 043E0000000A01020304
 
 ### 托管盘点（inventory）
 
-盘点意图保存在当前 Live Shell 会话的本地草稿中；编辑草稿不需要连接读写器。`inventory settings`、`inventory settings show` 和 `inventory settings get` 都显示草稿；`inventory settings set --antennas 1` 与简写 `inventory settings --antennas 1` 都会更新草稿。`inventory start` 只消费该草稿，并可接受一次性的天线和监控覆盖：
+`inventory` 只控制读写器上已经部署的高层 Inventory；它不编辑草稿，也不会临时覆盖天线或其他参数。先用完整的 `ReaderSettings` 文档通过 `settings apply <file> --yes` 部署意图；该操作保持资源 Disabled，再用 `inventory start` 启动：
 
 ```
-inventory settings show
-inventory settings set [options]
-inventory settings load <path.json>
-inventory settings save <path.json>
-inventory settings reset
-inventory start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration <seconds>]
+inventory start [--monitor live|frames|none] [--monitor-duration <seconds>]
+inventory stop
+inventory status
 ```
 
-`inventory status` 显示 SDK 的运行中 `CurrentInventorySettings`，并明确提示它是否已与本会话的下一次盘点草稿不同；草稿变化永远不会修改正在运行的盘点。
+`inventory status` 显示读写器实际托管的 `CurrentInventorySettings`。没有已部署的 Inventory 时会明确提示先执行 `settings apply <file> --yes`。
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
-| `--antennas` | `id,id\|all` | 草稿或本次启动使用的天线；`all` 映射为 LLRP 全部天线（ID 0）。 |
 | `--monitor` | `live\|frames\|none` | 本次启动的前台监控方式；默认 `live`。Ctrl+C 只退出监控，不停止盘点。 |
 | `--monitor-duration` | 正整数秒 | 仅可搭配 `live` 或 `frames`；计时到期后退出监控并返回 Prompt，盘点继续运行。 |
-| `--session` | 0..3 | C1G2 单例化会话号（默认 0）。 |
-| `--population` | ushort | 标签数量估计（默认 32）。 |
-| `--mode` | ushort | ModeIndex（RF 模式索引）。 |
-| `--tari` | ushort | Tari 值（纳秒）。 |
-| `--attach-bank` | epc\|tid\|user\|reserved\|none | 附加读取内存 Bank；设置 Bank 自动启用 AttachedData，`none` 关闭它。 |
-| `--attach-ptr` | ushort | 附加读取字偏移（Word Pointer）。 |
-| `--attach-len` | ushort | 附加读取字数（Word Count）。 |
-| `--attach-pwd` | hex | 附加读取访问密码（8 位十六进制）。 |
 
 **示例**：
 
 ```
-# 将草稿设为天线 1、会话 2、估计 64 标签
-inventory settings set --antennas 1 --session 2 --population 64
+# 先部署完整的 ReaderSettings 文档；文件中的 Inventory 决定天线、Session、Filters、AttachedData 与厂商扩展
+settings apply warehouse.json --yes
 
-# 让草稿附带读取 TID 前 6 个字，并按草稿启动
-inventory settings set --attach-bank tid --attach-len 6
-inventory start
-
-# 不改动草稿，仅在本次启动改用天线 1 和 3
-inventory start --antennas 1,3
-
-# 默认显示聚合标签表；Ctrl+C 回到 Prompt，盘点仍然运行
+# 默认显示聚合标签表；Ctrl+C 回到 Prompt，盘点继续运行
 inventory start
 
 # 连标签报告也显示为底层 TX/RX LLRP 报文；Ctrl+C 回到 Prompt
@@ -122,34 +103,15 @@ inventory start --monitor live --monitor-duration 30
 # 只启动盘点，不进入前台监控
 inventory start --monitor none
 
-# 添加一个 Disabled 默认 ROSpec；把参数编译为 AISpec 内的 C1G2 RF / singulation 参数
-rospec add --id 14151 --antennas 1,2 --mode 1000 --tari 25000 --session 2 --population 64
-rospec enable 14151
-rospec start 14151
 ```
 
-使用 `inventory settings load <path>` 或 `save <path>` 导入、导出 JSON 格式的完整 `InventorySettings` 草稿。之后仍可通过 `settings set` 只修改个别字段。
+### 临时示例工作负载（session）
 
-**InventorySettings JSON 文件格式示例**（`my-settings.json`）：
+`session inventory <settings-file>` 读取文档的 `ReaderSettings.Inventory`，启动一个独立的 SDK session，并在命令结束、取消或报错后自动 Stop 和清除 SDK 保留资源。它要求资源域处于 `Idle`，因此不会覆盖已经部署的配置或专家资源。该命令只使用文档中的 Inventory 子域，不写入 `ReaderSettings.Configuration`；它适合作为示例、验收或一次性测试，而不是部署命令。
 
-```json
-{
-  "antennaIds": [1, 2],
-  "session": 2,
-  "tagPopulationEstimate": 64,
-  "modeIndex": 1,
-  "tari": 12500,
-  "attachedData": {
-    "enabled": true,
-    "memoryBank": 2,
-    "wordPointer": 0,
-    "wordCount": 6,
-    "accessPassword": "00000000"
-  }
-}
 ```
-
-> `memoryBank`：0=Reserved, 1=EPC, 2=TID, 3=User
+session inventory inventory-example.json --monitor live --monitor-duration 30
+```
 
 #### 其他盘点命令
 
@@ -160,38 +122,39 @@ inventory status            # 查看盘点运行状态（OperationState + 当前
 
 ---
 
-### 设备配置（config）
+### 高层设置（settings）
 
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
-| `config get` | `config get <host> [--llrp ...] [--vendor auto\|impinj\|none]` | 查询设备当前运行配置快照，在终端渲染配置面板。 |
-| `config defaults` | `config defaults <host> [--llrp ...] [--vendor auto\|impinj\|none]` | 显示 SDK 针对当前设备推荐的安全配置基线（不下发）。 |
-| `config apply` | `config apply <host> [--llrp ...] [--vendor auto\|impinj\|none] [options] [--dry-run]` | 调整设备配置。 |
-
-`config apply` 支持的参数：
-
-| 参数 | 说明 |
-|---|---|
-| `--antenna <ID>` | 天线端口 |
-| `--tx-power <INDEX>` | 发射功率索引 |
-| `--rx-sens <INDEX>` | 接收灵敏度索引 |
-| `--channel <INDEX>` | 信道索引 |
-| `--keepalive-type none\|periodic` | 心跳类型 |
-| `--keepalive-interval <ms>` | 心跳间隔（毫秒） |
-| `--gpo-port <PORT>` | GPO 引脚端口号 |
-| `--gpo-data true\|false` | GPO 引脚输出值 |
-| `--dry-run` | 仅预览变更计划，不实际写入设备 |
-| `--yes` | 确认执行（非 dry-run 时必填） |
+| `settings get` | `settings get` | 查询高层 `ReaderSettings` 与已识别托管盘点状态。 |
+| `settings draft` | `settings draft show|wizard|load <path>|save <path>|reset|apply --yes` | 管理 CLI 本地的完整 `ReaderSettings` 草稿。`show` 以静态 Tree 显示层级，`wizard` 用交互式 Prompts 编辑常用 Inventory 字段。 |
+| `settings export` | `settings export <path>` | 导出高层设置及已激活厂商扩展的强类型、版本化 JSON。 |
+| `settings validate` | `settings validate <path>` | 校验高层设置及已激活厂商扩展的 JSON。 |
+| `settings apply` | `settings apply <path> --yes` | 显式应用高层设置；含 Inventory 时接管资源。 |
 
 **示例**：
 
 ```
-config apply --antenna 1 --tx-power 10 --dry-run     # 预览功率调整
-config apply --antenna 1 --tx-power 10 --yes         # 实际写入
-config apply --keepalive-type periodic --keepalive-interval 5000 --yes
+settings get
+settings draft load warehouse.json
+settings draft wizard
+settings draft save warehouse-draft.json
+settings validate warehouse-draft.json
+settings apply warehouse-draft.json --yes
+settings export reader-facts.json
 ```
 
-`config get` 会显示每根天线的 Tx/Rx/Channel 索引、GPIO、全部事件开关及已启用的 Impinj 配置摘要。`--tx-power`、`--rx-sens` 与 `--channel` 接受的是设备能力表索引，不是 dBm、mW 或频率；先运行 `caps`，再把对应索引传给 `config apply`。CLI 会拒绝当前设备未报告的 Tx/Rx 索引。
+如果已经用 `settings draft wizard` 或 `settings draft load` 准备好草稿，不必先保存文件，也可以明确确认后直接部署：
+
+```text
+settings draft apply --yes
+```
+
+向导只编辑 Inventory 的天线、Session、标签数量估计、ModeIndex、Tari 与 AttachedData。Filters、触发器、报告字段、`Configuration` 和厂商扩展会保持原样；这些高级字段仍应在 JSON 文件中编辑、校验后应用。
+
+标准字段始终可序列化。厂商字段必须由已激活扩展的 `IReaderSettingsSerializationContributor` 提供强类型、版本化映射；未知扩展字段会明确失败，绝不静默丢失。启用 `.UseImpinj()` 的 Live CLI 已支持 `impinj.configuration`、只读的 `impinj.facts` 和 `impinj.inventoryReport`。其中 facts 仅用于记录/核对，不是可写配置。
+
+`settings apply` 的资源影响取决于文件内容：`Inventory == null` 时只写入配置；包含 `Inventory` 时才会清除全部 AO/RO 并重建 SDK 托管盘点。因此该命令始终要求 `--yes`。
 
 ---
 
@@ -259,6 +222,8 @@ tag sequence E2801171 --op read:tid:0:2 --op write:user:0:1234 --password 000000
 | `accessspec disable` | `accessspec disable [id]` | 禁用 AccessSpec。 |
 | `accessspec delete` | `accessspec delete [id]` | 删除 AccessSpec。 |
 
+所有上述写命令都必须先执行 `resources manual enter`；`rospec list` 与 `accessspec list` 则可在任何已连接模式查询。手动模式不得使用 SDK 保留 ID `14150`（ROSpec）和 `14151`（AttachedData AccessSpec）。若 Reader 保留 SDK 高层配置，先使用 `resources clear` 释放它，再进入手动模式。执行 `resources manual exit` 会显式删除全部 AccessSpec 与 ROSpec 并返回空闲状态。
+
 ---
 
 ### 被动监控（monitor / frames）
@@ -311,12 +276,12 @@ exit / quit / q               # 断开连接并退出
 - 连接后，控制台自动渲染所有非标签收发的原始 LLRP 帧；标签报告默认进入汇总。使用 `monitor frames` 可连同标签报告一起按原始帧查看。
 - 也可随时输入 `frames 10` 查看最近 10 条报文，或使用 `monitor` 开启实时抓包。
 
-**2. `config apply` 如何避免误操作写坏设备？**
-- 使用 `--dry-run` 参数（如 `config apply --antenna 1 --tx-power 12 --dry-run`），SDK 会计算变更并渲染 Preview 面板，**绝对不会向读写器发送任何写报文**。
+**2. 如何避免误操作写坏设备？**
+- `settings apply` 必须显式提供 `--yes`；应用前可先 `settings validate`，并以 `settings export` 保存当前可识别设置。
 
 **3. 如何批量管理盘点配置？**
-- 将常用草稿保存到 JSON 文件（如 `inventory settings save warehouse.json`），新会话用 `inventory settings load warehouse.json` 恢复。
-- 如需改变个别字段，执行 `inventory settings set --session 0`；如只想临时换天线，使用 `inventory start --antennas 1`。
+- 将完整 `ReaderSettings` 草稿保存到 JSON 文件（如 `settings draft save warehouse.json`），新会话用 `settings draft load warehouse.json` 恢复。
+- 如需改变个别字段，编辑完整 `ReaderSettings` JSON 后执行 `settings validate <file>` 与 `settings apply <file> --yes`。高层盘点没有一次性参数覆盖，以保证读写器实际资源与设置文档一致。
 
 **4. `tag write` 如何防止意外覆盖标签数据？**
 - 在已连接的 Live Shell 中先执行 `tag write <epc> ...`，CLI 会打印完整的 OpSpec 计划（包含 Bank、Word Pointer、待写数据）且不写标签；确认无误后在同一命令加 `--yes` 才会实际执行。访问受保护标签时再加 `--password`。

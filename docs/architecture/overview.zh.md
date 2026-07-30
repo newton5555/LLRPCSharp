@@ -53,7 +53,7 @@ TCP / LLRP 二进制协议 / 真实或虚拟读写器
 
 | 层次 | 入口 | 使用者 | 版本化协议类型可见性 |
 |---|---|---|---|
-| 高级能力 | `LlrpReader.ConnectAsync`、`StartAsync`、`StopAsync`、`InventoryAsync` | 普通应用、常规 CLI | 不可见 |
+| 高级能力 | `LlrpReader.ConnectAsync`、`QuerySettingsAsync`、`ApplySettingsAsync`、`StartInventoryAsync`、`InventorySession` | 普通应用、常规 CLI | 不可见 |
 | 进阶资源 | `reader.RoSpecs`、`reader.AccessSpecs` | 集成开发、资源管理 CLI、协议测试 | 参数模型可见 |
 | 原始协议 | `reader.Protocol` | 协议专家、诊断工具、未封装功能 | 可见 |
 | 协议库 | `LlrpCodecRegistry`、生成模型、Codec | 离线工具、扩展模块、SDK 内部 | 可见 |

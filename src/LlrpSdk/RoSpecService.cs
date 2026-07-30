@@ -27,10 +27,14 @@ internal sealed class RoSpecService : IRoSpecService
             () => protocolAdapter().AddRoSpecAsync(reader, messageIds.Next(), roSpec, cancellationToken), cancellationToken);
     }
 
-    public Task AddDefaultAsync(InventorySettings settings, CancellationToken cancellationToken = default)
+    public Task AddDefaultAsync(uint roSpecId, InventorySettings settings, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        return AddAsync(reader.CompileDefaultInventoryRoSpec(settings), cancellationToken);
+        if (roSpecId == 0 || roSpecId is LlrpReader.ManagedInventoryRoSpecId or LlrpReader.ManagedInventoryAttachedDataAccessSpecId)
+        {
+            throw new ArgumentOutOfRangeException(nameof(roSpecId), "The ROSpec identifier is reserved by the SDK or invalid.");
+        }
+        return AddAsync(reader.CompileDefaultInventoryRoSpec(settings, roSpecId), cancellationToken);
     }
 
     public Task DeleteAsync(uint roSpecId, CancellationToken cancellationToken = default) =>

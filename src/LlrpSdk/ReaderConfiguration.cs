@@ -8,6 +8,9 @@ namespace LlrpSdk;
 /// </summary>
 public sealed record ReaderConfiguration
 {
+    /// <summary>Gets whether the reader holds events and reports while the client reconnects.</summary>
+    public bool HoldEventsAndReportsUponReconnect { get; init; }
+
     /// <summary>Gets typed vendor configuration values projected by active settings contributors.</summary>
     public IReadOnlyDictionary<string, object?> Extensions { get; init; } =
         new System.Collections.ObjectModel.ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());

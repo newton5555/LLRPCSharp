@@ -427,7 +427,7 @@ public sealed class LlrpReaderInitializationTests
             vendorId: 25_882,
             subtype: 53,
             data: [1]);
-        var settings = new InventorySettings { RoSpecId = 1 };
+        var settings = new InventorySettings();
 
         var v101 = (V101Parameters.ROSpec)InvokeInventoryCompiler(
             "LlrpSdk.Llrp101InventoryCompiler",
@@ -444,13 +444,48 @@ public sealed class LlrpReaderInitializationTests
         Assert.Empty(Assert.IsType<V11Parameters.AISpec>(Assert.Single(v11.SpecParameterItems)).CustomItems);
     }
 
+    [Fact]
+    public void Llrp11InventoryCompiler_PreservesHighLevelReportSettings()
+    {
+        var settings = new InventorySettings
+        {
+            Report = new InventoryReportSettings
+            {
+                Trigger = InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
+                IncludeRoSpecId = false,
+                IncludeAntennaId = false,
+                IncludePeakRssi = false,
+                IncludePcBits = true,
+                IncludeCrc = true,
+            },
+        };
+
+        var roSpec = (V11Parameters.ROSpec)InvokeInventoryCompiler(
+            "LlrpSdk.Llrp11InventoryCompiler", settings, []);
+        V11Parameters.ROReportSpec report = roSpec.ROReportSpec!;
+        V11Parameters.TagReportContentSelector selector = report.TagReportContentSelector;
+
+        Assert.Equal("Upon_N_Tags_Or_End_Of_ROSpec", report.ROReportTrigger.ToString());
+        Assert.False(selector.EnableROSpecID);
+        Assert.False(selector.EnableAntennaID);
+        Assert.False(selector.EnablePeakRSSI);
+        var epc = Assert.IsType<V11Parameters.C1G2EPCMemorySelector>(Assert.Single(selector.AirProtocolEPCMemorySelectorItems));
+        Assert.True(epc.EnableCRC);
+        Assert.True(epc.EnablePCBits);
+    }
+
     private static ILlrpParameter InvokeInventoryCompiler(
         string typeName,
         InventorySettings settings,
         IReadOnlyList<ILlrpParameter> customItems)
     {
         Type compilerType = typeof(LlrpReader).Assembly.GetType(typeName, throwOnError: true)!;
-        MethodInfo compile = compilerType.GetMethod("Compile", BindingFlags.Public | BindingFlags.Static)!;
+        MethodInfo compile = compilerType.GetMethod(
+            "Compile",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: [typeof(InventorySettings), typeof(IReadOnlyList<ILlrpParameter>), typeof(bool)],
+            modifiers: null)!;
         return Assert.IsAssignableFrom<ILlrpParameter>(compile.Invoke(null, [settings, customItems, false]));
     }
 

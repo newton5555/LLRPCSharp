@@ -9,6 +9,16 @@ public sealed record ImpinjInventoryCapabilities(
     bool SupportsSerializedTid,
     bool SupportsRfPhaseAngle,
     bool SupportsPeakRssi,
+    bool SupportsTagPopulationEstimation,
+    bool SupportsGpsCoordinates,
+    bool SupportsOptimizedRead,
+    bool SupportsRfDopplerFrequency,
+    bool SupportsTxPower,
+    bool SupportsXpcWords,
+    bool SupportsCrHandle,
+    bool SupportsId,
+    bool SupportsEnhancedIntegra,
+    bool SupportsEndpointIcVerification,
     string Reason);
 
 /// <summary>
@@ -45,12 +55,32 @@ public static class ImpinjInventoryCapabilityCatalog
         SupportsSerializedTid: true,
         SupportsRfPhaseAngle: true,
         SupportsPeakRssi: true,
-        Reason: "SDK verification confirmed Serialized TID, RF Phase Angle, and Peak RSSI report fields.");
+        SupportsTagPopulationEstimation: false,
+        SupportsGpsCoordinates: false,
+        SupportsOptimizedRead: false,
+        SupportsRfDopplerFrequency: false,
+        SupportsTxPower: false,
+        SupportsXpcWords: false,
+        SupportsCrHandle: false,
+        SupportsId: false,
+        SupportsEnhancedIntegra: false,
+        SupportsEndpointIcVerification: false,
+        Reason: "SDK verification confirmed Serialized TID, RF Phase Angle, and Peak RSSI report fields; tag population estimation was rejected by this firmware.");
 
     private static ImpinjInventoryCapabilities Unknown { get; } = new(
         SupportsTagReportContentSelector: false,
         SupportsSerializedTid: false,
         SupportsRfPhaseAngle: false,
         SupportsPeakRssi: false,
+        SupportsTagPopulationEstimation: false,
+        SupportsGpsCoordinates: false,
+        SupportsOptimizedRead: false,
+        SupportsRfDopplerFrequency: false,
+        SupportsTxPower: false,
+        SupportsXpcWords: false,
+        SupportsCrHandle: false,
+        SupportsId: false,
+        SupportsEnhancedIntegra: false,
+        SupportsEndpointIcVerification: false,
         Reason: "No verified inventory capability profile matches this reader.");
 }

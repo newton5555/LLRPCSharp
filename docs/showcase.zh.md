@@ -37,7 +37,7 @@
 
 - **ROSpec 生命周期服务**：`reader.RoSpecs` 提供 Add、Delete、Enable、Disable、Start、Stop、GetAll 等操作。
 - **AccessSpec 生命周期服务**：`reader.AccessSpecs` 提供 Add、Delete、Enable、Disable、GetAll 等操作。
-- **盘点入口**：`StartAsync`、`StopAsync`、`InventoryAsync`、`ReadTagReportsAsync` 和 `TagsReported` 构成当前托管盘点基线。
+- **盘点入口**：`StartInventoryAsync` 返回带独立报告流的 `InventorySession`；`StartAsync`/`StopAsync` 保留为生命周期兼容 API，`ReadTagReportsAsync` 与 `TagsReported` 则观察整个连接。
 
 ### 3. CLI 诊断与互操作套件
 

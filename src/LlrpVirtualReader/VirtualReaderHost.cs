@@ -253,6 +253,15 @@ public sealed class VirtualReaderHost : IAsyncDisposable
     {
         lock (roSpecs)
         {
+            if (request.ROSpecID == 0)
+            {
+                roSpecs.Clear();
+                enabledRoSpecs.Clear();
+                accessSpecs.Clear();
+                enabledAccessSpecs.Clear();
+                return new DELETE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+            }
+
             if (!roSpecs.Remove(request.ROSpecID))
             {
                 return new DELETE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));

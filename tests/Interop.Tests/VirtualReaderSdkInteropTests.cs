@@ -8,84 +8,6 @@ namespace Interop.Tests;
 public sealed class VirtualReaderSdkInteropTests
 {
     [Fact]
-    public async Task GetDefaultConfiguration_UsesSafeBaselineWithoutQueryingReaderConfiguration()
-    {
-        await using var host = new VirtualReaderHost(
-            options: new VirtualReaderOptions
-            {
-                DropResponseForMessageTypes = new HashSet<ushort> { GET_READER_CONFIG.MessageType }
-            });
-        host.Start();
-
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
-            .WithConnectTimeout(TimeSpan.FromSeconds(2))
-            .WithRequestTimeout(TimeSpan.FromMilliseconds(100))
-            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
-            .Build();
-
-        await reader.ConnectAsync(timeout.Token);
-        ReaderConfigurationDefaultsResult result = reader.GetDefaultConfigurationResult();
-        ReaderConfiguration defaults = result.Configuration;
-
-        Assert.Equal(LlrpSdk.KeepaliveTriggerType.None, defaults.Keepalive.TriggerType);
-        Assert.Empty(defaults.Antennas);
-        Assert.Empty(defaults.Gpos);
-        Assert.True(result.IsGenericFallback);
-        await Assert.ThrowsAsync<TimeoutException>(() => reader.QueryConfigurationAsync(timeout.Token));
-    }
-
-    [Fact]
-    public async Task GetDefaultConfiguration_SelectsMostSpecificRegisteredProfile()
-    {
-        await using var host = new VirtualReaderHost();
-        host.Start();
-
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
-            .WithConnectTimeout(TimeSpan.FromSeconds(2))
-            .WithRequestTimeout(TimeSpan.FromSeconds(2))
-            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
-            .UseConfigurationDefaultsProvider(new TestDefaultsProvider("vendor", 10, 1000))
-            .UseConfigurationDefaultsProvider(new TestDefaultsProvider("model", 20, 2000))
-            .Build();
-
-        await reader.ConnectAsync(timeout.Token);
-        ReaderConfigurationDefaultsResult result = reader.GetDefaultConfigurationResult();
-        ReaderConfiguration defaults = result.Configuration;
-
-        Assert.Equal(LlrpSdk.KeepaliveTriggerType.Periodic, defaults.Keepalive.TriggerType);
-        Assert.Equal(2000U, defaults.Keepalive.IntervalMs);
-        Assert.Equal("model", result.ProviderId);
-        Assert.Equal("model.profile", result.ProfileId);
-    }
-
-    [Fact]
-    public async Task GetDefaultConfiguration_RejectsAmbiguousProfilePriority()
-    {
-        await using var host = new VirtualReaderHost();
-        host.Start();
-
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
-            .WithConnectTimeout(TimeSpan.FromSeconds(2))
-            .WithRequestTimeout(TimeSpan.FromSeconds(2))
-            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
-            .UseConfigurationDefaultsProvider(new TestDefaultsProvider("one", 10, 1000))
-            .UseConfigurationDefaultsProvider(new TestDefaultsProvider("two", 10, 2000))
-            .Build();
-
-        await reader.ConnectAsync(timeout.Token);
-        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(reader.GetDefaultConfiguration);
-
-        Assert.Contains("one", exception.Message, StringComparison.Ordinal);
-        Assert.Contains("two", exception.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task DroppedAddRoSpecResponse_ProducesSdkRequestTimeout()
     {
         await using var host = new VirtualReaderHost(
@@ -105,7 +27,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         await Assert.ThrowsAsync<TimeoutException>(
-            () => reader.StartAsync(new InventorySettings { RoSpecId = 992 }, timeout.Token));
+            () => reader.StartAsync(new InventorySettings(), timeout.Token));
     }
 
     [Fact]
@@ -131,7 +53,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         LlrpReaderOperationException exception = await Assert.ThrowsAsync<LlrpReaderOperationException>(
-            () => reader.StartAsync(new InventorySettings { RoSpecId = 993 }, timeout.Token));
+            () => reader.StartAsync(new InventorySettings(), timeout.Token));
 
         Assert.Equal((ushort)StatusCode.M_ParameterError, exception.StatusCode);
         Assert.Equal("Injected ADD_ROSPEC failure.", exception.ErrorDescription);
@@ -203,7 +125,7 @@ public sealed class VirtualReaderSdkInteropTests
     }
 
     [Fact]
-    public async Task QueryAndApplyConfiguration_RoundTripAgainstVirtualReader()
+    public async Task QueryAndApplySettings_RoundTripAgainstVirtualReader()
     {
         await using var host = new VirtualReaderHost();
         host.Start();
@@ -217,30 +139,33 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        ReaderConfiguration initial = await reader.QueryConfigurationAsync(timeout.Token);
+        ReaderSettings initialSettings = (await reader.QuerySettingsAsync(timeout.Token)).Settings;
+        ReaderConfiguration initial = initialSettings.Configuration;
         Assert.Equal(4, initial.Antennas.Count);
         Assert.Equal(LlrpSdk.KeepaliveTriggerType.None, initial.Keepalive.TriggerType);
         Assert.False(Assert.Single(initial.Gpos).GpoData);
 
-        await reader.ApplyConfigurationAsync(new ReaderConfiguration
+        await reader.ApplySettingsAsync(new ReaderSettings
         {
-            Keepalive = new KeepaliveConfiguration
+            Configuration = initial with
             {
-                TriggerType = LlrpSdk.KeepaliveTriggerType.Periodic,
-                IntervalMs = 1500
-            },
-            Gpos = [new GpoConfiguration { GpoPortNumber = 1, GpoData = true }]
+                Keepalive = new KeepaliveConfiguration
+                {
+                    TriggerType = LlrpSdk.KeepaliveTriggerType.Periodic,
+                    IntervalMs = 1500
+                },
+                Gpos = [new GpoConfiguration { GpoPortNumber = 1, GpoData = true }]
+            }
         }, timeout.Token);
 
-        await reader.SynchronizeStateAsync(timeout.Token);
-        ReaderConfiguration updated = await reader.QueryConfigurationAsync(timeout.Token);
+        ReaderConfiguration updated = (await reader.QuerySettingsAsync(timeout.Token)).Settings.Configuration;
         Assert.Equal(LlrpSdk.KeepaliveTriggerType.Periodic, updated.Keepalive.TriggerType);
         Assert.Equal(1500U, updated.Keepalive.IntervalMs);
         Assert.True(Assert.Single(updated.Gpos).GpoData);
     }
 
     [Fact]
-    public async Task ResolveAndApplyConfigurationPatch_PreservesUnchangedVirtualReaderSettings()
+    public async Task ApplySettings_WithInventory_ContinuesAfterManagedConfigurationWrite()
     {
         await using var host = new VirtualReaderHost();
         host.Start();
@@ -254,32 +179,89 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        var patch = new ReaderConfigurationPatch
+        ReaderConfiguration configuration = (await reader.QuerySettingsAsync(timeout.Token)).Settings.Configuration;
+
+        await reader.ApplySettingsAsync(new ReaderSettings
         {
-            Keepalive = new KeepaliveConfiguration
-            {
-                TriggerType = LlrpSdk.KeepaliveTriggerType.Periodic,
-                IntervalMs = 2300
-            }
-        };
+            Configuration = configuration,
+            Inventory = new InventorySettings { AntennaIds = [1] }
+        }, timeout.Token);
 
-        ReaderConfiguration preview = await reader.ResolveConfigurationPatchAsync(patch, timeout.Token);
-        Assert.Equal(2300U, preview.Keepalive.IntervalMs);
-        Assert.Equal(4, preview.Antennas.Count);
-
-        ReaderConfiguration beforeApply = await reader.QueryConfigurationAsync(timeout.Token);
-        Assert.Equal(LlrpSdk.KeepaliveTriggerType.None, beforeApply.Keepalive.TriggerType);
-
-        await reader.ApplyConfigurationPatchAsync(patch, timeout.Token);
-        await reader.SynchronizeStateAsync(timeout.Token);
-        ReaderConfiguration afterApply = await reader.QueryConfigurationAsync(timeout.Token);
-        Assert.Equal(LlrpSdk.KeepaliveTriggerType.Periodic, afterApply.Keepalive.TriggerType);
-        Assert.Equal(2300U, afterApply.Keepalive.IntervalMs);
-        Assert.Equal(4, afterApply.Antennas.Count);
+        Assert.True(reader.IsManagedStateSynchronized);
+        Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
+        ReaderSettingsSnapshot deployed = await reader.QuerySettingsAsync(timeout.Token);
+        Assert.Equal(InventoryRuntimeState.Disabled, deployed.Inventory!.State);
+        await reader.StartAsync(timeout.Token);
+        Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
+        await reader.StopAsync(timeout.Token);
+        await reader.ClearManagedSettingsAsync(timeout.Token);
     }
 
     [Fact]
-    public async Task QueryConfiguration_DoesNotRequireStateSynchronizationBeforeManagedInventory()
+    public async Task QuerySettings_RehydratesManaged101InventoryFiltersAttachedDataAndState()
+    {
+        await using var host = new VirtualReaderHost();
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        var inventory = new InventorySettings
+        {
+            Session = 2,
+            TagPopulationEstimate = 64,
+            Filters =
+            [
+                new InventorySelectFilter
+                {
+                    MemoryBank = 1,
+                    BitPointer = 32,
+                    Mask = new byte[] { 0b_1010_0000 },
+                    BitLength = 4,
+                    MatchAction = InventorySelectAction.Select,
+                    NonMatchAction = InventorySelectAction.DoNothing,
+                }
+            ],
+            AttachedData = new AttachedDataOptions
+            {
+                Enabled = true,
+                MemoryBank = 2,
+                WordPointer = 3,
+                WordCount = 2,
+                AccessPassword = "00000000",
+            },
+        };
+
+        await reader.ConnectAsync(timeout.Token);
+        await reader.StartAsync(inventory, timeout.Token);
+        try
+        {
+            ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync(timeout.Token);
+            InventorySnapshot managed = Assert.IsType<InventorySnapshot>(snapshot.Inventory);
+
+            Assert.Equal(InventoryRuntimeState.Running, managed.State);
+            Assert.Equal((byte)2, managed.Settings.Session);
+            Assert.Equal((ushort)64, managed.Settings.TagPopulationEstimate);
+            InventorySelectFilter filter = Assert.Single(managed.Settings.Filters);
+            Assert.Equal((ushort)4, filter.BitLength);
+            Assert.Equal(new byte[] { 0b_1010_0000 }, filter.Mask);
+            Assert.True(managed.Settings.AttachedData.Enabled);
+            Assert.Equal((ushort)3, managed.Settings.AttachedData.WordPointer);
+            Assert.Equal((ushort)2, managed.Settings.AttachedData.WordCount);
+        }
+        finally
+        {
+            await reader.StopAsync(timeout.Token);
+        }
+    }
+
+    [Fact]
+    public async Task ManualMode_HighLevelTakeoverAndRawSynchronizationFollowResourceContract()
     {
         await using var host = new VirtualReaderHost();
         host.Start();
@@ -293,8 +275,62 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        _ = await reader.QueryConfigurationAsync(timeout.Token);
-        await reader.StartAsync(new InventorySettings { RoSpecId = 994 }, timeout.Token);
+        Assert.Equal(ReaderResourceMode.Idle, reader.ResourceMode);
+
+        await reader.EnterManualResourceModeAsync(timeout.Token);
+        Assert.Equal(ReaderResourceMode.ManualResources, reader.ResourceMode);
+        await reader.RoSpecs.AddDefaultAsync(600, new InventorySettings(), timeout.Token);
+
+        await reader.StartAsync(new InventorySettings(), timeout.Token);
+        try
+        {
+            Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
+            IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> resources = await reader.RoSpecs.GetAllAsync(timeout.Token);
+            Assert.Single(resources);
+            Assert.Equal(14150U, Assert.IsType<LlrpNet.Protocol.Parameters.V1_0_1.ROSpec>(resources[0]).ROSpecID);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => reader.EnterManualResourceModeAsync(timeout.Token));
+        }
+        finally
+        {
+            await reader.StopAsync(timeout.Token);
+        }
+
+        Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
+        Assert.NotNull(reader.CurrentInventorySettings);
+        ReaderSettingsSnapshot stopped = await reader.QuerySettingsAsync(timeout.Token);
+        Assert.NotNull(stopped.Settings.Inventory);
+        Assert.Equal(InventoryRuntimeState.Disabled, stopped.Inventory!.State);
+        await reader.StartAsync(timeout.Token);
+        Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
+        await reader.StopAsync(timeout.Token);
+        _ = await reader.Protocol.TransactAsync<GET_ROSPECS_RESPONSE>(
+            new GET_ROSPECS(reader.Protocol.NextMessageId()), cancellationToken: timeout.Token);
+        Assert.Equal(ReaderResourceMode.StateUnknown, reader.ResourceMode);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => reader.StartAsync(new InventorySettings(), timeout.Token));
+
+        await reader.SynchronizeStateAsync(timeout.Token);
+        Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
+        await reader.ClearManagedSettingsAsync(timeout.Token);
+        Assert.Equal(ReaderResourceMode.Idle, reader.ResourceMode);
+    }
+
+    [Fact]
+    public async Task QuerySettings_DoesNotRequireStateSynchronizationBeforeManagedInventory()
+    {
+        await using var host = new VirtualReaderHost();
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        _ = await reader.QuerySettingsAsync(timeout.Token);
+        await reader.StartAsync(new InventorySettings(), timeout.Token);
         try
         {
             Assert.Equal(ReaderOperationState.Inventorying, reader.OperationState);
@@ -320,7 +356,7 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        await reader.StartAsync(new InventorySettings { RoSpecId = 991 }, timeout.Token);
+        await reader.StartAsync(new InventorySettings(), timeout.Token);
         try
         {
             await using IAsyncEnumerator<TagReport> reports = reader.ReadTagReportsAsync(timeout.Token)
@@ -328,7 +364,7 @@ public sealed class VirtualReaderSdkInteropTests
             Assert.True(await reports.MoveNextAsync());
             TagReport inventoryReport = reports.Current;
             Assert.Equal("E28011710000020D056E9BEE", Convert.ToHexString(inventoryReport.ElectronicProductCode.Span));
-            Assert.Equal(991U, inventoryReport.RoSpecId);
+            Assert.Equal(14150U, inventoryReport.RoSpecId);
 
             TagAccessResult result = await reader.ReadTagMemoryAsync(new ReadTagRequest
             {
@@ -391,24 +427,4 @@ public sealed class VirtualReaderSdkInteropTests
         }
     }
 
-    private sealed class TestDefaultsProvider(string id, int priority, uint intervalMs) : IReaderConfigurationDefaultsProvider
-    {
-        public string Id { get; } = id;
-
-        public ReaderConfigurationProfile? GetProfile(ReaderConfigurationProfileContext context)
-        {
-            ArgumentNullException.ThrowIfNull(context);
-            return new ReaderConfigurationProfile(
-                Id + ".profile",
-                priority,
-                new ReaderConfigurationPatch
-                {
-                    Keepalive = new KeepaliveConfiguration
-                    {
-                        TriggerType = LlrpSdk.KeepaliveTriggerType.Periodic,
-                        IntervalMs = intervalMs
-                    }
-                });
-        }
-    }
 }

@@ -98,6 +98,26 @@ public sealed class GpiChangedEventArgs : EventArgs
     public DateTimeOffset Timestamp { get; }
 }
 
+/// <summary>Describes an antenna connection-state notification from the reader.</summary>
+public sealed class AntennaChangedEventArgs : EventArgs
+{
+    internal AntennaChangedEventArgs(ushort antennaId, bool isConnected)
+    {
+        AntennaId = antennaId;
+        IsConnected = isConnected;
+        Timestamp = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Gets the physical antenna port that changed state.</summary>
+    public ushort AntennaId { get; }
+
+    /// <summary>Gets whether the antenna is now connected.</summary>
+    public bool IsConnected { get; }
+
+    /// <summary>Gets when the SDK observed the event.</summary>
+    public DateTimeOffset Timestamp { get; }
+}
+
 /// <summary>Describes a reader tag-report buffer level warning.</summary>
 public sealed class ReportBufferWarningEventArgs : EventArgs
 {

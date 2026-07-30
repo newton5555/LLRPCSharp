@@ -137,6 +137,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     case LiveCommandRoute.Inventory:
                         await _inventoryHandler.HandleAsync(tokens, cancellationToken);
                         break;
+                    case LiveCommandRoute.Session:
+                        await _inventoryHandler.HandleSessionAsync(tokens, cancellationToken);
+                        break;
                     case LiveCommandRoute.Monitor:
                         await _monitorHandler.HandleAsync(tokens, cancellationToken);
                         break;
@@ -152,8 +155,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     case LiveCommandRoute.Resources:
                         await HandleResourcesAsync(tokens, cancellationToken);
                         break;
-                    case LiveCommandRoute.Configuration:
-                        await HandleConfigAsync(tokens, cancellationToken);
+                    case LiveCommandRoute.Settings:
+                        await HandleSettingsAsync(tokens, cancellationToken);
                         break;
                     case LiveCommandRoute.TagAccess:
                         await _tagAccessHandler.HandleAsync(tokens, cancellationToken);
@@ -430,10 +433,14 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                     return;
                 }
 
-                InventorySettings defaultSettings = ParseDefaultRoSpecSettings(tokens);
-                _console.MarkupLine($"[grey]Creating disabled SDK-default ROSpec {defaultSettings.RoSpecId}...[/]");
-                await _session.Reader.RoSpecs.AddDefaultAsync(defaultSettings, cancellationToken);
-                _console.MarkupLine($"[bold springgreen2]✔ Default ROSpec {defaultSettings.RoSpecId} Created (Disabled).[/] [grey]AISpec: antennas={string.Join(',', defaultSettings.AntennaIds)}, mode/tari={defaultSettings.ModeIndex}/{defaultSettings.Tari}, session/population={defaultSettings.Session}/{defaultSettings.TagPopulationEstimate}.[/]");
+                (uint defaultRoSpecId, InventorySettings defaultSettings) = ParseDefaultRoSpecSettings(tokens);
+                if (defaultRoSpecId == 14150)
+                {
+                    throw new CliUsageException("ROSpec ID 14150 is reserved for high-level inventory.");
+                }
+                _console.MarkupLine($"[grey]Creating disabled SDK-default ROSpec {defaultRoSpecId}...[/]");
+                await _session.Reader.RoSpecs.AddDefaultAsync(defaultRoSpecId, defaultSettings, cancellationToken);
+                _console.MarkupLine($"[bold springgreen2]✔ Default ROSpec {defaultRoSpecId} Created (Disabled).[/] [grey]AISpec: antennas={string.Join(',', defaultSettings.AntennaIds)}, mode/tari={defaultSettings.ModeIndex}/{defaultSettings.Tari}, session/population={defaultSettings.Session}/{defaultSettings.TagPopulationEstimate}.[/]");
                 break;
             case "list":
                 _console.MarkupLine("[grey]Querying installed ROSpecs...[/]");
@@ -472,8 +479,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
     }
 
-    private static InventorySettings ParseDefaultRoSpecSettings(string[] tokens)
+    private static (uint RoSpecId, InventorySettings Settings) ParseDefaultRoSpecSettings(string[] tokens)
     {
+        uint roSpecId = 1;
         var settings = new InventorySettings();
         for (int index = 2; index < tokens.Length; index += 2)
         {
@@ -484,19 +492,21 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
             string option = tokens[index].ToLowerInvariant();
             string value = tokens[index + 1];
-            settings = option switch
+            switch (option)
             {
-                "--id" when uint.TryParse(value, out uint id) && id != 0 => settings with { RoSpecId = id },
-                "--antennas" => settings with { AntennaIds = ParseRoSpecAntennaIds(value) },
-                "--mode" when ushort.TryParse(value, out ushort mode) => settings with { ModeIndex = mode },
-                "--tari" when ushort.TryParse(value, out ushort tari) => settings with { Tari = tari },
-                "--session" when byte.TryParse(value, out byte session) && session <= 3 => settings with { Session = session },
-                "--population" when ushort.TryParse(value, out ushort population) && population != 0 => settings with { TagPopulationEstimate = population },
-                _ => throw new CliUsageException($"Invalid ROSpec add option '{tokens[index]}'."),
-            };
+                case "--id" when uint.TryParse(value, out uint id) && id != 0:
+                    roSpecId = id;
+                    break;
+                case "--antennas": settings = settings with { AntennaIds = ParseRoSpecAntennaIds(value) }; break;
+                case "--mode" when ushort.TryParse(value, out ushort mode): settings = settings with { ModeIndex = mode }; break;
+                case "--tari" when ushort.TryParse(value, out ushort tari): settings = settings with { Tari = tari }; break;
+                case "--session" when byte.TryParse(value, out byte session) && session <= 3: settings = settings with { Session = session }; break;
+                case "--population" when ushort.TryParse(value, out ushort population) && population != 0: settings = settings with { TagPopulationEstimate = population }; break;
+                default: throw new CliUsageException($"Invalid ROSpec add option '{tokens[index]}'.");
+            }
         }
 
-        return settings;
+        return (roSpecId, settings);
     }
 
     private static IReadOnlyList<ushort> ParseRoSpecAntennaIds(string value)
@@ -536,11 +546,15 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 await _session.Reader.ExitManualResourceModeAsync(cancellationToken);
                 _console.MarkupLine("[green]Manual resources deleted; reader returned to idle mode.[/]");
                 break;
+            case "clear":
+                await _session.Reader.ClearManagedSettingsAsync(cancellationToken);
+                _console.MarkupLine("[green]SDK-managed inventory configuration deleted; reader returned to idle mode.[/]");
+                break;
             case "status":
                 _console.MarkupLine($"Resource mode: [cyan]{_session.Reader.ResourceMode}[/]");
                 break;
             default:
-                _console.MarkupLine("[red]Usage:[/] resources manual enter|exit|status");
+                _console.MarkupLine("[red]Usage:[/] resources manual enter|exit|status | resources clear");
                 break;
         }
     }
@@ -657,160 +671,209 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
     }
 
-    private async Task HandleConfigAsync(string[] tokens, CancellationToken cancellationToken)
+    private async Task HandleSettingsAsync(string[] tokens, CancellationToken cancellationToken)
     {
         if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
             return;
         }
-
         if (tokens.Length < 2)
         {
-            throw new CliUsageException("Usage: config get | config defaults | config apply [options] [--dry-run] --yes");
+            throw new CliUsageException("Usage: settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes");
         }
-
-        if (tokens[1].Equals("apply", StringComparison.OrdinalIgnoreCase))
+        switch (tokens[1].ToLowerInvariant())
         {
-            await HandleConfigApplyAsync(tokens, cancellationToken);
-            return;
+            case "get" when tokens.Length == 2:
+            {
+                ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken);
+                _console.WriteLine(ReaderSettingsSerializer.SerializeToJson(
+                    snapshot.Settings,
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>()));
+                if (snapshot.Inventory is not null)
+                {
+                    _console.MarkupLine($"[grey]Inventory state:[/] {snapshot.Inventory.State}");
+                }
+                return;
+            }
+            case "draft" when tokens.Length == 3 && tokens[2].Equals("show", StringComparison.OrdinalIgnoreCase):
+                RenderSettingsTree("ReaderSettings draft", _session.DesiredSettings);
+                return;
+            case "draft" when tokens.Length == 3 && tokens[2].Equals("wizard", StringComparison.OrdinalIgnoreCase):
+                RunDraftInventoryWizard();
+                return;
+            case "draft" when tokens.Length == 4 && tokens[2].Equals("load", StringComparison.OrdinalIgnoreCase):
+                _session.DesiredSettings = ReaderSettingsSerializer.LoadFromFile(tokens[3],
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                _console.MarkupLine("[bold springgreen2]✔ ReaderSettings draft loaded.[/]");
+                return;
+            case "draft" when tokens.Length == 4 && tokens[2].Equals("save", StringComparison.OrdinalIgnoreCase):
+                ReaderSettingsSerializer.SaveToFile(tokens[3], _session.DesiredSettings,
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                _console.MarkupLine("[bold springgreen2]✔ ReaderSettings draft saved.[/]");
+                return;
+            case "draft" when tokens.Length == 3 && tokens[2].Equals("reset", StringComparison.OrdinalIgnoreCase):
+                _session.DesiredSettings = new ReaderSettings { Inventory = new InventorySettings() };
+                _console.MarkupLine("[bold springgreen2]✔ ReaderSettings draft reset to SDK defaults.[/]");
+                return;
+            case "draft" when tokens.Length == 4 && tokens[2].Equals("apply", StringComparison.OrdinalIgnoreCase) && tokens[3].Equals("--yes", StringComparison.OrdinalIgnoreCase):
+                await ApplySettingsAsync(_session.DesiredSettings, cancellationToken);
+                return;
+            case "export" when tokens.Length == 3:
+            {
+                ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken);
+                ReaderSettingsSerializer.SaveToFile(tokens[2], snapshot.Settings,
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                _console.MarkupLine("[bold springgreen2]✔ Settings exported.[/]");
+                return;
+            }
+            case "validate" when tokens.Length == 3:
+                _ = ReaderSettingsSerializer.LoadFromFile(tokens[2],
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                _console.MarkupLine("[bold springgreen2]✔ Settings file is valid.[/]");
+                return;
+            case "apply" when tokens.Length == 4 && tokens[3].Equals("--yes", StringComparison.OrdinalIgnoreCase):
+            {
+                ReaderSettings settings = ReaderSettingsSerializer.LoadFromFile(tokens[2],
+                    _session.Reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+                await ApplySettingsAsync(settings, cancellationToken);
+                return;
+            }
+            default:
+                throw new CliUsageException("Usage: settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes");
         }
-        if (tokens[1].Equals("defaults", StringComparison.OrdinalIgnoreCase) && tokens.Length == 2)
-        {
-            ConfigDefaultsRenderer.Render(_console, _session.Reader.GetDefaultConfigurationResult());
-            return;
-        }
-        if (!tokens[1].Equals("get", StringComparison.OrdinalIgnoreCase) || tokens.Length != 2)
-        {
-            throw new CliUsageException("Usage: config get | config defaults | config apply [options] [--dry-run] --yes");
-        }
-
-        ReaderConfiguration configuration = await _session.Reader.QueryConfigurationAsync(cancellationToken);
-
-        ConfigurationRenderer.Render(_console, configuration, _session.Reader.Capabilities);
     }
 
-    private async Task HandleConfigApplyAsync(string[] tokens, CancellationToken cancellationToken)
+    private async Task ApplySettingsAsync(ReaderSettings settings, CancellationToken cancellationToken)
     {
-        ConfigApplySettings settings = ParseLiveConfigApply(tokens, out bool confirmed);
-        if (!ConfigurationApplyUtilities.TryValidateRequestedChanges(settings, _session.Reader!.Capabilities, out string? error))
-        {
-            throw new CliUsageException(error!);
-        }
-
-        ReaderConfiguration current = await _session.Reader!.QueryConfigurationAsync(cancellationToken);
-        ReaderConfiguration updated = ConfigurationApplyUtilities.BuildUpdatedConfiguration(settings, current);
-        RenderLiveConfigChange(settings, updated, settings.DryRun || !confirmed);
-        if (settings.DryRun)
-        {
-            return;
-        }
-        if (!confirmed)
-        {
-            _console.MarkupLine("[yellow]No configuration was written. Repeat with [cyan1]--yes[/] to confirm.[/]");
-            return;
-        }
-
-        await _session.Reader.ApplyConfigurationAsync(updated, cancellationToken);
-        _console.MarkupLine("[bold springgreen2]✔ Configuration applied successfully.[/]");
-        _console.MarkupLine("[yellow]SDK-managed state is now unsynchronized. Run [cyan1]sync[/] before the next managed operation.[/]");
+        await _session.Reader!.ApplySettingsAsync(settings, cancellationToken);
+        _session.DesiredSettings = settings;
+        _console.MarkupLine("[bold springgreen2]✔ High-level settings applied.[/]");
     }
 
-    private static ConfigApplySettings ParseLiveConfigApply(string[] tokens, out bool confirmed)
+    private void RunDraftInventoryWizard()
     {
-        string? keepaliveType = null;
-        uint? keepaliveInterval = null;
-        ushort? antennaId = null;
-        ushort? transmitPower = null;
-        ushort? receiverSensitivity = null;
-        ushort? channelIndex = null;
-        ushort? gpoPort = null;
-        bool? gpoData = null;
-        bool dryRun = false;
-        confirmed = false;
-
-        for (int index = 2; index < tokens.Length; index++)
+        bool includeInventory = _console.Prompt(new ConfirmationPrompt("[yellow]Configure managed Inventory in this draft?[/]")
         {
-            string token = tokens[index];
-            if (token.Equals("--dry-run", StringComparison.OrdinalIgnoreCase))
-            {
-                dryRun = true;
-                continue;
-            }
-            if (token.Equals("--yes", StringComparison.OrdinalIgnoreCase))
-            {
-                confirmed = true;
-                continue;
-            }
-            if (index + 1 >= tokens.Length)
-            {
-                throw new CliUsageException("A config apply option is missing its value.");
-            }
-
-            string value = tokens[++index];
-            switch (token.ToLowerInvariant())
-            {
-                case "--keepalive-type": keepaliveType = value; break;
-                case "--keepalive-interval": keepaliveInterval = Helpers.ParseUInt32(value, token); break;
-                case "--antenna": antennaId = ParseUShort(value, token); break;
-                case "--tx-power": transmitPower = ParseUShort(value, token); break;
-                case "--rx-sens": receiverSensitivity = ParseUShort(value, token); break;
-                case "--channel": channelIndex = ParseUShort(value, token); break;
-                case "--gpo-port": gpoPort = ParseUShort(value, token); break;
-                case "--gpo-data" when bool.TryParse(value, out bool parsed): gpoData = parsed; break;
-                case "--gpo-data": throw new CliUsageException("--gpo-data must be true or false.");
-                default: throw new CliUsageException($"Unknown config apply option '{token}'.");
-            }
+            DefaultValue = _session.DesiredSettings.Inventory is not null
+        });
+        if (!includeInventory)
+        {
+            _session.DesiredSettings = _session.DesiredSettings with { Inventory = null };
+            _console.MarkupLine("[bold springgreen2]✔ Draft now contains configuration only.[/]");
+            return;
         }
 
-        return new ConfigApplySettings
+        InventorySettings current = _session.DesiredSettings.Inventory ?? new InventorySettings();
+        string antennaText = _console.Prompt(new TextPrompt<string>("[grey]Antenna IDs (all or comma-separated):[/]")
+            .DefaultValue(FormatAntennaIds(current.AntennaIds)));
+        IReadOnlyList<ushort> antennas = ParseAntennaIds(antennaText);
+        byte inventorySession = _console.Prompt(new SelectionPrompt<byte>()
+            .Title("[grey]C1G2 Session:[/]")
+            .AddChoices((byte)0, (byte)1, (byte)2, (byte)3)
+            .DefaultValue(current.Session));
+        ushort population = _console.Prompt(new TextPrompt<ushort>("[grey]Tag population estimate:[/]")
+            .DefaultValue(current.TagPopulationEstimate));
+        ushort mode = _console.Prompt(new TextPrompt<ushort>("[grey]RF ModeIndex (0 = reader default):[/]")
+            .DefaultValue(current.ModeIndex));
+        ushort tari = _console.Prompt(new TextPrompt<ushort>("[grey]Tari in ns (0 = reader default):[/]")
+            .DefaultValue(current.Tari));
+        bool attachedEnabled = _console.Prompt(new ConfirmationPrompt("[grey]Enable AttachedData read?[/]")
         {
-            KeepaliveType = keepaliveType,
-            KeepaliveInterval = keepaliveInterval,
-            AntennaId = antennaId,
-            TransmitPower = transmitPower,
-            ReceiverSensitivity = receiverSensitivity,
-            ChannelIndex = channelIndex,
-            GpoPort = gpoPort,
-            GpoData = gpoData,
-            DryRun = dryRun
+            DefaultValue = current.AttachedData.Enabled
+        });
+
+        AttachedDataOptions attached = current.AttachedData;
+        if (attachedEnabled)
+        {
+            ushort bank = _console.Prompt(new SelectionPrompt<ushort>()
+                .Title("[grey]AttachedData memory bank:[/]")
+                .AddChoices((ushort)0, (ushort)1, (ushort)2, (ushort)3)
+                .DefaultValue(current.AttachedData.MemoryBank));
+            attached = current.AttachedData with
+            {
+                Enabled = true,
+                MemoryBank = bank,
+                WordPointer = _console.Prompt(new TextPrompt<ushort>("[grey]AttachedData word pointer:[/]").DefaultValue(current.AttachedData.WordPointer)),
+                WordCount = _console.Prompt(new TextPrompt<ushort>("[grey]AttachedData word count:[/]").DefaultValue(current.AttachedData.WordCount)),
+                AccessPassword = _console.Prompt(new TextPrompt<string>("[grey]AttachedData access password (8 hex digits):[/]").DefaultValue(current.AttachedData.AccessPassword)).ToUpperInvariant()
+            };
+        }
+        else
+        {
+            attached = current.AttachedData with { Enabled = false };
+        }
+
+        _session.DesiredSettings = _session.DesiredSettings with
+        {
+            Inventory = current with
+            {
+                AntennaIds = antennas,
+                Session = inventorySession,
+                TagPopulationEstimate = population,
+                ModeIndex = mode,
+                Tari = tari,
+                AttachedData = attached
+            }
         };
+        _console.MarkupLine("[bold springgreen2]✔ Inventory fields updated in the local draft.[/] Filters, triggers, report fields, configuration, and vendor extensions were preserved.");
     }
 
-    private static ushort ParseUShort(string value, string option)
+    private void RenderSettingsTree(string title, ReaderSettings settings)
     {
-        uint parsed = Helpers.ParseUInt32(value, option);
-        if (parsed > ushort.MaxValue)
+        var tree = new Tree($"[bold deepskyblue1]{Markup.Escape(title)}[/]");
+        TreeNode configuration = tree.AddNode("[yellow]Configuration[/]");
+        configuration.AddNode($"Keepalive: {Markup.Escape(settings.Configuration.Keepalive.TriggerType.ToString())}, interval {settings.Configuration.Keepalive.IntervalMs} ms");
+        configuration.AddNode($"Antennas: {settings.Configuration.Antennas.Count}; GPOs: {settings.Configuration.Gpos.Count}; GPIs: {settings.Configuration.Gpis.Count}");
+        configuration.AddNode($"Extensions: {Markup.Escape(FormatExtensionKeys(settings.Configuration.Extensions))}");
+
+        TreeNode inventory = tree.AddNode("[yellow]Inventory[/]");
+        if (settings.Inventory is null)
         {
-            throw new CliUsageException($"{option} must be a UInt16 value.");
+            inventory.AddNode("[dim]Not configured[/]");
         }
-        return (ushort)parsed;
+        else
+        {
+            InventorySettings value = settings.Inventory;
+            inventory.AddNode($"Antennas: {Markup.Escape(FormatAntennaIds(value.AntennaIds))}");
+            inventory.AddNode($"Session: {value.Session}; population: {value.TagPopulationEstimate}; ModeIndex: {value.ModeIndex}; Tari: {value.Tari}");
+            inventory.AddNode($"Filters: {value.Filters.Count}; report trigger: {Markup.Escape(value.Report.Trigger.ToString())}");
+            inventory.AddNode(value.AttachedData.Enabled
+                ? $"AttachedData: bank {value.AttachedData.MemoryBank}, pointer {value.AttachedData.WordPointer}, words {value.AttachedData.WordCount}"
+                : "AttachedData: disabled");
+            inventory.AddNode($"Extensions: {Markup.Escape(FormatExtensionKeys(value.Extensions))}");
+        }
+
+        tree.AddNode($"[yellow]Reader extensions:[/] {Markup.Escape(FormatExtensionKeys(settings.Extensions))}");
+        _console.Write(tree);
     }
 
-    private void RenderLiveConfigChange(ConfigApplySettings settings, ReaderConfiguration configuration, bool noWrite)
+    private static string FormatExtensionKeys(IReadOnlyDictionary<string, object?> extensions)
+        => extensions.Count == 0 ? "none" : string.Join(", ", extensions.Keys.OrderBy(static key => key, StringComparer.Ordinal));
+
+    private static string FormatAntennaIds(IReadOnlyList<ushort> antennaIds)
+        => antennaIds.Count == 1 && antennaIds[0] == 0 ? "all" : string.Join(',', antennaIds);
+
+    private static IReadOnlyList<ushort> ParseAntennaIds(string value)
     {
-        var table = new Table().Border(TableBorder.Rounded);
-        table.AddColumn("[bold grey70]Setting[/]");
-        table.AddColumn("[bold grey70]Resolved value[/]");
-        if (settings.KeepaliveType is not null || settings.KeepaliveInterval.HasValue)
+        if (value.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
-            table.AddRow("Keepalive", $"{configuration.Keepalive.TriggerType}, {configuration.Keepalive.IntervalMs} ms");
-        }
-        if (settings.AntennaId is ushort antennaId)
-        {
-            AntennaConfigurationSettings antenna = configuration.Antennas.Single(item => item.AntennaId == antennaId);
-            table.AddRow($"Antenna {antennaId}", $"Tx index={antenna.TransmitPowerIndex}, Rx index={antenna.ReceiverSensitivityIndex}, Channel index={antenna.ChannelIndex}");
-        }
-        if (settings.GpoPort is ushort gpoPort)
-        {
-            GpoConfiguration gpo = configuration.Gpos.Single(item => item.GpoPortNumber == gpoPort);
-            table.AddRow($"GPO {gpoPort}", gpo.GpoData ? "[green]High (1)[/]" : "[grey]Low (0)[/]");
+            return [0];
         }
 
-        string header = noWrite
-            ? "[bold yellow] CONFIGURATION PREVIEW — NO DEVICE WRITE [/]"
-            : "[bold yellow] CONFIGURATION CHANGE [/]";
-        _console.Write(new Panel(table).Header(header).Border(BoxBorder.Rounded));
+        string[] parts = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 || !parts.All(static item => ushort.TryParse(item, out _)))
+        {
+            throw new CliUsageException("Antenna IDs must be all or a comma-separated list of UInt16 values.");
+        }
+
+        ushort[] parsed = parts.Select(static item => ushort.Parse(item)).Distinct().ToArray();
+        if (parsed.Contains((ushort)0))
+        {
+            throw new CliUsageException("Antenna ID 0 selects all antennas; use all instead of combining it with explicit IDs.");
+        }
+
+        return parsed;
     }
 
     private async Task HandleSynchronizeStateAsync(CancellationToken cancellationToken)
@@ -887,7 +950,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             "[grey][cyan1]rospec list[/] / [cyan1]start[/] / [cyan1]stop[/] / [cyan1]caps[/] / [cyan1]status[/][/]");
         grid.AddRow(
             "[bold yellow1]🏷️ 托管盘点流[/]",
-            "[grey][cyan1]inventory settings[/] 配置盘点意图；[cyan1]inventory start|stop[/] 控制 SDK 托管盘点[/]");
+            "[grey][cyan1]settings apply <file> --yes[/] 部署意图；[cyan1]inventory start|stop[/] 控制 Reader 上的托管盘点[/]");
         grid.AddRow(
             "[bold cyan1]📡 被动推流监听[/]",
             "[grey][cyan1]monitor 10[/] 纯被动接收打印 10 秒 TCP 回调帧[/]");
@@ -923,14 +986,12 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("  [cyan1]disconnect[/]", "断开当前读写器 TCP 会话");
         table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
         table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");
-        table.AddRow("  [cyan1]config get[/]", "查询当前读写器配置（只读，不影响托管盘点状态）");
-        table.AddRow("  [cyan1]config defaults[/]", "显示 SDK 默认配置/Profile 来源（不读取或写入设备配置）");
-        table.AddRow("  [cyan1]config apply [[options]] [[--dry-run]] --yes[/]", "预览或显式确认后写入可编辑配置");
+        table.AddRow("  [cyan1]settings get|draft|export|validate|apply[/]", "查询设备事实、管理 ReaderSettings 草稿或显式应用完整高层意图");
 
         // 分组 2: 高层托管盘点 (Managed Inventory)
         table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
-        table.AddRow("  [cyan1]inventory settings show|set|load|save|reset[/]", "管理下一次托管盘点的本地意图草稿；无需连接读写器");
-        table.AddRow("  [cyan1]inventory start [[--antennas id,id|all]] [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status[/]", "按草稿启动盘点；Ctrl+C 或监控时间到都只退出监控");
+        table.AddRow("  [cyan1]inventory start [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status[/]", "启动、停止或查看 Reader 上已部署的高层 Inventory；Ctrl+C 或监控时间到都只退出监控");
+        table.AddRow("  [cyan1]session inventory <settings-file> [[--monitor live|frames|none]] [[--monitor-duration seconds]][/]", "临时运行文档中的 Inventory 子域；结束后自动 Stop 并清除 SDK 资源");
 
         // 分组 3: 纯被动推流监听 (Passive Monitoring)
         table.AddRow("[bold yellow1]─── 📡 纯被动推流监听 (Passive Monitoring) ───[/]", "");
@@ -941,6 +1002,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("[bold yellow1]─── ⚙️ 进阶底层资源操控 (Advanced Resource API) ───[/]", "");
         table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "创建默认 ROSpec 或管理设备现有 ROSpec 资源");
         table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "声明式管理设备 AccessSpec 资源 (密码/Memory 读写)");
+        table.AddRow("  [cyan1]resources manual enter|exit|status | resources clear[/]", "显式进入专家资源模式，或清除 SDK 保留的高层资源");
         table.AddRow("  [cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "精准发送或收发原始二进制 Hex 报文");
         table.AddRow("  [cyan1]sync[/]", "同步 Raw 操作后的托管状态与配置缓存");
 
@@ -981,26 +1043,20 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             .Header($"[bold deepskyblue1] HELP: {Markup.Escape(command.Name)} [/]")
             .Border(BoxBorder.Rounded));
 
-        if (command.Name.Equals("config", StringComparison.OrdinalIgnoreCase))
+        if (command.Name.Equals("settings", StringComparison.OrdinalIgnoreCase))
         {
             var optionsTable = new Table().Border(TableBorder.Rounded);
             optionsTable.AddColumn("[bold cyan1]Option[/]");
             optionsTable.AddColumn("[bold grey70]Type / Format[/]");
             optionsTable.AddColumn("[bold grey70]Description[/]");
 
-            optionsTable.AddRow("--dry-run", "Flag", "Show configuration change preview without writing to device");
-            optionsTable.AddRow("--yes", "Flag", "Explicitly confirm configuration write to reader");
-            optionsTable.AddRow("--antenna", "<ushort>", "Target antenna ID (e.g. 1)");
-            optionsTable.AddRow("--tx-power", "<ushort index>", "Transmit-power table index, not dBm/mW; run caps first");
-            optionsTable.AddRow("--rx-sens", "<ushort index>", "Receiver-sensitivity table index, not dBm; run caps first");
-            optionsTable.AddRow("--channel", "<ushort index>", "Channel / frequency-table index; run caps first");
-            optionsTable.AddRow("--keepalive-type", "none|periodic", "Keepalive trigger type");
-            optionsTable.AddRow("--keepalive-interval", "<uint ms>", "Keepalive interval in milliseconds");
-            optionsTable.AddRow("--gpo-port", "<ushort>", "GPO port number (e.g. 1)");
-            optionsTable.AddRow("--gpo-data", "true|false", "GPO pin state");
+            optionsTable.AddRow("get", "Command", "Read high-level settings from the reader");
+            optionsTable.AddRow("export <path>", "Command", "Write standard settings to a JSON file");
+            optionsTable.AddRow("validate <path>", "Command", "Validate a settings JSON file");
+            optionsTable.AddRow("apply <path> --yes", "Command", "Explicitly apply a settings JSON file");
 
             _console.Write(new Panel(optionsTable)
-                .Header("[bold yellow] config apply [[options]] [/]")
+                .Header("[bold yellow] settings [/]")
                 .Border(BoxBorder.Rounded));
         }
     }

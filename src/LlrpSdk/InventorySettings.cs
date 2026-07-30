@@ -107,6 +107,91 @@ public enum InventorySelectedFlag
     Clear,
 }
 
+/// <summary>One ordered Gen2 Select rule used before inventory.</summary>
+public sealed record InventorySelectFilter
+{
+    /// <summary>Gen2 memory bank (0=Reserved, 1=EPC, 2=TID, 3=User).</summary>
+    public ushort MemoryBank { get; init; } = 1;
+    /// <summary>Bit pointer in the selected memory bank.</summary>
+    public ushort BitPointer { get; init; } = 32;
+    /// <summary>Mask bits, encoded most-significant bit first.</summary>
+    public ReadOnlyMemory<byte> Mask { get; init; }
+    /// <summary>
+    /// Gets the number of meaningful mask bits. A value of zero uses all bits in <see cref="Mask"/>.
+    /// This preserves standard LLRP filters whose mask is not byte aligned.
+    /// </summary>
+    public ushort BitLength { get; init; }
+    public InventorySelectAction MatchAction { get; init; } = InventorySelectAction.Select;
+    public InventorySelectAction NonMatchAction { get; init; } = InventorySelectAction.Unselect;
+    /// <summary>
+    /// Gets an optional state-aware Select action. When supplied it replaces the state-unaware action pair.
+    /// </summary>
+    public InventoryStateAwareFilterAction? StateAwareAction { get; init; }
+}
+
+/// <summary>Describes the state-aware action for one Gen2 Select rule.</summary>
+public sealed record InventoryStateAwareFilterAction
+{
+    public InventoryFilterTarget Target { get; init; } = InventoryFilterTarget.SelectedFlag;
+    public InventoryFilterAction Action { get; init; } = InventoryFilterAction.AssertSelectedOrStateAAndDeassertSelectedOrStateB;
+}
+
+/// <summary>Defines the Gen2 tag population targeted by a state-aware Select rule.</summary>
+public enum InventoryFilterTarget
+{
+    SelectedFlag,
+    Session0,
+    Session1,
+    Session2,
+    Session3,
+}
+
+/// <summary>Defines the result of a state-aware Select rule.</summary>
+public enum InventoryFilterAction
+{
+    AssertSelectedOrStateAAndDeassertSelectedOrStateB,
+    AssertSelectedOrStateAAndNoOperation,
+    NoOperationAndDeassertSelectedOrStateB,
+    NegateSelectedOrStateAndNoOperation,
+    DeassertSelectedOrStateBAndAssertSelectedOrStateA,
+    DeassertSelectedOrStateBAndNoOperation,
+    NoOperationAndAssertSelectedOrStateA,
+    NoOperationAndNegateSelectedOrState,
+}
+
+/// <summary>State-unaware Select action applied for a matching or non-matching tag.</summary>
+public enum InventorySelectAction
+{
+    DoNothing,
+    Select,
+    Unselect,
+}
+
+/// <summary>Controls the standard fields and trigger used for managed inventory reports.</summary>
+public sealed record InventoryReportSettings
+{
+    public InventoryReportTrigger Trigger { get; init; } = InventoryReportTrigger.UponNTagsOrEndOfAiSpec;
+    public bool IncludeRoSpecId { get; init; } = true;
+    public bool IncludeSpecIndex { get; init; } = true;
+    public bool IncludeInventoryParameterSpecId { get; init; } = true;
+    public bool IncludeAntennaId { get; init; } = true;
+    public bool IncludeChannelIndex { get; init; } = true;
+    public bool IncludePeakRssi { get; init; } = true;
+    public bool IncludeFirstSeenTimestamp { get; init; } = true;
+    public bool IncludeLastSeenTimestamp { get; init; } = true;
+    public bool IncludeTagSeenCount { get; init; } = true;
+    public bool IncludeAccessSpecId { get; init; } = true;
+    public bool IncludeCrc { get; init; }
+    public bool IncludePcBits { get; init; }
+}
+
+public enum InventoryReportTrigger
+{
+    None,
+    UponNTagsOrEndOfAiSpec,
+    UponNTagsOrEndOfRoSpec,
+}
+
 /// <summary>
 /// Describes the version-independent intent for one managed inventory operation.
 /// </summary>
@@ -121,13 +206,8 @@ public sealed record InventorySettings
     public IReadOnlyDictionary<string, object?> Extensions { get; init; } =
         new System.Collections.ObjectModel.ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
 
-    /// <summary>
-    /// Gets the identifier reserved for the SDK-managed inventory ROSpec.
-    /// </summary>
-    /// <remarks>
-    /// The value must be non-zero and must not conflict with a ROSpec managed through the advanced resource API.
-    /// </remarks>
-    public uint RoSpecId { get; init; } = 14150;
+    /// <summary>Gets ordered standard Gen2 Select filters for this inventory operation.</summary>
+    public IReadOnlyList<InventorySelectFilter> Filters { get; init; } = Array.Empty<InventorySelectFilter>();
 
     /// <summary>
     /// Gets the reader antenna identifiers to use. The default value <c>0</c> selects all reader antennas.
@@ -148,6 +228,9 @@ public sealed record InventorySettings
     /// Gets the number of observed tags that trigger one report. The default reports each observed tag.
     /// </summary>
     public ushort ReportEveryNTags { get; init; } = 1;
+
+    /// <summary>Gets the standard selector and trigger used for inventory reports.</summary>
+    public InventoryReportSettings Report { get; init; } = new();
 
     /// <summary>
     /// Gets the C1G2 Session (0, 1, 2, or 3) for singulation. Default is 0.

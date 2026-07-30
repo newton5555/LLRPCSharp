@@ -23,11 +23,16 @@ internal sealed class LiveSessionContext
 
     public Task? InventoryPumpTask { get; set; }
 
+    public InventorySession? InventorySession { get; set; }
+
     /// <summary>
-    /// Gets or sets the local inventory-intent draft for the next managed inventory start.
-    /// This is distinct from <see cref="LlrpReader.CurrentInventorySettings"/>, which exists only while inventory runs.
+    /// Gets or sets the application's complete high-level intent draft. The CLI owns this value;
+    /// the reader owns device facts and the deployed high-level resource state.
     /// </summary>
-    public InventorySettings DesiredInventorySettings { get; set; } = new();
+    public ReaderSettings DesiredSettings { get; set; } = new()
+    {
+        Inventory = new InventorySettings()
+    };
 
     public string? Host { get; set; }
 

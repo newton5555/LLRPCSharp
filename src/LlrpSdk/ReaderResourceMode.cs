@@ -6,8 +6,14 @@ public enum ReaderResourceMode
     /// <summary>No SDK high-level or manual resource session is active.</summary>
     Idle,
 
-    /// <summary>The SDK exclusively owns the resources created for a high-level inventory operation.</summary>
-    HighLevelExclusive,
+    /// <summary>The SDK owns a persisted high-level ROSpec and AccessSpec, but inventory is stopped.</summary>
+    HighLevelConfigured,
+
+    /// <summary>The SDK exclusively owns resources for an active high-level inventory operation.</summary>
+    HighLevelRunning,
+
+    /// <summary>Compatibility name for <see cref="HighLevelRunning"/>.</summary>
+    HighLevelExclusive = HighLevelRunning,
 
     /// <summary>The application explicitly owns resource-level ROSpec and AccessSpec operations.</summary>
     ManualResources,

@@ -7,12 +7,13 @@ public enum LiveCommandRoute
     Status,
     Capabilities,
     Inventory,
+    Session,
     Monitor,
     Frames,
     RoSpec,
     AccessSpec,
     Resources,
-    Configuration,
+    Settings,
     TagAccess,
     Raw,
     Synchronize,
@@ -55,36 +56,21 @@ public static class CommandCatalog
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
         new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index-to-dBm tables.", RequiresConnection: true),
-        new("config", LiveCommandRoute.Configuration, "config get | defaults | apply [options] [--dry-run] --yes", "Query full configuration, resolve defaults, or safely apply reader configuration.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, "settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", "Query, edit, draft, or apply high-level ReaderSettings.", RequiresConnection: true)
         {
-            CompletionCandidates =
-            [
-                "get",
-                "defaults",
-                "apply",
-                "--dry-run",
-                "--yes",
-                "--antenna",
-                "--tx-power",
-                "--rx-sens",
-                "--channel",
-                "--keepalive-type",
-                "--keepalive-interval",
-                "--gpo-port",
-                "--gpo-data",
-                "periodic",
-                "none",
-                "true",
-                "false"
-            ],
+            CompletionCandidates = ["get", "draft", "show", "wizard", "load", "save", "reset", "export", "validate", "apply", "--yes"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
             CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory settings [show|get] | set [options] | load|save <path> | reset | start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration seconds] | stop | status", "Manage SDK inventory intent and foreground monitoring.")
+        new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status", "Control the Reader-deployed high-level inventory.")
         {
-            CompletionCandidates = ["settings", "start", "stop", "status", "show", "get", "set", "load", "save", "reset", "--antennas", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60", "--session", "--population", "--mode", "--tari", "--attach-bank", "--attach-ptr", "--attach-len", "--attach-pwd", "epc", "tid", "user", "reserved", "all"],
+            CompletionCandidates = ["start", "stop", "status", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60"],
+        },
+        new("session", LiveCommandRoute.Session, "session inventory <settings-file> [--monitor live|frames|none] [--monitor-duration seconds]", "Run a temporary high-level inventory workload and clear it afterwards.", RequiresConnection: true)
+        {
+            CompletionCandidates = ["inventory", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60"],
         },
         new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
         {
@@ -94,9 +80,9 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["list", "enable", "disable", "delete"],
         },
-        new("resources", LiveCommandRoute.Resources, "resources manual enter|exit|status", "Enter or leave explicit manual ROSpec/AccessSpec control.", RequiresConnection: true)
+        new("resources", LiveCommandRoute.Resources, "resources manual enter|exit|status | resources clear", "Enter manual resource control or clear persisted SDK inventory resources.", RequiresConnection: true)
         {
-            CompletionCandidates = ["manual", "enter", "exit", "status"],
+            CompletionCandidates = ["manual", "enter", "exit", "status", "clear"],
         },
         new("raw", LiveCommandRoute.Raw, "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame.", RequiresConnection: true),
         new("sync", LiveCommandRoute.Synchronize, "sync", "Synchronize SDK-managed resource state after raw access.", RequiresConnection: true),
@@ -154,7 +140,7 @@ public static class CommandCatalog
         if (string.IsNullOrWhiteSpace(input))
         {
             return isConnected
-                ? new InputAssist(["status", "caps", "inventory", "config"], "status", "Next: status — inspect the connected reader · Commands: status, caps, inventory, config · Tab/→ accepts")
+                ? new InputAssist(["status", "caps", "inventory", "settings"], "status", "Next: status — inspect the connected reader · Commands: status, caps, inventory, settings · Tab/→ accepts")
                 : new InputAssist(["connect", "inspect", "decode", "validate", "encode", "help"], "connect", "Next: connect <host> — establish an LLRP session · Commands: connect, inspect, decode, validate, encode, help · Tab/→ accepts");
         }
 
@@ -185,15 +171,6 @@ public static class CommandCatalog
             return InputAssist.Empty;
         }
 
-        if (spec.Name.Equals("config", StringComparison.OrdinalIgnoreCase))
-        {
-            InputAssist? configurationAssist = AssistConfiguration(input, parts);
-            if (configurationAssist is not null)
-            {
-                return configurationAssist;
-            }
-        }
-
         if (parts.Length > 1 && spec.CompletionCandidates.Count > 0)
         {
             string lastToken = parts[^1].ToLowerInvariant();
@@ -217,39 +194,6 @@ public static class CommandCatalog
         }
 
         return new InputAssist([], string.Empty, spec.Usage);
-    }
-
-    private static InputAssist? AssistConfiguration(string input, IReadOnlyList<string> parts)
-    {
-        if (parts.Count == 1 && char.IsWhiteSpace(input[^1]))
-        {
-            return new InputAssist(["get", "defaults", "apply"], string.Empty, "get reads full device configuration; defaults is local SDK data; apply writes only with --yes");
-        }
-        if (parts.Count < 2 || !parts[1].Equals("apply", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        string last = parts[^1].ToLowerInvariant();
-        bool awaitingValue = char.IsWhiteSpace(input[^1]);
-        if ((last == "--tx-power" && awaitingValue) || last == "--tx-power")
-        {
-            return new InputAssist([], string.Empty, "Transmit power is a reader capability-table index, not dBm or mW. Run caps first.");
-        }
-        if ((last == "--rx-sens" && awaitingValue) || last == "--rx-sens")
-        {
-            return new InputAssist([], string.Empty, "Receiver sensitivity is a reader capability-table index, not dBm. Run caps first.");
-        }
-        if ((last == "--channel" && awaitingValue) || last == "--channel")
-        {
-            return new InputAssist([], string.Empty, "Channel is a reader-specific frequency-table index. Run caps first.");
-        }
-        if (awaitingValue)
-        {
-            return new InputAssist([], string.Empty, "config apply is a patch: use --dry-run to preview, then add --yes to write. Tx/Rx/Channel values are indices.");
-        }
-
-        return null;
     }
 
     private static string BuildCandidateHint(string label, IReadOnlyList<string> candidates)

@@ -78,7 +78,36 @@ public sealed class LlrpReaderTagAccessAndEventTests
         transport.OnSendAsync = (copy, _) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(copy.Span);
-            if (header.MessageType == V101.SET_READER_CONFIG.MessageType)
+            if (header.MessageType == V101.GET_READER_CONFIG.MessageType)
+            {
+                var response = new V101.GET_READER_CONFIG_RESPONSE(
+                    header.MessageId,
+                    new LLRPStatus(StatusCode.M_Success, "Success", null, null),
+                    Identification: null,
+                    AntennaPropertiesItems: [],
+                    AntennaConfigurationItems: [],
+                    ReaderEventNotificationSpec: null,
+                    ROReportSpec: null,
+                    AccessReportSpec: null,
+                    LLRPConfigurationStateValue: null,
+                    KeepaliveSpec: null,
+                    GPIPortCurrentStateItems: [],
+                    GPOWriteDataItems: [],
+                    EventsAndReports: null,
+                    CustomItems: []);
+                transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, response));
+            }
+            else if (header.MessageType == V101.GET_ROSPECS.MessageType)
+            {
+                transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101,
+                    new V101.GET_ROSPECS_RESPONSE(header.MessageId, new LLRPStatus(StatusCode.M_Success, "Success", null, null), [])));
+            }
+            else if (header.MessageType == V101.GET_ACCESSSPECS.MessageType)
+            {
+                transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101,
+                    new V101.GET_ACCESSSPECS_RESPONSE(header.MessageId, new LLRPStatus(StatusCode.M_Success, "Success", null, null), [])));
+            }
+            else if (header.MessageType == V101.SET_READER_CONFIG.MessageType)
             {
                 var configResponse = new V101.SET_READER_CONFIG_RESPONSE(header.MessageId, new LLRPStatus(StatusCode.M_Success, "Success", null, null));
                 transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, configResponse));
@@ -105,11 +134,13 @@ public sealed class LlrpReaderTagAccessAndEventTests
         await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
 
         var gpiEventTcs = new TaskCompletionSource<GpiChangedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var antennaEventTcs = new TaskCompletionSource<AntennaChangedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         var keepaliveTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var warningTcs = new TaskCompletionSource<ReportBufferWarningEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         var overflowTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         reader.GpiChanged += (_, args) => gpiEventTcs.TrySetResult(args);
+        reader.AntennaChanged += (_, args) => antennaEventTcs.TrySetResult(args);
         reader.KeepaliveReceived += (_, _) => keepaliveTcs.TrySetResult(true);
         reader.ReportBufferWarning += (_, args) => warningTcs.TrySetResult(args);
         reader.ReportBufferOverflow += (_, _) => overflowTcs.TrySetResult(true);
@@ -123,7 +154,7 @@ public sealed class LlrpReaderTagAccessAndEventTests
         bool keepaliveReceived = await keepaliveTcs.Task.WaitAsync(timeout.Token);
         Assert.True(keepaliveReceived);
 
-        // Enqueue READER_EVENT_NOTIFICATION frame with GPI, report-buffer warning and overflow.
+        // Enqueue READER_EVENT_NOTIFICATION frame with GPI, antenna, report-buffer warning and overflow.
         var eventData = new ReaderEventNotificationData(
             new Uptime(1000),
             null,
@@ -131,13 +162,17 @@ public sealed class LlrpReaderTagAccessAndEventTests
             null,
             new ReportBufferLevelWarningEvent(80),
             new ReportBufferOverflowErrorEvent(),
-            null, null, null, null, null, null, []);
+            null, null, null, new AntennaEvent(AntennaEventType.Antenna_Connected, 3), null, null, []);
         var notificationMsg = new V101.READER_EVENT_NOTIFICATION(101, eventData);
         transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, notificationMsg));
 
         GpiChangedEventArgs gpiArgs = await gpiEventTcs.Task.WaitAsync(timeout.Token);
         Assert.Equal(2, gpiArgs.PortNumber);
         Assert.True(gpiArgs.State);
+
+        AntennaChangedEventArgs antennaArgs = await antennaEventTcs.Task.WaitAsync(timeout.Token);
+        Assert.Equal(3, antennaArgs.AntennaId);
+        Assert.True(antennaArgs.IsConnected);
 
         ReportBufferWarningEventArgs warningArgs = await warningTcs.Task.WaitAsync(timeout.Token);
         Assert.Equal((byte)80, warningArgs.PercentageFull);
@@ -163,6 +198,30 @@ public sealed class LlrpReaderTagAccessAndEventTests
 
         Assert.Equal(TimeSpan.FromMilliseconds(75), args.Timeout);
         Assert.True(reader.IsConnected);
+    }
+
+    [Fact]
+    public async Task ManagedRoSpecEndEvent_StopsCompatibilityInventoryWithoutSession()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        ConfigureManagementSuccessResponses(transport);
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        await reader.StartAsync(new InventorySettings(), timeout.Token);
+
+        var eventData = new ReaderEventNotificationData(
+            new Uptime(1000), null, null,
+            new ROSpecEvent(ROSpecEventType.End_Of_ROSpec, 14150, 0),
+            null, null, null, null, null, null, null, null, []);
+        transport.EnqueueFrame(Registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new V101.READER_EVENT_NOTIFICATION(101, eventData)));
+
+        await Task.Delay(50, timeout.Token);
+        Assert.Equal(ReaderOperationState.Idle, reader.OperationState);
+        Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
+        Assert.NotNull(reader.CurrentInventorySettings);
     }
 
     [Fact]
@@ -201,8 +260,13 @@ public sealed class LlrpReaderTagAccessAndEventTests
         uint accessSpecId = accessSpec.AccessSpecID;
         Assert.Contains(requests, message => message is V101.ENABLE_ACCESSSPEC enable && enable.AccessSpecID == accessSpecId);
         Assert.Contains(requests, message => message is V101.DISABLE_ACCESSSPEC disable && disable.AccessSpecID == accessSpecId);
-        Assert.Contains(requests, message => message is V101.DELETE_ACCESSSPEC delete && delete.AccessSpecID == accessSpecId);
+        Assert.DoesNotContain(requests, message => message is V101.DELETE_ACCESSSPEC delete && delete.AccessSpecID == accessSpecId);
         Assert.Contains(requests, message => message is V101.START_ROSPEC start && start.ROSpecID == 14150);
+
+        await reader.ClearManagedSettingsAsync(timeout.Token);
+        requests = transport.SentFrames.Select(frame => Registry.DecodeMessage(frame)).ToArray();
+        Assert.Contains(requests, message => message is V101.DELETE_ACCESSSPEC delete && delete.AccessSpecID == accessSpecId);
+        Assert.Contains(requests, message => message is V101.DELETE_ROSPEC delete && delete.ROSpecID == 14150);
     }
 
     [Fact]
@@ -276,7 +340,7 @@ public sealed class LlrpReaderTagAccessAndEventTests
     }
 
     [Fact]
-    public async Task ExecuteTagAccessSequenceAsync_ReturnsAllOperationResults()
+    public async Task ExecuteTagAccessSequenceAsync_ReusesStoppedManagedInventoryAndReturnsAllOperationResults()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
@@ -324,6 +388,10 @@ public sealed class LlrpReaderTagAccessAndEventTests
 
         await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
+        var inventory = new InventorySettings { Session = 2, TagPopulationEstimate = 64 };
+        await reader.StartAsync(inventory, timeout.Token);
+        await reader.StopAsync(timeout.Token);
+
         TagAccessSequenceResult result = await reader.ExecuteTagAccessSequenceAsync(
             new TagAccessSequenceRequest
             {
@@ -339,6 +407,10 @@ public sealed class LlrpReaderTagAccessAndEventTests
             result.Operations,
             operation => { Assert.Equal((ushort)1, operation.OpSpecID); Assert.Equal([0x1234], operation.ReadData); },
             operation => { Assert.Equal((ushort)2, operation.OpSpecID); Assert.Equal((ushort)1, operation.WordsWritten); });
+        Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
+        Assert.Same(inventory, reader.CurrentInventorySettings);
+        ILlrpMessage[] requests = transport.SentFrames.Select(frame => Registry.DecodeMessage(frame)).ToArray();
+        Assert.Single(requests.OfType<V101.ADD_ROSPEC>());
     }
 
     private static void ConfigureManagementSuccessResponses(ScriptedLlrpTransport transport)

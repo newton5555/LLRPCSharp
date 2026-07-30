@@ -53,7 +53,7 @@ TCP / LLRP binary protocol / real or virtual readers
 
 | Layer | Entry Point | Users | Versioned Type Visibility |
 |---|---|---|---|
-| High-level operations | `LlrpReader.ConnectAsync`, `StartAsync`, `StopAsync`, `InventoryAsync` | Applications and regular CLI workflows | Hidden |
+| High-level operations | `LlrpReader.ConnectAsync`, `QuerySettingsAsync`, `ApplySettingsAsync`, `StartInventoryAsync`, `InventorySession` | Applications and regular CLI workflows | Hidden |
 | Advanced resources | `reader.RoSpecs`, `reader.AccessSpecs` | Integration code, resource-management CLI, protocol tests | Parameter models visible |
 | Raw protocol | `reader.Protocol` | Protocol experts, diagnostics tools, unwrapped features | Visible |
 | Protocol library | `LlrpCodecRegistry`, generated models, codecs | Offline tools, extension modules, SDK internals | Visible |

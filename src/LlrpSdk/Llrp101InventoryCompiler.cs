@@ -14,17 +14,42 @@ internal static class Llrp101InventoryCompiler
         InventorySettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         bool supportsStateAwareSingulation = false) =>
-        CompileWithDefaults(settings, roReportSpecCustomItems, supportsStateAwareSingulation, compilationDefaults: null);
+        Compile(settings, roReportSpecCustomItems, [], supportsStateAwareSingulation);
+
+    public static ROSpec Compile(
+        InventorySettings settings,
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        IReadOnlyList<ILlrpParameter> c1G2InventoryCommandCustomItems,
+        bool supportsStateAwareSingulation = false) =>
+        CompileWithDefaults(settings, LlrpReader.ManagedInventoryRoSpecId, roReportSpecCustomItems, c1G2InventoryCommandCustomItems, supportsStateAwareSingulation, compilationDefaults: null);
 
     public static ROSpec CompileWithDefaults(
         InventorySettings settings,
         IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
         bool supportsStateAwareSingulation,
+        InventoryCompilationDefaults? compilationDefaults) =>
+        CompileWithDefaults(settings, roReportSpecCustomItems, [], supportsStateAwareSingulation, compilationDefaults);
+
+    public static ROSpec CompileWithDefaults(
+        InventorySettings settings,
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        IReadOnlyList<ILlrpParameter> c1G2InventoryCommandCustomItems,
+        bool supportsStateAwareSingulation,
+        InventoryCompilationDefaults? compilationDefaults) =>
+        CompileWithDefaults(settings, LlrpReader.ManagedInventoryRoSpecId, roReportSpecCustomItems, c1G2InventoryCommandCustomItems, supportsStateAwareSingulation, compilationDefaults);
+
+    public static ROSpec CompileWithDefaults(
+        InventorySettings settings,
+        uint roSpecId,
+        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        IReadOnlyList<ILlrpParameter> c1G2InventoryCommandCustomItems,
+        bool supportsStateAwareSingulation,
         InventoryCompilationDefaults? compilationDefaults)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(roReportSpecCustomItems);
-        Validate(settings);
+        ArgumentNullException.ThrowIfNull(c1G2InventoryCommandCustomItems);
+        Validate(settings, roSpecId);
 
         ushort[] antennaIds = compilationDefaults is not null && settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0
             ? compilationDefaults.AntennaIds.ToArray()
@@ -45,14 +70,14 @@ internal static class Llrp101InventoryCompiler
             : null;
 
         AntennaConfiguration[] antennaConfigs = Array.Empty<AntennaConfiguration>();
-        if (singulationControl is not null || rfControl is not null)
+        if (singulationControl is not null || rfControl is not null || settings.Filters.Count != 0 || c1G2InventoryCommandCustomItems.Count != 0)
         {
             var invCmd = new C1G2InventoryCommand(
                 TagInventoryStateAware: stateAwareAction is not null,
-                C1G2FilterItems: Array.Empty<C1G2Filter>(),
+                C1G2FilterItems: CompileFilters(settings.Filters),
                 C1G2RFControl: rfControl,
                 C1G2SingulationControl: singulationControl,
-                CustomItems: Array.Empty<ILlrpParameter>());
+                CustomItems: c1G2InventoryCommandCustomItems);
             antennaConfigs = compilationDefaults is null
                 ? [new AntennaConfiguration(0, null, null, [invCmd])]
                 : antennaIds.Select(antennaId => new AntennaConfiguration(
@@ -77,27 +102,30 @@ internal static class Llrp101InventoryCompiler
             ],
             Array.Empty<ILlrpParameter>());
 
+        ArgumentNullException.ThrowIfNull(settings.Report);
         var reportSelector = new TagReportContentSelector(
-            EnableROSpecID: true,
-            EnableSpecIndex: true,
-            EnableInventoryParameterSpecID: true,
-            EnableAntennaID: true,
-            EnableChannelIndex: true,
-            EnablePeakRSSI: true,
-            EnableFirstSeenTimestamp: true,
-            EnableLastSeenTimestamp: true,
-            EnableTagSeenCount: true,
-            EnableAccessSpecID: true,
-            AirProtocolEPCMemorySelectorItems: Array.Empty<IAirProtocolEPCMemorySelector>());
+            EnableROSpecID: settings.Report.IncludeRoSpecId,
+            EnableSpecIndex: settings.Report.IncludeSpecIndex,
+            EnableInventoryParameterSpecID: settings.Report.IncludeInventoryParameterSpecId,
+            EnableAntennaID: settings.Report.IncludeAntennaId,
+            EnableChannelIndex: settings.Report.IncludeChannelIndex,
+            EnablePeakRSSI: settings.Report.IncludePeakRssi,
+            EnableFirstSeenTimestamp: settings.Report.IncludeFirstSeenTimestamp,
+            EnableLastSeenTimestamp: settings.Report.IncludeLastSeenTimestamp,
+            EnableTagSeenCount: settings.Report.IncludeTagSeenCount,
+            EnableAccessSpecID: settings.Report.IncludeAccessSpecId,
+            AirProtocolEPCMemorySelectorItems: settings.Report.IncludeCrc || settings.Report.IncludePcBits
+                ? [new C1G2EPCMemorySelector(settings.Report.IncludeCrc, settings.Report.IncludePcBits)]
+                : Array.Empty<IAirProtocolEPCMemorySelector>());
 
         var reportSpec = new ROReportSpec(
-            ROReportTriggerType.Upon_N_Tags_Or_End_Of_AISpec,
+            ToReportTrigger(settings.Report.Trigger),
             settings.ReportEveryNTags,
             reportSelector,
             roReportSpecCustomItems);
 
         return new ROSpec(
-            settings.RoSpecId,
+            roSpecId,
             settings.Priority,
             ROSpecState.Disabled,
             boundary,
@@ -105,13 +133,13 @@ internal static class Llrp101InventoryCompiler
             reportSpec);
     }
 
-    private static void Validate(InventorySettings settings)
+    private static void Validate(InventorySettings settings, uint roSpecId)
     {
-        if (settings.RoSpecId == 0)
+        if (roSpecId == 0)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(settings),
-                settings.RoSpecId,
+                nameof(roSpecId),
+                roSpecId,
                 "A managed inventory ROSpec identifier must be non-zero.");
         }
 
@@ -152,9 +180,22 @@ internal static class Llrp101InventoryCompiler
                 settings.Session,
                 "C1G2 singulation session must be between 0 and 3.");
         }
+        foreach (InventorySelectFilter filter in settings.Filters)
+        {
+            int bitLength = filter.BitLength == 0 ? checked(filter.Mask.Length * 8) : filter.BitLength;
+            if (filter.MemoryBank > 3 || filter.Mask.IsEmpty || bitLength <= 0 || bitLength > filter.Mask.Length * 8)
+            {
+                throw new ArgumentException("Inventory filters require a memory bank from 0 to 3 and a non-empty mask.", nameof(settings));
+            }
+            if (filter.StateAwareAction is null)
+            {
+                _ = ToAction(filter.MatchAction, filter.NonMatchAction);
+            }
+        }
 
         ArgumentNullException.ThrowIfNull(settings.StartTrigger);
         ArgumentNullException.ThrowIfNull(settings.StopTrigger);
+        ArgumentNullException.ThrowIfNull(settings.Report);
         if (settings.StartTrigger.Type == InventoryStartTriggerType.Periodic && settings.StartTrigger.PeriodMilliseconds == 0)
         {
             throw new ArgumentOutOfRangeException(nameof(settings), "A periodic inventory start trigger requires a non-zero period.");
@@ -172,6 +213,62 @@ internal static class Llrp101InventoryCompiler
             throw new ArgumentOutOfRangeException(nameof(settings), "A GPI inventory stop trigger requires a non-zero port number.");
         }
     }
+
+    private static IReadOnlyList<C1G2Filter> CompileFilters(IReadOnlyList<InventorySelectFilter> filters) =>
+        filters.Select(filter => new C1G2Filter(
+            C1G2TruncateAction.Do_Not_Truncate,
+            new C1G2TagInventoryMask((byte)filter.MemoryBank, filter.BitPointer, ToBits(filter.Mask.Span, filter.BitLength)),
+            filter.StateAwareAction is null ? null : new C1G2TagInventoryStateAwareFilterAction(
+                ToStateAwareTarget(filter.StateAwareAction.Target), ToStateAwareAction(filter.StateAwareAction.Action)),
+            filter.StateAwareAction is null ? new C1G2TagInventoryStateUnawareFilterAction(ToAction(filter.MatchAction, filter.NonMatchAction)) : null)).ToArray();
+
+    private static IReadOnlyList<bool> ToBits(ReadOnlySpan<byte> bytes, ushort bitLength)
+    {
+        int length = bitLength == 0 ? checked(bytes.Length * 8) : bitLength;
+        return bytes.ToArray().SelectMany(value => Enumerable.Range(0, 8).Select(bit => (value & (1 << (7 - bit))) != 0)).Take(length).ToArray();
+    }
+
+    private static C1G2StateAwareTarget ToStateAwareTarget(InventoryFilterTarget target) => target switch
+    {
+        InventoryFilterTarget.SelectedFlag => C1G2StateAwareTarget.SL,
+        InventoryFilterTarget.Session0 => C1G2StateAwareTarget.Inventoried_State_For_Session_S0,
+        InventoryFilterTarget.Session1 => C1G2StateAwareTarget.Inventoried_State_For_Session_S1,
+        InventoryFilterTarget.Session2 => C1G2StateAwareTarget.Inventoried_State_For_Session_S2,
+        InventoryFilterTarget.Session3 => C1G2StateAwareTarget.Inventoried_State_For_Session_S3,
+        _ => throw new ArgumentOutOfRangeException(nameof(target), target, null),
+    };
+
+    private static C1G2StateAwareAction ToStateAwareAction(InventoryFilterAction action) => action switch
+    {
+        InventoryFilterAction.AssertSelectedOrStateAAndDeassertSelectedOrStateB => C1G2StateAwareAction.AssertSLOrA_DeassertSLOrB,
+        InventoryFilterAction.AssertSelectedOrStateAAndNoOperation => C1G2StateAwareAction.AssertSLOrA_Noop,
+        InventoryFilterAction.NoOperationAndDeassertSelectedOrStateB => C1G2StateAwareAction.Noop_DeassertSLOrB,
+        InventoryFilterAction.NegateSelectedOrStateAndNoOperation => C1G2StateAwareAction.NegateSLOrABBA_Noop,
+        InventoryFilterAction.DeassertSelectedOrStateBAndAssertSelectedOrStateA => C1G2StateAwareAction.DeassertSLOrB_AssertSLOrA,
+        InventoryFilterAction.DeassertSelectedOrStateBAndNoOperation => C1G2StateAwareAction.DeassertSLOrB_Noop,
+        InventoryFilterAction.NoOperationAndAssertSelectedOrStateA => C1G2StateAwareAction.Noop_AssertSLOrA,
+        InventoryFilterAction.NoOperationAndNegateSelectedOrState => C1G2StateAwareAction.Noop_NegateSLOrABBA,
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
+    };
+
+    private static ROReportTriggerType ToReportTrigger(InventoryReportTrigger trigger) => trigger switch
+    {
+        InventoryReportTrigger.None => ROReportTriggerType.None,
+        InventoryReportTrigger.UponNTagsOrEndOfAiSpec => ROReportTriggerType.Upon_N_Tags_Or_End_Of_AISpec,
+        InventoryReportTrigger.UponNTagsOrEndOfRoSpec => ROReportTriggerType.Upon_N_Tags_Or_End_Of_ROSpec,
+        _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger, null),
+    };
+
+    private static C1G2StateUnawareAction ToAction(InventorySelectAction match, InventorySelectAction nonMatch) => (match, nonMatch) switch
+    {
+        (InventorySelectAction.Select, InventorySelectAction.Unselect) => C1G2StateUnawareAction.Select_Unselect,
+        (InventorySelectAction.Select, InventorySelectAction.DoNothing) => C1G2StateUnawareAction.Select_DoNothing,
+        (InventorySelectAction.DoNothing, InventorySelectAction.Unselect) => C1G2StateUnawareAction.DoNothing_Unselect,
+        (InventorySelectAction.Unselect, InventorySelectAction.DoNothing) => C1G2StateUnawareAction.Unselect_DoNothing,
+        (InventorySelectAction.Unselect, InventorySelectAction.Select) => C1G2StateUnawareAction.Unselect_Select,
+        (InventorySelectAction.DoNothing, InventorySelectAction.Select) => C1G2StateUnawareAction.DoNothing_Select,
+        _ => throw new ArgumentException("The specified inventory Select action pair is not supported by LLRP.")
+    };
 
     private static ROSpecStartTrigger CompileStartTrigger(InventoryStartTrigger trigger) => trigger.Type switch
     {

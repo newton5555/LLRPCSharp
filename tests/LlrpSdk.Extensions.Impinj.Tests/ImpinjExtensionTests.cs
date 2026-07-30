@@ -10,6 +10,81 @@ namespace LlrpSdk.Extensions.Impinj.Tests;
 public sealed class ImpinjExtensionTests
 {
     [Fact]
+    public void ReaderSettingsSerializer_RoundTripsVersionedTypedImpinjExtensions()
+    {
+        var settings = new ReaderSettings
+        {
+            Configuration = new ReaderConfiguration
+            {
+                Extensions = new Dictionary<string, object?>
+                {
+                    [ImpinjReaderConfiguration.ExtensionKey] = new ImpinjReaderConfiguration
+                    {
+                        InventorySearchMode = ImpinjInventorySearchType.Single_Target,
+                        GpiDebounce = [new ImpinjGpiDebounceSetting(1, 250)],
+                    },
+                    [ImpinjReaderFacts.ExtensionKey] = new ImpinjReaderFacts
+                    {
+                        TemperatureCelsius = 35,
+                    },
+                },
+            },
+            Inventory = new InventorySettings
+            {
+                Extensions = new Dictionary<string, object?>
+                {
+                    [ImpinjInventoryReportOptions.ExtensionKey] = new ImpinjInventoryReportOptions
+                    {
+                        IncludeSerializedTid = true,
+                        IncludePeakRssi = true,
+                    },
+                },
+            },
+        };
+
+        string json = ReaderSettingsSerializer.SerializeToJson(settings, [ImpinjReaderExtension.Instance]);
+        ReaderSettings restored = ReaderSettingsSerializer.DeserializeFromJson(json, [ImpinjReaderExtension.Instance]);
+
+        Assert.Contains("\"schemaVersion\": 1", json, StringComparison.Ordinal);
+        Assert.IsType<ImpinjReaderConfiguration>(restored.Configuration.Extensions[ImpinjReaderConfiguration.ExtensionKey]);
+        var facts = Assert.IsType<ImpinjReaderFacts>(restored.Configuration.Extensions[ImpinjReaderFacts.ExtensionKey]);
+        Assert.Equal((short)35, facts.TemperatureCelsius);
+        var reports = Assert.IsType<ImpinjInventoryReportOptions>(restored.Inventory!.Extensions[ImpinjInventoryReportOptions.ExtensionKey]);
+        Assert.True(reports.IncludeSerializedTid);
+        Assert.True(reports.IncludePeakRssi);
+    }
+
+    [Fact]
+    public void ReaderConfiguration_CompilesTypedImpinjExtensionParameters()
+    {
+        var configuration = new ReaderConfiguration
+        {
+            Extensions = new Dictionary<string, object?>
+            {
+                [ImpinjReaderConfiguration.ExtensionKey] = new ImpinjReaderConfiguration
+                {
+                    InventorySearchMode = ImpinjInventorySearchType.Single_Target,
+                    FixedFrequency = new ImpinjFixedFrequencySettings(
+                        ImpinjFixedFrequencyMode.Channel_List, [1, 4]),
+                    GpiDebounce = [new ImpinjGpiDebounceSetting(1, 250)],
+                    LinkMonitor = new ImpinjLinkMonitorSettings(true, 3),
+                    AccessSpec = new ImpinjAccessSpecSettings(4, 2, ImpinjAccessSpecOrderingMode.FIFO),
+                },
+            },
+        };
+
+        IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> parameters =
+            ImpinjReaderExtension.Instance.BuildApplyParameters(configuration);
+
+        Assert.Contains(parameters, static item => item is ImpinjInventorySearchMode);
+        Assert.Contains(parameters, static item => item is ImpinjFixedFrequencyList list &&
+            list.ChannelList.Count == 2 && list.ChannelList[0] == 1 && list.ChannelList[1] == 4);
+        Assert.Contains(parameters, static item => item is ImpinjGPIDebounceConfiguration debounce && debounce.GPIDebounceTimerMSec == 250);
+        Assert.Contains(parameters, static item => item is ImpinjLinkMonitorConfiguration monitor && monitor.LinkMonitorMode == ImpinjLinkMonitorMode.Enabled);
+        Assert.Contains(parameters, static item => item is ImpinjAccessSpecConfiguration);
+    }
+
+    [Fact]
     public void InventoryCapabilities_R420Firmware641_AcceptsTagReportContentSelector()
     {
         var context = new ReaderExtensionMatchContext(
@@ -24,9 +99,43 @@ public sealed class ImpinjExtensionTests
         Assert.True(capabilities.SupportsSerializedTid);
         Assert.True(capabilities.SupportsRfPhaseAngle);
         Assert.True(capabilities.SupportsPeakRssi);
+        Assert.False(capabilities.SupportsTagPopulationEstimation);
+        Assert.False(capabilities.SupportsXpcWords);
         Assert.Equal(
-            "SDK verification confirmed Serialized TID, RF Phase Angle, and Peak RSSI report fields.",
+            "SDK verification confirmed Serialized TID, RF Phase Angle, and Peak RSSI report fields; tag population estimation was rejected by this firmware.",
             capabilities.Reason);
+    }
+
+    [Fact]
+    public void InventoryReportOptions_R420RejectsUnverifiedReportField()
+    {
+        var context = new ReaderExtensionMatchContext(
+            ManufacturerId: ImpinjReaderExtension.ManufacturerId,
+            ModelId: 2_001_002,
+            FirmwareVersion: "6.4.1.240",
+            ProtocolVersion: LlrpProtocolVersion.Version101);
+
+        Assert.Throws<NotSupportedException>(() =>
+            ImpinjInventoryReportConfigurator.BuildCustomItems(context, new ImpinjInventoryReportOptions
+            {
+                IncludeXpcWords = true,
+            }));
+    }
+
+    [Fact]
+    public void InventoryControlOptions_R420RejectsUnverifiedPopulationEstimation()
+    {
+        var context = new ReaderExtensionMatchContext(
+            ManufacturerId: ImpinjReaderExtension.ManufacturerId,
+            ModelId: 2_001_002,
+            FirmwareVersion: "6.4.1.240",
+            ProtocolVersion: LlrpProtocolVersion.Version101);
+
+        Assert.Throws<NotSupportedException>(() =>
+            ImpinjInventoryControlConfigurator.BuildCustomItems(context, new ImpinjInventoryControlOptions
+            {
+                EnableTagPopulationEstimation = true,
+            }));
     }
 
     [Fact]
@@ -110,6 +219,7 @@ public sealed class ImpinjExtensionTests
     public void ImpinjReaderExtension_RegistersAsInventoryContributor()
     {
         Assert.IsAssignableFrom<IInventoryContributor>(ImpinjReaderExtension.Instance);
+        Assert.IsAssignableFrom<IInventorySettingsContributor>(ImpinjReaderExtension.Instance);
     }
 
     [Fact]

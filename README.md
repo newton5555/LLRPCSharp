@@ -13,7 +13,7 @@ For the exact current implementation status, see [docs/status.md](docs/status.md
 - SDK and CLI baselines for LLRP 1.0.1 and 1.1.
 - Automatic 1.1 negotiation, with policy-based forcing of 1.0.1 or 1.1.
 - `LlrpReader` connection state machine, capability initialization, keepalive auto-response, and raw/typed protocol entry points.
-- Managed inventory APIs: `StartAsync`, `StopAsync`, `InventoryAsync`, `ReadTagReportsAsync`, and `TagsReported`.
+- High-level `ReaderSettings`, managed `StartInventoryAsync`/`InventorySession`, and connection-wide `ReadTagReportsAsync`/`TagsReported` observation APIs.
 - Advanced ROSpec and AccessSpec resource services.
 - `Microsoft.Extensions.Logging` integration and raw TX/RX frame observation through `ILlrpFrameObserver`.
 - LTK XML / YAML protocol definition import, validation, and C# code generation.

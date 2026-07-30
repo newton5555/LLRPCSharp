@@ -22,10 +22,6 @@ internal sealed class LiveInventoryHandler(
 
         switch (tokens[1].ToLowerInvariant())
         {
-            case "settings":
-                HandleSettings(tokens);
-                return;
-
             case "start":
             {
                 if (!EnsureConnected())
@@ -38,8 +34,11 @@ internal sealed class LiveInventoryHandler(
                     console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
                     return;
                 }
+                if (reader.CurrentInventorySettings is null)
+                {
+                    throw new CliUsageException("The reader has no deployed Inventory. Use 'settings apply <file> --yes' first.");
+                }
 
-                InventorySettings settings = ParseStartSettings(tokens);
                 LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
                 int? monitorDurationSeconds = ParseStartMonitorDurationSeconds(tokens);
                 if (monitorDurationSeconds is not null && monitorMode == LiveMonitorMode.None)
@@ -47,8 +46,8 @@ internal sealed class LiveInventoryHandler(
                     throw new CliUsageException("inventory start --monitor-duration requires --monitor live or --monitor frames.");
                 }
 
-                await reader.StartAsync(settings, cancellationToken);
-                RenderStartedSummary(settings);
+                session.InventorySession = await reader.StartInventoryAsync(cancellationToken);
+                RenderStartedSummary(session.InventorySession.Settings);
                 await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, cancellationToken);
                 break;
             }
@@ -76,6 +75,49 @@ internal sealed class LiveInventoryHandler(
         }
     }
 
+    /// <summary>Runs one temporary inventory from a settings document and always releases its managed resources.</summary>
+    public async Task HandleSessionAsync(string[] tokens, CancellationToken cancellationToken)
+    {
+        if (!EnsureConnected())
+        {
+            return;
+        }
+        if (tokens.Length < 3 || !tokens[1].Equals("inventory", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CliUsageException("Usage: session inventory <settings-file> [--monitor live|frames|none] [--monitor-duration seconds]");
+        }
+
+        LlrpReader reader = session.Reader!;
+        if (reader.ResourceMode != ReaderResourceMode.Idle)
+        {
+            throw new CliUsageException("Temporary sessions require an idle resource domain. Run 'resources clear' first.");
+        }
+        ReaderSettings settings = ReaderSettingsSerializer.LoadFromFile(tokens[2],
+            reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
+        InventorySettings inventory = settings.Inventory ?? throw new CliUsageException(
+            "The settings document has no Inventory intent; use 'settings apply' for configuration-only documents.");
+        string[] monitorTokens = [tokens[0], "start", .. tokens.Skip(3)];
+        LiveMonitorMode monitorMode = ParseStartMonitorMode(monitorTokens);
+        int? monitorDurationSeconds = ParseStartMonitorDurationSeconds(monitorTokens);
+        if (monitorDurationSeconds is not null && monitorMode == LiveMonitorMode.None)
+        {
+            throw new CliUsageException("session inventory --monitor-duration requires --monitor live or frames.");
+        }
+
+        try
+        {
+            session.InventorySession = await reader.StartInventoryAsync(inventory, cancellationToken);
+            RenderStartedSummary(inventory);
+            await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, cancellationToken);
+        }
+        finally
+        {
+            await StopAsync(CancellationToken.None).ConfigureAwait(false);
+            await reader.ClearManagedSettingsAsync(CancellationToken.None).ConfigureAwait(false);
+            session.InventorySession = null;
+        }
+    }
+
     private bool EnsureConnected()
     {
         if (session.Reader is not null && session.Reader.IsConnected)
@@ -89,86 +131,17 @@ internal sealed class LiveInventoryHandler(
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (session.Reader?.IsConnected == true && session.Reader.OperationState == ReaderOperationState.Inventorying)
+        if (session.InventorySession is { } activeSession)
+        {
+            await activeSession.StopAsync(cancellationToken).ConfigureAwait(false);
+            session.InventorySession = null;
+        }
+        else if (session.Reader?.IsConnected == true && session.Reader.OperationState == ReaderOperationState.Inventorying)
         {
             await session.Reader.StopAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private void HandleSettings(string[] tokens)
-    {
-        if (tokens.Length == 2)
-        {
-            RenderSettings(" INVENTORY SETTINGS DRAFT ", session.DesiredInventorySettings);
-            return;
-        }
-
-        switch (tokens[2].ToLowerInvariant())
-        {
-            case "show" or "get" when tokens.Length == 3:
-                RenderSettings(" INVENTORY SETTINGS DRAFT ", session.DesiredInventorySettings);
-                return;
-
-            case "reset" when tokens.Length == 3:
-                session.DesiredInventorySettings = new InventorySettings();
-                console.MarkupLine("[bold springgreen2]✔ Inventory settings reset to SDK defaults.[/]");
-                return;
-
-            case "load" when tokens.Length == 4:
-                session.DesiredInventorySettings = InventorySettingsSerializer.LoadFromFile(tokens[3]);
-                console.MarkupLine($"[bold springgreen2]✔ Inventory settings loaded from[/] [cyan1]{Markup.Escape(tokens[3])}[/].");
-                return;
-
-            case "save" when tokens.Length == 4:
-                InventorySettingsSerializer.SaveToFile(tokens[3], session.DesiredInventorySettings);
-                console.MarkupLine($"[bold springgreen2]✔ Inventory settings saved to[/] [cyan1]{Markup.Escape(tokens[3])}[/].");
-                return;
-
-            case "set":
-                session.DesiredInventorySettings = ParseSettingsOptions(session.DesiredInventorySettings, tokens, 3);
-                console.MarkupLine("[bold springgreen2]✔ Inventory settings draft updated.[/]");
-                RenderSettings(" INVENTORY SETTINGS DRAFT ", session.DesiredInventorySettings);
-                return;
-
-            default:
-                if (tokens[2].StartsWith("--", StringComparison.Ordinal))
-                {
-                    session.DesiredInventorySettings = ParseSettingsOptions(session.DesiredInventorySettings, tokens, 2);
-                    console.MarkupLine("[bold springgreen2]✔ Inventory settings draft updated.[/]");
-                    RenderSettings(" INVENTORY SETTINGS DRAFT ", session.DesiredInventorySettings);
-                    return;
-                }
-
-                console.MarkupLine("[red]Usage:[/] inventory settings [[show|get]] | set [[options]] | load <path> | save <path> | reset");
-                return;
-        }
-    }
-
-    private InventorySettings ParseStartSettings(string[] tokens)
-    {
-        if (tokens.Length == 2)
-        {
-            return session.DesiredInventorySettings;
-        }
-
-        IReadOnlyList<ushort> antennas = session.DesiredInventorySettings.AntennaIds;
-        for (int index = 2; index < tokens.Length; index += 2)
-        {
-            if (index + 1 >= tokens.Length)
-            {
-                throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration <seconds>]");
-            }
-            switch (tokens[index].ToLowerInvariant())
-            {
-                case "--antennas": antennas = ParseAntennaIds(tokens[index + 1]); break;
-                case "--monitor": _ = ParseMonitorMode(tokens[index + 1]); break;
-                case "--monitor-duration" when int.TryParse(tokens[index + 1], out int duration) && duration > 0: break;
-                default: throw new CliUsageException("Usage: inventory start [--antennas <id,id|all>] [--monitor live|frames|none] [--monitor-duration <seconds>]");
-            }
-        }
-
-        return session.DesiredInventorySettings with { AntennaIds = antennas };
-    }
 
     private static LiveMonitorMode ParseStartMonitorMode(string[] tokens)
     {
@@ -208,136 +181,6 @@ internal sealed class LiveInventoryHandler(
         _ => throw new CliUsageException("--monitor must be live, frames, or none.")
     };
 
-    private static InventorySettings ParseSettingsOptions(InventorySettings baseSettings, string[] tokens, int startIndex)
-    {
-        if (tokens.Length == startIndex)
-        {
-            throw new CliUsageException("inventory settings set requires at least one option.");
-        }
-
-        IReadOnlyList<ushort> antennas = baseSettings.AntennaIds;
-        byte? sessionVal = null;
-        ushort? populationVal = null;
-        ushort? modeVal = null;
-        ushort? tariVal = null;
-
-        bool attachEnable = baseSettings.AttachedData.Enabled;
-        ushort attachBank = baseSettings.AttachedData.MemoryBank;
-        ushort attachPtr = baseSettings.AttachedData.WordPointer;
-        ushort attachLen = baseSettings.AttachedData.WordCount;
-        string attachPwd = baseSettings.AttachedData.AccessPassword;
-
-        for (int index = startIndex; index < tokens.Length; index += 2)
-        {
-            if (index + 1 >= tokens.Length)
-            {
-                throw new CliUsageException($"Missing value for option '{tokens[index]}'.");
-            }
-
-            string value = tokens[index + 1];
-            switch (tokens[index].ToLowerInvariant())
-            {
-                case "--antennas":
-                    antennas = ParseAntennaIds(value);
-                    break;
-
-                case "--session" when byte.TryParse(value, out byte s) && s <= 3:
-                    sessionVal = s;
-                    break;
-
-                case "--population" when ushort.TryParse(value, out ushort p):
-                    populationVal = p;
-                    break;
-
-                case "--mode" when ushort.TryParse(value, out ushort m):
-                    modeVal = m;
-                    break;
-
-                case "--tari" when ushort.TryParse(value, out ushort t):
-                    tariVal = t;
-                    break;
-
-                case "--attach-bank":
-                    attachEnable = !value.Equals("none", StringComparison.OrdinalIgnoreCase);
-                    if (attachEnable)
-                    {
-                        attachBank = ParseMemoryBank(value);
-                    }
-                    break;
-
-                case "--attach-ptr" when ushort.TryParse(value, out ushort ptr):
-                    attachEnable = true;
-                    attachPtr = ptr;
-                    break;
-
-                case "--attach-len" when ushort.TryParse(value, out ushort len):
-                    attachEnable = true;
-                    attachLen = len;
-                    break;
-
-                case "--attach-pwd" when value.Length == 8 && uint.TryParse(value, System.Globalization.NumberStyles.AllowHexSpecifier, System.Globalization.CultureInfo.InvariantCulture, out _):
-                    attachEnable = true;
-                    attachPwd = value.ToUpperInvariant();
-                    break;
-
-                default:
-                    throw new CliUsageException($"Invalid inventory option '{tokens[index]}'.");
-            }
-        }
-
-        var finalAttached = attachEnable
-            ? new AttachedDataOptions
-            {
-                Enabled = true,
-                MemoryBank = attachBank,
-                WordPointer = attachPtr,
-                WordCount = attachLen,
-                AccessPassword = attachPwd
-            }
-            : baseSettings.AttachedData;
-
-        return baseSettings with
-        {
-            AntennaIds = antennas,
-            Session = sessionVal ?? baseSettings.Session,
-            TagPopulationEstimate = populationVal ?? baseSettings.TagPopulationEstimate,
-            ModeIndex = modeVal ?? baseSettings.ModeIndex,
-            Tari = tariVal ?? baseSettings.Tari,
-            AttachedData = finalAttached
-        };
-    }
-
-    private static IReadOnlyList<ushort> ParseAntennaIds(string value)
-    {
-        if (value.Equals("all", StringComparison.OrdinalIgnoreCase))
-        {
-            return [0];
-        }
-
-        string[] parts = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length == 0 || !parts.All(static item => ushort.TryParse(item, out _)))
-        {
-            throw new CliUsageException("--antennas must be all or a comma-separated list of UInt16 antenna IDs.");
-        }
-
-        ushort[] parsed = parts.Select(static item => ushort.Parse(item)).Distinct().ToArray();
-        if (parsed.Contains((ushort)0))
-        {
-            throw new CliUsageException("Antenna ID 0 selects all antennas; use --antennas all instead of combining it with explicit IDs.");
-        }
-
-        return parsed;
-    }
-
-    private static ushort ParseMemoryBank(string bank) => bank.ToLowerInvariant() switch
-    {
-        "reserved" or "0" => 0,
-        "epc" or "1" => 1,
-        "tid" or "2" => 2,
-        "user" or "3" => 3,
-        _ => throw new CliUsageException($"Invalid memory bank '{bank}'. Valid values: reserved|0, epc|1, tid|2, user|3.")
-    };
-
     private void RenderStartedSummary(InventorySettings settings)
     {
         string scope = settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0 ? "All antennas" : $"Antenna {string.Join(',', settings.AntennaIds)}";
@@ -367,64 +210,17 @@ internal sealed class LiveInventoryHandler(
                 console.MarkupLine($"  [dim]AttachedData:[/] Bank={settings.AttachedData.MemoryBank}, Ptr={settings.AttachedData.WordPointer}, Len={settings.AttachedData.WordCount}");
             }
 
-            if (AreEquivalentInventorySettings(settings, session.DesiredInventorySettings))
-            {
-                console.MarkupLine("  [dim]Draft:[/] matches the currently running inventory settings.");
-            }
-            else
-            {
-                console.MarkupLine("  [yellow]Draft differs from the running settings; it will apply on the next inventory start.[/]");
-            }
+            console.MarkupLine("  [dim]Source:[/] Reader-deployed high-level settings. Use 'settings get' to inspect the complete document.");
         }
-    }
-
-    private static bool AreEquivalentInventorySettings(InventorySettings left, InventorySettings right)
-    {
-        if (left.RoSpecId != right.RoSpecId ||
-            left.Priority != right.Priority ||
-            left.InventoryParameterSpecId != right.InventoryParameterSpecId ||
-            left.ReportEveryNTags != right.ReportEveryNTags ||
-            left.Session != right.Session ||
-            left.TagPopulationEstimate != right.TagPopulationEstimate ||
-            left.ModeIndex != right.ModeIndex ||
-            left.Tari != right.Tari ||
-            left.AttachedData != right.AttachedData ||
-            left.StartTrigger != right.StartTrigger ||
-            left.StopTrigger != right.StopTrigger ||
-            !left.AntennaIds.SequenceEqual(right.AntennaIds) ||
-            left.Extensions.Count != right.Extensions.Count)
+        else
         {
-            return false;
+            console.MarkupLine("  [yellow]No deployed high-level Inventory. Use 'settings apply <file> --yes' first.[/]");
         }
-
-        return left.Extensions.All(pair =>
-            right.Extensions.TryGetValue(pair.Key, out object? value) && Equals(pair.Value, value));
-    }
-
-    private void RenderSettings(string header, InventorySettings settings)
-    {
-        string antennas = settings.AntennaIds.Count == 1 && settings.AntennaIds[0] == 0
-            ? "All"
-            : string.Join(',', settings.AntennaIds);
-        string attached = settings.AttachedData.Enabled
-            ? $"Bank={settings.AttachedData.MemoryBank}, Ptr={settings.AttachedData.WordPointer}, Len={settings.AttachedData.WordCount}"
-            : "Disabled";
-
-        var table = new Table().Border(TableBorder.Rounded);
-        table.AddColumn("[bold grey70]Setting[/]");
-        table.AddColumn("[bold grey70]Value[/]");
-        table.AddRow("Antennas", Markup.Escape(antennas));
-        table.AddRow("Session", settings.Session.ToString());
-        table.AddRow("Population", settings.TagPopulationEstimate.ToString());
-        table.AddRow("Mode / Tari", $"{settings.ModeIndex} / {settings.Tari}");
-        table.AddRow("Attached data", Markup.Escape(attached));
-        table.AddRow("Vendor extensions", settings.Extensions.Count.ToString());
-        console.Write(new Panel(table).Header($"[bold yellow]{header}[/]").Border(BoxBorder.Rounded));
     }
 
     private void RenderUsage()
     {
-        console.MarkupLine("[red]Usage:[/] inventory settings [[show|get]] | set [[options]] | load <path> | save <path> | reset | start [[--antennas <id,id|all>]] [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status");
+        console.MarkupLine("[red]Usage:[/] inventory start [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status");
     }
 
 }

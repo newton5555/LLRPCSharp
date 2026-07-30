@@ -13,6 +13,7 @@ public interface IRoSpecService
     /// <summary>
     /// Compiles and adds one SDK-default inventory ROSpec in the currently negotiated protocol version.
     /// </summary>
+    /// <param name="roSpecId">The application-owned ROSpec identifier. SDK-reserved identifiers are rejected.</param>
     /// <param name="settings">The version-independent inventory intent used to build the default ROSpec.</param>
     /// <param name="cancellationToken">Cancels the send or pending response transaction.</param>
     /// <remarks>
@@ -20,6 +21,7 @@ public interface IRoSpecService
     /// explicitly when the reader should begin inventorying.
     /// </remarks>
     public Task AddDefaultAsync(
+        uint roSpecId,
         InventorySettings settings,
         CancellationToken cancellationToken = default);
 

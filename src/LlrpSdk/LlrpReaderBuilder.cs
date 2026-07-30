@@ -190,14 +190,6 @@ public sealed class LlrpReaderBuilder
         return this;
     }
 
-    /// <summary>Registers a provider of identity-based reader configuration defaults.</summary>
-    /// <param name="provider">The provider to evaluate after the reader has initialized.</param>
-    /// <returns>This builder.</returns>
-    public LlrpReaderBuilder UseConfigurationDefaultsProvider(IReaderConfigurationDefaultsProvider provider)
-    {
-        _optionsBuilder.UseConfigurationDefaultsProvider(provider);
-        return this;
-    }
 
     /// <summary>
     /// Builds the immutable options without constructing a reader.

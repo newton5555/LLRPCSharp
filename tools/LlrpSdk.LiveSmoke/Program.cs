@@ -7,13 +7,17 @@ using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 if (args.Length < 1)
 {
     throw new ArgumentException(
-        "Usage: dotnet run --project tools/LlrpSdk.LiveSmoke -- <host> [--inventory] [--impinj-serialized-tid] [--impinj-rf-phase-angle] [--impinj-peak-rssi] [--read <epc-hex>]");
+        "Usage: dotnet run --project tools/LlrpSdk.LiveSmoke -- <host> [--inventory] [--impinj-serialized-tid] [--impinj-rf-phase-angle] [--impinj-peak-rssi] [--impinj-population-estimation] [--read <epc-hex>] [--apply-current-impinj --yes] [--clear-managed --yes]");
 }
 
 string host = args[0];
 bool requestImpinjSerializedTid = args.Contains("--impinj-serialized-tid", StringComparer.Ordinal);
 bool requestImpinjRfPhaseAngle = args.Contains("--impinj-rf-phase-angle", StringComparer.Ordinal);
 bool requestImpinjPeakRssi = args.Contains("--impinj-peak-rssi", StringComparer.Ordinal);
+bool requestImpinjPopulationEstimation = args.Contains("--impinj-population-estimation", StringComparer.Ordinal);
+bool applyCurrentImpinj = args.Contains("--apply-current-impinj", StringComparer.Ordinal);
+bool clearManaged = args.Contains("--clear-managed", StringComparer.Ordinal);
+bool confirmed = args.Contains("--yes", StringComparer.Ordinal);
 int readOptionIndex = Array.IndexOf(args, "--read");
 for (int index = 1; index < args.Length; index++)
 {
@@ -28,13 +32,21 @@ for (int index = 1; index < args.Length; index++)
         continue;
     }
 
-    if (argument is not "--inventory" and not "--impinj-serialized-tid" and not "--impinj-rf-phase-angle" and not "--impinj-peak-rssi")
+    if (argument is not "--inventory" and not "--impinj-serialized-tid" and not "--impinj-rf-phase-angle" and not "--impinj-peak-rssi" and not "--impinj-population-estimation" and not "--apply-current-impinj" and not "--clear-managed" and not "--yes")
     {
         throw new ArgumentException($"Unknown LiveSmoke option '{argument}'.");
     }
 }
 
 bool requestImpinjReportFields = requestImpinjSerializedTid || requestImpinjRfPhaseAngle || requestImpinjPeakRssi;
+if (applyCurrentImpinj && !confirmed)
+{
+    throw new ArgumentException("--apply-current-impinj writes reader configuration and requires --yes.");
+}
+if (clearManaged && !confirmed)
+{
+    throw new ArgumentException("--clear-managed deletes the SDK-managed ROSpec and requires --yes.");
+}
 var frameJournal = new LlrpFrameJournal();
 
 await using LlrpReader reader = LlrpReader.CreateBuilder(host)
@@ -45,8 +57,8 @@ await using LlrpReader reader = LlrpReader.CreateBuilder(host)
     .Build();
 
 await reader.ConnectAsync();
-ReaderConfiguration defaults = reader.GetDefaultConfiguration();
-ReaderConfiguration configuration = await reader.QueryConfigurationAsync();
+ReaderSettingsSnapshot settingsSnapshot = await reader.QuerySettingsAsync();
+ReaderConfiguration configuration = settingsSnapshot.Settings.Configuration;
 IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> configuredRoSpecs =
     await reader.RoSpecs.GetAllAsync();
 
@@ -55,38 +67,79 @@ Console.WriteLine($"Protocol: {reader.NegotiatedVersion}");
 Console.WriteLine($"Identity: {reader.Identity?.ManufacturerId}/{reader.Identity?.ModelId} {reader.Identity?.FirmwareVersion}");
 Console.WriteLine($"Extensions: {string.Join(", ", reader.Extensions.Select(static extension => extension.Id))}");
 Console.WriteLine($"Capabilities: antennas={reader.Capabilities?.MaxNumberOfAntennas}, additional={reader.Capabilities?.AdditionalParameters.Count}");
-Console.WriteLine($"Defaults: keepalive={defaults.Keepalive.TriggerType}/{defaults.Keepalive.IntervalMs}ms, antennas={defaults.Antennas.Count}, gpo={defaults.Gpos.Count}");
 Console.WriteLine($"Configuration: antennas={configuration.Antennas.Count}, gpi={configuration.Gpis.Count}, gpo={configuration.Gpos.Count}");
+Console.WriteLine($"Managed inventory: {settingsSnapshot.Inventory?.State.ToString() ?? "none"}");
 Console.WriteLine($"ROSpecs: {string.Join(", ", configuredRoSpecs.Select(DescribeRoSpec))}");
-if (configuration.Extensions.TryGetValue("impinj.InventorySettings", out object? extensionValue) &&
-    extensionValue is ImpinjReaderSettings impinjSettings)
+if (configuration.Extensions.TryGetValue(ImpinjReaderConfiguration.ExtensionKey, out object? configurationValue) &&
+    configurationValue is ImpinjReaderConfiguration impinjConfiguration)
 {
     Console.WriteLine(
-        $"Impinj settings: region={impinjSettings.RegulatoryRegion}, temperature={impinjSettings.TemperatureCelsius}, " +
-        $"gpiDebounce={impinjSettings.GpiDebounce.Count}, linkMonitor={impinjSettings.LinkMonitor}, " +
-        $"reportBuffer={impinjSettings.ReportBufferMode}, accessSpec={impinjSettings.AccessSpec}");
+        $"Impinj configuration: searchMode={impinjConfiguration.InventorySearchMode}, " +
+        $"gpiDebounce={impinjConfiguration.GpiDebounce.Count}, linkMonitor={impinjConfiguration.LinkMonitor}, " +
+        $"reportBuffer={impinjConfiguration.ReportBufferMode}, accessSpec={impinjConfiguration.AccessSpec}");
+}
+if (configuration.Extensions.TryGetValue(ImpinjReaderFacts.ExtensionKey, out object? factsValue) &&
+    factsValue is ImpinjReaderFacts facts)
+{
+    Console.WriteLine($"Impinj facts: region={facts.RegulatoryRegion}, temperature={facts.TemperatureCelsius}");
 }
 
-if (args.Length >= 2)
+if (clearManaged)
 {
+    await reader.SynchronizeStateAsync();
+    await reader.ClearManagedSettingsAsync();
+    Console.WriteLine("SDK-managed inventory resources cleared.");
+}
+
+if (applyCurrentImpinj)
+{
+    if (!configuration.Extensions.TryGetValue(ImpinjReaderConfiguration.ExtensionKey, out object? beforeValue) ||
+        beforeValue is not ImpinjReaderConfiguration before)
+    {
+        throw new InvalidOperationException("The connected reader did not return an Impinj high-level configuration to reapply.");
+    }
+
+    Console.WriteLine("Applying the current Impinj configuration values back to the reader...");
+    await reader.ApplySettingsAsync(settingsSnapshot.Settings with { Inventory = null });
+    ReaderSettingsSnapshot afterSnapshot = await reader.QuerySettingsAsync();
+    if (!afterSnapshot.Settings.Configuration.Extensions.TryGetValue(ImpinjReaderConfiguration.ExtensionKey, out object? afterValue) ||
+        afterValue is not ImpinjReaderConfiguration after || !Equivalent(before, after))
+    {
+        throw new InvalidOperationException("Impinj configuration readback differs from the values submitted to the reader.");
+    }
+
+    Console.WriteLine("Impinj ApplySettingsAsync and QuerySettingsAsync readback verified.");
+}
+
+if (args.Contains("--inventory", StringComparer.Ordinal) || requestImpinjReportFields || requestImpinjPopulationEstimation || readOptionIndex >= 0)
+{
+    if (settingsSnapshot.Settings.Inventory is not null)
+    {
+        throw new InvalidOperationException(
+            "The reader already has an SDK-managed inventory configuration. " +
+            "The smoke tool refuses to replace it; clear it explicitly or use a dedicated test reader.");
+    }
+
     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
     await reader.SynchronizeStateAsync(timeout.Token);
-    uint smokeRoSpecId = (uint)Random.Shared.Next(1_500_000_000, 2_000_000_000);
-    var inventorySettings = new InventorySettings
+    var inventoryExtensions = new Dictionary<string, object?>();
+    if (requestImpinjReportFields)
     {
-        RoSpecId = smokeRoSpecId,
-        Extensions = requestImpinjReportFields
-            ? new Dictionary<string, object?>
-            {
-                [ImpinjInventoryReportOptions.ExtensionKey] = new ImpinjInventoryReportOptions
-                {
-                    IncludeSerializedTid = requestImpinjSerializedTid,
-                    IncludeRfPhaseAngle = requestImpinjRfPhaseAngle,
-                    IncludePeakRssi = requestImpinjPeakRssi,
-                }
-            }
-            : new Dictionary<string, object?>()
-    };
+        inventoryExtensions[ImpinjInventoryReportOptions.ExtensionKey] = new ImpinjInventoryReportOptions
+        {
+            IncludeSerializedTid = requestImpinjSerializedTid,
+            IncludeRfPhaseAngle = requestImpinjRfPhaseAngle,
+            IncludePeakRssi = requestImpinjPeakRssi,
+        };
+    }
+    if (requestImpinjPopulationEstimation)
+    {
+        inventoryExtensions[ImpinjInventoryControlOptions.ExtensionKey] = new ImpinjInventoryControlOptions
+        {
+            EnableTagPopulationEstimation = true,
+        };
+    }
+    var inventorySettings = new InventorySettings { Extensions = inventoryExtensions };
     try
     {
         await reader.StartAsync(inventorySettings, timeout.Token);
@@ -145,6 +198,7 @@ if (args.Length >= 2)
     finally
     {
         await reader.StopAsync();
+        await reader.ClearManagedSettingsAsync();
     }
 }
 
@@ -197,3 +251,24 @@ static string FormatExtensionValue(object? value)
         _ => value?.ToString() ?? "(null)",
     };
 }
+
+static bool Equivalent(ImpinjReaderConfiguration left, ImpinjReaderConfiguration right)
+{
+    return left.InventorySearchMode == right.InventorySearchMode &&
+        EquivalentFixedFrequency(left.FixedFrequency, right.FixedFrequency) &&
+        EquivalentReducedPowerFrequency(left.ReducedPowerFrequency, right.ReducedPowerFrequency) &&
+        left.LowDutyCycle == right.LowDutyCycle &&
+        left.GpiDebounce.SequenceEqual(right.GpiDebounce) &&
+        left.LinkMonitor == right.LinkMonitor &&
+        left.ReportBufferMode == right.ReportBufferMode &&
+        left.AccessSpec == right.AccessSpec &&
+        left.AdvancedGpos.SequenceEqual(right.AdvancedGpos);
+}
+
+static bool EquivalentFixedFrequency(ImpinjFixedFrequencySettings? left, ImpinjFixedFrequencySettings? right) =>
+    left is null || right is null ? left is null && right is null :
+        left.Mode == right.Mode && left.ChannelList.SequenceEqual(right.ChannelList);
+
+static bool EquivalentReducedPowerFrequency(ImpinjReducedPowerFrequencySettings? left, ImpinjReducedPowerFrequencySettings? right) =>
+    left is null || right is null ? left is null && right is null :
+        left.Mode == right.Mode && left.ChannelList.SequenceEqual(right.ChannelList);

@@ -147,10 +147,11 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
 
     public ILlrpParameter CompileInventory(
         InventorySettings settings,
-        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        uint roSpecId,
+        InventoryCustomItems customItems,
         bool supportsStateAwareSingulation,
         InventoryCompilationDefaults? compilationDefaults) =>
-        Llrp11InventoryCompiler.Compile(settings, roReportSpecCustomItems, supportsStateAwareSingulation);
+        Llrp11InventoryCompiler.Compile(settings, roSpecId, customItems.RoReportSpec, customItems.C1G2InventoryCommand, supportsStateAwareSingulation);
 
     public ILlrpParameter CompileTagAccess(uint accessSpecId, uint roSpecId, TagAccessRequest request, bool useBlockWrite = false) =>
         Llrp11TagAccessCompiler.Compile(accessSpecId, roSpecId, request, useBlockWrite);
@@ -392,7 +393,8 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
                 Antennas = antennas,
                 Gpos = gpos,
                 Gpis = gpis,
-                Events = events
+                Events = events,
+                HoldEventsAndReportsUponReconnect = response.EventsAndReports?.HoldEventsAndReportsUponReconnect ?? false,
             },
             response.CustomItems);
     }
@@ -472,12 +474,12 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
             KeepaliveSpec: keepaliveSpec,
             GPOWriteDataItems: gpoItems,
             GPIPortCurrentStateItems: [],
-            EventsAndReports: null,
+            EventsAndReports: new EventsAndReports(configuration.HoldEventsAndReportsUponReconnect),
             CustomItems: customItems
         );
 
         SET_READER_CONFIG_RESPONSE response = await reader
-            .TransactFromRawProtocolAsync<SET_READER_CONFIG_RESPONSE>(
+            .TransactAsync<SET_READER_CONFIG_RESPONSE>(
                 message,
                 timeout: null,
                 cancellationToken: cancellationToken

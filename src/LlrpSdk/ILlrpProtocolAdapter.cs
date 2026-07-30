@@ -24,7 +24,8 @@ internal interface ILlrpProtocolAdapter
 
     public ILlrpParameter CompileInventory(
         InventorySettings settings,
-        IReadOnlyList<ILlrpParameter> roReportSpecCustomItems,
+        uint roSpecId,
+        InventoryCustomItems customItems,
         bool supportsStateAwareSingulation,
         InventoryCompilationDefaults? compilationDefaults);
 

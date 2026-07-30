@@ -2,26 +2,49 @@ using LlrpSdk.Extensions.Impinj.Enumerations.V1_0_1;
 
 namespace LlrpSdk.Extensions.Impinj;
 
-/// <summary>Read-only projection of the Impinj-specific portion of a reader configuration response.</summary>
-public sealed record ImpinjReaderSettings
+/// <summary>
+/// High-level writable Impinj reader configuration. This is a hand-written extension model, not a generated
+/// LLRP parameter: <see cref="ImpinjReaderExtension"/> compiles it to the generated custom parameters.
+/// </summary>
+public sealed record ImpinjReaderConfiguration
 {
-    /// <summary>Gets the configured regulatory region, when reported by the reader.</summary>
-    public ImpinjRegulatoryRegion? RegulatoryRegion { get; init; }
+    public const string ExtensionKey = "impinj.configuration";
 
-    /// <summary>Gets one debounce setting per reported GPI port.</summary>
+    public ImpinjInventorySearchType? InventorySearchMode { get; init; }
+    public ImpinjFixedFrequencySettings? FixedFrequency { get; init; }
+    public ImpinjReducedPowerFrequencySettings? ReducedPowerFrequency { get; init; }
+    public ImpinjLowDutyCycleSettings? LowDutyCycle { get; init; }
     public IReadOnlyList<ImpinjGpiDebounceSetting> GpiDebounce { get; init; } = [];
-
-    /// <summary>Gets the reader's internal temperature in degrees Celsius, when reported.</summary>
-    public short? TemperatureCelsius { get; init; }
-
-    /// <summary>Gets the LLRP link-monitor configuration, when reported.</summary>
     public ImpinjLinkMonitorSettings? LinkMonitor { get; init; }
-
-    /// <summary>Gets the asynchronous report-buffer mode, when reported.</summary>
     public ImpinjReportBufferMode? ReportBufferMode { get; init; }
-
-    /// <summary>Gets the global AccessSpec execution settings, when reported.</summary>
     public ImpinjAccessSpecSettings? AccessSpec { get; init; }
+    public IReadOnlyList<ImpinjAdvancedGpoSetting> AdvancedGpos { get; init; } = [];
+}
+
+public sealed record ImpinjFixedFrequencySettings(
+    ImpinjFixedFrequencyMode Mode,
+    IReadOnlyList<ushort> ChannelList);
+
+public sealed record ImpinjReducedPowerFrequencySettings(
+    ImpinjReducedPowerMode Mode,
+    IReadOnlyList<ushort> ChannelList);
+
+public sealed record ImpinjLowDutyCycleSettings(
+    ImpinjLowDutyCycleMode Mode,
+    ushort EmptyFieldTimeoutMilliseconds,
+    ushort FieldPingIntervalMilliseconds);
+
+public sealed record ImpinjAdvancedGpoSetting(
+    ushort GpoPortNumber,
+    ImpinjAdvancedGPOMode Mode,
+    uint PulseDurationMilliseconds);
+
+/// <summary>Read-only Impinj reader facts returned by the reader and never sent in a settings apply request.</summary>
+public sealed record ImpinjReaderFacts
+{
+    public const string ExtensionKey = "impinj.facts";
+    public ImpinjRegulatoryRegion? RegulatoryRegion { get; init; }
+    public short? TemperatureCelsius { get; init; }
 }
 
 /// <summary>Configures debounce for one Impinj GPI port.</summary>

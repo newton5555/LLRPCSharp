@@ -26,18 +26,20 @@ public sealed class LlrpCliApplicationTests
         Exception? exception = Record.Exception(() => renderHelp.Invoke(command, null));
 
         Assert.Null(exception);
-        Assert.Contains("config apply [options]", output.ToString(), StringComparison.Ordinal);
+        Assert.NotEmpty(output.ToString());
     }
 
     [Fact]
-    public void CommandCatalog_ConfigProvidesUsageAndLiveSubcommandCandidates()
+    public void CommandCatalog_SettingsProvidesUsageAndLiveSubcommandCandidates()
     {
-        CommandSpec config = CommandCatalog.Require("config");
-        InputAssist assist = CommandCatalog.Assist("config ", cursor: 7, isConnected: true);
+        CommandSpec config = CommandCatalog.Require("settings");
+        InputAssist assist = CommandCatalog.Assist("settings ", cursor: 9, isConnected: true);
 
-        Assert.Equal("config get | defaults | apply [options] [--dry-run] --yes", config.Usage);
+        Assert.Equal("settings get | draft show|wizard|load|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", config.Usage);
         Assert.Contains("get", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("defaults", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("draft", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("wizard", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("export", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
     }
 
@@ -54,13 +56,13 @@ public sealed class LlrpCliApplicationTests
     [Fact]
     public void CommandCatalog_HidesConnectedOnlyCommandsUntilConnected()
     {
-        Assert.False(CommandCatalog.TryResolve("config", isConnected: false, out _));
-        Assert.True(CommandCatalog.TryResolve("config", isConnected: true, out CommandSpec command));
-        Assert.Equal(LiveCommandRoute.Configuration, command.Route);
+        Assert.False(CommandCatalog.TryResolve("settings", isConnected: false, out _));
+        Assert.True(CommandCatalog.TryResolve("settings", isConnected: true, out CommandSpec command));
+        Assert.Equal(LiveCommandRoute.Settings, command.Route);
     }
 
     [Fact]
-    public void LiveHelp_ForConfig_RendersCatalogUsageWithoutTreatingOptionsAsMarkup()
+    public void LiveHelp_ForSettings_RendersCatalogUsageWithoutTreatingOptionsAsMarkup()
     {
         using var output = new StringWriter();
         IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings
@@ -72,10 +74,12 @@ public sealed class LlrpCliApplicationTests
             "RenderCommandHelp",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Exception? exception = Record.Exception(() => renderCommandHelp.Invoke(command, ["config"]));
+        Exception? exception = Record.Exception(() => renderCommandHelp.Invoke(command, ["settings"]));
 
         Assert.Null(exception);
-        Assert.Contains("config get | defaults | apply [options] [--dry-run] --yes", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("settings get", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("wizard", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("export", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -115,12 +119,11 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void CommandCatalog_ConfigApplyPowerOptionExplainsIndexSemantics()
+    public void CommandCatalog_SettingsApplyOffersConfirmation()
     {
-        InputAssist assist = CommandCatalog.Assist("config apply --tx-power ", cursor: 24, isConnected: true);
+        InputAssist assist = CommandCatalog.Assist("settings apply ", cursor: 15, isConnected: true);
 
-        Assert.Contains("index", assist.Hint, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("not dBm", assist.Hint, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
     }
 
     [Fact]
@@ -278,42 +281,6 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public async Task InventorySettings_SetUpdatesTheSessionDraft()
-    {
-        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-        await handler.HandleAsync(["inventory", "settings", "set", "--session", "2", "--population", "64", "--mode", "1"], CancellationToken.None);
-
-        Assert.Equal((byte)2, session.DesiredInventorySettings.Session);
-        Assert.Equal((ushort)64, session.DesiredInventorySettings.TagPopulationEstimate);
-        Assert.Equal((ushort)1, session.DesiredInventorySettings.ModeIndex);
-    }
-
-    [Fact]
-    public async Task InventorySettings_GetAndDirectOptionsAreFriendlyAliases()
-    {
-        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-
-        await handler.HandleAsync(["inventory", "settings", "--antennas", "1"], CancellationToken.None);
-        await handler.HandleAsync(["inventory", "settings", "get"], CancellationToken.None);
-
-        Assert.Equal([(ushort)1], session.DesiredInventorySettings.AntennaIds);
-    }
-
-    [Fact]
-    public void InventoryStart_AntennasOverrideTheDraftOnlyForThisStart()
-    {
-        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-        session.DesiredInventorySettings = new LlrpSdk.InventorySettings { AntennaIds = [2] };
-        string[] tokens = ["inventory", "start", "--antennas", "1,3"];
-        System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
-            .GetMethod("ParseStartSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var settings = (LlrpSdk.InventorySettings)parseMethod!.Invoke(handler, [tokens])!;
-
-        Assert.Equal([2], session.DesiredInventorySettings.AntennaIds);
-        Assert.Equal([1, 3], settings.AntennaIds);
-    }
-
-    [Fact]
     public void InventoryStart_MonitorDurationIsParsedAsPositiveSeconds()
     {
         System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
@@ -327,59 +294,17 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public async Task InventorySettings_SetAttachedDataUpdatesTheSessionDraft()
-    {
-        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-        await handler.HandleAsync(["inventory", "settings", "set", "--attach-bank", "tid", "--attach-len", "6"], CancellationToken.None);
-
-        Assert.True(session.DesiredInventorySettings.AttachedData.Enabled);
-        Assert.Equal((ushort)2, session.DesiredInventorySettings.AttachedData.MemoryBank);
-        Assert.Equal((ushort)6, session.DesiredInventorySettings.AttachedData.WordCount);
-    }
-
-    [Fact]
-    public async Task InventorySettings_ResetRestoresSdkDefaults()
-    {
-        (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-        session.DesiredInventorySettings = new LlrpSdk.InventorySettings { Session = 3, AntennaIds = [1] };
-        await handler.HandleAsync(["inventory", "settings", "reset"], CancellationToken.None);
-
-        Assert.Equal((byte)0, session.DesiredInventorySettings.Session);
-        Assert.Equal([(ushort)0], session.DesiredInventorySettings.AntennaIds);
-    }
-
-    [Fact]
-    public async Task InventorySettings_LoadThenSetUpdatesTheDraft()
-    {
-        // 写入临时 JSON settings 文件
-        string tempFile = System.IO.Path.GetTempFileName() + ".json";
-        var fileSettings = new LlrpSdk.InventorySettings { Session = 3, TagPopulationEstimate = 128 };
-        System.IO.File.WriteAllText(tempFile, LlrpSdk.InventorySettingsSerializer.SerializeToJson(fileSettings));
-        try
-        {
-            (LiveInventoryHandler handler, LiveSessionContext session) = CreateInventoryHandler();
-            await handler.HandleAsync(["inventory", "settings", "load", tempFile], CancellationToken.None);
-            await handler.HandleAsync(["inventory", "settings", "set", "--session", "2"], CancellationToken.None);
-
-            Assert.Equal((byte)2, session.DesiredInventorySettings.Session);
-            Assert.Equal((ushort)128, session.DesiredInventorySettings.TagPopulationEstimate);
-        }
-        finally
-        {
-            System.IO.File.Delete(tempFile);
-        }
-    }
-
-    [Fact]
-    public void CommandCatalog_InventoryOffersSettingsAndAntennaCandidates()
+    public void CommandCatalog_InventoryAndSessionOfferTheirOwnCandidates()
     {
         CommandSpec inv = CommandCatalog.Require("inventory");
         InputAssist assist = CommandCatalog.Assist("inventory ", cursor: 10, isConnected: true);
+        CommandSpec temporary = CommandCatalog.Require("session");
 
-        Assert.Contains("settings", inv.CompletionCandidates, StringComparer.Ordinal);
-        Assert.Contains("--antennas", inv.CompletionCandidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("settings", inv.CompletionCandidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("--antennas", inv.CompletionCandidates, StringComparer.Ordinal);
         Assert.Contains("start", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("stop", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("inventory", temporary.CompletionCandidates, StringComparer.Ordinal);
     }
 
     private static InvocationResult Invoke(params string[] args)

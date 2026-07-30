@@ -13,7 +13,7 @@
 - LLRP 1.0.1 与 1.1 的 SDK/CLI 基线。
 - 自动协商 1.1，并可按策略强制 1.0.1 或 1.1。
 - `LlrpReader` 连接状态机、能力初始化、Keepalive 自动应答、Raw/Typed Protocol 入口。
-- Managed 盘点入口：`StartAsync`、`StopAsync`、`InventoryAsync`、`ReadTagReportsAsync`、`TagsReported`。
+- 高层 `ReaderSettings`、`StartInventoryAsync` / `InventorySession`，以及连接级 `ReadTagReportsAsync` / `TagsReported` 观察 API。
 - ROSpec 与 AccessSpec 进阶资源服务。
 - `Microsoft.Extensions.Logging` 日志抽象和 `ILlrpFrameObserver` 原始 TX/RX 帧观测。
 - LTK XML / YAML 协议定义导入、校验和 C# 源码生成链。
