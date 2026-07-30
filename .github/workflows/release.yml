@@ -1,0 +1,61 @@
+name: Release & Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  release:
+    name: Build, Pack & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        global-json-file: global.json
+
+    - name: Restore dependencies
+      run: dotnet restore LLRPCSharp.slnx
+
+    - name: Build Solution (Release)
+      run: dotnet build LLRPCSharp.slnx --no-restore --configuration Release
+
+    - name: Run Tests
+      run: dotnet test LLRPCSharp.slnx --no-build --configuration Release
+
+    - name: Pack NuGet Packages
+      run: dotnet pack LLRPCSharp.slnx --no-build --configuration Release --output ./artifacts/nupkgs
+
+    - name: Publish LlrpCli (win-x64)
+      run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime win-x64 --self-contained true --output ./artifacts/cli-win64
+
+    - name: Zip LlrpCli
+      run: |
+        cd ./artifacts/cli-win64
+        zip -r ../LlrpCli-${{ github.ref_name }}-win64.zip .
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          ./artifacts/nupkgs/*.nupkg
+          ./artifacts/nupkgs/*.snupkg
+          ./artifacts/LlrpCli-*.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push to NuGet.org (Trusted Publishing OIDC)
+      run: |
+        dotnet nuget push "./artifacts/nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --skip-duplicate
