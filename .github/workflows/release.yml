@@ -56,6 +56,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Push to NuGet.org (Trusted Publishing OIDC)
+    - name: Push to NuGet.org
       run: |
-        dotnet nuget push "./artifacts/nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push "./artifacts/nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
