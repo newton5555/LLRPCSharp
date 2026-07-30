@@ -43,6 +43,18 @@ internal static class Llrp101InventoryCompiler
         C1G2TagInventoryStateAwareSingulationAction? stateAwareAction = CompileStateAwareAction(
             settings.StateAwareSingulation,
             supportsStateAwareSingulation);
+        bool hasStateAwareFilters = settings.Filters.Any(static filter => filter.StateAwareAction is not null);
+        if (hasStateAwareFilters && stateAwareAction is null)
+        {
+            throw new ArgumentException(
+                "State-aware inventory filters require StateAwareSingulation so the reader has an explicit Session, A/B target, and SL selection.",
+                nameof(settings));
+        }
+        if ((hasStateAwareFilters || stateAwareAction is not null) && !supportsStateAwareSingulation)
+        {
+            throw new NotSupportedException(
+                "The connected reader does not advertise C1G2 tag inventory state-aware singulation support.");
+        }
         C1G2SingulationControl? singulationControl = (settings.AntennaConfigurations.Count != 0 || settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
             ? new C1G2SingulationControl(settings.Session, settings.TagPopulationEstimate, 0, stateAwareAction)
             : null;
@@ -55,7 +67,7 @@ internal static class Llrp101InventoryCompiler
         if (needsInventoryCommand)
         {
             invCmd = new C1G2InventoryCommand(
-                TagInventoryStateAware: stateAwareAction is not null,
+                TagInventoryStateAware: hasStateAwareFilters || stateAwareAction is not null,
                 C1G2FilterItems: CompileFilters(settings.Filters),
                 C1G2RFControl: rfControl,
                 C1G2SingulationControl: singulationControl,
@@ -132,12 +144,12 @@ internal static class Llrp101InventoryCompiler
                 "An inventory parameter specification identifier must be non-zero.");
         }
 
-        if (settings.ReportEveryNTags == 0)
+        if (settings.ReportEveryNTags == 0 && settings.Report.Trigger != InventoryReportTrigger.UponNTagsOrEndOfRoSpec)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(settings),
                 settings.ReportEveryNTags,
-                "The report interval must be at least one tag.");
+                "A report interval of zero is valid only with UponNTagsOrEndOfRoSpec, where the reader reports when the ROSpec ends.");
         }
 
         if (settings.AntennaIds.Count == 0)
@@ -276,7 +288,10 @@ internal static class Llrp101InventoryCompiler
         InventoryStartTriggerType.Immediate => new(ROSpecStartTriggerType.Immediate, null, null),
         InventoryStartTriggerType.Periodic => new(
             ROSpecStartTriggerType.Periodic,
-            new PeriodicTriggerValue(trigger.OffsetMilliseconds, trigger.PeriodMilliseconds, null),
+            new PeriodicTriggerValue(
+                trigger.OffsetMilliseconds,
+                trigger.PeriodMilliseconds,
+                trigger.StartAtUtc is { } startAtUtc ? new UTCTimestamp(ToUtcMicroseconds(startAtUtc)) : null),
             null),
         InventoryStartTriggerType.Gpi => new(
             ROSpecStartTriggerType.GPI,
@@ -284,6 +299,17 @@ internal static class Llrp101InventoryCompiler
             new GPITriggerValue(trigger.GpiPortNumber, trigger.GpiState, trigger.TimeoutMilliseconds)),
         _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger.Type, null),
     };
+
+    private static ulong ToUtcMicroseconds(DateTimeOffset timestamp)
+    {
+        TimeSpan offset = timestamp.ToUniversalTime() - DateTimeOffset.UnixEpoch;
+        if (offset < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timestamp), "A periodic UTC start time must not precede the Unix epoch.");
+        }
+
+        return checked((ulong)(offset.Ticks / TimeSpan.TicksPerMicrosecond));
+    }
 
     private static ROSpecStopTrigger CompileStopTrigger(InventoryStopTrigger trigger) => trigger.Type switch
     {
@@ -320,6 +346,8 @@ internal static class Llrp101InventoryCompiler
         {
             InventorySelectedFlag.Set => C1G2TagInventoryStateAwareS.SL,
             InventorySelectedFlag.Clear => C1G2TagInventoryStateAwareS.Not_SL,
+            InventorySelectedFlag.All => throw new NotSupportedException(
+                "InventorySelectedFlag.All requires the S_All field introduced by LLRP 1.1 and cannot be represented by LLRP 1.0.1."),
             _ => throw new ArgumentOutOfRangeException(nameof(action), action.SelectedFlag, null),
         };
         return new C1G2TagInventoryStateAwareSingulationAction(target, selectedFlag);

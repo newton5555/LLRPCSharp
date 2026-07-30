@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
@@ -13,6 +14,7 @@ using LlrpSdk.Tests.Support;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
 using LlrpSdk.Extensions.Seuic;
+using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
 namespace LlrpSdk.Tests;
 
@@ -337,6 +339,7 @@ public sealed class LlrpReaderConfigurationTests
                 Type = InventoryStartTriggerType.Periodic,
                 OffsetMilliseconds = 100,
                 PeriodMilliseconds = 5_000,
+                StartAtUtc = DateTimeOffset.UnixEpoch.AddHours(1),
             },
             StopTrigger = new InventoryStopTrigger
             {
@@ -349,6 +352,7 @@ public sealed class LlrpReaderConfigurationTests
         Assert.Equal(ROSpecStartTriggerType.Periodic, roSpec.ROBoundarySpec.ROSpecStartTrigger.ROSpecStartTriggerType);
         Assert.Equal((uint)100, roSpec.ROBoundarySpec.ROSpecStartTrigger.PeriodicTriggerValue!.Offset);
         Assert.Equal((uint)5_000, roSpec.ROBoundarySpec.ROSpecStartTrigger.PeriodicTriggerValue.Period);
+        Assert.Equal((ulong)3_600_000_000, roSpec.ROBoundarySpec.ROSpecStartTrigger.PeriodicTriggerValue.UTCTimestamp!.Microseconds);
         Assert.Equal(ROSpecStopTriggerType.Duration, roSpec.ROBoundarySpec.ROSpecStopTrigger.ROSpecStopTriggerType);
         Assert.Equal((uint)30_000, roSpec.ROBoundarySpec.ROSpecStopTrigger.DurationTriggerValue);
     }
@@ -393,6 +397,150 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
+    public void ReaderSettings_StateAwareSingulation_AllIsLlrp11Only()
+    {
+        var settings = new InventorySettings
+        {
+            StateAwareSingulation = new InventoryStateAwareSingulation
+            {
+                Target = InventoryTarget.StateB,
+                SelectedFlag = InventorySelectedFlag.All,
+            },
+        };
+
+        Assert.Throws<NotSupportedException>(() => Llrp101InventoryCompiler.Compile(
+            settings, [], supportsStateAwareSingulation: true));
+
+        V11Parameters.ROSpec roSpec = Llrp11InventoryCompiler.Compile(
+            settings, [], supportsStateAwareSingulation: true);
+        var aiSpec = Assert.IsType<V11Parameters.AISpec>(Assert.Single(roSpec.SpecParameterItems));
+        var inventory = Assert.IsType<V11Parameters.InventoryParameterSpec>(Assert.Single(aiSpec.InventoryParameterSpecItems));
+        var antenna = Assert.IsType<V11Parameters.AntennaConfiguration>(Assert.Single(inventory.AntennaConfigurationItems));
+        var command = Assert.IsType<V11Parameters.C1G2InventoryCommand>(Assert.Single(antenna.AirProtocolInventoryCommandSettingsItems));
+
+        Assert.Equal("State_B", command.C1G2SingulationControl!.C1G2TagInventoryStateAwareSingulationAction!.I.ToString());
+        Assert.True(command.C1G2SingulationControl.C1G2TagInventoryStateAwareSingulationAction.SAll);
+    }
+
+    [Fact]
+    public void ReaderSettings_BatchAfterStop_UsesEndOfRoSpecWithZeroReportInterval()
+    {
+        var settings = new InventorySettings
+        {
+            ReportEveryNTags = 0,
+            Report = new InventoryReportSettings
+            {
+                Trigger = InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
+            },
+        };
+
+        ROSpec v101 = Llrp101InventoryCompiler.Compile(settings, []);
+        V11Parameters.ROSpec v11 = Llrp11InventoryCompiler.Compile(settings, []);
+
+        Assert.Equal((ushort)0, v101.ROReportSpec!.N);
+        Assert.Equal(ROReportTriggerType.Upon_N_Tags_Or_End_Of_ROSpec, v101.ROReportSpec.ROReportTrigger);
+        Assert.Equal((ushort)0, v11.ROReportSpec!.N);
+        Assert.Equal("Upon_N_Tags_Or_End_Of_ROSpec", v11.ROReportSpec.ROReportTrigger.ToString());
+
+        settings = settings with { Report = new InventoryReportSettings { Trigger = InventoryReportTrigger.UponNTagsOrEndOfAiSpec } };
+        Assert.Throws<ArgumentOutOfRangeException>(() => Llrp101InventoryCompiler.Compile(settings, []));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Llrp11InventoryCompiler.Compile(settings, []));
+    }
+
+    [Fact]
+    public async Task QuerySettings_ParsesPersistedLlrp11ManagedInventory()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        var expected = new InventorySettings
+        {
+            AntennaIds = [1],
+            AntennaConfigurations =
+            [
+                new InventoryAntennaConfiguration
+                {
+                    AntennaId = 1,
+                    ReceiverSensitivityIndex = 2,
+                    TransmitPowerIndex = 3,
+                    HopTableId = 4,
+                    ChannelIndex = 5,
+                },
+            ],
+            Filters =
+            [
+                new InventorySelectFilter
+                {
+                    MemoryBank = 1,
+                    BitPointer = 32,
+                    Mask = new byte[] { 0xE2, 0x80 },
+                    BitLength = 9,
+                    StateAwareAction = new InventoryStateAwareFilterAction
+                    {
+                        Target = InventoryFilterTarget.Session2,
+                        Action = InventoryFilterAction.NoOperationAndAssertSelectedOrStateA,
+                    },
+                },
+            ],
+            StateAwareSingulation = new InventoryStateAwareSingulation
+            {
+                Target = InventoryTarget.StateB,
+                SelectedFlag = InventorySelectedFlag.All,
+            },
+            StartTrigger = new InventoryStartTrigger
+            {
+                Type = InventoryStartTriggerType.Gpi,
+                GpiPortNumber = 2,
+                GpiState = true,
+                TimeoutMilliseconds = 300,
+            },
+            StopTrigger = new InventoryStopTrigger
+            {
+                Type = InventoryStopTriggerType.Duration,
+                DurationMilliseconds = 400,
+            },
+            ReportEveryNTags = 6,
+            Report = new InventoryReportSettings
+            {
+                Trigger = InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
+                IncludeCrc = true,
+                IncludePcBits = true,
+            },
+        };
+        V11Parameters.ROSpec roSpec = Llrp11InventoryCompiler.Compile(
+            expected, [], supportsStateAwareSingulation: true) with
+        {
+            CurrentState = LlrpNet.Protocol.Enumerations.V1_1.ROSpecState.Active,
+        };
+        MethodInfo parse = typeof(LlrpReader).GetMethod(
+            "ParseManagedInventory",
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(ILlrpParameter), typeof(IReadOnlyList<ILlrpParameter>)],
+            modifiers: null)!;
+
+        var snapshot = Assert.IsType<InventorySnapshot>(parse.Invoke(reader, [roSpec, Array.Empty<ILlrpParameter>()]));
+
+        Assert.Equal(InventoryRuntimeState.Running, snapshot.State);
+        Assert.Equal(InventorySelectedFlag.All, snapshot.Settings.StateAwareSingulation!.SelectedFlag);
+        Assert.Equal(InventoryTarget.StateB, snapshot.Settings.StateAwareSingulation.Target);
+        Assert.Equal(expected.StartTrigger, snapshot.Settings.StartTrigger);
+        Assert.Equal(expected.StopTrigger, snapshot.Settings.StopTrigger);
+        Assert.Equal(expected.ReportEveryNTags, snapshot.Settings.ReportEveryNTags);
+        Assert.Equal(expected.Report, snapshot.Settings.Report);
+        Assert.Equal(expected.AntennaConfigurations, snapshot.Settings.AntennaConfigurations);
+        InventorySelectFilter filter = Assert.Single(snapshot.Settings.Filters);
+        Assert.Equal((ushort)1, filter.MemoryBank);
+        Assert.Equal((ushort)32, filter.BitPointer);
+        Assert.Equal((ushort)9, filter.BitLength);
+        Assert.Equal(new byte[] { 0xE2, 0x80 }, filter.Mask.ToArray());
+        Assert.Equal(InventoryFilterTarget.Session2, filter.StateAwareAction!.Target);
+        Assert.Equal(InventoryFilterAction.NoOperationAndAssertSelectedOrStateA, filter.StateAwareAction.Action);
+    }
+
+    [Fact]
     public void ReaderSettings_FilterCompiler_PreservesNonByteAlignedAndStateAwareFilters()
     {
         var settings = new InventorySettings
@@ -412,19 +560,52 @@ public sealed class LlrpReaderConfigurationTests
                     },
                 }
             ],
+            StateAwareSingulation = new InventoryStateAwareSingulation
+            {
+                Target = InventoryTarget.StateA,
+                SelectedFlag = InventorySelectedFlag.Set,
+            },
         };
 
-        ROSpec roSpec = Llrp101InventoryCompiler.Compile(settings, []);
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(settings, [], supportsStateAwareSingulation: true);
         var aiSpec = Assert.IsType<AISpec>(Assert.Single(roSpec.SpecParameterItems));
         var inventory = Assert.IsType<InventoryParameterSpec>(Assert.Single(aiSpec.InventoryParameterSpecItems));
         var antenna = Assert.IsType<AntennaConfiguration>(Assert.Single(inventory.AntennaConfigurationItems));
         var command = Assert.IsType<C1G2InventoryCommand>(Assert.Single(antenna.AirProtocolInventoryCommandSettingsItems));
+        Assert.True(command.TagInventoryStateAware);
         C1G2Filter filter = Assert.Single(command.C1G2FilterItems);
 
         Assert.Equal(4, filter.C1G2TagInventoryMask.TagMask.Count);
         Assert.Equal(C1G2StateAwareTarget.Inventoried_State_For_Session_S1, filter.C1G2TagInventoryStateAwareFilterAction!.Target);
         Assert.Equal(C1G2StateAwareAction.Noop_AssertSLOrA, filter.C1G2TagInventoryStateAwareFilterAction.Action);
         Assert.Null(filter.C1G2TagInventoryStateUnawareFilterAction);
+    }
+
+    [Fact]
+    public void ReaderSettings_StateAwareFilters_RequireSingulationAndCapability()
+    {
+        var settings = new InventorySettings
+        {
+            Filters =
+            [
+                new InventorySelectFilter
+                {
+                    MemoryBank = 1,
+                    BitPointer = 32,
+                    Mask = new byte[] { 0xE2 },
+                    StateAwareAction = new InventoryStateAwareFilterAction(),
+                },
+            ],
+        };
+
+        Assert.Throws<ArgumentException>(() => Llrp101InventoryCompiler.Compile(settings, []));
+
+        settings = settings with
+        {
+            StateAwareSingulation = new InventoryStateAwareSingulation(),
+        };
+        Assert.Throws<NotSupportedException>(() => Llrp101InventoryCompiler.Compile(settings, []));
+        Assert.NotNull(Llrp101InventoryCompiler.Compile(settings, [], supportsStateAwareSingulation: true));
     }
 
     private static LlrpReader CreateReader(ScriptedLlrpTransport transport)

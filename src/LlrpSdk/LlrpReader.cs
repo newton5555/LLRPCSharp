@@ -14,6 +14,8 @@ using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using V11Messages = LlrpNet.Protocol.Messages.V1_1;
+using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
+using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
 namespace LlrpSdk;
 
@@ -745,6 +747,11 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(settings);
         EnsureProtocolAvailable();
+        if (settings.StartTrigger.StartAtUtc is not null && Capabilities?.HasUtcClockCapability != true)
+        {
+            throw new InvalidOperationException(
+                "A periodic inventory UTC start requires a reader that advertises UTC clock capability.");
+        }
         bool supportsStateAwareSingulation = Capabilities?.CanDoTagInventoryStateAwareSingulation == true;
         return GetProtocolAdapter().CompileInventory(
             settings,
@@ -2423,9 +2430,21 @@ public sealed class LlrpReader : IAsyncDisposable
 
     private InventorySnapshot ParseManagedInventory(ILlrpParameter item, IReadOnlyList<ILlrpParameter> accessSpecs)
     {
-        if (item is not ROSpec roSpec)
+        return item switch
         {
-            throw new NotSupportedException("Reading a persisted SDK ROSpec is not yet available for this negotiated protocol version.");
+            ROSpec roSpec => ParseManagedInventory(roSpec, accessSpecs),
+            V11Parameters.ROSpec roSpec => ParseManagedInventory(roSpec, accessSpecs),
+            _ => throw new NotSupportedException("Reading a persisted SDK ROSpec is not available for this negotiated protocol version."),
+        };
+    }
+
+    private InventorySnapshot ParseManagedInventory(ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
+    {
+        ArgumentNullException.ThrowIfNull(roSpec);
+        ArgumentNullException.ThrowIfNull(accessSpecs);
+        if (roSpec.ROSpecID != ManagedInventoryRoSpecId)
+        {
+            throw new InvalidOperationException("The supplied ROSpec is not the SDK-managed inventory ROSpec.");
         }
         AISpec aiSpec = roSpec.SpecParameterItems.OfType<AISpec>().SingleOrDefault()
             ?? throw new InvalidOperationException("The reserved SDK ROSpec must contain exactly one AISpec.");
@@ -2501,6 +2520,89 @@ public sealed class LlrpReader : IAsyncDisposable
         return new InventorySnapshot(settings, state);
     }
 
+    private InventorySnapshot ParseManagedInventory(V11Parameters.ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
+    {
+        ArgumentNullException.ThrowIfNull(roSpec);
+        ArgumentNullException.ThrowIfNull(accessSpecs);
+        if (roSpec.ROSpecID != ManagedInventoryRoSpecId)
+        {
+            throw new InvalidOperationException("The supplied ROSpec is not the SDK-managed inventory ROSpec.");
+        }
+
+        V11Parameters.AISpec aiSpec = roSpec.SpecParameterItems.OfType<V11Parameters.AISpec>().SingleOrDefault()
+            ?? throw new InvalidOperationException("The reserved SDK ROSpec must contain exactly one AISpec.");
+        V11Parameters.InventoryParameterSpec inventorySpec = aiSpec.InventoryParameterSpecItems.Single();
+        V11Parameters.C1G2InventoryCommand? command = inventorySpec.AntennaConfigurationItems
+            .SelectMany(configuration => configuration.AirProtocolInventoryCommandSettingsItems)
+            .OfType<V11Parameters.C1G2InventoryCommand>().FirstOrDefault();
+        V11Parameters.AccessSpec? attachedDataSpec = accessSpecs.OfType<V11Parameters.AccessSpec>()
+            .SingleOrDefault(spec => spec.AccessSpecID == ManagedInventoryAttachedDataAccessSpecId);
+        if (attachedDataSpec is not null && attachedDataSpec.ROSpecID != ManagedInventoryRoSpecId)
+        {
+            throw new InvalidOperationException("The reserved SDK AttachedData AccessSpec is not associated with the reserved SDK ROSpec.");
+        }
+        V11Parameters.C1G2Read? read = attachedDataSpec is null
+            ? null
+            : attachedDataSpec.AccessCommand.AccessCommandOpSpecItems.OfType<V11Parameters.C1G2Read>().FirstOrDefault();
+        if (attachedDataSpec is not null && read is null)
+        {
+            throw new InvalidOperationException("The reserved SDK AttachedData AccessSpec must contain a C1G2Read operation.");
+        }
+
+        var settings = new InventorySettings
+        {
+            Priority = roSpec.Priority,
+            AntennaIds = aiSpec.AntennaIDs,
+            InventoryParameterSpecId = inventorySpec.InventoryParameterSpecID,
+            ReportEveryNTags = roSpec.ROReportSpec?.N ?? 1,
+            Report = ParseReportSettings(roSpec.ROReportSpec),
+            Session = command?.C1G2SingulationControl?.Session ?? 0,
+            TagPopulationEstimate = command?.C1G2SingulationControl?.TagPopulation ?? 32,
+            ModeIndex = command?.C1G2RFControl?.ModeIndex ?? 0,
+            Tari = command?.C1G2RFControl?.Tari ?? 0,
+            AntennaConfigurations = inventorySpec.AntennaConfigurationItems
+                .Where(configuration => configuration.RFReceiver is not null || configuration.RFTransmitter is not null)
+                .Select(configuration => new InventoryAntennaConfiguration
+                {
+                    AntennaId = configuration.AntennaID,
+                    ReceiverSensitivityIndex = configuration.RFReceiver?.ReceiverSensitivity,
+                    TransmitPowerIndex = configuration.RFTransmitter?.TransmitPower,
+                    HopTableId = configuration.RFTransmitter?.HopTableID,
+                    ChannelIndex = configuration.RFTransmitter?.ChannelIndex,
+                }).ToArray(),
+            Filters = command?.C1G2FilterItems.Select(ParseFilter).ToArray() ?? [],
+            StartTrigger = ParseStartTrigger(roSpec.ROBoundarySpec.ROSpecStartTrigger),
+            StopTrigger = ParseStopTrigger(roSpec.ROBoundarySpec.ROSpecStopTrigger),
+            StateAwareSingulation = ParseStateAwareSingulation(command?.C1G2SingulationControl?.C1G2TagInventoryStateAwareSingulationAction),
+            AttachedData = read is null ? new AttachedDataOptions() : new AttachedDataOptions
+            {
+                Enabled = true, MemoryBank = read.MB, WordPointer = read.WordPointer, WordCount = read.WordCount,
+                AccessPassword = read.AccessPassword.ToString("X8")
+            }
+        };
+        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
+            "Inventory settings query requires initialized reader metadata.");
+        var extensionBuilder = new InventorySettingsExtensionBuilder();
+        var contributionContext = new InventorySettingsContributionContext(
+            metadata.Identity,
+            metadata.Capabilities,
+            NegotiatedVersion,
+            roSpec.ROReportSpec?.CustomItems ?? [],
+            command?.CustomItems ?? []);
+        foreach (IInventorySettingsContributor contributor in Extensions.OfType<IInventorySettingsContributor>())
+        {
+            contributor.ContributeQuery(contributionContext, extensionBuilder);
+        }
+        settings = settings with { Extensions = extensionBuilder.Build() };
+        InventoryRuntimeState state = roSpec.CurrentState switch
+        {
+            V11Enumerations.ROSpecState.Active => InventoryRuntimeState.Running,
+            V11Enumerations.ROSpecState.Inactive => InventoryRuntimeState.Enabled,
+            _ => InventoryRuntimeState.Disabled
+        };
+        return new InventorySnapshot(settings, state);
+    }
+
     private static InventorySelectFilter ParseFilter(C1G2Filter filter)
     {
         if (filter.C1G2TagInventoryStateAwareFilterAction is { } stateAware)
@@ -2542,6 +2644,47 @@ public sealed class LlrpReader : IAsyncDisposable
         return new InventorySelectFilter { MemoryBank = filter.C1G2TagInventoryMask.MB, BitPointer = filter.C1G2TagInventoryMask.Pointer, Mask = BitsToBytes(bits), BitLength = checked((ushort)bits.Length), MatchAction = match, NonMatchAction = nonMatch };
     }
 
+    private static InventorySelectFilter ParseFilter(V11Parameters.C1G2Filter filter)
+    {
+        if (filter.C1G2TagInventoryStateAwareFilterAction is { } stateAware)
+        {
+            bool[] stateAwareBits = filter.C1G2TagInventoryMask.TagMask.ToArray();
+            return new InventorySelectFilter
+            {
+                MemoryBank = filter.C1G2TagInventoryMask.MB,
+                BitPointer = filter.C1G2TagInventoryMask.Pointer,
+                Mask = BitsToBytes(stateAwareBits),
+                BitLength = checked((ushort)stateAwareBits.Length),
+                StateAwareAction = new InventoryStateAwareFilterAction
+                {
+                    Target = stateAware.Target switch
+                    {
+                        V11Enumerations.C1G2StateAwareTarget.SL => InventoryFilterTarget.SelectedFlag,
+                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S0 => InventoryFilterTarget.Session0,
+                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S1 => InventoryFilterTarget.Session1,
+                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S2 => InventoryFilterTarget.Session2,
+                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S3 => InventoryFilterTarget.Session3,
+                        _ => throw new InvalidOperationException("The reserved SDK ROSpec contains an unsupported state-aware filter target."),
+                    },
+                    Action = (InventoryFilterAction)(long)stateAware.Action,
+                }
+            };
+        }
+        V11Parameters.C1G2TagInventoryStateUnawareFilterAction action = filter.C1G2TagInventoryStateUnawareFilterAction
+            ?? throw new InvalidOperationException("A C1G2 filter must define exactly one Select action.");
+        (InventorySelectAction match, InventorySelectAction nonMatch) = action.Action switch
+        {
+            V11Enumerations.C1G2StateUnawareAction.Select_Unselect => (InventorySelectAction.Select, InventorySelectAction.Unselect),
+            V11Enumerations.C1G2StateUnawareAction.Select_DoNothing => (InventorySelectAction.Select, InventorySelectAction.DoNothing),
+            V11Enumerations.C1G2StateUnawareAction.DoNothing_Unselect => (InventorySelectAction.DoNothing, InventorySelectAction.Unselect),
+            V11Enumerations.C1G2StateUnawareAction.Unselect_DoNothing => (InventorySelectAction.Unselect, InventorySelectAction.DoNothing),
+            V11Enumerations.C1G2StateUnawareAction.Unselect_Select => (InventorySelectAction.Unselect, InventorySelectAction.Select),
+            _ => (InventorySelectAction.DoNothing, InventorySelectAction.Select)
+        };
+        bool[] bits = filter.C1G2TagInventoryMask.TagMask.ToArray();
+        return new InventorySelectFilter { MemoryBank = filter.C1G2TagInventoryMask.MB, BitPointer = filter.C1G2TagInventoryMask.Pointer, Mask = BitsToBytes(bits), BitLength = checked((ushort)bits.Length), MatchAction = match, NonMatchAction = nonMatch };
+    }
+
     private static byte[] BitsToBytes(IReadOnlyList<bool> bits) => bits.Chunk(8)
         .Select(group => Convert.ToByte(group.Select((bit, index) => bit ? 1 << (7 - index) : 0).Sum())).ToArray();
 
@@ -2549,10 +2692,43 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.Null => new() { Type = InventoryStartTriggerType.None },
         LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.Immediate => new() { Type = InventoryStartTriggerType.Immediate },
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.Periodic when trigger.PeriodicTriggerValue is { } periodic => new() { Type = InventoryStartTriggerType.Periodic, OffsetMilliseconds = periodic.Offset, PeriodMilliseconds = periodic.Period },
+        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.Periodic when trigger.PeriodicTriggerValue is { } periodic => new()
+        {
+            Type = InventoryStartTriggerType.Periodic,
+            OffsetMilliseconds = periodic.Offset,
+            PeriodMilliseconds = periodic.Period,
+            StartAtUtc = periodic.UTCTimestamp is { } utc ? FromUtcMicroseconds(utc.Microseconds) : null,
+        },
         LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.GPI when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStartTriggerType.Gpi, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
         _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported or malformed start trigger."),
     };
+
+    private static InventoryStartTrigger ParseStartTrigger(V11Parameters.ROSpecStartTrigger trigger) => trigger.ROSpecStartTriggerType switch
+    {
+        V11Enumerations.ROSpecStartTriggerType.Null => new() { Type = InventoryStartTriggerType.None },
+        V11Enumerations.ROSpecStartTriggerType.Immediate => new() { Type = InventoryStartTriggerType.Immediate },
+        V11Enumerations.ROSpecStartTriggerType.Periodic when trigger.PeriodicTriggerValue is { } periodic => new()
+        {
+            Type = InventoryStartTriggerType.Periodic,
+            OffsetMilliseconds = periodic.Offset,
+            PeriodMilliseconds = periodic.Period,
+            StartAtUtc = periodic.UTCTimestamp is { } utc ? FromUtcMicroseconds(utc.Microseconds) : null,
+        },
+        V11Enumerations.ROSpecStartTriggerType.GPI when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStartTriggerType.Gpi, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
+        _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported or malformed start trigger."),
+    };
+
+    private static DateTimeOffset FromUtcMicroseconds(ulong microseconds)
+    {
+        try
+        {
+            return DateTimeOffset.UnixEpoch.AddTicks(checked((long)microseconds * TimeSpan.TicksPerMicrosecond));
+        }
+        catch (OverflowException exception)
+        {
+            throw new InvalidOperationException("The reserved SDK ROSpec contains an out-of-range UTC start timestamp.", exception);
+        }
+    }
 
     private static InventoryReportSettings ParseReportSettings(ROReportSpec? reportSpec)
     {
@@ -2590,11 +2766,55 @@ public sealed class LlrpReader : IAsyncDisposable
         };
     }
 
+    private static InventoryReportSettings ParseReportSettings(V11Parameters.ROReportSpec? reportSpec)
+    {
+        if (reportSpec is null)
+        {
+            throw new InvalidOperationException("The reserved SDK ROSpec must contain an ROReportSpec.");
+        }
+        V11Parameters.TagReportContentSelector selector = reportSpec.TagReportContentSelector;
+        V11Parameters.C1G2EPCMemorySelector? epc = selector.AirProtocolEPCMemorySelectorItems.OfType<V11Parameters.C1G2EPCMemorySelector>().SingleOrDefault();
+        if (selector.AirProtocolEPCMemorySelectorItems.Count != 0 && epc is null)
+        {
+            throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported EPC report selector.");
+        }
+        return new InventoryReportSettings
+        {
+            Trigger = reportSpec.ROReportTrigger switch
+            {
+                V11Enumerations.ROReportTriggerType.None => InventoryReportTrigger.None,
+                V11Enumerations.ROReportTriggerType.Upon_N_Tags_Or_End_Of_AISpec => InventoryReportTrigger.UponNTagsOrEndOfAiSpec,
+                V11Enumerations.ROReportTriggerType.Upon_N_Tags_Or_End_Of_ROSpec => InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
+                _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported report trigger."),
+            },
+            IncludeRoSpecId = selector.EnableROSpecID,
+            IncludeSpecIndex = selector.EnableSpecIndex,
+            IncludeInventoryParameterSpecId = selector.EnableInventoryParameterSpecID,
+            IncludeAntennaId = selector.EnableAntennaID,
+            IncludeChannelIndex = selector.EnableChannelIndex,
+            IncludePeakRssi = selector.EnablePeakRSSI,
+            IncludeFirstSeenTimestamp = selector.EnableFirstSeenTimestamp,
+            IncludeLastSeenTimestamp = selector.EnableLastSeenTimestamp,
+            IncludeTagSeenCount = selector.EnableTagSeenCount,
+            IncludeAccessSpecId = selector.EnableAccessSpecID,
+            IncludeCrc = epc?.EnableCRC ?? false,
+            IncludePcBits = epc?.EnablePCBits ?? false,
+        };
+    }
+
     private static InventoryStopTrigger ParseStopTrigger(ROSpecStopTrigger trigger) => trigger.ROSpecStopTriggerType switch
     {
         LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStopTriggerType.Null => new() { Type = InventoryStopTriggerType.None },
         LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStopTriggerType.Duration => new() { Type = InventoryStopTriggerType.Duration, DurationMilliseconds = trigger.DurationTriggerValue },
         LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStopTriggerType.GPI_With_Timeout when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStopTriggerType.GpiWithTimeout, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
+        _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported or malformed stop trigger."),
+    };
+
+    private static InventoryStopTrigger ParseStopTrigger(V11Parameters.ROSpecStopTrigger trigger) => trigger.ROSpecStopTriggerType switch
+    {
+        V11Enumerations.ROSpecStopTriggerType.Null => new() { Type = InventoryStopTriggerType.None },
+        V11Enumerations.ROSpecStopTriggerType.Duration => new() { Type = InventoryStopTriggerType.Duration, DurationMilliseconds = trigger.DurationTriggerValue },
+        V11Enumerations.ROSpecStopTriggerType.GPI_With_Timeout when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStopTriggerType.GpiWithTimeout, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
         _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported or malformed stop trigger."),
     };
 
@@ -2610,6 +2830,22 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareS.SL => InventorySelectedFlag.Set,
             LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareS.Not_SL => InventorySelectedFlag.Clear,
+            _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported state-aware singulation flag."),
+        },
+    };
+
+    private static InventoryStateAwareSingulation? ParseStateAwareSingulation(V11Parameters.C1G2TagInventoryStateAwareSingulationAction? action) => action is null ? null : new InventoryStateAwareSingulation
+    {
+        Target = action.I switch
+        {
+            V11Enumerations.C1G2TagInventoryStateAwareI.State_A => InventoryTarget.StateA,
+            V11Enumerations.C1G2TagInventoryStateAwareI.State_B => InventoryTarget.StateB,
+            _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported state-aware singulation target."),
+        },
+        SelectedFlag = action.SAll ? InventorySelectedFlag.All : action.S switch
+        {
+            V11Enumerations.C1G2TagInventoryStateAwareS.SL => InventorySelectedFlag.Set,
+            V11Enumerations.C1G2TagInventoryStateAwareS.Not_SL => InventorySelectedFlag.Clear,
             _ => throw new InvalidOperationException("The reserved SDK ROSpec has an unsupported state-aware singulation flag."),
         },
     };

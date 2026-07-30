@@ -22,19 +22,19 @@
 
 ### 2. 标准能力同时提供两种 Reader 层入口
 
-每项适合托管的标准能力都必须先定义版本无关的高层入口；需要完整资源控制的能力同时经由高级资源服务暴露：
+每项适合托管的标准能力都必须先定义版本无关的托管 Reader API；需要完整资源控制的能力同时经由专家资源 API 暴露：
 
 ```text
 应用 / CLI
     └─ LlrpReader
-       ├─ 高层封装：Connect、配置、Start/Stop/Inventory、Tag Access、报告
-       └─ 高级接口：RoSpecs、AccessSpecs、Protocol
+       ├─ 托管 Reader API：Connect、配置、Start/Stop/Inventory、Tag Access、报告
+       └─ 专家资源 / 原始协议 API：RoSpecs、AccessSpecs、Protocol
 ```
 
-- 高层封装隐藏版本化 Message/Parameter，负责默认值、资源所有权、清理、报告投影和恢复边界；
-- 高级接口保留标准 ROSpec/AccessSpec 的显式控制，不能为了高层易用性而消失；
+- 托管 Reader API 隐藏版本化 Message/Parameter，负责默认值、资源所有权、清理、报告投影和恢复边界；
+- 专家资源 API 保留标准 ROSpec/AccessSpec 的显式控制，不能为了托管 API 的易用性而消失；
 - Raw `Protocol` 是诊断与尚未封装标准功能的逃生口，操作后必须使托管状态失效并要求同步；
-- 新的高层能力必须建立在 Reader 服务之上，不能由 CLI 自己重做协议生命周期。
+- 新的托管能力必须建立在 Reader 服务之上，不能由 CLI 自己重做协议生命周期。
 
 ### 3. Impinj 不引入 `ImpinjReader` 继承树
 

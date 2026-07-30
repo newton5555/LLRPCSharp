@@ -346,6 +346,22 @@ overrides:
         - field:
             name: MaxNumSelectFiltersPerQuery
             type: u16
+    - name: C1G2TagInventoryStateAwareSingulationAction
+      typeNumber: 337
+      required: false
+      members:
+        - field:
+            name: I
+            type: u1
+            enumeration: C1G2TagInventoryStateAwareI
+        - field:
+            name: S
+            type: u1
+            enumeration: C1G2TagInventoryStateAwareS
+        - field:
+            name: SAll
+            type: u1
+        - reserved: 5
   enumerations:
     - name: StatusCode
       entries:

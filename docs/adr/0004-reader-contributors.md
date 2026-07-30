@@ -5,7 +5,7 @@
 
 ## 决定
 
-`ILlrpProtocolModule` 和 `IReaderExtension` 保持现有职责：前者在连接前注册 Codec，后者在读取标准身份后匹配并执行连接初始化。它们不直接承担高层配置、盘点编译和报告投影。
+`ILlrpProtocolModule` 和 `IReaderExtension` 保持现有职责：前者在连接前注册 Codec，后者在读取标准身份后匹配并执行连接初始化。它们不直接承担托管配置、盘点编译和报告投影。
 
 在已激活的 `IReaderExtension` 之上增加三类可选 Contributor：
 

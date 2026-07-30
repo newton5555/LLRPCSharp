@@ -6,9 +6,11 @@ namespace LlrpNet.Protocol.Parameters.V1_1;
 /// <summary>Generated LLRP TLV parameter 'C1G2TagInventoryStateAwareSingulationAction'.</summary>
 /// <param name="I">Wire field 'I' (U1).</param>
 /// <param name="S">Wire field 'S' (U1).</param>
+/// <param name="SAll">Wire field 'SAll' (U1).</param>
 public sealed record C1G2TagInventoryStateAwareSingulationAction(
     global::LlrpNet.Protocol.Enumerations.V1_1.C1G2TagInventoryStateAwareI I,
-    global::LlrpNet.Protocol.Enumerations.V1_1.C1G2TagInventoryStateAwareS S
+    global::LlrpNet.Protocol.Enumerations.V1_1.C1G2TagInventoryStateAwareS S,
+    bool SAll
 ) : global::LlrpNet.Protocol.Parameters.ILlrpParameter
 {
     public const ushort TypeNumber = 337;

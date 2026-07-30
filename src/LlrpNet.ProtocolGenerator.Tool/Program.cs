@@ -148,9 +148,15 @@ public static class Program
 
         if (Directory.Exists(outputRoot))
         {
+            string versionDirectory = Path.DirectorySeparatorChar + options.VersionNamespace + Path.DirectorySeparatorChar;
             foreach (string existingFile in Directory.EnumerateFiles(outputRoot, "*.g.cs", SearchOption.AllDirectories))
             {
                 string fullPath = Path.GetFullPath(existingFile);
+                if (!fullPath.Contains(versionDirectory, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 if (!validTargetPaths.Contains(fullPath))
                 {
                     changed++;

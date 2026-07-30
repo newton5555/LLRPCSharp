@@ -35,6 +35,12 @@ public sealed record InventoryStartTrigger
     /// <summary>Gets the periodic-trigger period in milliseconds. It must be non-zero for a periodic trigger.</summary>
     public uint PeriodMilliseconds { get; init; }
 
+    /// <summary>
+    /// Gets the optional UTC time for the first periodic start. When omitted, the reader starts according to
+    /// <see cref="OffsetMilliseconds"/>; when supplied, it is compiled to LLRP <c>UTCTimestamp</c>.
+    /// </summary>
+    public DateTimeOffset? StartAtUtc { get; init; }
+
     /// <summary>Gets the GPI port used by a GPI trigger. It must be non-zero for a GPI trigger.</summary>
     public ushort GpiPortNumber { get; init; }
 
@@ -105,6 +111,10 @@ public enum InventorySelectedFlag
 {
     Set,
     Clear,
+    /// <summary>
+    /// Ignores the SL flag. This is represented by <c>S_All</c> in LLRP 1.1 and is not available in LLRP 1.0.1.
+    /// </summary>
+    All,
 }
 
 /// <summary>One ordered Gen2 Select rule used before inventory.</summary>
@@ -252,6 +262,8 @@ public sealed record InventorySettings
 
     /// <summary>
     /// Gets the number of observed tags that trigger one report. The default reports each observed tag.
+    /// A value of zero is valid only with <see cref="InventoryReportTrigger.UponNTagsOrEndOfRoSpec"/>,
+    /// where it suppresses the N-tag condition and reports the buffered data when the ROSpec ends.
     /// </summary>
     public ushort ReportEveryNTags { get; init; } = 1;
 

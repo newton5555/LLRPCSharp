@@ -22,12 +22,14 @@ internal sealed class C1G2TagInventoryStateAwareSingulationActionCodec : global:
         int offset = 0;
         global::LlrpNet.Protocol.Enumerations.V1_1.C1G2TagInventoryStateAwareI I = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_1.C1G2TagInventoryStateAwareI>(reader.ReadBits(1));
         global::LlrpNet.Protocol.Enumerations.V1_1.C1G2TagInventoryStateAwareS S = GeneratedCodecRuntime.ReadEnum<global::LlrpNet.Protocol.Enumerations.V1_1.C1G2TagInventoryStateAwareS>(reader.ReadBits(1));
-        reader.ReadReservedBits(6);
+        bool SAll = reader.ReadBoolean();
+        reader.ReadReservedBits(5);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, payload.Length);
         return new global::LlrpNet.Protocol.Parameters.V1_1.C1G2TagInventoryStateAwareSingulationAction(
             I,
-            S);
+            S,
+            SAll);
     }
 
     public override int GetEncodedPayloadLength(
@@ -52,7 +54,8 @@ internal sealed class C1G2TagInventoryStateAwareSingulationActionCodec : global:
         int offset = 0;
         GeneratedCodecRuntime.ValidateEnum(parameter.I, "I"); wireWriter.WriteBits(global::System.Convert.ToUInt64(parameter.I, global::System.Globalization.CultureInfo.InvariantCulture), 1);
         GeneratedCodecRuntime.ValidateEnum(parameter.S, "S"); wireWriter.WriteBits(global::System.Convert.ToUInt64(parameter.S, global::System.Globalization.CultureInfo.InvariantCulture), 1);
-        wireWriter.WriteReservedBits(6);
+        wireWriter.WriteBoolean(parameter.SAll);
+        wireWriter.WriteReservedBits(5);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

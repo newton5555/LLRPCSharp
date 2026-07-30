@@ -5,7 +5,7 @@
 
 ## 当前优先级
 
-1. **当前主线交付推进（LLRP 1.0.1 完善收尾）**：按照规范文档 [`specs/2026-07-28-llrp101-sdk-completion-spec.md`](specs/2026-07-28-llrp101-sdk-completion-spec.md)，完成标准 LLRP 1.0.1 的全量功能覆盖对齐（包含自动 ROSpec 生命周期接管、5 大 C1G2 标签 Access 操作库、物理能力表暴露、快捷 GPIO 及高层 Reader 事件通知）。
+1. **当前主线交付推进（LLRP 1.0.1 完善收尾）**：按照规范文档 [`specs/2026-07-28-llrp101-sdk-completion-spec.md`](specs/2026-07-28-llrp101-sdk-completion-spec.md)，完成标准 LLRP 1.0.1 的全量功能覆盖对齐（包含自动 ROSpec 生命周期接管、5 大 C1G2 标签 Access 操作库、物理能力表暴露、快捷 GPIO 及托管 Reader 事件通知）。
 2. **硬件/扩展能力补充（按需）**：根据更多型号/固件实测证据扩充 Impinj Contributor 管道的能力目录及相关基线 Profile。
 3. **长期可扩展阶段**：按需接入其他厂商扩展（如 Zebra 扩展等）。
 4. **长期可扩展阶段**：接入 `Llrp20ProtocolAdapter` 及 LLRP 2.0 完整互操作闭环。
@@ -21,13 +21,13 @@
 
 - 定义 `InventorySettings` 当前范围：只表示 Inventory 设置，还是升级为完整 Reader Config 聚合模型。
 - 若保留轻量模型，新增独立的 `ReaderConfiguration` 或 `ReaderConfigSnapshot`。
-- 以 `ReaderSettings.QuerySettingsAsync` / `ApplySettingsAsync` 维持版本无关高层模型；专家 `GET_READER_CONFIG` / `SET_READER_CONFIG` 继续走 `reader.Protocol`。
+- 以 `ReaderSettings.QuerySettingsAsync` / `ApplySettingsAsync` 维持版本无关托管模型；专家 `GET_READER_CONFIG` / `SET_READER_CONFIG` 继续走 `reader.Protocol`。
 - 完成 `settings` 文件的厂商强类型、版本化扩展映射；不恢复 `config` CLI 命令。
 
 ### 3. 标签访问 API（标准基线已完成）
 
 - 已定义版本无关的 `TagAccessRequest` / `TagAccessResult` / `ReadTagRequest` / `WriteTagRequest`。
-- 已将 AccessSpec 高层构造放入 1.0.1 / 1.1 Adapter，且通过 R420 完成非破坏性读取验证。
+- 已将 AccessSpec 托管构造放入 1.0.1 / 1.1 Adapter，且通过 R420 完成非破坏性读取验证。
 - 已完成：CLI 已增加实际执行的非破坏性 `tag read`，以及不连接设备、不调用写入 API 的 `tag write` dry-run。设计见 [`specs/2026-07-27-cli-tag-access-design.md`](specs/2026-07-27-cli-tag-access-design.md)；C6 已覆盖连接门控与非法十六进制输入，后续补完整引号/选项顺序矩阵和 Virtual Reader 命令级集成测试。
 
 ### 4. LLRP 2.0（最终阶段）
@@ -64,7 +64,7 @@
 
 ### 8. Reader 默认配置 Profile
 
-- 原默认配置/Profile 与 Patch 公开 API 已由统一 `ReaderSettings` 模型取代；后续 Profile 只能作为高层 Settings Contributor 的实现细节。
+- 原默认配置/Profile 与 Patch 公开 API 已由统一 `ReaderSettings` 模型取代；后续 Profile 只能作为托管 Settings Contributor 的实现细节。
 - 已定义可注册的 `IReaderConfigurationDefaultsProvider`；上下文包括厂商、型号、固件、协商版本、能力和激活扩展，最高优先级获选，同级冲突失败。
 - 已完成 `ReaderConfigurationPatch` 的只读解析和显式 Apply 合并；下一步仅在有资料或实测依据后增加 Impinj 型号 Profile，不放入本轮 CLI 重构。
 

@@ -70,7 +70,7 @@ dotnet run --project src/LlrpCli -- validate 043E0000000A01020304
 
 ### 托管盘点（inventory）
 
-`inventory` 只控制读写器上已经部署的高层 Inventory；它不编辑草稿，也不会临时覆盖天线或其他参数。先用完整的 `ReaderSettings` 文档通过 `settings apply <file> --yes` 部署意图；该操作保持资源 Disabled，再用 `inventory start` 启动：
+`inventory` 只控制读写器上已经部署的托管 Inventory；它不编辑草稿，也不会临时覆盖天线或其他参数。先用完整的 `ReaderSettings` 文档通过 `settings apply <file> --yes` 部署声明式意图；该操作保持资源 Disabled，再用 `inventory start` 启动：
 
 ```
 inventory start [--monitor live|frames|none] [--monitor-duration <seconds>]
@@ -122,16 +122,16 @@ inventory status            # 查看盘点运行状态（OperationState + 当前
 
 ---
 
-### 高层设置（settings）
+### 托管设置（settings）
 
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
 | `settings get` | `settings get [--tree]` | 查询读写器当前事实与已识别托管盘点状态；默认输出 JSON，`--tree` 将同一份完整强类型 JSON（含数组与厂商扩展）递归显示为静态 Tree；不改变草稿。 |
 | `settings defaults` | `settings defaults show|export <path>` | 显示或导出 SDK 为当前型号、固件和能力解析的推荐 Profile；不写设备。 |
 | `settings draft` | `settings draft show|defaults|from-reader|generic|wizard|load <path>|load-defaults <path>|save <path>|reset|apply --yes` | 管理 CLI 本地的完整 `ReaderSettings` 草稿。`show` 以静态 Tree 显示层级和来源，`wizard` 用交互式 Prompts 编辑常用 Inventory 字段。 |
-| `settings export` | `settings export <path>` | 导出高层设置及已激活厂商扩展的强类型、版本化 JSON。 |
-| `settings validate` | `settings validate <path>` | 校验高层设置及已激活厂商扩展的 JSON。 |
-| `settings apply` | `settings apply <path> --yes` | 显式应用高层设置；含 Inventory 时接管资源。 |
+| `settings export` | `settings export <path>` | 导出托管设置及已激活厂商扩展的强类型、版本化 JSON。 |
+| `settings validate` | `settings validate <path>` | 校验托管设置及已激活厂商扩展的 JSON。 |
+| `settings apply` | `settings apply <path> --yes` | 显式应用托管设置；含 Inventory 时接管资源。 |
 
 **示例**：
 
@@ -236,7 +236,7 @@ tag sequence E2801171 --op read:tid:0:2 --op write:user:0:1234 --password 000000
 | `accessspec disable` | `accessspec disable [id]` | 禁用 AccessSpec。 |
 | `accessspec delete` | `accessspec delete [id]` | 删除 AccessSpec。 |
 
-所有上述写命令都必须先执行 `resources manual enter`；`rospec list` 与 `accessspec list` 则可在任何已连接模式查询。手动模式不得使用 SDK 保留 ID `14150`（ROSpec）和 `14151`（AttachedData AccessSpec）。若 Reader 保留 SDK 高层配置，先使用 `resources clear` 释放它，再进入手动模式。执行 `resources manual exit` 会显式删除全部 AccessSpec 与 ROSpec 并返回空闲状态。
+所有上述写命令都必须先执行 `resources manual enter`；`rospec list` 与 `accessspec list` 则可在任何已连接模式查询。手动模式不得使用 SDK 保留 ID `14150`（ROSpec）和 `14151`（AttachedData AccessSpec）。若 Reader 保留 SDK 托管配置，先使用 `resources clear` 释放它，再进入手动模式。执行 `resources manual exit` 会显式删除全部 AccessSpec 与 ROSpec 并返回空闲状态。
 
 ---
 
@@ -295,7 +295,7 @@ exit / quit / q               # 断开连接并退出
 
 **3. 如何批量管理盘点配置？**
 - 将完整 `ReaderSettings` 草稿保存到 JSON 文件（如 `settings draft save warehouse.json`），新会话用 `settings draft load warehouse.json` 恢复。
-- 如需改变个别字段，编辑完整 `ReaderSettings` JSON 后执行 `settings validate <file>` 与 `settings apply <file> --yes`。高层盘点没有一次性参数覆盖，以保证读写器实际资源与设置文档一致。
+- 如需改变个别字段，编辑完整 `ReaderSettings` JSON 后执行 `settings validate <file>` 与 `settings apply <file> --yes`。托管盘点没有一次性参数覆盖，以保证读写器实际资源与设置文档一致。
 
 **4. `tag write` 如何防止意外覆盖标签数据？**
 - 在已连接的 Live Shell 中先执行 `tag write <epc> ...`，CLI 会打印完整的 OpSpec 计划（包含 Bank、Word Pointer、待写数据）且不写标签；确认无误后在同一命令加 `--yes` 才会实际执行。访问受保护标签时再加 `--password`。
