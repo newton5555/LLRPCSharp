@@ -123,7 +123,7 @@ public static class Program
 
             validTargetPaths.Add(targetPath);
 
-            string expected = source.SourceText.Replace("\n", CrLf, StringComparison.Ordinal);
+            string expected = source.SourceText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", CrLf, StringComparison.Ordinal);
             if (File.Exists(targetPath) && File.ReadAllText(targetPath) == expected)
             {
                 continue;
