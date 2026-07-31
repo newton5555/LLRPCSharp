@@ -54,6 +54,7 @@ jobs:
           ./artifacts/LlrpCli-*.zip
         draft: false
         prerelease: false
+        body_path: docs/releases/${{ github.ref_name }}.md
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
