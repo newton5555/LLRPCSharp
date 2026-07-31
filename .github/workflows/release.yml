@@ -32,6 +32,9 @@ jobs:
     - name: Run Tests
       run: dotnet test LLRPCSharp.slnx --no-build --configuration Release
 
+    - name: Clean Artifacts Directory
+      run: rm -rf ./artifacts
+
     - name: Pack NuGet Packages
       run: dotnet pack LLRPCSharp.slnx --no-build --configuration Release --output ./artifacts/nupkgs
 
