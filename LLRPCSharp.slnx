@@ -10,6 +10,8 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/LlrpCli/LlrpCli.csproj" />
+    <Project Path="src/LlrpReaderStudio/LlrpReaderStudio.csproj" />
+    <Project Path="src/LlrpReaderStudio.Core/LlrpReaderStudio.Core.csproj" />
     <Project Path="src/LlrpNet.Core/LlrpNet.Core.csproj" />
     <Project Path="src/LlrpNet.Protocol/LlrpNet.Protocol.csproj" />
     <Project Path="src/LlrpNet.ProtocolGenerator/LlrpNet.ProtocolGenerator.csproj" />
@@ -30,6 +32,7 @@
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj" />
+    <Project Path="tests/LlrpReaderStudio.Tests/LlrpReaderStudio.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/LlrpSdk.LiveSmoke/LlrpSdk.LiveSmoke.csproj" />

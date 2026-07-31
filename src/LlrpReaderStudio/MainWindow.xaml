@@ -1,0 +1,176 @@
+<Window x:Class="LlrpReaderStudio.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LLRP Reader Studio" Height="780" Width="1280"
+        MinHeight="650" MinWidth="1050" Background="{StaticResource PanelBrush}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="285" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
+            <DockPanel Margin="16">
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="LLRP" Foreground="#5EEAD4" FontSize="28" FontWeight="Bold" />
+                    <TextBlock Text="READER STUDIO" Foreground="White" FontSize="16" Margin="0,0,0,18" />
+                    <Button Content="Inventory" Command="{Binding ShowInventoryCommand}" HorizontalContentAlignment="Left" />
+                    <Button Content="Tag Memory" Command="{Binding ShowTagMemoryCommand}" HorizontalContentAlignment="Left" />
+                    <Button Content="Tags of Interest" Command="{Binding ShowToiCommand}" HorizontalContentAlignment="Left" />
+                    <Button Content="Settings &amp; Diagnostics" Command="{Binding ShowSettingsCommand}" HorizontalContentAlignment="Left" />
+                    <Separator Margin="0,14" />
+                    <TextBlock Text="DATA SOURCES" Foreground="#A7C4CB" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding ProfileName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Profile name" />
+                    <TextBox Text="{Binding ProfileHost, UpdateSourceTrigger=PropertyChanged}" ToolTip="Host or IP" />
+                    <TextBox Text="{Binding ProfilePort, UpdateSourceTrigger=PropertyChanged}" ToolTip="LLRP port" />
+                    <Button Content="+ Add reader profile" Command="{Binding AddReaderCommand}" Background="#0B7285" Foreground="White" />
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom">
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#CDE8EC" TextWrapping="Wrap" Margin="3,12" />
+                </StackPanel>
+
+                <Grid Margin="0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ListBox ItemsSource="{Binding Readers}" SelectedItem="{Binding SelectedReader}" Background="#183B45"
+                             BorderThickness="0" Foreground="White">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="5">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Endpoint}" Foreground="#A7C4CB" FontSize="11" />
+                                    <TextBlock Text="{Binding State}" Foreground="#5EEAD4" />
+                                    <TextBlock Text="{Binding Details}" Foreground="#FCA5A5" TextWrapping="Wrap" FontSize="11" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <WrapPanel Grid.Row="1">
+                        <Button Content="Connect" Command="{Binding ConnectCommand}" />
+                        <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
+                        <Button Content="Remove" Command="{Binding RemoveReaderCommand}" />
+                    </WrapPanel>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <TabControl Grid.Column="1" SelectedIndex="{Binding SelectedPageIndex}" Background="{StaticResource PanelBrush}" BorderThickness="0">
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem"><Setter Property="Visibility" Value="Collapsed" /></Style>
+            </TabControl.ItemContainerStyle>
+
+            <TabItem Header="Inventory">
+                <Grid Margin="24">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Inventory Showcase" FontSize="28" FontWeight="SemiBold" Foreground="#173A45" />
+                    <DockPanel Grid.Row="1" Margin="0,14">
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                            <Button Content="Start selected" Command="{Binding StartInventoryCommand}" Background="#0B7285" Foreground="White" />
+                            <Button Content="Start all connected" Command="{Binding StartAllCommand}" />
+                            <Button Content="Stop selected" Command="{Binding StopInventoryCommand}" />
+                            <Button Content="Stop all" Command="{Binding StopAllCommand}" />
+                            <Button Content="Clear" Command="{Binding ClearTagsCommand}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Tags.Count, StringFormat={}{0} unique tags}" VerticalAlignment="Center"
+                                   HorizontalAlignment="Right" FontWeight="SemiBold" />
+                    </DockPanel>
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding Tags}" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" AlternatingRowBackground="#EAF1F2" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="EPC" Binding="{Binding Epc}" Width="2*" />
+                            <DataGridTextColumn Header="Reads" Binding="{Binding ReadCount}" Width="80" />
+                            <DataGridTextColumn Header="Reader(s)" Binding="{Binding Readers}" Width="*" />
+                            <DataGridTextColumn Header="Antenna(s)" Binding="{Binding Antennas}" Width="100" />
+                            <DataGridTextColumn Header="RSSI" Binding="{Binding LastRssi}" Width="70" />
+                            <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeen, StringFormat=HH:mm:ss.fff}" Width="120" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Tag Memory">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="28" MaxWidth="850" HorizontalAlignment="Left">
+                        <TextBlock Text="Tag Memory" FontSize="28" FontWeight="SemiBold" Foreground="#173A45" />
+                        <TextBlock Text="Target one exact EPC. Reads and writes use a temporary SDK-managed AccessSpec and a five-second timeout."
+                                   TextWrapping="Wrap" Margin="0,6,0,18" />
+                        <TextBlock Text="Target EPC (hex)" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding TargetEpc, UpdateSourceTrigger=PropertyChanged}" />
+                        <UniformGrid Columns="4" Margin="0,8">
+                            <StackPanel><TextBlock Text="Memory bank" /><ComboBox ItemsSource="{Binding MemoryBanks}" SelectedItem="{Binding MemoryBank}" /></StackPanel>
+                            <StackPanel><TextBlock Text="Word pointer" /><TextBox Text="{Binding WordPointer}" /></StackPanel>
+                            <StackPanel><TextBlock Text="Word count" /><TextBox Text="{Binding WordCount}" /></StackPanel>
+                            <StackPanel><TextBlock Text="Access password" /><TextBox Text="{Binding AccessPassword}" /></StackPanel>
+                        </UniformGrid>
+                        <TextBlock Text="Data (hex words)" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding TagData, UpdateSourceTrigger=PropertyChanged}" Height="110"
+                                 AcceptsReturn="True" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Read" Command="{Binding ReadMemoryCommand}" Background="#0B7285" Foreground="White" />
+                            <Button Content="Write" Command="{Binding WriteMemoryCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Tags of Interest">
+                <StackPanel Margin="28" MaxWidth="850" HorizontalAlignment="Left">
+                    <TextBlock Text="Tags of Interest" FontSize="28" FontWeight="SemiBold" Foreground="#173A45" />
+                    <TextBlock Text="Maintain an application-side watch list. It does not change reader filters." Margin="0,6,0,18" />
+                    <DockPanel>
+                        <Button Content="Add EPC" Command="{Binding AddToiCommand}" DockPanel.Dock="Right" />
+                        <TextBox Text="{Binding ToiEpc, UpdateSourceTrigger=PropertyChanged}" />
+                    </DockPanel>
+                    <ListBox ItemsSource="{Binding TagsOfInterest}" MinHeight="300" FontFamily="Consolas" />
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Settings">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="28" MaxWidth="900" HorizontalAlignment="Left">
+                        <TextBlock Text="Settings Workspace" FontSize="28" FontWeight="SemiBold" Foreground="#173A45" />
+                        <TextBlock Text="{Binding SettingsOrigin}" Foreground="#4D6970" Margin="0,4,0,14" />
+                        <WrapPanel>
+                            <Button Content="Query device" Command="{Binding QuerySettingsCommand}" />
+                            <Button Content="Load SDK defaults" Command="{Binding DefaultSettingsCommand}" />
+                            <Button Content="Apply draft" Command="{Binding ApplySettingsCommand}" Background="#0B7285" Foreground="White" />
+                        </WrapPanel>
+                        <Border Background="White" BorderBrush="#D2E0E3" BorderThickness="1" Padding="16" Margin="0,12">
+                            <StackPanel>
+                                <TextBlock Text="Managed inventory intent" FontSize="18" FontWeight="SemiBold" />
+                                <CheckBox Content="Deploy managed inventory resource with Apply"
+                                          IsChecked="{Binding IncludeInventoryDraft}" Margin="3,8" />
+                                <UniformGrid Columns="4" Margin="0,8">
+                                    <StackPanel><TextBlock Text="Antennas (CSV)" /><TextBox Text="{Binding Antennas}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Gen2 session" /><TextBox Text="{Binding Session}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Population" /><TextBox Text="{Binding Population}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Report every N" /><TextBox Text="{Binding ReportEvery}" /></StackPanel>
+                                </UniformGrid>
+                                <TextBlock Text="Applying deploys the managed ROSpec in Disabled state. Start Inventory is a separate action."
+                                           Foreground="#4D6970" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="White" BorderBrush="#D2E0E3" BorderThickness="1" Padding="16" Margin="0,6">
+                            <StackPanel>
+                                <TextBlock Text="GPO diagnostics" FontSize="18" FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Port" VerticalAlignment="Center" />
+                                    <TextBox Text="{Binding GpoPort}" Width="70" />
+                                    <CheckBox Content="High" IsChecked="{Binding GpoState}" VerticalAlignment="Center" Margin="12,0" />
+                                    <Button Content="Set output" Command="{Binding SetGpoCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

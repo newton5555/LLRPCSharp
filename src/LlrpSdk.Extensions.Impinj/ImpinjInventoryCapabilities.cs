@@ -19,6 +19,10 @@ public sealed record ImpinjInventoryCapabilities(
     bool SupportsId,
     bool SupportsEnhancedIntegra,
     bool SupportsEndpointIcVerification,
+    bool SupportsTagFilterVerification,
+    bool SupportsTruncatedReply,
+    bool SupportsGen2X,
+    bool SupportsRampUpPowerBoost,
     string Reason);
 
 /// <summary>
@@ -65,6 +69,10 @@ public static class ImpinjInventoryCapabilityCatalog
         SupportsId: false,
         SupportsEnhancedIntegra: false,
         SupportsEndpointIcVerification: false,
+        SupportsTagFilterVerification: true,
+        SupportsTruncatedReply: false,
+        SupportsGen2X: false,
+        SupportsRampUpPowerBoost: false,
         Reason: "SDK verification confirmed Serialized TID, RF Phase Angle, and Peak RSSI report fields; tag population estimation was rejected by this firmware.");
 
     private static ImpinjInventoryCapabilities Unknown { get; } = new(
@@ -82,5 +90,9 @@ public static class ImpinjInventoryCapabilityCatalog
         SupportsId: false,
         SupportsEnhancedIntegra: false,
         SupportsEndpointIcVerification: false,
+        SupportsTagFilterVerification: false,
+        SupportsTruncatedReply: false,
+        SupportsGen2X: false,
+        SupportsRampUpPowerBoost: false,
         Reason: "No verified inventory capability profile matches this reader.");
 }
