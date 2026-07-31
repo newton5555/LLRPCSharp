@@ -40,6 +40,8 @@ jobs:
 
     - name: Zip LlrpCli
       run: |
+        cp README.md ./artifacts/cli-win64/
+        cp LICENSE ./artifacts/cli-win64/
         cd ./artifacts/cli-win64
         zip -r ../LlrpCli-${{ github.ref_name }}-win64.zip .
 
@@ -52,6 +54,7 @@ jobs:
           ./artifacts/LlrpCli-*.zip
         draft: false
         prerelease: false
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

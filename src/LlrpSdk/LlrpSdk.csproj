@@ -4,22 +4,30 @@
     <Title>LLRPCSharp Core SDK</Title>
     <Description>Modern .NET LLRP SDK for RFID readers, supporting LLRP 1.0.1, auto-negotiation, managed inventory, tag access, and reader configuration.</Description>
     <PackageTags>rfid;llrp;sdk;csharp;dotnet;rfid-reader</PackageTags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeReferencedProjectOutputs</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" />
-    <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
-    <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
+    <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
+    <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
+    <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
   </ItemGroup>
+
+  <Target Name="IncludeReferencedProjectOutputs">
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Core.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Core.pdb" Condition="Exists('$(OutputPath)LlrpNet.Core.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.pdb" Condition="Exists('$(OutputPath)LlrpNet.Protocol.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpSdk.Extensions.Abstractions.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpSdk.Extensions.Abstractions.pdb" Condition="Exists('$(OutputPath)LlrpSdk.Extensions.Abstractions.pdb')" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>LlrpSdk.Tests</_Parameter1>

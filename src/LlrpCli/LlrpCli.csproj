@@ -10,7 +10,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" />
     <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
     <ProjectReference Include="..\LlrpSdk\LlrpSdk.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Impinj\LlrpSdk.Extensions.Impinj.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Seuic\LlrpSdk.Extensions.Seuic.csproj" />
@@ -22,4 +24,3 @@
     </AssemblyAttribute>
   </ItemGroup>
 </Project>
-
