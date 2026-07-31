@@ -30,3 +30,4 @@ definitions/imports/xml/extensions/impinj/**
 .DS_Store
 Thumbs.db
 /.tmp-generated
+/tmp/pdfs/itemtest-review
