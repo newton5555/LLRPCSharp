@@ -1,4 +1,4 @@
-﻿# Agent Guide
+# Agent Guide
 
 This file is the first stop for coding agents working in this repository.
 It is intentionally short and operational. For user-facing documentation, start at
