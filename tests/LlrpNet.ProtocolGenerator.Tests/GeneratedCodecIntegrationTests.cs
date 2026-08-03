@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -392,7 +392,7 @@ public sealed class GeneratedCodecIntegrationTests
     }
 
     [Fact]
-    public void EmitCore101SourcesToProtocolProject()
+    public void GenerateCore101Sources_SucceedsAndProducesExpectedSources()
     {
         string solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         string definitionPath = Path.Combine(solutionRoot, "definitions", "imports", "xml", "llrp-1.0.1", "llrp-1x0-def.xml");
@@ -407,19 +407,6 @@ public sealed class GeneratedCodecIntegrationTests
 
         ProtocolGenerationResult result = new ProtocolSourceGenerator().Generate(definition, options);
         Assert.True(result.Succeeded);
-
-        string protocolProjectDir = Path.Combine(solutionRoot, "src", "LlrpNet", "LlrpNet.Protocol");
-
-        foreach (GeneratedSourceFile source in result.Sources)
-        {
-            string targetPath = Path.Combine(protocolProjectDir, source.HintName.Replace('/', Path.DirectorySeparatorChar));
-            string? dir = Path.GetDirectoryName(targetPath);
-            if (!string.IsNullOrEmpty(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            File.WriteAllText(targetPath, source.SourceText, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        }
+        Assert.NotEmpty(result.Sources);
     }
 }

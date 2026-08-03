@@ -6,11 +6,54 @@
 
 ## 项目定位
 
-本项目是一套现代化 .NET LLRP 开发套件，而不只是二进制编解码库。它对传统
-LTK.NET 的定义与生成模式进行现代化改造，将协议定义、生成的线级资产、Codec
-注册、异步传输、版本 Adapter 和托管 Reader 工作流拆分开来。
+本项目是一套现代化 .NET LLRP 开发套件，而不只是二进制编解码库。它对传统 LTK.NET 的定义与生成模式进行现代化改造，将协议定义、生成的线级资产、Codec 注册、异步传输、版本 Adapter 和托管 Reader 工作流拆分开来。
 
-![LLRPCSharp Architecture Overview](../images/llrpcsharp_infographic.png)
+![LLRPCSharp 架构总览](../images/architecture.svg)
+
+<details>
+<summary><b>查看原生 Mermaid 架构图</b></summary>
+
+```mermaid
+graph TB
+    subgraph Layer3["Layer 3: 应用与 CLI 工具层"]
+        CLI["LlrpCli Live Shell 交互终端"]
+        Scripts["一次性命令与 Agent 自动化"]
+        App["开发者应用系统"]
+    end
+
+    subgraph Layer2["Layer 2: 托管 Reader SDK 层 (LlrpSdk)"]
+        Reader["LlrpReader 门面入口"]
+        Settings["ReaderSettings & 托管 Session"]
+        Extensions["厂商扩展 (UseImpinj)"]
+    end
+
+    subgraph Layer1["Layer 1: 协议与网络基础层 (LlrpNet)"]
+        Core["LlrpNet.Core (TCP & 帧观察器)"]
+        Registry["LlrpCodecRegistry & 编解码器"]
+        Assets["生成的协议资产代码 (.g.cs)"]
+    end
+
+    subgraph Devices["硬件设备与仿真器"]
+        Physical["物理 LLRP 读写器"]
+        Virtual["LlrpVirtualReader 虚拟读写器"]
+    end
+
+    Layer3 --> Reader
+    Reader --> Settings
+    Reader --> Extensions
+    Reader --> Core
+    Core --> Registry
+    Registry --> Assets
+    Core --> Physical
+    Core --> Virtual
+
+    style Layer3 fill:#1e293b,stroke:#3b82f6,stroke-width:1.5px,color:#fff
+    style Layer2 fill:#1e1b4b,stroke:#8b5cf6,stroke-width:1.5px,color:#fff
+    style Layer1 fill:#083344,stroke:#06b6d4,stroke-width:1.5px,color:#fff
+    style Devices fill:#064e3b,stroke:#10b981,stroke-width:1.5px,color:#fff
+```
+
+</details>
 
 核心产品是 `LlrpSdk.LlrpReader`：一个代表单台 RFID 读写器的设备会话对象，负责连接、协议协商、初始化、盘点、资源管理、报文诊断和扩展生命周期。
 

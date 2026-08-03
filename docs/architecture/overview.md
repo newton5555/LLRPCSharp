@@ -6,12 +6,54 @@ This document describes the long-term architecture boundaries of the LLRP C# SDK
 
 ## Project Positioning
 
-This project is a modern .NET LLRP development kit, not just a binary codec
-library. It modernizes the traditional LTK.NET definition-and-generation model
-by separating protocol definitions, generated wire assets, codec registration,
-async transport, version adapters, and the managed Reader workflow.
+This project is a modern .NET LLRP development kit, not just a binary codec library. It modernizes the traditional LTK.NET definition-and-generation model by separating protocol definitions, generated wire assets, codec registration, async transport, version adapters, and the managed Reader workflow.
 
-![LLRPCSharp Architecture Overview](../images/llrpcsharp_infographic.png)
+![LLRPCSharp Architecture Overview](../images/architecture.svg)
+
+<details>
+<summary><b>View Native Mermaid Architecture Diagram</b></summary>
+
+```mermaid
+graph TB
+    subgraph Layer3["Layer 3: Application & CLI Layer"]
+        CLI["LlrpCli Live Shell"]
+        Scripts["CLI One-Shot Commands"]
+        App["User Applications"]
+    end
+
+    subgraph Layer2["Layer 2: Managed Reader SDK Layer (LlrpSdk)"]
+        Reader["LlrpReader Facade"]
+        Settings["ReaderSettings & Session"]
+        Extensions["Vendor Extensions (UseImpinj)"]
+    end
+
+    subgraph Layer1["Layer 1: Protocol & Networking Layer (LlrpNet)"]
+        Core["LlrpNet.Core (TCP & Frame Observer)"]
+        Registry["LlrpCodecRegistry & Codecs"]
+        Assets["Generated Protocol Assets (.g.cs)"]
+    end
+
+    subgraph Devices["Hardware & Simulators"]
+        Physical["Physical LLRP Readers"]
+        Virtual["LlrpVirtualReader (Mock/CI)"]
+    end
+
+    Layer3 --> Reader
+    Reader --> Settings
+    Reader --> Extensions
+    Reader --> Core
+    Core --> Registry
+    Registry --> Assets
+    Core --> Physical
+    Core --> Virtual
+
+    style Layer3 fill:#1e293b,stroke:#3b82f6,stroke-width:1.5px,color:#fff
+    style Layer2 fill:#1e1b4b,stroke:#8b5cf6,stroke-width:1.5px,color:#fff
+    style Layer1 fill:#083344,stroke:#06b6d4,stroke-width:1.5px,color:#fff
+    style Devices fill:#064e3b,stroke:#10b981,stroke-width:1.5px,color:#fff
+```
+
+</details>
 
 The main product surface is `LlrpSdk.LlrpReader`: a device session object for one RFID reader. It owns connection management, protocol negotiation, initialization, inventory, resource management, message diagnostics, and extension lifecycle.
 
