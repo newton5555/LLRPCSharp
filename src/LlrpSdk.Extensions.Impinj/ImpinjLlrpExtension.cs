@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
+using LlrpSdk;
+
 namespace LlrpSdk.Extensions.Impinj;
 
 /// <summary>Registers the generated Impinj LLRP 1.0.1 custom codecs before a reader connects.</summary>
@@ -274,7 +276,10 @@ public sealed class ImpinjReaderExtension :
             var controlReader = new ReaderExtensionMatchContext(
                 context.Identity.ManufacturerId, context.Identity.ModelId, context.Identity.FirmwareVersion, context.ProtocolVersion);
             foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter item in
-                ImpinjInventoryControlConfigurator.BuildCustomItems(controlReader, controls))
+                ImpinjInventoryControlConfigurator.BuildCustomItems(
+                    controlReader,
+                    controls,
+                    context.Settings.Filters.Count))
             {
                 extensions.AddC1G2InventoryCommandCustomItem(item);
             }
@@ -315,7 +320,7 @@ public sealed class ImpinjReaderExtension :
         {
             // Continue: inventory-command extensions are independent of report extensions.
         }
-        else if (selector.CustomItems.Count != 0 || selector.ImpinjEnableOptimizedRead?.C1G2ReadItems.Count > 0)
+        else if (selector.CustomItems.Count != 0)
         {
             throw new InvalidOperationException(
                 "The SDK-reserved ROSpec contains Impinj report options that the current high-level model cannot represent.");
@@ -323,6 +328,33 @@ public sealed class ImpinjReaderExtension :
 
         else
         {
+            var reader = new ReaderExtensionMatchContext(
+                context.Identity.ManufacturerId,
+                context.Identity.ModelId,
+                context.Identity.FirmwareVersion,
+                context.ProtocolVersion);
+            ImpinjInventoryCapabilities capabilities = ImpinjInventoryCapabilityCatalog.Get(reader);
+            var optimizedReads = selector.ImpinjEnableOptimizedRead?.C1G2ReadItems
+                .Select(static operation => new ImpinjOptimizedReadOperation(
+                    operation.OpSpecID,
+                    (TagMemoryBank)operation.MB,
+                    operation.WordPointer,
+                    operation.WordCount,
+                    operation.AccessPassword))
+                .ToArray() ?? [];
+            bool unverified =
+                (selector.ImpinjEnableSerializedTID is not null && !capabilities.SupportsSerializedTid) ||
+                (selector.ImpinjEnableRFPhaseAngle is not null && !capabilities.SupportsRfPhaseAngle) ||
+                (selector.ImpinjEnablePeakRSSI is not null && !capabilities.SupportsPeakRssi) ||
+                (selector.ImpinjEnableGPSCoordinates is not null && !capabilities.SupportsGpsCoordinates) ||
+                (selector.ImpinjEnableOptimizedRead is not null && !capabilities.SupportsOptimizedRead) ||
+                (selector.ImpinjEnableRFDopplerFrequency is not null && !capabilities.SupportsRfDopplerFrequency) ||
+                (selector.ImpinjEnableTxPower is not null && !capabilities.SupportsTxPower) ||
+                (selector.ImpinjEnableXPCWords is not null && !capabilities.SupportsXpcWords) ||
+                (selector.ImpinjEnableCRHandle is not null && !capabilities.SupportsCrHandle) ||
+                (selector.ImpinjEnableID is not null && !capabilities.SupportsId) ||
+                (selector.ImpinjEnableEnhancedIntegra is not null && !capabilities.SupportsEnhancedIntegra) ||
+                (selector.ImpinjEnableEndpointICVerification is not null && !capabilities.SupportsEndpointIcVerification);
             extensions.Add(ImpinjInventoryReportOptions.ExtensionKey, new ImpinjInventoryReportOptions
             {
             IncludeSerializedTid = selector.ImpinjEnableSerializedTID?.SerializedTIDMode == ImpinjSerializedTIDMode.Enabled,
@@ -330,6 +362,7 @@ public sealed class ImpinjReaderExtension :
             IncludePeakRssi = selector.ImpinjEnablePeakRSSI?.PeakRSSIMode == ImpinjPeakRSSIMode.Enabled,
             IncludeGpsCoordinates = selector.ImpinjEnableGPSCoordinates?.GPSCoordinatesMode == ImpinjGPSCoordinatesMode.Enabled,
             IncludeOptimizedRead = selector.ImpinjEnableOptimizedRead?.OptimizedReadMode == ImpinjOptimizedReadMode.Enabled,
+            OptimizedReads = optimizedReads,
             IncludeRfDopplerFrequency = selector.ImpinjEnableRFDopplerFrequency?.RFDopplerFrequencyMode == ImpinjRFDopplerFrequencyMode.Enabled,
             IncludeTxPower = selector.ImpinjEnableTxPower?.TxPowerReportingMode == ImpinjTxPowerReportingModeEnum.Enabled,
             IncludeXpcWords = selector.ImpinjEnableXPCWords?.XPCWordsMode == ImpinjXPCWordsMode.Enabled,
@@ -337,16 +370,85 @@ public sealed class ImpinjReaderExtension :
             IncludeId = selector.ImpinjEnableID?.IDMode == ImpinjIDMode.Enabled,
             IncludeEnhancedIntegra = selector.ImpinjEnableEnhancedIntegra?.EnhancedIntegraMode == ImpinjEnhancedIntegraMode.Enabled,
             IncludeEndpointIcVerification = selector.ImpinjEnableEndpointICVerification?.EndpointICVerificationReportMode == ImpinjEndpointICVerificationReportMode.Enabled,
+            AllowUnverifiedFields = unverified,
             });
         }
 
         ImpinjEnableTagPopulationEstimationAlgorithm? population = context.C1G2InventoryCommandCustomItems
             .OfType<ImpinjEnableTagPopulationEstimationAlgorithm>().SingleOrDefault();
-        if (population is not null)
+        ImpinjTagFilterVerificationConfiguration? filterVerification = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjTagFilterVerificationConfiguration>().SingleOrDefault();
+        ImpinjTruncatedReplyConfiguration? truncatedReply = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjTruncatedReplyConfiguration>().SingleOrDefault();
+        ImpinjGen2XInventoryConfig? gen2XInventory = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjGen2XInventoryConfig>().SingleOrDefault();
+        ImpinjGen2XTagSelectionConfig? gen2XSelection = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjGen2XTagSelectionConfig>().SingleOrDefault();
+        ImpinjEndpointICVerificationConfig? endpointVerification = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjEndpointICVerificationConfig>().SingleOrDefault();
+        ImpinjRampUpPowerBoost? rampUpPowerBoost = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjRampUpPowerBoost>().SingleOrDefault();
+
+        if (gen2XSelection is not null &&
+            gen2XSelection.CustomItems.Any(static item => item is not ImpinjGen2XTagSelectionEpcLength))
         {
+            throw new InvalidOperationException(
+                "The SDK-reserved ROSpec contains a Gen2X selection parameter that cannot be represented losslessly.");
+        }
+
+        bool hasInventoryControls = population is not null ||
+            filterVerification is not null ||
+            truncatedReply is not null ||
+            gen2XInventory is not null ||
+            gen2XSelection is not null ||
+            endpointVerification is not null ||
+            rampUpPowerBoost is not null;
+        if (hasInventoryControls)
+        {
+            ImpinjGen2XTagSelectionEpcLength? epcLength = gen2XSelection?.CustomItems
+                .OfType<ImpinjGen2XTagSelectionEpcLength>().SingleOrDefault();
+            var reader = new ReaderExtensionMatchContext(
+                context.Identity.ManufacturerId,
+                context.Identity.ModelId,
+                context.Identity.FirmwareVersion,
+                context.ProtocolVersion);
+            ImpinjInventoryCapabilities capabilities = ImpinjInventoryCapabilityCatalog.Get(reader);
+            bool requiresUnverifiedOverride =
+                (population is not null && !capabilities.SupportsTagPopulationEstimation) ||
+                (filterVerification is not null && !capabilities.SupportsTagFilterVerification) ||
+                (truncatedReply is not null && !capabilities.SupportsTruncatedReply) ||
+                ((gen2XInventory is not null || gen2XSelection is not null) && !capabilities.SupportsGen2X) ||
+                (endpointVerification is not null && !capabilities.SupportsEndpointIcVerification) ||
+                (rampUpPowerBoost is not null && !capabilities.SupportsRampUpPowerBoost);
+
             extensions.Add(ImpinjInventoryControlOptions.ExtensionKey, new ImpinjInventoryControlOptions
             {
-                EnableTagPopulationEstimation = population.TagPopulationEstimationMode == ImpinjTagPopulationEstimationMode.Enabled
+                EnableTagPopulationEstimation = population is null
+                    ? null
+                    : population.TagPopulationEstimationMode == ImpinjTagPopulationEstimationMode.Enabled,
+                TagFilterVerificationMode = filterVerification?.TagFilterVerificationMode,
+                TruncatedReply = truncatedReply is null
+                    ? null
+                    : new ImpinjTruncatedReplyOptions(
+                        truncatedReply.Gen2v2TagsOnly,
+                        truncatedReply.EPCLength,
+                        truncatedReply.Pointer,
+                        ImpinjBitEncoding.ToHex(truncatedReply.TagMask, nameof(truncatedReply.TagMask))),
+                Gen2XInventory = gen2XInventory is null
+                    ? null
+                    : new ImpinjGen2XInventoryOptions(
+                        gen2XInventory.CR,
+                        gen2XInventory.ID,
+                        gen2XInventory.Protection),
+                Gen2XTagSelection = gen2XSelection is null
+                    ? null
+                    : new ImpinjGen2XTagSelectionOptions(
+                        ImpinjBitEncoding.ToHex(gen2XSelection.AppID, nameof(gen2XSelection.AppID)),
+                        epcLength?.EpcLengthInBits,
+                        epcLength?.TBit ?? false),
+                EndpointIcVerificationMode = endpointVerification?.EndpointICVerificationMode,
+                RampUpPowerBoostMode = rampUpPowerBoost?.RampUpPowerBoostMode,
+                AllowUnverifiedFeatures = requiresUnverifiedOverride,
             });
         }
     }
@@ -369,6 +471,31 @@ public sealed class ImpinjReaderExtension :
                     break;
                 case ImpinjPeakRSSI peakRssi:
                     extensions.Add("impinj.peakRssi", peakRssi.RSSI);
+                    break;
+                case ImpinjGPSCoordinates coordinates:
+                    extensions.Add("impinj.gpsCoordinates", new ImpinjGpsCoordinates(coordinates.Latitude, coordinates.Longitude));
+                    break;
+                case ImpinjRFDopplerFrequency doppler:
+                    extensions.Add("impinj.rfDopplerFrequency", new ImpinjRfDopplerFrequency(doppler.DopplerFrequency));
+                    break;
+                case ImpinjTxPower txPower:
+                    extensions.Add("impinj.txPower", txPower.TxPower);
+                    break;
+                case ImpinjXPCWords xpcWords:
+                    extensions.Add("impinj.xpcWords", xpcWords.XPCWords);
+                    break;
+                case ImpinjCRHandle crHandle:
+                    extensions.Add("impinj.crHandle", crHandle.CRHandle);
+                    break;
+                case ImpinjID id:
+                    extensions.Add("impinj.id", new ImpinjBitVector(id.ID));
+                    break;
+                case ImpinjEnhancedIntegraReport integra:
+                    extensions.Add("impinj.enhancedIntegra", new ImpinjEnhancedIntegraResult(integra.Result, integra.OpSpecID));
+                    break;
+                case ImpinjEndpointICVerificationReport endpoint:
+                    extensions.Add("impinj.endpointIcVerification", new ImpinjEndpointIcVerification(
+                        endpoint.EndpointICVerificationOn, endpoint.EndpointICIdentifier));
                     break;
             }
         }

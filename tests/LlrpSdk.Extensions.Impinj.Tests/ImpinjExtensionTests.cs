@@ -1,5 +1,6 @@
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Registry;
+using LlrpSdk;
 using LlrpSdk.Extensions;
 using LlrpSdk.Extensions.Impinj.Enumerations.V1_0_1;
 using LlrpSdk.Extensions.Impinj.Messages.V1_0_1;
@@ -213,6 +214,68 @@ public sealed class ImpinjExtensionTests
             ImpinjInventoryReportConfigurator.BuildCustomItems(context, new ImpinjInventoryReportOptions());
 
         Assert.Empty(items);
+    }
+
+    [Fact]
+    public void InventoryReportConfigurator_CompilesAndRestoresOptimizedReads()
+    {
+        var context = new ReaderExtensionMatchContext(
+            ImpinjReaderExtension.ManufacturerId, 999_999, "99.0.0", LlrpProtocolVersion.Version101);
+        var options = new ImpinjInventoryReportOptions
+        {
+            IncludeOptimizedRead = true,
+            OptimizedReads = [new ImpinjOptimizedReadOperation(7, TagMemoryBank.User, 4, 3, 0x11223344)],
+            AllowUnverifiedFields = true,
+        };
+
+        var selector = Assert.IsType<ImpinjTagReportContentSelector>(
+            Assert.Single(ImpinjInventoryReportConfigurator.BuildCustomItems(context, options)));
+        var read = Assert.Single(selector.ImpinjEnableOptimizedRead!.C1G2ReadItems);
+        Assert.Equal((ushort)7, read.OpSpecID);
+        Assert.Equal((byte)3, read.MB);
+        Assert.Equal((ushort)4, read.WordPointer);
+        Assert.Equal((ushort)3, read.WordCount);
+        Assert.Equal(0x11223344u, read.AccessPassword);
+
+        var identity = new ReaderIdentity(ImpinjReaderExtension.ManufacturerId, 999_999, "99.0.0");
+        var extensions = new InventorySettingsExtensionBuilder();
+        ImpinjReaderExtension.Instance.ContributeQuery(
+            new InventorySettingsContributionContext(identity, null!, LlrpProtocolVersion.Version101,
+                [selector], []), extensions);
+        var restored = Assert.IsType<ImpinjInventoryReportOptions>(
+            extensions.Build()[ImpinjInventoryReportOptions.ExtensionKey]);
+        Assert.True(restored.AllowUnverifiedFields);
+        Assert.Equal(options.OptimizedReads, restored.OptimizedReads);
+    }
+
+    [Fact]
+    public void TagReportContributor_ProjectsKnownImpinjFields()
+    {
+        var report = new TagReport(new byte[] { 0x30, 0x00 }, 14150, 1, 1, 2, -45, 3, null, null, 1, null);
+        var context = new TagReportContributionContext(report,
+        [
+            new ImpinjGPSCoordinates(31_230_000, 121_470_000, []),
+            new ImpinjRFDopplerFrequency(-32, []),
+            new ImpinjTxPower(20, []),
+            new ImpinjXPCWords([0x1234, 0x5678], []),
+            new ImpinjCRHandle(42, []),
+            new ImpinjID([true, false, true], []),
+            new ImpinjEnhancedIntegraReport(ImpinjEnhancedIntegraResultType.No_Parity_Error, 8, []),
+            new ImpinjEndpointICVerificationReport(1, 9, []),
+        ]);
+        var builder = new TagReportExtensionBuilder();
+
+        ImpinjReaderExtension.Instance.Contribute(context, builder);
+
+        var values = builder.Build();
+        var gps = Assert.IsType<ImpinjGpsCoordinates>(values["impinj.gpsCoordinates"]);
+        Assert.Equal(31.23, gps.LatitudeDegrees, 5);
+        Assert.Equal(-2d, Assert.IsType<ImpinjRfDopplerFrequency>(values["impinj.rfDopplerFrequency"]).Hertz);
+        Assert.Equal((ushort)20, values["impinj.txPower"]);
+        Assert.Equal((uint)42, values["impinj.crHandle"]);
+        Assert.Equal("A", Assert.IsType<ImpinjBitVector>(values["impinj.id"]).Hex);
+        Assert.IsType<ImpinjEnhancedIntegraResult>(values["impinj.enhancedIntegra"]);
+        Assert.IsType<ImpinjEndpointIcVerification>(values["impinj.endpointIcVerification"]);
     }
 
     [Fact]

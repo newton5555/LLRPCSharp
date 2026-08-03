@@ -1,6 +1,6 @@
 ﻿# 当前状态
 
-> 基准日期：2026-07-30
+> 基准日期：2026-08-03
 > 目的：作为仓库当前真实状态的事实源。README 面向使用者，长期规划面向设计；本文件回答“现在已经有什么、还缺什么、当前阶段的核心交付目标是什么”。
 
 ## 总结
@@ -20,6 +20,7 @@
 | 标准 Tag Access | 主线可用 | `ReadTagMemoryAsync` / `WriteTagMemoryAsync` 通过临时 AccessSpec 运行；已完成 R420 实机非破坏性读验证。 |
 | Contributor 管道 | 主线可用 | Settings、TagReport 与 Inventory Contributor 已接入 SDK；Impinj Settings/TagReport 扩展属性已打通端到端验收。 |
 | CLI 工具链 | 主线可用 | 包含 Live Shell 交互式 Studio、SDK 托管 Reader API、专家 ROSpec/AccessSpec/Raw 调试入口、自动补全、帧观察器与离线 Codec 工具。 |
+| Reader Studio WPF | **首个应用示例可用** | 已加入解决方案；支持多读写器档案、盘点汇总、精确 EPC 标签读写、ReaderSettings 草稿/设备查询/SDK 默认值/Apply、标准过滤器、触发器、报告触发、AttachedData、TOI 和 GPO 诊断。 |
 | Virtual Reader | 主线可用 | 支持 1.0.1 场景模拟、能力查询、ROSpec 生命周期、TagReport 与 AccessSpec 模拟。 |
 
 ## 已实现
@@ -82,11 +83,11 @@
 
 ### Contributor 管道
 
-- `ITagReportContributor` 会在标准协议翻译后投影厂商 Custom Parameter 到 `TagReport.Extensions`；Impinj 扩展当前识别 Serialized TID、RF Phase Angle 和 Peak RSSI（前提是读写器报告中包含这些字段）。
+- `ITagReportContributor` 会在标准协议翻译后投影厂商 Custom Parameter 到 `TagReport.Extensions`；Impinj 扩展识别 Serialized TID、RF Phase Angle、Peak RSSI、GPS、Doppler、TxPower、XPC、CR Handle、ID、Enhanced Integra 和 Endpoint IC（前提是读写器报告中包含这些字段）。
 - `IReaderSettingsContributor` 可以把 `GET_READER_CONFIG_RESPONSE` 的 Custom Parameter 投影到 `ReaderConfiguration.Extensions`，并在 Apply 时生成 `SET_READER_CONFIG` 的 Custom Parameter；`IInventorySettingsContributor` 负责把保留 ROSpec 的厂商报告参数反向恢复为托管扩展值。
 - `IReaderSettingsDefaultsContributor` 为已识别 Reader 生成可编辑的默认 Settings。Seuic UF40 根据能力表把实际天线和 Rx/Tx/Hop/Channel 直接写入标准 `InventorySettings.AntennaConfigurations`；编译器只读取核心标准模型，不再依赖隐藏的厂商 inventory profile extension。
 - `UseImpinj()` 会在配置查询中请求 `ImpinjRequestedData(All_Configuration)`，并将可写的 `ImpinjReaderConfiguration` 投影为 `ReaderConfiguration.Extensions["impinj.configuration"]`，将区域/温度投影为只读 `impinj.facts`。目前可编译 Search Mode、频率、低占空比、GPI 防抖、Link Monitor、Report Buffer、AccessSpec 与 Advanced GPO 参数；2026-07-30 已在 R420 6.4.1.240 对当前 GPI debounce、Link Monitor、Report Buffer 与 AccessSpec 配置完成同值 `ApplySettingsAsync()` / `QuerySettingsAsync()` 回读验收。
-- `IInventoryContributor` 现在可读取初始化后的身份、能力和协商版本。Impinj 已接入 `ImpinjInventoryReportOptions`（`InventorySettings.Extensions["impinj.inventoryReport"]`）及默认拒绝的能力目录；R420 Model `2001002` Firmware `6.4.1.x` 的 ItemTest 抓包已验证 `ImpinjTagReportContentSelector` 位于 `ROReportSpec` 时可被接受，SDK 编译器已修正为相同挂载位置。
+- `IInventoryContributor` 现在可读取初始化后的身份、能力和协商版本。Impinj 已接入 `ImpinjInventoryReportOptions`（`InventorySettings.Extensions["impinj.inventoryReport"]`）及默认拒绝的能力目录；报告选择器可表达 Serialized TID、RF Phase、Peak RSSI、GPS、优化读取（最多两个 `C1G2Read`）、Doppler、TxPower、XPC、CR Handle、ID、Enhanced Integra 和 Endpoint IC，并在查询时恢复这些字段。未知型号/固件仍默认拒绝，应用确认设备支持后可显式启用 `AllowUnverifiedFields`。R420 Model `2001002` Firmware `6.4.1.x` 的 ItemTest 抓包已验证 `ImpinjTagReportContentSelector` 位于 `ROReportSpec` 时可被接受，SDK 编译器已修正为相同挂载位置。
 - 2026-07-27：R420 直接 SDK 盘点同时启用 `IncludeSerializedTid`、`IncludeRfPhaseAngle`、`IncludePeakRssi` 成功，收到 EPC `E28011710000020D056E9BEE` 的扩展字段 `impinj.serializedTid = E2801171200003EEADD309A0`、`impinj.rfPhaseAngle = 1276`、`impinj.peakRssi = -6700`；临时 SDK ROSpec 已在停止后确认清理。
 
 ## 未完成

@@ -18,6 +18,7 @@
 - `Microsoft.Extensions.Logging` 日志抽象和 `ILlrpFrameObserver` 原始 TX/RX 帧观测。
 - LTK XML / YAML 协议定义导入、校验和 C# 源码生成链。
 - Spectre.Console CLI，支持在线连接、监控、Live Shell，以及离线 inspect/decode/encode。
+- `LlrpReaderStudio` WPF 应用示例，提供多读写器盘点、Settings 草稿、标签内存、TOI 与 GPO 诊断。
 - Impinj 扩展注册架构、`UseImpinj()` 入口与强类型 Codec 生成资产。
 - 最小 1.0.1 Virtual Reader，用于能力查询和 ROSpec 生命周期测试。
 

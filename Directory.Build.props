@@ -31,7 +31,7 @@
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tool' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel' AND '$(MSBuildProjectName)' != 'LlrpNet.Core' AND '$(MSBuildProjectName)' != 'LlrpNet.Protocol' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.Core.Tests'">
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tool' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel' AND '$(MSBuildProjectName)' != 'LlrpNet.Core' AND '$(MSBuildProjectName)' != 'LlrpNet.Protocol' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolModel.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.ProtocolGenerator.Tests' AND '$(MSBuildProjectName)' != 'LlrpNet.Core.Tests' AND '$(MSBuildProjectName)' != 'LlrpReaderStudio' AND '$(MSBuildProjectName)' != 'LlrpReaderStudio.Core' AND '$(MSBuildProjectName)' != 'LlrpReaderStudio.Tests'">
     <Compile Include="$(MSBuildThisFileDirectory)src\LlrpNet.Protocol\GlobalAliases.cs" Link="Properties\GlobalAliases.g.cs" />
   </ItemGroup>
 </Project>
