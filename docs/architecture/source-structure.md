@@ -15,6 +15,8 @@ src/
 ├── LlrpNet.Protocol/           [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
 ├── LlrpSdk.Extensions.Impinj/  [扩展/生成] Impinj 厂商私有扩展组件库与 Custom Codec 模块
 ├── LlrpCli/                    [手写] 交互式终端 Shell、智能提示链与 LLRP 报文树状分析器
+├── LlrpReaderStudio.Core/      [手写] WPF 应用的 Reader 会话、Fleet、聚合与应用服务适配层
+├── LlrpReaderStudio/           [手写/WPF] 基于 LlrpSdk 的首个桌面应用示例
 └── LlrpVirtualReader/          [手写] 最小 1.0.1 虚拟读写器，用于本地互操作和回归测试
 ```
 

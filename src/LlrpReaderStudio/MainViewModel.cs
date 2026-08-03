@@ -30,6 +30,18 @@ internal sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private string session = "0";
     private string population = "32";
     private string reportEvery = "1";
+    private string filterEpc = string.Empty;
+    private InventoryReportTrigger reportTrigger = InventoryReportTrigger.UponNTagsOrEndOfAiSpec;
+    private InventoryStartTriggerType startTriggerType = InventoryStartTriggerType.None;
+    private InventoryStopTriggerType stopTriggerType = InventoryStopTriggerType.None;
+    private string startGpiPort = "1";
+    private bool startGpiState;
+    private string stopDuration = "0";
+    private bool attachedDataEnabled;
+    private string attachedMemoryBank = "2";
+    private string attachedWordPointer = "0";
+    private string attachedWordCount = "6";
+    private string attachedAccessPassword = "00000000";
     private string gpoPort = "1";
     private bool gpoState;
     private string toiEpc = string.Empty;
@@ -65,6 +77,9 @@ internal sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<TagRowViewModel> Tags { get; } = [];
     public ObservableCollection<string> TagsOfInterest { get; } = [];
     public IReadOnlyList<TagMemoryBank> MemoryBanks { get; } = Enum.GetValues<TagMemoryBank>();
+    public IReadOnlyList<InventoryReportTrigger> ReportTriggers { get; } = Enum.GetValues<InventoryReportTrigger>();
+    public IReadOnlyList<InventoryStartTriggerType> StartTriggerTypes { get; } = Enum.GetValues<InventoryStartTriggerType>();
+    public IReadOnlyList<InventoryStopTriggerType> StopTriggerTypes { get; } = Enum.GetValues<InventoryStopTriggerType>();
 
     public ReaderItemViewModel? SelectedReader
     {
@@ -100,6 +115,18 @@ internal sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public string Session { get => session; set => SetProperty(ref session, value); }
     public string Population { get => population; set => SetProperty(ref population, value); }
     public string ReportEvery { get => reportEvery; set => SetProperty(ref reportEvery, value); }
+    public string FilterEpc { get => filterEpc; set => SetProperty(ref filterEpc, value); }
+    public InventoryReportTrigger ReportTrigger { get => reportTrigger; set => SetProperty(ref reportTrigger, value); }
+    public InventoryStartTriggerType StartTriggerType { get => startTriggerType; set => SetProperty(ref startTriggerType, value); }
+    public InventoryStopTriggerType StopTriggerType { get => stopTriggerType; set => SetProperty(ref stopTriggerType, value); }
+    public string StartGpiPort { get => startGpiPort; set => SetProperty(ref startGpiPort, value); }
+    public bool StartGpiState { get => startGpiState; set => SetProperty(ref startGpiState, value); }
+    public string StopDuration { get => stopDuration; set => SetProperty(ref stopDuration, value); }
+    public bool AttachedDataEnabled { get => attachedDataEnabled; set => SetProperty(ref attachedDataEnabled, value); }
+    public string AttachedMemoryBank { get => attachedMemoryBank; set => SetProperty(ref attachedMemoryBank, value); }
+    public string AttachedWordPointer { get => attachedWordPointer; set => SetProperty(ref attachedWordPointer, value); }
+    public string AttachedWordCount { get => attachedWordCount; set => SetProperty(ref attachedWordCount, value); }
+    public string AttachedAccessPassword { get => attachedAccessPassword; set => SetProperty(ref attachedAccessPassword, value); }
     public string GpoPort { get => gpoPort; set => SetProperty(ref gpoPort, value); }
     public bool GpoState { get => gpoState; set => SetProperty(ref gpoState, value); }
     public string ToiEpc { get => toiEpc; set => SetProperty(ref toiEpc, value); }
@@ -327,6 +354,20 @@ internal sealed class MainViewModel : ObservableObject, IAsyncDisposable
         Session = inventory.Session.ToString(CultureInfo.InvariantCulture);
         Population = inventory.TagPopulationEstimate.ToString(CultureInfo.InvariantCulture);
         ReportEvery = inventory.ReportEveryNTags.ToString(CultureInfo.InvariantCulture);
+        FilterEpc = inventory.Filters.Count == 1
+            ? HexCodec.FormatBytes(inventory.Filters[0].Mask.ToArray())
+            : string.Empty;
+        ReportTrigger = inventory.Report.Trigger;
+        StartTriggerType = inventory.StartTrigger.Type;
+        StopTriggerType = inventory.StopTrigger.Type;
+        StartGpiPort = inventory.StartTrigger.GpiPortNumber.ToString(CultureInfo.InvariantCulture);
+        StartGpiState = inventory.StartTrigger.GpiState;
+        StopDuration = inventory.StopTrigger.DurationMilliseconds.ToString(CultureInfo.InvariantCulture);
+        AttachedDataEnabled = inventory.AttachedData.Enabled;
+        AttachedMemoryBank = inventory.AttachedData.MemoryBank.ToString(CultureInfo.InvariantCulture);
+        AttachedWordPointer = inventory.AttachedData.WordPointer.ToString(CultureInfo.InvariantCulture);
+        AttachedWordCount = inventory.AttachedData.WordCount.ToString(CultureInfo.InvariantCulture);
+        AttachedAccessPassword = inventory.AttachedData.AccessPassword;
         SettingsOrigin = origin;
         StatusMessage = "Settings workspace loaded.";
         RaiseCommandStates();
@@ -335,6 +376,16 @@ internal sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private InventorySettings BuildInventory()
     {
         InventorySettings baseline = settingsDraft?.Inventory ?? new InventorySettings();
+        IReadOnlyList<InventorySelectFilter> filters = string.IsNullOrWhiteSpace(FilterEpc)
+            ? []
+            : [new InventorySelectFilter
+            {
+                MemoryBank = 1,
+                BitPointer = 32,
+                Mask = HexCodec.ParseBytes(FilterEpc),
+                MatchAction = InventorySelectAction.Select,
+                NonMatchAction = InventorySelectAction.Unselect,
+            }];
         return baseline with
         {
             AntennaIds = Antennas.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -343,6 +394,27 @@ internal sealed class MainViewModel : ObservableObject, IAsyncDisposable
             Session = byte.Parse(Session, CultureInfo.InvariantCulture),
             TagPopulationEstimate = ushort.Parse(Population, CultureInfo.InvariantCulture),
             ReportEveryNTags = ushort.Parse(ReportEvery, CultureInfo.InvariantCulture),
+            Filters = filters,
+            Report = baseline.Report with { Trigger = ReportTrigger },
+            StartTrigger = baseline.StartTrigger with
+            {
+                Type = StartTriggerType,
+                GpiPortNumber = ushort.Parse(StartGpiPort, CultureInfo.InvariantCulture),
+                GpiState = StartGpiState,
+            },
+            StopTrigger = baseline.StopTrigger with
+            {
+                Type = StopTriggerType,
+                DurationMilliseconds = uint.Parse(StopDuration, CultureInfo.InvariantCulture),
+            },
+            AttachedData = baseline.AttachedData with
+            {
+                Enabled = AttachedDataEnabled,
+                MemoryBank = ushort.Parse(AttachedMemoryBank, CultureInfo.InvariantCulture),
+                WordPointer = ushort.Parse(AttachedWordPointer, CultureInfo.InvariantCulture),
+                WordCount = ushort.Parse(AttachedWordCount, CultureInfo.InvariantCulture),
+                AccessPassword = AttachedAccessPassword,
+            },
         };
     }
 

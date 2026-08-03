@@ -10,6 +10,7 @@ Implemented in this baseline:
 - aggregated inventory observations across connected readers;
 - exact-EPC Gen2 memory read and write;
 - device settings query, SDK default settings, draft apply, and explicit inventory start;
+- standard EPC filters, report/trigger settings, GPI-triggered start/stop fields, and AttachedData editing;
 - application-side Tags of Interest;
 - standard GPO output diagnostics.
 

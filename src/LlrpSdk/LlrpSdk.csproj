@@ -24,5 +24,8 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>LlrpSdk.Tests</_Parameter1>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>LlrpSdk.Extensions.Impinj.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 </Project>

@@ -1,14 +1,15 @@
 ﻿# 路线图
 
-> 基准日期：2026-07-27  
+> 基准日期：2026-08-03
 > 目的：记录阶段性与中长期开发顺序。当前真实状态见 `status.md`。
 
 ## 当前优先级
 
 1. **当前主线交付推进（LLRP 1.0.1 完善收尾）**：按照规范文档 [`specs/2026-07-28-llrp101-sdk-completion-spec.md`](specs/2026-07-28-llrp101-sdk-completion-spec.md)，完成标准 LLRP 1.0.1 的全量功能覆盖对齐（包含自动 ROSpec 生命周期接管、5 大 C1G2 标签 Access 操作库、物理能力表暴露、快捷 GPIO 及托管 Reader 事件通知）。
 2. **硬件/扩展能力补充（按需）**：根据更多型号/固件实测证据扩充 Impinj Contributor 管道的能力目录及相关基线 Profile。
-3. **长期可扩展阶段**：按需接入其他厂商扩展（如 Zebra 扩展等）。
-4. **长期可扩展阶段**：接入 `Llrp20ProtocolAdapter` 及 LLRP 2.0 完整互操作闭环。
+3. **桌面应用完善（当前 WPF 基线之后）**：继续以 Reader Studio 作为 SDK 的首个应用示例，补充完整 Settings 树、Tag Access 高级操作、运行场景/日志统计；不把 mDNS、RShell、IoT 或空间定位纳入 LLRP SDK 范围。
+4. **长期可扩展阶段**：按需接入其他厂商扩展（如 Zebra 扩展等）。
+5. **长期可扩展阶段**：接入 `Llrp20ProtocolAdapter` 及 LLRP 2.0 完整互操作闭环。
 
 ## 任务拆分
 

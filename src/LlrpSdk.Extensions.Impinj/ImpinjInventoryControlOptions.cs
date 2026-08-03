@@ -142,7 +142,7 @@ public static class ImpinjInventoryControlConfigurator
                 []));
         }
         if (options.TagFilterVerificationMode is { } verificationMode)
-        [
+        {
             items.Add(new ImpinjTagFilterVerificationConfiguration(verificationMode, []));
         }
         if (options.TruncatedReply is { } truncated)

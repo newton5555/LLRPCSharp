@@ -153,6 +153,28 @@
                                     <StackPanel><TextBlock Text="Population" /><TextBox Text="{Binding Population}" /></StackPanel>
                                     <StackPanel><TextBlock Text="Report every N" /><TextBox Text="{Binding ReportEvery}" /></StackPanel>
                                 </UniformGrid>
+                                <UniformGrid Columns="3" Margin="0,8">
+                                    <StackPanel><TextBlock Text="EPC filter (hex)" /><TextBox Text="{Binding FilterEpc}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Report trigger" /><ComboBox ItemsSource="{Binding ReportTriggers}" SelectedItem="{Binding ReportTrigger}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Start trigger" /><ComboBox ItemsSource="{Binding StartTriggerTypes}" SelectedItem="{Binding StartTriggerType}" /></StackPanel>
+                                </UniformGrid>
+                                <UniformGrid Columns="4" Margin="0,8">
+                                    <StackPanel><TextBlock Text="Start GPI port" /><TextBox Text="{Binding StartGpiPort}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Start GPI state" /><CheckBox Content="High" IsChecked="{Binding StartGpiState}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Stop trigger" /><ComboBox ItemsSource="{Binding StopTriggerTypes}" SelectedItem="{Binding StopTriggerType}" /></StackPanel>
+                                    <StackPanel><TextBlock Text="Stop duration (ms)" /><TextBox Text="{Binding StopDuration}" /></StackPanel>
+                                </UniformGrid>
+                                <Border Background="#F4F8F9" Padding="10" Margin="0,4">
+                                    <StackPanel>
+                                        <CheckBox Content="Attached tag data (temporary AccessSpec)" IsChecked="{Binding AttachedDataEnabled}" />
+                                        <UniformGrid Columns="4" Margin="0,6">
+                                            <StackPanel><TextBlock Text="Bank" /><TextBox Text="{Binding AttachedMemoryBank}" /></StackPanel>
+                                            <StackPanel><TextBlock Text="Pointer" /><TextBox Text="{Binding AttachedWordPointer}" /></StackPanel>
+                                            <StackPanel><TextBlock Text="Words" /><TextBox Text="{Binding AttachedWordCount}" /></StackPanel>
+                                            <StackPanel><TextBlock Text="Password" /><TextBox Text="{Binding AttachedAccessPassword}" /></StackPanel>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
                                 <TextBlock Text="Applying deploys the managed ROSpec in Disabled state. Start Inventory is a separate action."
                                            Foreground="#4D6970" TextWrapping="Wrap" />
                             </StackPanel>
