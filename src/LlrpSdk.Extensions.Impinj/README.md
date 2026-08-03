@@ -1,40 +1,63 @@
-﻿# LlrpSdk.Extensions.Impinj
+# LlrpSdk.Extensions.Impinj
 
-Impinj RFID 读写器（Speedway R420, Revolution R700 等）针对 `LlrpSdk` 的高层扩展插件包。提供 `.UseImpinj()` 主动扩展激活、报告扩展字段投影，以及手写高层 `ImpinjReaderConfiguration` 到协议参数的 Contributor 映射。底层强类型报文、参数和 Codec 位于独立的 `LlrpNet.Protocol.Impinj` 协议包。
+`LlrpSdk.Extensions.Impinj` adds managed Impinj support to `LlrpSdk` for
+readers such as Speedway R420 and Revolution R700. It provides active
+extension initialization, typed managed settings contributors, and Impinj
+fields projected into `TagReport.Extensions`.
 
-`ImpinjReaderConfiguration` 是扩展包的高层意图模型，不是由 XML 自动生成；XML 只生成实际的 LLRP custom parameter 类型。将它放在 `ReaderConfiguration.Extensions[ImpinjReaderConfiguration.ExtensionKey]` 后，`ApplySettingsAsync()` 会经 Contributor 编译成相应的 Impinj `SET_READER_CONFIG` 参数。
+The generated wire-level messages, parameters, and codecs are kept in the
+independent `LlrpNet.Protocol.Impinj` project. This package contains the
+application-facing mapping and extension lifecycle.
 
-## 快速开始
+## Quick Start
 
 ```csharp
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
 
-// 注册并激活 Impinj 扩展
-await using LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
+await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")
     .WithPort(5084)
-    .UseImpinj() // 启用 Impinj 扩展插件
+    .UseImpinj()
     .Build();
 
 await reader.ConnectAsync();
+ReaderSettings settings = (await reader.GetDefaultSettingsAsync()).Settings;
+await reader.ApplySettingsAsync(settings);
 
-// 启动盘点，自动上报 Impinj 专属扩展属性
-await reader.StartAsync(new InventorySettings { AntennaIds = [0] });
-
-await foreach (TagReport report in reader.ReadTagReportsAsync(cts.Token))
+await using InventorySession session = await reader.StartInventoryAsync();
+await foreach (TagReport report in session.ReadReportsAsync())
 {
-    // 获取 Impinj Serialized TID
-    if (report.Extensions.TryGetValue("impinj.serializedTid", out var tid))
+    if (report.Extensions.TryGetValue("impinj.serializedTid", out object? tid))
     {
-        Console.WriteLine($"[Impinj] Serialized TID: {tid}");
+        Console.WriteLine($"Serialized TID: {tid}");
     }
 }
 ```
 
----
+Common report options can be expressed with the typed inventory builder:
 
-## 协议定义与版权声明 (License & Copyright Notice)
+```csharp
+InventorySettings inventory = InventorySettings.Create(settings => settings
+    .Antennas(1, 2)
+    .Impinj(impinj => impinj
+        .IncludeSerializedTid()
+        .IncludeRfPhaseAngle()
+        .IncludePeakRssi()));
+```
 
-- `LlrpNet.Protocol.Impinj` 包含基于 Impinj Octane LTK Definition Files 自动生成的报文、参数和编解码资产；本包只包含高层 SDK 映射。
-- **Impinj Protocol Definition Notice**: Portions of this package incorporate protocol parameter and message definitions derived from Impinj LTK Definition Files. Copyright © Impinj, Inc. All rights reserved.
-- 本 SDK 项目在 MIT 许可下开源发布与分发，用户可自由用于商业与非商业项目。
+Use only options verified for the target reader model and firmware. Unknown or
+unverified vendor features are rejected by default.
+
+## Package Boundaries
+
+- `LlrpSdk.Extensions.Impinj`: managed extension activation, Settings and
+  Inventory contributors, and TagReport projections.
+- `LlrpNet.Protocol.Impinj`: generated Impinj wire assets and codec registry
+  module for low-level protocol users.
+
+## License And Definition Notice
+
+- This SDK extension is distributed under the MIT License.
+- Generated Impinj protocol assets are derived from Impinj LTK Definition Files.
+  Copyright © Impinj, Inc. All rights reserved. The local definition source is
+  not redistributed by this package.

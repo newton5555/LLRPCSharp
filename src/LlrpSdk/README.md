@@ -1,37 +1,52 @@
-﻿# LlrpSdk
+# LlrpSdk
 
-面向 .NET 的现代化 RFID LLRP 读写器 SDK 核心包。提供完整支持 LLRP 1.0.1 协议、握手与版本自动协商、托管盘点 API、C1G2 内存读写、配置查询/应用及高级 ROSpec/AccessSpec 资源管理服务。
+`LlrpSdk` is the managed .NET API for connecting to one RFID reader and
+running the normal reader workflow. It hides versioned LLRP messages and
+resource lifecycles behind `LlrpReader`, `ReaderSettings`, and
+`InventorySession`.
 
-## 快速开始
+## What It Provides
+
+- LLRP 1.0.1 and 1.1 connection and version negotiation;
+- managed Reader Settings defaults, validation, query, apply, and clear;
+- managed inventory start, monitoring, stop, and report streams;
+- translated `TagReport` values;
+- standard C1G2 tag memory read, write, lock, kill, and block erase operations;
+- protocol modules and vendor extensions without an `ImpinjReader` inheritance tree.
+
+## Quick Start
 
 ```csharp
 using LlrpSdk;
 
-// 1. 创建并建立读写器连接
-await using LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
+await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")
     .WithPort(5084)
     .Build();
 
 await reader.ConnectAsync();
 
-// 2. 启动托管盘点
-await reader.StartAsync(new InventorySettings { AntennaIds = [0] });
+ReaderSettings settings = (await reader.GetDefaultSettingsAsync()).Settings;
+await reader.ApplySettingsAsync(settings);
 
-// 3. 消费标签流
-using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-await foreach (TagReport report in reader.ReadTagReportsAsync(cts.Token))
+await using InventorySession session = await reader.StartInventoryAsync();
+await foreach (TagReport report in session.ReadReportsAsync())
 {
-    Console.WriteLine($"[TAG] EPC={report.EpcHex}, Antenna={report.AntennaId}, RSSI={report.PeakRssi}dBm");
+    Console.WriteLine(report.Epc);
 }
 
-// 4. 停止并断开
 await reader.StopAsync();
-await reader.DisconnectAsync();
 ```
 
----
+`ValidateSettingsAsync()` can be called before `ApplySettingsAsync()` and does
+not send protocol messages. `ApplySettingsAsync()` deploys managed settings in
+a stopped state; `StartInventoryAsync()` starts the deployed inventory and
+returns an isolated report stream.
 
-## 协议标准与开源许可 (License & Standard Notice)
+For connection-wide observation, use `TagsReported` or
+`ReadTagReportsAsync()`. For direct LLRP messages, expert ROSpec/AccessSpec
+ownership, or protocol generation, use the lower-level `LlrpNet` projects.
 
-- 本 SDK 在 MIT 许可下开源发布与分发。
-- LLRP (Low Level Reader Protocol) 1.0.1 / 1.1 为 GS1 / EPCglobal 发布的开放国际标准规范。
+## License And Standard
+
+- This SDK is distributed under the MIT License.
+- LLRP 1.0.1 and 1.1 are open standards published by GS1/EPCglobal.
