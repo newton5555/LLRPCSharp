@@ -1,6 +1,6 @@
 # Documentation Index
 
-This directory contains project status, planning, architecture notes, decision records, and source references. The root [README.md](../README.md) is the user-facing entry point; this index is for deeper engineering context.
+This directory contains project status, architecture notes, decision records, specifications, and source references. The root [README.md](../README.md) is the user-facing entry point; this index is for deeper engineering context.
 
 ## Current Truth
 
@@ -19,7 +19,6 @@ This directory contains project status, planning, architecture notes, decision r
 - [SDK Developer API Guide](guides/sdk-api-guide.md): developer-facing API reference, lifecycle, categorized methods, and code samples.
 - [CLI Tooling & Studio User Guide](guides/cli-user-guide.md): CLI command reference, Live Shell Studio, interactive assist, and offline codec tools.
 - [CLI Command to SDK Mapping Specification](specs/2026-07-27-cli-sdk-mapping-spec.md): 1:1 mapping between CLI commands, SDK APIs, and raw LLRP frames.
-- [Reader-first delivery plan](plans/2026-07-27-reader-first-delivery.md)
 
 ## Decision Records
 

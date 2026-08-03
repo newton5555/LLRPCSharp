@@ -29,8 +29,6 @@ src/
 │   ├── Inventory/               Impinj 盘点扩展模型
 │   └── Reports/                 Impinj 报告扩展
 ├── LlrpCli/                    [手写] 交互式终端 Shell、智能提示链与 LLRP 报文树状分析器
-├── LlrpReaderStudio.Core/      [手写] WPF 应用的 Reader 会话、Fleet、聚合与应用服务适配层
-├── LlrpReaderStudio/           [手写/WPF] 基于 LlrpSdk 的首个桌面应用示例
 └── LlrpVirtualReader/          [手写] 最小 1.0.1 虚拟读写器，用于本地互操作和回归测试
 ```
 

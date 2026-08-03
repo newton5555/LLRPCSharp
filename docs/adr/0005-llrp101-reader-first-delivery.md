@@ -59,7 +59,7 @@
 
 Live Shell 必须清晰管理一个 Reader 会话的连接、托管资源所有权、后台报告泵、监控和清理。它不应假定断线、Raw 操作或外部设备变化后 Reader 状态仍然有效。
 
-具体设计与实施顺序见 [`../plans/2026-07-27-reader-first-delivery.md`](../plans/2026-07-27-reader-first-delivery.md)。
+实施顺序与当前完成状态以 [`../roadmap.md`](../roadmap.md) 和 [`../status.md`](../status.md) 为准。
 
 ### 6. 设备配置、盘点意图与会话草稿必须分层
 

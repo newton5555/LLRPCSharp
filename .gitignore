@@ -4,6 +4,7 @@
 artifacts/
 TestResults/
 coverage/
+docs/plans/
 
 # IDE and user files
 .vs/

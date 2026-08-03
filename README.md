@@ -80,7 +80,6 @@ docs/          Status, roadmap, architecture, ADRs, and source references
 references/    Local standards, packet captures, and legacy references, mostly not committed
 samples/       SDK usage samples
 src/           Product source code
-testdata/      Sanitized test frames, scenarios, and expected results
 tests/         Unit, integration, and interoperability tests
 tools/         Definition import, generation, validation, and test helpers
 ```

@@ -10,8 +10,6 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/LlrpCli/LlrpCli.csproj" />
-    <Project Path="src/LlrpReaderStudio/LlrpReaderStudio.csproj" />
-    <Project Path="src/LlrpReaderStudio.Core/LlrpReaderStudio.Core.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Abstractions/LlrpSdk.Extensions.Abstractions.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Seuic/LlrpSdk.Extensions.Seuic.csproj" />
@@ -36,7 +34,6 @@
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj" />
-    <Project Path="tests/LlrpReaderStudio.Tests/LlrpReaderStudio.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/LlrpSdk.LiveSmoke/LlrpSdk.LiveSmoke.csproj" />
@@ -55,13 +52,6 @@
     <File Path="docs/adr/0003-reader-configuration-default-profiles.md" />
     <File Path="docs/adr/0004-reader-contributors.md" />
     <File Path="docs/adr/0005-llrp101-reader-first-delivery.md" />
-  </Folder>
-  <Folder Name="/docs/plans/">
-    <File Path="docs/plans/2026-07-27-cli-c2-command-metadata.md" />
-    <File Path="docs/plans/2026-07-27-cli-c3-session-handlers.md" />
-    <File Path="docs/plans/2026-07-27-cli-tag-access.md" />
-    <File Path="docs/plans/2026-07-27-reader-first-delivery.md" />
-    <File Path="docs/plans/2026-07-28-reader-inventory-profiles.md" />
   </Folder>
   <Folder Name="/docs/specs/">
     <File Path="docs/specs/2026-07-27-cli-sdk-mapping-spec.md" />
@@ -118,10 +108,4 @@
     <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0.xsd" />
   </Folder>
 
-  <Folder Name="/testdata/">
-    <File Path="testdata/README.md" />
-  </Folder>
-
-
- 
 </Solution>

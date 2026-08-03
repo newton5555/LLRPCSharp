@@ -20,7 +20,6 @@
 | 标准 Tag Access | 主线可用 | `ReadTagMemoryAsync` / `WriteTagMemoryAsync` 通过临时 AccessSpec 运行；已完成 R420 实机非破坏性读验证。 |
 | Contributor 管道 | 主线可用 | Settings、TagReport 与 Inventory Contributor 已接入 SDK；Impinj Settings/TagReport 扩展属性已打通端到端验收。 |
 | CLI 工具链 | 主线可用 | 包含 Live Shell、Agent/脚本友好的一次性 `inventory`、SDK 托管 Reader API、专家 ROSpec/AccessSpec/Raw 调试入口、自动补全、帧观察器与离线 Codec 工具。 |
-| Reader Studio WPF | **首个应用示例可用** | 已加入解决方案；支持多读写器档案、盘点汇总、精确 EPC 标签读写、ReaderSettings 草稿/设备查询/SDK 默认值/Apply、标准过滤器、触发器、报告触发、AttachedData、TOI 和 GPO 诊断。 |
 | Virtual Reader | 主线可用 | 支持 1.0.1 场景模拟、能力查询、ROSpec 生命周期、TagReport 与 AccessSpec 模拟。 |
 
 ## 已实现
