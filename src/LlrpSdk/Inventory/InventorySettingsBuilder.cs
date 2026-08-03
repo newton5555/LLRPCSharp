@@ -113,6 +113,14 @@ public sealed class InventorySettingsBuilder
         return this;
     }
 
+    /// <summary>Removes one typed extension value while editing settings.</summary>
+    public InventorySettingsBuilder RemoveExtension(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        extensions.Remove(key);
+        return this;
+    }
+
     /// <summary>Gets an existing typed extension value while editing settings.</summary>
     public bool TryGetExtension<T>(string key, out T? value)
     {

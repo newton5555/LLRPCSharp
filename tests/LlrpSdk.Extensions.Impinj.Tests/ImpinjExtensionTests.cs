@@ -37,6 +37,10 @@ public sealed class ImpinjExtensionTests
             edited.Extensions[ImpinjInventoryReportOptions.ExtensionKey]);
         Assert.True(editedReport.IncludeSerializedTid);
         Assert.True(editedReport.IncludeTxPower);
+
+        InventorySettings withoutPopulation = settings.Edit(inventory => inventory
+            .Impinj(impinj => impinj.DisableTagPopulationEstimation()));
+        Assert.False(withoutPopulation.Extensions.ContainsKey(ImpinjInventoryControlOptions.ExtensionKey));
     }
 
     [Fact]

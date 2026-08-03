@@ -103,6 +103,12 @@ public sealed class ImpinjInventorySettingsBuilder
         return this;
     }
 
+    public ImpinjInventorySettingsBuilder DisableTagPopulationEstimation()
+    {
+        control = control with { EnableTagPopulationEstimation = null };
+        return this;
+    }
+
     public ImpinjInventorySettingsBuilder AllowUnverifiedReportFields(bool enabled = true)
     {
         report = report with { AllowUnverifiedFields = enabled };
@@ -159,6 +165,10 @@ public static class ImpinjInventorySettingsBuilderExtensions
         if (impinj.HasControlOptions)
         {
             builder.SetExtension(ImpinjInventoryControlOptions.ExtensionKey, impinj.Control);
+        }
+        else
+        {
+            builder.RemoveExtension(ImpinjInventoryControlOptions.ExtensionKey);
         }
         return builder;
     }

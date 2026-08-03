@@ -305,11 +305,21 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         bool phase = console.Confirm("Include Impinj RF phase angle?", report.IncludeRfPhaseAngle);
         bool peakRssi = console.Confirm("Include Impinj peak RSSI?", report.IncludePeakRssi);
         bool population = console.Confirm("Enable Impinj tag population estimation?", control.EnableTagPopulationEstimation == true);
-        inventory = inventory.Edit(builder => builder.Impinj(impinj => impinj
-            .IncludeSerializedTid(serializedTid)
-            .IncludeRfPhaseAngle(phase)
-            .IncludePeakRssi(peakRssi)
-            .EnableTagPopulationEstimation(population)));
+        inventory = inventory.Edit(builder => builder.Impinj(impinj =>
+        {
+            impinj
+                .IncludeSerializedTid(serializedTid)
+                .IncludeRfPhaseAngle(phase)
+                .IncludePeakRssi(peakRssi);
+            if (population)
+            {
+                impinj.EnableTagPopulationEstimation();
+            }
+            else
+            {
+                impinj.DisableTagPopulationEstimation();
+            }
+        }));
         return settings with { Inventory = inventory };
     }
 
