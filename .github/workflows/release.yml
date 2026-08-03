@@ -66,23 +66,23 @@ jobs:
         global-json-file: global.json
 
     - name: Restore dependencies
-      run: dotnet restore LLRPCSharp.slnx
+      run: dotnet restore LLRPCSharp.slnx -p:EnableWindowsTargeting=true
 
     - name: Verify generated source encoding
       shell: pwsh
       run: ./tools/Verify-SourceEncoding.ps1
 
     - name: Build Solution (Release)
-      run: dotnet build LLRPCSharp.slnx --no-restore --configuration Release
+      run: dotnet build LLRPCSharp.slnx --no-restore --configuration Release -p:EnableWindowsTargeting=true
 
     - name: Run Tests
-      run: dotnet test LLRPCSharp.slnx --no-build --configuration Release
+      run: dotnet test LLRPCSharp.slnx --no-build --configuration Release -p:EnableWindowsTargeting=true
 
     - name: Clean Artifacts Directory
       run: rm -rf ./artifacts
 
     - name: Pack NuGet Packages
-      run: dotnet pack LLRPCSharp.slnx --no-build --configuration Release --output ./artifacts/nupkgs
+      run: dotnet pack LLRPCSharp.slnx --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
 
     - name: Publish LlrpCli (win-x64)
       run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime win-x64 --self-contained true --output ./artifacts/cli-win64

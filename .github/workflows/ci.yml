@@ -21,14 +21,14 @@ jobs:
         global-json-file: global.json
 
     - name: Restore dependencies
-      run: dotnet restore LLRPCSharp.slnx
+      run: dotnet restore LLRPCSharp.slnx -p:EnableWindowsTargeting=true
 
     - name: Verify generated source encoding
       shell: pwsh
       run: ./tools/Verify-SourceEncoding.ps1
 
     - name: Build Solution
-      run: dotnet build LLRPCSharp.slnx --no-restore --configuration Release
+      run: dotnet build LLRPCSharp.slnx --no-restore --configuration Release -p:EnableWindowsTargeting=true
 
     - name: Run Tests
-      run: dotnet test LLRPCSharp.slnx --no-build --configuration Release
+      run: dotnet test LLRPCSharp.slnx --no-build --configuration Release -p:EnableWindowsTargeting=true
