@@ -7,7 +7,7 @@ using LlrpCli.Commands;
 namespace LlrpCli;
 
 /// <summary>
-/// Hosts the command-line protocol tools independently from process-global console state.
+/// Hosts the Live Shell, one-shot inventory, and protocol tools independently from process-global console state.
 /// </summary>
 public sealed class LlrpCliApplication
 {
@@ -17,7 +17,7 @@ public sealed class LlrpCliApplication
     /// <param name="args">Command-line arguments excluding the executable name.</param>
     /// <param name="output">Standard output destination.</param>
     /// <param name="error">Standard error destination.</param>
-    /// <returns>Zero on success, two for usage errors, or three for invalid protocol input.</returns>
+    /// <returns>Zero on success, one for runtime failure, two for usage errors, or three for validation failure.</returns>
     public int Run(
         IReadOnlyList<string> args,
         TextWriter output,
@@ -55,6 +55,9 @@ public sealed class LlrpCliApplication
 
             config.AddCommand<EncodeCommand>("encode")
                 .WithDescription("Encode standard LLRP messages into hexadecimal format.");
+
+            config.AddCommand<InventoryCommand>("inventory")
+                .WithDescription("Connect, apply ReaderSettings, inventory tags, and clean managed resources.");
 
         });
 

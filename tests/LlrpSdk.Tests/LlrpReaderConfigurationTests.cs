@@ -21,6 +21,105 @@ namespace LlrpSdk.Tests;
 public sealed class LlrpReaderConfigurationTests
 {
     [Fact]
+    public void SettingsBuilders_CreateAndEditCanonicalRecords()
+    {
+        ReaderSettings created = ReaderSettings.Create(settings => settings
+            .Inventory(inventory => inventory
+                .Antennas(1, 2)
+                .Session(2)
+                .Population(64)
+                .ReportEveryTag()
+                .ReadTid(words: 6)));
+
+        Assert.Equal(new ushort[] { 1, 2 }, created.Inventory!.AntennaIds);
+        Assert.Equal((byte)2, created.Inventory.Session);
+        Assert.Equal((ushort)64, created.Inventory.TagPopulationEstimate);
+        Assert.True(created.Inventory.AttachedData.Enabled);
+        Assert.Equal((ushort)TagMemoryBank.Tid, created.Inventory.AttachedData.MemoryBank);
+
+        ReaderSettings edited = created.Edit(settings => settings.Inventory(inventory => inventory.BatchAfterStop()));
+
+        Assert.NotSame(created, edited);
+        Assert.Equal(created.Configuration, edited.Configuration);
+        Assert.Equal(created.Inventory.AntennaIds, edited.Inventory!.AntennaIds);
+        Assert.Equal((ushort)0, edited.Inventory.ReportEveryNTags);
+        Assert.Equal(InventoryReportTrigger.UponNTagsOrEndOfRoSpec, edited.Inventory.Report.Trigger);
+    }
+
+    [Fact]
+    public async Task ValidateSettings_ReturnsStructuredDiagnosticsWithoutWritingReaderState()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        bool settingsWriteSent = false;
+        transport.OnSendAsync = (frame, _) =>
+        {
+            ushort messageType = LlrpMessageHeader.Decode(frame.Span).MessageType;
+            settingsWriteSent |= messageType == SET_READER_CONFIG.MessageType ||
+                messageType == DELETE_ROSPEC.MessageType ||
+                messageType == DELETE_ACCESSSPEC.MessageType;
+            return ValueTask.CompletedTask;
+        };
+
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        var settings = new ReaderSettings
+        {
+            Configuration = new ReaderConfiguration
+            {
+                Keepalive = new KeepaliveConfiguration { TriggerType = KeepaliveTriggerType.Periodic },
+            },
+            Inventory = new InventorySettings
+            {
+                AntennaIds = [0, 1],
+                Session = 4,
+                TagPopulationEstimate = 0,
+            },
+        };
+
+        SettingsValidationResult result = await reader.ValidateSettingsAsync(settings, timeout.Token);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Diagnostics, static item => item.Path == "configuration.keepalive.intervalMs");
+        Assert.Contains(result.Diagnostics, static item => item.Path == "inventory.antennaIds");
+        Assert.Contains(result.Diagnostics, static item => item.Path == "inventory.session");
+        Assert.Contains(result.Diagnostics, static item => item.Path == "inventory.tagPopulationEstimate");
+        Assert.False(settingsWriteSent);
+    }
+
+    [Fact]
+    public async Task ApplySettings_ValidatesBeforeMutatingReaderResources()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        bool mutationSent = false;
+        transport.OnSendAsync = (frame, _) =>
+        {
+            ushort messageType = LlrpMessageHeader.Decode(frame.Span).MessageType;
+            mutationSent |= messageType == SET_READER_CONFIG.MessageType ||
+                messageType == DELETE_ROSPEC.MessageType ||
+                messageType == DELETE_ACCESSSPEC.MessageType;
+            return ValueTask.CompletedTask;
+        };
+
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        var settings = new ReaderSettings
+        {
+            Inventory = new InventorySettings
+            {
+                Session = 4,
+            },
+        };
+
+        SettingsValidationException error = await Assert.ThrowsAsync<SettingsValidationException>(
+            () => reader.ApplySettingsAsync(settings, timeout.Token));
+
+        Assert.Contains(error.Diagnostics, static item => item.Code == "SET-INV-005");
+        Assert.False(mutationSent);
+    }
+
+    [Fact]
     public void ReaderIdentity_TrimsProtocolStringPadding()
     {
         var identity = new ReaderIdentity(1, 2, "1.0.0\0\0");

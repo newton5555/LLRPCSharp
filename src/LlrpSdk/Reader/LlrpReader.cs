@@ -388,6 +388,7 @@ public sealed class LlrpReader : IAsyncDisposable
             {
                 throw new InvalidOperationException("A managed inventory session already exists for this reader.");
             }
+            ValidateSettingsCore(new ReaderSettings { Inventory = settings }).ThrowIfInvalid();
             InventorySettings active = settings;
             InventoryRuntimeState initialState = active.StartTrigger.Type == InventoryStartTriggerType.None
                 ? InventoryRuntimeState.Running
@@ -674,6 +675,7 @@ public sealed class LlrpReader : IAsyncDisposable
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            ValidateSettingsCore(new ReaderSettings { Inventory = settings }).ThrowIfInvalid();
             await StartManagedInventoryCoreAsync(settings, resourcesAlreadyCleared: false, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -869,6 +871,25 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
+    /// <summary>Validates high-level settings against the negotiated protocol, reader capabilities, and active extensions.</summary>
+    /// <remarks>This method compiles the intent without sending messages or changing reader resources.</remarks>
+    public async Task<SettingsValidationResult> ValidateSettingsAsync(
+        ReaderSettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return ValidateSettingsCore(settings);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
     /// <summary>Starts the previously applied SDK-managed inventory configuration.</summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -895,6 +916,7 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureManagedStateSynchronized();
+            ValidateSettingsCore(settings).ThrowIfInvalid();
             using IDisposable scope = BeginInternalResourceOperationScope();
             if (settings.Inventory is null)
             {
@@ -922,6 +944,58 @@ public sealed class LlrpReader : IAsyncDisposable
         finally
         {
             _operationLock.Release();
+        }
+    }
+
+    private SettingsValidationResult ValidateSettingsCore(ReaderSettings settings)
+    {
+        var diagnostics = ReaderSettingsValidator.Validate(settings, Capabilities, NegotiatedVersion);
+        if (settings.Configuration is not null)
+        {
+            TryCompileSettingsPart(
+                () => _ = BuildSettingsApplyParameters(settings.Configuration),
+                "SET-EXT-001",
+                "configuration.extensions",
+                diagnostics);
+        }
+
+        if (settings.Inventory is { } inventory &&
+            !diagnostics.Any(static item => item.Severity == SettingsDiagnosticSeverity.Error))
+        {
+            TryCompileSettingsPart(
+                () => _ = CompileDefaultInventoryRoSpec(inventory),
+                "SET-INV-031",
+                "inventory",
+                diagnostics);
+            if (inventory.AttachedData?.Enabled == true)
+            {
+                TryCompileSettingsPart(
+                    () => _ = CompileAttachedDataAccessSpec(
+                        ManagedInventoryAttachedDataAccessSpecId,
+                        ManagedInventoryRoSpecId,
+                        inventory.AttachedData),
+                    "SET-INV-032",
+                    "inventory.attachedData",
+                    diagnostics);
+            }
+        }
+
+        return new SettingsValidationResult { Diagnostics = diagnostics.AsReadOnly() };
+    }
+
+    private static void TryCompileSettingsPart(
+        Action compile,
+        string code,
+        string path,
+        List<SettingsDiagnostic> diagnostics)
+    {
+        try
+        {
+            compile();
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException or FormatException or OverflowException)
+        {
+            diagnostics.Add(new SettingsDiagnostic(code, SettingsDiagnosticSeverity.Error, path, exception.Message));
         }
     }
 

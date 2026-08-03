@@ -30,18 +30,22 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void CommandCatalog_SettingsProvidesUsageAndLiveSubcommandCandidates()
+    public void CommandCatalog_SettingsExposesOnlyTheStableSubcommands()
     {
         CommandSpec config = CommandCatalog.Require("settings");
         InputAssist assist = CommandCatalog.Assist("settings ", cursor: 9, isConnected: true);
 
-        Assert.Equal("settings get [--tree] | defaults show|export <path> | draft show|defaults|from-reader|generic|wizard|load|load-defaults|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", config.Usage);
-        Assert.Contains("get", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("defaults", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("draft", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("wizard", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("export", assist.Candidates, StringComparer.Ordinal);
+        Assert.Equal(LiveSettingsHandler.Usage, config.Usage);
+        Assert.Contains("show", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("edit", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("validate", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("load", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("save", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("discard", assist.Candidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("get", config.CompletionCandidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("wizard", config.CompletionCandidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("export", config.CompletionCandidates, StringComparer.Ordinal);
     }
 
     [Fact]
@@ -78,13 +82,14 @@ public sealed class LlrpCliApplicationTests
         Exception? exception = Record.Exception(() => renderCommandHelp.Invoke(command, ["settings"]));
 
         Assert.Null(exception);
-        Assert.Contains("settings get", output.ToString(), StringComparison.Ordinal);
-        Assert.Contains("wizard", output.ToString(), StringComparison.Ordinal);
-        Assert.Contains("export", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("settings show", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("edit", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("apply", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("settings get", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
-    public void HelpOption_PrintsOnlyOfflineProtocolTools()
+    public void HelpOption_PrintsProtocolToolsAndOneShotInventory()
     {
         InvocationResult result = Invoke("--help");
 
@@ -93,8 +98,8 @@ public sealed class LlrpCliApplicationTests
         Assert.Contains("decode", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("validate", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("encode", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("inventory", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("monitor", result.Output, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("tag", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(result.Error);
     }
 
@@ -128,13 +133,12 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void LiveSessionContext_TracksGenericDraftAsAnExplicitSource()
+    public void LiveSessionContext_StartsWithoutAnImplicitDraft()
     {
         var session = new LiveSessionContext();
 
-        Assert.Equal("SDK generic baseline", session.DraftInfo.Source);
-        Assert.Equal("llrp.generic", session.DraftInfo.ProfileId);
-        Assert.NotNull(session.DesiredSettings.Inventory);
+        Assert.Null(session.DraftInfo);
+        Assert.Null(session.SettingsDraft);
     }
 
     [Fact]
@@ -305,17 +309,56 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void CommandCatalog_InventoryAndSessionOfferTheirOwnCandidates()
+    public void CommandCatalog_InventoryHasNoSecondTemporarySessionPath()
     {
         CommandSpec inv = CommandCatalog.Require("inventory");
         InputAssist assist = CommandCatalog.Assist("inventory ", cursor: 10, isConnected: true);
-        CommandSpec temporary = CommandCatalog.Require("session");
 
         Assert.DoesNotContain("settings", inv.CompletionCandidates, StringComparer.Ordinal);
         Assert.DoesNotContain("--antennas", inv.CompletionCandidates, StringComparer.Ordinal);
         Assert.Contains("start", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("stop", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("inventory", temporary.CompletionCandidates, StringComparer.Ordinal);
+        Assert.Null(CommandCatalog.Find("session"));
+    }
+
+    [Fact]
+    public void Inventory_RequiresExplicitConfirmationBeforeConnecting()
+    {
+        InvocationResult result = Invoke("inventory", "reader.local");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("--yes", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Inventory_RejectsInvalidDurationBeforeConnecting()
+    {
+        InvocationResult result = Invoke("inventory", "reader.local", "--duration", "0", "--yes");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("--duration", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Inventory_OutputFormatIsCaseInsensitive()
+    {
+        InvocationResult result = Invoke("inventory", "reader.local", "--output", "JSON");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("--yes", result.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("--output must", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InventoryHelp_DescribesSettingsDurationOutputAndConfirmation()
+    {
+        InvocationResult result = Invoke("inventory", "--help");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("--settings", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--duration", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--output", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--yes", result.Output, StringComparison.Ordinal);
     }
 
     private static InvocationResult Invoke(params string[] args)

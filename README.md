@@ -13,11 +13,11 @@ For the exact current implementation status, see [docs/status.md](docs/status.md
 - SDK and CLI baselines for LLRP 1.0.1 and 1.1.
 - Automatic 1.1 negotiation, with policy-based forcing of 1.0.1 or 1.1.
 - `LlrpReader` connection state machine, capability initialization, keepalive auto-response, and raw/typed protocol entry points.
-- High-level `ReaderSettings`, managed `StartInventoryAsync`/`InventorySession`, and connection-wide `ReadTagReportsAsync`/`TagsReported` observation APIs.
+- High-level `ReaderSettings`, lightweight settings builders, side-effect-free `ValidateSettingsAsync`, managed `StartInventoryAsync`/`InventorySession`, and connection-wide `ReadTagReportsAsync`/`TagsReported` observation APIs.
 - Advanced ROSpec and AccessSpec resource services.
 - `Microsoft.Extensions.Logging` integration and raw TX/RX frame observation through `ILlrpFrameObserver`.
 - LTK XML / YAML protocol definition import, validation, and C# code generation.
-- Spectre.Console CLI for online connect, monitor, and live shell workflows, plus offline inspect/decode/encode.
+- Spectre.Console CLI with a Live Shell, Agent-friendly one-shot `inventory`, and offline inspect/decode/encode workflows.
 - SDK-level Impinj registration via `UseImpinj()` plus the independent `LlrpNet.Protocol.Impinj` package for generated strongly typed wire assets.
 - Minimal 1.0.1 virtual reader for capability queries and ROSpec lifecycle tests.
 
@@ -52,8 +52,16 @@ await reader.ConnectAsync();
 CLI equivalents:
 
 ```powershell
-dotnet run --project src/LlrpCli -- connect 192.0.2.10 --llrp auto
-dotnet run --project src/LlrpCli -- monitor 192.0.2.10 --llrp 1.0.1
+dotnet run --project src/LlrpCli
+# Then in the Live Shell:
+connect 192.0.2.10 --llrp auto
+monitor 30
+```
+
+Run a bounded one-shot inventory with JSON output:
+
+```powershell
+dotnet run --project src/LlrpCli -- inventory 192.0.2.10 --duration 10 --yes
 ```
 
 Offline protocol diagnostics do not require a connected reader:

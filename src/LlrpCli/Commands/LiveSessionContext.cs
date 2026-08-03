@@ -29,10 +29,10 @@ internal sealed class LiveSessionContext
     /// Gets or sets the application's complete high-level intent draft. The CLI owns this value;
     /// the reader owns device facts and the deployed high-level resource state.
     /// </summary>
-    public ReaderSettings DesiredSettings { get; set; } = ReaderSettingsDefaults.CreateGeneric().Settings;
+    public ReaderSettings? SettingsDraft { get; set; }
 
-    /// <summary>Explains which explicit source initialized <see cref="DesiredSettings"/>.</summary>
-    public SettingsDraftInfo DraftInfo { get; set; } = SettingsDraftInfo.Generic;
+    /// <summary>Explains which explicit source initialized <see cref="SettingsDraft"/>.</summary>
+    public SettingsDraftInfo? DraftInfo { get; set; }
 
     public string? Host { get; set; }
 

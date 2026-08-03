@@ -306,4 +306,22 @@ public sealed record InventorySettings
     /// <see cref="ReaderCapabilities.CanDoTagInventoryStateAwareSingulation"/> when this is set.
     /// </summary>
     public InventoryStateAwareSingulation? StateAwareSingulation { get; init; }
+
+    /// <summary>Creates inventory settings through the optional fluent configuration helper.</summary>
+    public static InventorySettings Create(Action<InventorySettingsBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new InventorySettingsBuilder();
+        configure(builder);
+        return builder.Build();
+    }
+
+    /// <summary>Returns an edited copy while preserving fields not changed by the helper.</summary>
+    public InventorySettings Edit(Action<InventorySettingsBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new InventorySettingsBuilder(this);
+        configure(builder);
+        return builder.Build();
+    }
 }

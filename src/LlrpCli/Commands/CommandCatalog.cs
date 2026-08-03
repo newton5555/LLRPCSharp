@@ -7,7 +7,6 @@ public enum LiveCommandRoute
     Status,
     Capabilities,
     Inventory,
-    Session,
     Monitor,
     Frames,
     RoSpec,
@@ -56,9 +55,9 @@ public static class CommandCatalog
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
         new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index-to-dBm tables.", RequiresConnection: true),
-        new("settings", LiveCommandRoute.Settings, "settings get [--tree] | defaults show|export <path> | draft show|defaults|from-reader|generic|wizard|load|load-defaults|save|reset|apply --yes | export <path> | validate <path> | apply <path> --yes", "Query, initialize, edit, draft, or apply high-level ReaderSettings.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, save, or discard high-level ReaderSettings.", RequiresConnection: true)
         {
-            CompletionCandidates = ["get", "defaults", "draft", "show", "from-reader", "generic", "wizard", "load", "load-defaults", "save", "reset", "export", "validate", "apply", "--tree", "--yes"],
+            CompletionCandidates = ["show", "edit", "validate", "apply", "load", "save", "discard", "reader", "draft", "defaults", "generic", "--from", "--source", "--json", "--yes"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
@@ -67,10 +66,6 @@ public static class CommandCatalog
         new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status", "Control the Reader-deployed high-level inventory.")
         {
             CompletionCandidates = ["start", "stop", "status", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60"],
-        },
-        new("session", LiveCommandRoute.Session, "session inventory <settings-file> [--monitor live|frames|none] [--monitor-duration seconds]", "Run a temporary high-level inventory workload and clear it afterwards.", RequiresConnection: true)
-        {
-            CompletionCandidates = ["inventory", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60"],
         },
         new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
         {

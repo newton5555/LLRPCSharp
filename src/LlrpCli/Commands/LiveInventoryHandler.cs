@@ -36,7 +36,7 @@ internal sealed class LiveInventoryHandler(
                 }
                 if (reader.CurrentInventorySettings is null)
                 {
-                    throw new CliUsageException("The reader has no deployed Inventory. Run 'settings draft defaults', optionally 'settings draft wizard', then 'settings draft apply --yes'.");
+                    throw new CliUsageException("The reader has no deployed Inventory. Run 'settings edit', 'settings validate', then 'settings apply --yes'.");
                 }
 
                 LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
@@ -72,49 +72,6 @@ internal sealed class LiveInventoryHandler(
             default:
                 RenderUsage();
                 break;
-        }
-    }
-
-    /// <summary>Runs one temporary inventory from a settings document and always releases its managed resources.</summary>
-    public async Task HandleSessionAsync(string[] tokens, CancellationToken cancellationToken)
-    {
-        if (!EnsureConnected())
-        {
-            return;
-        }
-        if (tokens.Length < 3 || !tokens[1].Equals("inventory", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new CliUsageException("Usage: session inventory <settings-file> [--monitor live|frames|none] [--monitor-duration seconds]");
-        }
-
-        LlrpReader reader = session.Reader!;
-        if (reader.ResourceMode != ReaderResourceMode.Idle)
-        {
-            throw new CliUsageException("Temporary sessions require an idle resource domain. Run 'resources clear' first.");
-        }
-        ReaderSettings settings = ReaderSettingsSerializer.LoadFromFile(tokens[2],
-            reader.Extensions.OfType<IReaderSettingsSerializationContributor>());
-        InventorySettings inventory = settings.Inventory ?? throw new CliUsageException(
-            "The settings document has no Inventory intent; use 'settings apply' for configuration-only documents.");
-        string[] monitorTokens = [tokens[0], "start", .. tokens.Skip(3)];
-        LiveMonitorMode monitorMode = ParseStartMonitorMode(monitorTokens);
-        int? monitorDurationSeconds = ParseStartMonitorDurationSeconds(monitorTokens);
-        if (monitorDurationSeconds is not null && monitorMode == LiveMonitorMode.None)
-        {
-            throw new CliUsageException("session inventory --monitor-duration requires --monitor live or frames.");
-        }
-
-        try
-        {
-            session.InventorySession = await reader.StartInventoryAsync(inventory, cancellationToken);
-            RenderStartedSummary(inventory);
-            await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, cancellationToken);
-        }
-        finally
-        {
-            await StopAsync(CancellationToken.None).ConfigureAwait(false);
-            await reader.ClearManagedSettingsAsync(CancellationToken.None).ConfigureAwait(false);
-            session.InventorySession = null;
         }
     }
 
@@ -210,11 +167,11 @@ internal sealed class LiveInventoryHandler(
                 console.MarkupLine($"  [dim]AttachedData:[/] Bank={settings.AttachedData.MemoryBank}, Ptr={settings.AttachedData.WordPointer}, Len={settings.AttachedData.WordCount}");
             }
 
-            console.MarkupLine("  [dim]Source:[/] Reader-deployed high-level settings. Use 'settings get' to inspect the complete document.");
+            console.MarkupLine("  [dim]Source:[/] Reader-deployed high-level settings. Use 'settings show reader' to inspect it.");
         }
         else
         {
-            console.MarkupLine("  [yellow]No deployed high-level Inventory. Run 'settings draft defaults', optionally 'settings draft wizard', then 'settings draft apply --yes'.[/]");
+            console.MarkupLine("  [yellow]No deployed high-level Inventory. Run 'settings edit', 'settings validate', then 'settings apply --yes'.[/]");
         }
     }
 

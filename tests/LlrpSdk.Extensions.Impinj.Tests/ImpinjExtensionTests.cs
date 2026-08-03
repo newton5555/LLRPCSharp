@@ -11,6 +11,35 @@ namespace LlrpSdk.Extensions.Impinj.Tests;
 public sealed class ImpinjExtensionTests
 {
     [Fact]
+    public void InventoryBuilder_CreatesTypedImpinjExtensionsWithoutMagicKeys()
+    {
+        InventorySettings settings = InventorySettings.Create(inventory => inventory
+            .Antennas(1, 2)
+            .Session(2)
+            .Impinj(impinj => impinj
+                .IncludeSerializedTid()
+                .IncludeRfPhaseAngle()
+                .IncludePeakRssi()
+                .EnableTagPopulationEstimation()));
+
+        var report = Assert.IsType<ImpinjInventoryReportOptions>(
+            settings.Extensions[ImpinjInventoryReportOptions.ExtensionKey]);
+        var control = Assert.IsType<ImpinjInventoryControlOptions>(
+            settings.Extensions[ImpinjInventoryControlOptions.ExtensionKey]);
+        Assert.True(report.IncludeSerializedTid);
+        Assert.True(report.IncludeRfPhaseAngle);
+        Assert.True(report.IncludePeakRssi);
+        Assert.True(control.EnableTagPopulationEstimation);
+
+        InventorySettings edited = settings.Edit(inventory => inventory
+            .Impinj(impinj => impinj.IncludeTxPower()));
+        var editedReport = Assert.IsType<ImpinjInventoryReportOptions>(
+            edited.Extensions[ImpinjInventoryReportOptions.ExtensionKey]);
+        Assert.True(editedReport.IncludeSerializedTid);
+        Assert.True(editedReport.IncludeTxPower);
+    }
+
+    [Fact]
     public void ReaderSettingsSerializer_RoundTripsVersionedTypedImpinjExtensions()
     {
         var settings = new ReaderSettings

@@ -56,12 +56,12 @@
 ### 7. CLI 命令系统与提示链
 
 - 详细规划见 [`architecture/cli-command-system.md`](architecture/cli-command-system.md)。
-- 根 Spectre CLI 仅承载离线 `inspect/decode/validate/encode`；读写器连接与所有在线业务均收敛到 Live Shell，避免重复的临时连接生命周期。
+- 根 Spectre CLI 承载离线 `inspect/decode/validate/encode` 与唯一的一次性在线 `inventory`；其他在线业务收敛到 Live Shell。根级 `inventory <host>` 与 Live Shell 共用 Settings 工作流与 SDK，不复制配置逻辑。
 - C2 已完成 Live Shell 的命令元数据收敛：Usage、`help <command>`、别名、连接可用性、输入候选和执行路由均从 `CommandCatalog` 获取。
 - C3 已完成：`LiveSessionContext` 集中连接、监控与盘点状态；连接、盘点、监控和离线协议诊断分别由专用 Handler 处理，`LiveCommand` 保持为 Live Shell 宿主与路由层。
 - `settings` 已取代 `config` 并接入 Live Shell；专家配置继续由 `raw transact` / `reader.Protocol` 处理。
-- **后期 CLI 展示优化**：增加 `settings get --tree`，以 Spectre.Console 的静态 `Tree` 按层级显示 `ReaderSettings`。JSON 仍是完整、可导出与可应用的主表示；不在本阶段引入键盘展开/折叠的全屏 TUI JSON Inspector。
-- **后期 CLI 引导优化**：`settings draft wizard` 已完成；后续考虑显式 `connect wizard` 以及复杂 Filters、触发器、报告和厂商扩展的分步编辑。向导只编辑 CLI 的 `ReaderSettings` 草稿，保留 JSON 命令作为可复制、可自动化入口。`settings apply`、Raw 和破坏性 Tag 操作仍必须使用 `--yes`，不能由交互确认替代。
+- **CLI Settings 契约已稳定**：`settings show|edit|validate|apply|load|save|discard` 分离只读、本地草稿与设备写入；后续只扩展编辑器分组、选项或子命令，不改变现有语义。完整 JSON 仍是可移植、可自动化的高级表示。
+- **后期 CLI 引导优化**：分组编辑器已覆盖天线/RF、Singulation、报告、Filters、触发器、Attached Data、Reader Configuration 与 Impinj 扩展。后续可补 `connect` 引导和更多厂商字段；`settings apply`、根级 `inventory`、Raw 和破坏性 Tag 操作继续要求 `--yes`。
 
 ### 8. Reader 默认配置 Profile
 

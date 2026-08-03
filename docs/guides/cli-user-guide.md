@@ -1,30 +1,29 @@
 ﻿# LLRPCSharp CLI 工具链与 Studio 使用指南
 
-本文档面向 RFID 现场工程师、测试人员及系统集成开发者，介绍 `LLRPCSharp` CLI 工具链（`LlrpCli`）的交互式 Live Shell 与离线协议诊断工具。
+本文档面向 RFID 现场工程师、测试人员及系统集成开发者，介绍 `LLRPCSharp` CLI 工具链（`LlrpCli`）的交互式 Live Shell、一次性寻卡命令与离线协议诊断工具。
 
 ---
 
-## 一、CLI 设计原则与双轨架构
+## 一、CLI 设计原则与分层架构
 
-`LlrpCli` 旨在为 RFID 硬件与 SDK 调试提供双轨视口：
+`LlrpCli` 提供三个稳定入口；在线入口共用同一个 SDK 与托管设置工作流，不复制配置、校验或资源管理逻辑：
 
 ```text
                                命令行输入 (CLI Command)
                                           │
-    ┌─────────────────────────────────────┴─────────────────────────────────────┐
-    ▼                                                                           ▼
-【在线托管业务视口 (Live Shell)】                                    【离线协议诊断工具箱 (Protocol Codec)】
- 严格对接 LlrpReader SDK 公开能力                                    不需要连接读写器即可使用
- ├─ connect / disconnect / status / caps                             ├─ inspect <hex>  (Header 解包)
- ├─ inventory start / stop / status                                  ├─ decode <hex>   (Tree 报文树)
- ├─ tag read / write / lock / kill / erase / sequence               ├─ validate <hex> (完整性校验)
- ├─ settings get / draft / export / validate / apply                 └─ encode <msg>   (序列化生成)
- └─ rospec / accessspec / raw / sync
+    ┌───────────────────────────────┬───────────────────────────────┐
+    ▼                               ▼                               ▼
+【Live Shell】                 【一次性 inventory】             【离线 Protocol Codec】
+ 长连接交互与诊断               Agent/脚本友好                  无需连接 Reader
+ settings / inventory          connect -> apply -> inventory    inspect / decode
+ tag / resources / raw         -> stop -> clear                 validate / encode
+    │                               │
+    └──────── ManagedSettingsWorkflow ────────► LlrpReader SDK
 ```
 
 ---
 
-## 二、两种运行模式
+## 二、运行模式
 
 ### 1. 交互式 Studio 模式 (Live Shell) —— **推荐**
 
@@ -40,9 +39,18 @@ dotnet run --project src/LlrpCli
 - **报文自动渲染**：连接后自动高亮渲染全部非标签收发 LLRP 帧（TX/RX）；`RO_ACCESS_REPORT` 进入标签聚合，只有 `monitor frames` 才将标签报告也按原始帧打印。
 - **命令历史**：使用 `↑` / `↓` 方向键浏览历史输入记录。
 
-### 2. 离线命令行模式
+### 2. 一次性在线命令
 
-根命令只提供不连接读写器的协议分析、验证与编码，可安全用于脚本或 CI/CD：
+根级 `inventory` 适合 Agent、脚本和人工快速验收。它使用与 Live Shell 相同的 Settings 加载、校验和 Apply 代码路径：
+
+```powershell
+dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
+dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --settings warehouse.json --duration 30 --output json --yes
+```
+
+### 3. 离线命令行模式
+
+离线命令不连接读写器，可安全用于脚本或 CI/CD：
 
 ```powershell
 # 单发解码
@@ -105,13 +113,17 @@ inventory start --monitor none
 
 ```
 
-### 临时示例工作负载（session）
+### 一次性寻卡（inventory）
 
-`session inventory <settings-file>` 读取文档的 `ReaderSettings.Inventory`，启动一个独立的 SDK session，并在命令结束、取消或报错后自动 Stop 和清除 SDK 保留资源。它要求资源域处于 `Idle`，因此不会覆盖已经部署的配置或专家资源。该命令只使用文档中的 Inventory 子域，不写入 `ReaderSettings.Configuration`；它适合作为示例、验收或一次性测试，而不是部署命令。
+```text
+llrp inventory <HOST> [--port 5084] [--settings FILE] [--duration 10]
+          [--output json|table] [--llrp auto|1.0.1|1.1]
+          [--vendor auto|impinj|seuic|none] --yes
+```
 
-```
-session inventory inventory-example.json --monitor live --monitor-duration 30
-```
+`inventory` 连接 Reader 后加载指定的完整 `ReaderSettings`；没有 `--settings` 时使用 SDK 针对当前设备解析的推荐 Defaults。命令会把 Inventory 强制为立即启动、无 Reader 侧停止触发，再按 `--duration` 限定采集时间。默认输出稳定 JSON，便于 Agent 读取；人工观察可指定 `--output table`。
+
+该命令会应用完整 Settings。包含 Inventory 时，SDK 会清除全部 AccessSpec/ROSpec 并创建托管资源，因此必须显式给出 `--yes`。结束、取消或异常时会停止盘点并清除 SDK 托管 Inventory 资源；已经应用的 Reader 全局 Configuration 保留在设备上。退出码为：成功 `0`、参数或缺少确认 `2`、Settings 校验失败 `3`、连接或运行失败 `1`。
 
 #### 其他盘点命令
 
@@ -126,49 +138,40 @@ inventory status            # 查看盘点运行状态（OperationState + 当前
 
 | 命令 | 完整语法 | 说明 |
 |---|---|---|
-| `settings get` | `settings get [--tree]` | 查询读写器当前事实与已识别托管盘点状态；默认输出 JSON，`--tree` 将同一份完整强类型 JSON（含数组与厂商扩展）递归显示为静态 Tree；不改变草稿。 |
-| `settings defaults` | `settings defaults show|export <path>` | 显示或导出 SDK 为当前型号、固件和能力解析的推荐 Profile；不写设备。 |
-| `settings draft` | `settings draft show|defaults|from-reader|generic|wizard|load <path>|load-defaults <path>|save <path>|reset|apply --yes` | 管理 CLI 本地的完整 `ReaderSettings` 草稿。`show` 以静态 Tree 显示层级和来源，`wizard` 用交互式 Prompts 编辑常用 Inventory 字段。 |
-| `settings export` | `settings export <path>` | 导出托管设置及已激活厂商扩展的强类型、版本化 JSON。 |
-| `settings validate` | `settings validate <path>` | 校验托管设置及已激活厂商扩展的 JSON。 |
-| `settings apply` | `settings apply <path> --yes` | 显式应用托管设置；含 Inventory 时接管资源。 |
+| `settings show` | `settings show [reader|draft|defaults] [--json]` | 只读查看设备事实、本地草稿或 SDK 推荐 Defaults；默认显示摘要，`--json` 显示完整文档。 |
+| `settings edit` | `settings edit [--from defaults|reader|generic]` | 从明确来源建立副本并进入分组编辑器；只修改本地草稿。省略 `--from` 时编辑现有草稿，没有草稿则从 Defaults 开始。 |
+| `settings validate` | `settings validate [file]` | 校验文件或当前草稿，不发送写报文。 |
+| `settings apply` | `settings apply [file] --yes` | 应用文件或当前草稿；这是 `settings` 下唯一写设备的命令。 |
+| `settings load` | `settings load <file>` | 将完整 Settings JSON 加载为本地草稿，不写设备。 |
+| `settings save` | `settings save <file> [--source draft|reader|defaults]` | 保存指定来源；默认保存当前草稿。 |
+| `settings discard` | `settings discard` | 丢弃本地草稿，不改变设备。 |
 
 **示例**：
 
 ```
-# 新设备：以当前型号/能力匹配的推荐 Profile 建立草稿
-settings draft defaults
-settings draft show
-settings draft wizard
-settings draft save warehouse-draft.json
-settings validate warehouse-draft.json
-settings draft apply --yes
+# 新设备：从当前型号/能力匹配的 Defaults 开始编辑
+settings edit --from defaults
+settings show draft
+settings save warehouse-draft.json
+settings validate
+settings apply --yes
 inventory start
 ```
 
-草稿必须由一个明确来源初始化；来源只影响 CLI 的说明和审计，不会作为协议数据写到 Reader：
+草稿具有明确来源；来源只用于 CLI 显示和审计，不作为协议数据写入 Reader：
 
 | 起点 | 命令 | 适用情况 |
 |---|---|---|
-| 当前 Reader Profile | `settings draft defaults` | 新设备或希望采用 SDK 的厂商/能力推荐值。Seuic 等扩展会解析实际天线与 RF 索引。 |
-| 设备当前事实 | `settings draft from-reader` | 生产设备做最小修改，先读取后调整。 |
-| 通用 LLRP 基线 | `settings draft generic` | 准备可移植模板，或没有可用厂商 Profile。 |
-| JSON 文档 | `settings draft load <path>` | 使用已有的普通 `ReaderSettings` 文档。 |
-| 导出的 Profile 文档 | `settings draft load-defaults <path>` | 恢复 `settings defaults export` 产生的 Settings 与 Profile 来源。 |
+| 当前 Reader Profile | `settings edit --from defaults` | 新设备或采用 SDK 的厂商/能力推荐值；Seuic 等扩展会解析实际天线与 RF 索引。 |
+| 设备当前事实 | `settings edit --from reader` | 生产设备先读取后做最小修改。 |
+| 通用 LLRP 基线 | `settings edit --from generic` | 准备可移植模板。 |
+| JSON 文档 | `settings load <file>` | 使用已有的完整 `ReaderSettings` 文档。 |
 
-`settings draft reset` 为兼容命令，等价于 `settings draft generic`，不再表示当前 Reader 的推荐默认值。
+编辑器按天线与 RF、Singulation、报告、Filters、启动/停止触发器、Attached Data、Reader Configuration 和厂商扩展分组。常用设置可直接交互编辑；高级用户仍可保存 JSON 后直接编辑完整 record 字段，再通过同一个 `validate/apply` 路径部署。
 
-如果已经用 `settings draft defaults`、`settings draft from-reader`、向导或加载文件准备好草稿，不必先保存文件，也可以明确确认后直接部署：
+标准字段始终可序列化。厂商字段必须由已激活扩展的 `IReaderSettingsSerializationContributor` 提供强类型、版本化映射；未知扩展字段会明确失败，绝不静默丢失。启用 `.UseImpinj()` 的 Live CLI 支持 `impinj.configuration`、只读的 `impinj.facts` 和 Inventory 报告扩展；Facts 仅用于记录和核对，不是可写配置。
 
-```text
-settings draft apply --yes
-```
-
-向导只编辑 Inventory 的天线、Session、标签数量估计、ModeIndex、Tari 与 AttachedData。Filters、触发器、报告字段、`Configuration` 和厂商扩展会保持原样；这些高级字段仍应在 JSON 文件中编辑、校验后应用。
-
-普通 Settings 文件与 Defaults Profile 文件是不同文档：`settings apply <path> --yes` 只接受普通 Settings 文件；Defaults 文件必须先通过 `settings draft load-defaults <path>` 进入草稿后才能应用。标准字段始终可序列化。厂商字段必须由已激活扩展的 `IReaderSettingsSerializationContributor` 提供强类型、版本化映射；未知扩展字段会明确失败，绝不静默丢失。启用 `.UseImpinj()` 的 Live CLI 已支持 `impinj.configuration`、只读的 `impinj.facts` 和 `impinj.inventoryReport`。其中 facts 仅用于记录/核对，不是可写配置。
-
-`settings apply` / `settings draft apply` 的资源影响取决于内容：`Inventory == null` 时只写入配置；包含 `Inventory` 时才会清除全部 AO/RO 并重建 SDK 托管盘点，但资源保持 Disabled。因此该命令始终要求 `--yes`；只有随后执行 `inventory start` 才会开始 RF 盘点。
+`settings apply` 的资源影响取决于内容：`Inventory == null` 时只写配置；包含 Inventory 时清除全部 AccessSpec/ROSpec 并重建 SDK 托管盘点，但保持 Disabled。因此始终要求 `--yes`；只有随后执行 `inventory start` 才开始 RF 盘点。`show/edit/load/save/discard/validate` 都不会写设备。
 
 ---
 
@@ -291,10 +294,10 @@ exit / quit / q               # 断开连接并退出
 - 也可随时输入 `frames 10` 查看最近 10 条报文，或使用 `monitor` 开启实时抓包。
 
 **2. 如何避免误操作写坏设备？**
-- `settings apply` 必须显式提供 `--yes`；应用前可先 `settings validate`，并以 `settings export` 保存当前可识别设置。
+- `settings apply` 必须显式提供 `--yes`；应用前可先 `settings validate`，并以 `settings save reader-backup.json --source reader` 保存当前可识别设置。
 
 **3. 如何批量管理盘点配置？**
-- 将完整 `ReaderSettings` 草稿保存到 JSON 文件（如 `settings draft save warehouse.json`），新会话用 `settings draft load warehouse.json` 恢复。
+- 将完整 `ReaderSettings` 草稿保存到 JSON 文件（如 `settings save warehouse.json`），新会话用 `settings load warehouse.json` 恢复。
 - 如需改变个别字段，编辑完整 `ReaderSettings` JSON 后执行 `settings validate <file>` 与 `settings apply <file> --yes`。托管盘点没有一次性参数覆盖，以保证读写器实际资源与设置文档一致。
 
 **4. `tag write` 如何防止意外覆盖标签数据？**

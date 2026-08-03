@@ -5,9 +5,19 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to create, for example v0.4.0
+        required: true
+        default: v0.4.0
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -17,6 +27,38 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Validate release version
+      id: release
+      shell: bash
+      env:
+        RELEASE_TAG_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      run: |
+        set -euo pipefail
+        release_tag="$RELEASE_TAG_INPUT"
+        if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Release tag must match vMAJOR.MINOR.PATCH, got: $release_tag" >&2
+          exit 1
+        fi
+
+        version="${release_tag#v}"
+        project_version="$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props | head -n 1)"
+        if [[ -z "$project_version" || "$project_version" != "$version" ]]; then
+          echo "Tag $release_tag does not match Directory.Build.props version $project_version" >&2
+          exit 1
+        fi
+
+        release_doc="docs/releases/${release_tag}.md"
+        if [[ ! -f "$release_doc" ]]; then
+          echo "Missing release notes: $release_doc" >&2
+          exit 1
+        fi
+
+        echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "release_doc=$release_doc" >> "$GITHUB_OUTPUT"
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
@@ -46,22 +88,24 @@ jobs:
         cp README.md ./artifacts/cli-win64/
         cp LICENSE ./artifacts/cli-win64/
         cd ./artifacts/cli-win64
-        zip -r ../LlrpCli-${{ github.ref_name }}-win64.zip .
+        zip -r ../LlrpCli-${{ steps.release.outputs.tag }}-win64.zip .
+
+    - name: Publish to NuGet.org
+      run: |
+        dotnet nuget push "./artifacts/nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ steps.release.outputs.tag }}
+        name: LLRPCSharp ${{ steps.release.outputs.tag }}
         files: |
           ./artifacts/nupkgs/*.nupkg
           ./artifacts/nupkgs/*.snupkg
           ./artifacts/LlrpCli-*.zip
         draft: false
         prerelease: false
-        body_path: docs/releases/${{ github.ref_name }}.md
+        body_path: ${{ steps.release.outputs.release_doc }}
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Push to NuGet.org
-      run: |
-        dotnet nuget push "./artifacts/nupkgs/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate

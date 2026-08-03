@@ -56,6 +56,28 @@ await reader.ApplySettingsAsync(settings with
 });
 ```
 
+普通配置也可以使用轻量 Builder；它直接生成同一个 `ReaderSettings` / `InventorySettings` record，不引入第二套配置模型：
+
+```csharp
+ReaderSettings settings = ReaderSettings.Create(reader => reader
+    .Inventory(inventory => inventory
+        .Antennas(1, 2)
+        .Session(2)
+        .Population(64)
+        .ReportEveryTag()
+        .ReadTid(words: 6)));
+
+SettingsValidationResult validation = await reader.ValidateSettingsAsync(settings);
+validation.ThrowIfInvalid();
+
+await reader.ApplySettingsAsync(settings); // 部署为 Disabled
+await reader.StartAsync();
+```
+
+已有配置可用 `settings.Edit(...)` 或 `settings.Inventory.Edit(...)` 做不可变编辑；未修改字段、Filters、Trigger、RF 参数和扩展值会原样保留。高级用户仍可直接构造 record，或在 Builder 结果上使用 `with` 覆盖底层字段。
+
+`ValidateSettingsAsync()` 不发送报文，也不改变 Reader 资源。返回的 `SettingsValidationResult.Diagnostics` 包含稳定错误码、严重级别、字段路径和消息，覆盖标准字段组合、已协商协议版本、Reader Capabilities 与激活的厂商 Contributor。`ApplySettingsAsync(settings)`、`StartAsync(settings)` 和 `StartInventoryAsync(settings)` 会执行同一校验；失败时抛出带完整诊断集合的 `SettingsValidationException`，并且不会先清理资源。
+
 `QuerySettingsAsync()` 在一个操作锁中读取 `GET_READER_CONFIG`、`GET_ROSPECS` 和 `GET_ACCESSSPECS`。它只解释 SDK 保留的 `14150`，并按协商的 1.0.1 或 1.1 参数类型还原盘点意图（包括 Filter、AttachedData、Trigger、Report 与状态感知 Singulation）；手动资源不会被伪装为托管盘点。返回的状态为实际的 `Disabled`、`Enabled` 或 `Running`。
 
 `ApplySettingsAsync(settings)` 的行为：
@@ -130,6 +152,21 @@ finally
 - `ImpinjReaderFacts` 位于 `ReaderSettings.Configuration.Extensions["impinj.facts"]`，是区域、温度等只读事实。
 - `ImpinjInventoryReportOptions` 位于 `InventorySettings.Extensions["impinj.inventoryReport"]`。
 
+常用 Inventory 扩展无需接触字典 Key：
+
+```csharp
+InventorySettings inventory = InventorySettings.Create(settings => settings
+    .Antennas(1, 2)
+    .Session(2)
+    .Impinj(impinj => impinj
+        .IncludeSerializedTid()
+        .IncludeRfPhaseAngle()
+        .IncludePeakRssi()
+        .EnableTagPopulationEstimation()));
+```
+
+`.Impinj(...)` 仍然生成上述强类型扩展对象，因此现有 Contributor、JSON schema 和高级 record 配置方式保持兼容。
+
 扩展按照已识别的型号/固件能力目录拒绝未经验证的字段。当前 R420 6.4.1 Profile 已验证 Serialized TID、RF Phase 和 Peak RSSI 报告选择；其他字段不会静默下发。
 
 `ReaderSettingsSerializer` 可接收已启用扩展提供的 `IReaderSettingsSerializationContributor`，把这些强类型值写成版本化 Settings JSON；没有对应 contributor 的扩展字段会明确失败，避免导出后丢失。Live CLI 会自动使用连接读写器的扩展集合。`impinj.facts` 是只读事实，可随快照导出但不会由 `ApplySettingsAsync` 写回设备。
@@ -145,10 +182,11 @@ finally
 Live CLI 使用：
 
 ```text
-settings get
-settings export settings.json
-settings validate settings.json
-settings apply settings.json --yes
+settings show reader
+settings save settings.json --source reader
+settings edit --from defaults
+settings validate
+settings apply --yes
 inventory start
 inventory stop
 resources manual enter
@@ -157,5 +195,7 @@ resources clear
 ```
 
 `settings apply` 始终必须显式 `--yes`：仅含 Configuration 的文件不会接管资源；含 Inventory 的文件会执行独占清场和重建。`config` 命令已移除；专家使用 `raw transact` 或 SDK 的 `reader.Protocol`。
+
+Agent 或脚本的一次性寻卡使用根命令 `inventory <host> [--settings file] --duration <seconds> --yes`。它与 Live CLI 共用 Settings 加载、校验和 Apply 工作流，默认输出 JSON；结束时停止并清除托管 Inventory 资源，但保留已应用的 Reader 全局 Configuration。
 
 Raw 成功调用、网络中断、清场失败都会使资源状态未知。执行 `sync` / `SynchronizeStateAsync()` 后再进行下一次托管操作。

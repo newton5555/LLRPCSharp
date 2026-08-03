@@ -9,10 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
     <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
   </ItemGroup>
