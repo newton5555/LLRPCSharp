@@ -82,7 +82,9 @@ jobs:
       run: rm -rf ./artifacts
 
     - name: Pack NuGet Packages
-      run: dotnet pack LLRPCSharp.slnx --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
+      run: |
+        dotnet pack src/LlrpSdk/LlrpSdk.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
+        dotnet pack src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
 
     - name: Publish LlrpCli (win-x64)
       run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime win-x64 --self-contained true --output ./artifacts/cli-win64
