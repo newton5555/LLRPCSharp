@@ -78,7 +78,6 @@ dotnet run --project src/LlrpCli -- encode get-rospecs --message-id 1
 definitions/   机器可读协议定义及扩展定义
 docs/          状态、路线图、架构、决策记录和资料来源
 references/    标准原文、抓包与旧项目参考（大部分不提交 Git）
-samples/       SDK 使用示例
 src/           产品源码
 tests/         单元、集成与互操作测试
 tools/         定义导入、生成、校验和测试辅助工具

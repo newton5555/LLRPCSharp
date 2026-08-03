@@ -13,53 +13,76 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         ReaderSettings working = source;
         while (true)
         {
-            string area = console.Prompt(new SelectionPrompt<string>()
+            SettingsArea area = console.Prompt(new SelectionPrompt<SettingsArea>()
                 .Title("[bold yellow]Settings area[/]")
-                .AddChoices(
-                    "Antennas and RF",
-                    "Singulation",
-                    "Reports",
-                    "Filters",
-                    "Start and stop triggers",
-                    "Attached data",
-                    "Reader configuration",
-                    "Vendor extensions",
-                    "Review and finish",
-                    "Cancel"));
+                .AddChoices(Enum.GetValues<SettingsArea>())
+                .UseConverter(FormatSettingsArea));
 
             switch (area)
             {
-                case "Antennas and RF":
+                case SettingsArea.AntennasAndRf:
                     working = EditAntennasAndRf(working);
                     break;
-                case "Singulation":
+                case SettingsArea.Singulation:
                     working = EditSingulation(working);
                     break;
-                case "Reports":
+                case SettingsArea.Reports:
                     working = EditReports(working);
                     break;
-                case "Filters":
+                case SettingsArea.Filters:
                     working = EditFilters(working);
                     break;
-                case "Start and stop triggers":
+                case SettingsArea.StartAndStopTriggers:
                     working = EditTriggers(working);
                     break;
-                case "Attached data":
+                case SettingsArea.AttachedData:
                     working = EditAttachedData(working);
                     break;
-                case "Reader configuration":
+                case SettingsArea.ReaderConfiguration:
                     working = EditReaderConfiguration(working);
                     break;
-                case "Vendor extensions":
+                case SettingsArea.VendorExtensions:
                     working = EditVendorExtensions(working);
                     break;
-                case "Review and finish":
+                case SettingsArea.ReviewAndFinish:
                     SettingsRenderer.RenderSummary(console, "Settings draft", working);
                     return working;
-                case "Cancel":
+                case SettingsArea.Cancel:
                     return source;
             }
         }
+    }
+
+    private static string FormatSettingsArea(SettingsArea area)
+    {
+        return area switch
+        {
+            SettingsArea.AntennasAndRf => "Antennas and RF",
+            SettingsArea.Singulation => "Singulation",
+            SettingsArea.Reports => "Reports",
+            SettingsArea.Filters => "Filters",
+            SettingsArea.StartAndStopTriggers => "Start and stop triggers",
+            SettingsArea.AttachedData => "Attached data",
+            SettingsArea.ReaderConfiguration => "Reader configuration",
+            SettingsArea.VendorExtensions => "Vendor extensions",
+            SettingsArea.ReviewAndFinish => "[bold green]Review and finish[/]",
+            SettingsArea.Cancel => "[bold red]Cancel[/]",
+            _ => throw new ArgumentOutOfRangeException(nameof(area), area, null),
+        };
+    }
+
+    private enum SettingsArea
+    {
+        AntennasAndRf,
+        Singulation,
+        Reports,
+        Filters,
+        StartAndStopTriggers,
+        AttachedData,
+        ReaderConfiguration,
+        VendorExtensions,
+        ReviewAndFinish,
+        Cancel,
     }
 
     private ReaderSettings EditAntennasAndRf(ReaderSettings settings)

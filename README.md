@@ -78,7 +78,6 @@ dotnet run --project src/LlrpCli -- encode get-rospecs --message-id 1
 definitions/   Machine-readable protocol definitions and extension definitions
 docs/          Status, roadmap, architecture, ADRs, and source references
 references/    Local standards, packet captures, and legacy references, mostly not committed
-samples/       SDK usage samples
 src/           Product source code
 tests/         Unit, integration, and interoperability tests
 tools/         Definition import, generation, validation, and test helpers
