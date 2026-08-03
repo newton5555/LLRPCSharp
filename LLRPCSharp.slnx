@@ -4,9 +4,6 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="global.json" />
-    <File Path="AGENTS.md" />
-    <File Path="README.md" />
-    <File Path="README.zh.md" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/LlrpCli/LlrpCli.csproj" />
@@ -38,61 +35,11 @@
   <Folder Name="/tools/">
     <Project Path="tools/LlrpSdk.LiveSmoke/LlrpSdk.LiveSmoke.csproj" />
   </Folder>
-  <Folder Name="/docs/">
-    <File Path="docs/README.md" />
-    <File Path="docs/showcase.md" />
-    <File Path="docs/showcase.zh.md" />
-    <File Path="docs/status.md" />
-    <File Path="docs/roadmap.md" />
-  </Folder>
-  <Folder Name="/docs/adr/">
-    <File Path="docs/adr/README.md" />
-    <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
-    <File Path="docs/adr/0002-reader-extension-active-initialization.md" />
-    <File Path="docs/adr/0003-reader-configuration-default-profiles.md" />
-    <File Path="docs/adr/0004-reader-contributors.md" />
-    <File Path="docs/adr/0005-llrp101-reader-first-delivery.md" />
-  </Folder>
-  <Folder Name="/docs/specs/">
-    <File Path="docs/specs/2026-07-27-cli-sdk-mapping-spec.md" />
-    <File Path="docs/specs/2026-07-27-cli-tag-access-design.md" />
-    <File Path="docs/specs/2026-07-28-llrp101-sdk-completion-spec.md" />
-  </Folder>
-  <Folder Name="/docs/architecture/">
-    <File Path="docs/architecture/overview.md" />
-    <File Path="docs/architecture/overview.zh.md" />
-    <File Path="docs/architecture/source-structure.md" />
-    <File Path="docs/architecture/protocol-extension-guide.md" />
-    <File Path="docs/architecture/protocol-extension-guide.zh.md" />
-    <File Path="docs/architecture/cli-command-system.md" />
-    <File Path="docs/architecture/llrp-ecosystem-comparison.draft.zh.md" />
-  </Folder>
-  <Folder Name="/docs/guides/">
-    <File Path="docs/guides/README.md" />
-    <File Path="docs/guides/cli-user-guide.md" />
-    <File Path="docs/guides/sdk-api-guide.md" />
-  </Folder>
-  <Folder Name="/docs/releases/">
-    <File Path="docs/releases/v0.2.0.md" />
-    <File Path="docs/releases/v0.3.0.md" />
-    <File Path="docs/releases/v0.3.1.md" />
-    <File Path="docs/releases/v0.4.0.md" />
-  </Folder>
-  <Folder Name="/docs/acceptance/">
-    <File Path="docs/acceptance/reader-interoperability.md" />
-  </Folder>
   <Folder Name="/docs/images/">
     <File Path="docs/images/llrpcsharp_infographic.png" />
     <File Path="docs/images/vendor_extension_infographic.png" />
   </Folder>
-  <Folder Name="/docs/references/">
-    <File Path="docs/references/README.md" />
-  </Folder>
-  <Folder Name="/docs/references/standards/">
-    <File Path="docs/references/standards/README.md" />
-  </Folder>
   <Folder Name="/definitions/">
-    <File Path="definitions/README.md" />
     <File Path="definitions/llrp-definition.schema.yaml" />
     <File Path="definitions/llrp-1.1.yaml" />
     <File Path="definitions/llrp-2.0-delta.yaml" />
