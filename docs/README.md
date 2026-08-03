@@ -1,34 +1,34 @@
 # Documentation Index
 
-This directory contains project status, architecture notes, decision records, specifications, and source references. The root [README.md](../README.md) is the user-facing entry point; this index is for deeper engineering context.
+The root [README](../README.md) is the short project introduction. This
+directory contains only the deeper material needed to use, maintain, or extend
+the project.
 
-## Current Truth
+## Use The Project
 
-- [Current status](status.md): implemented capabilities, missing work, and current build status.
-- [Roadmap](roadmap.md): development order and planned work.
-- [Final reader interoperability acceptance](acceptance/reader-interoperability.md): required real-device and virtual-reader release validation.
-- [Agent Guide](../AGENTS.md): repository rules and entry points for coding agents.
+- [SDK API Guide](guides/sdk-api-guide.md): managed `LlrpReader`, settings,
+  inventory, and tag reports.
+- [CLI User Guide](guides/cli-user-guide.md): Live Shell workflow, one-shot
+  inventory, settings, and tag operations.
+- [Current Status](status.md): what is implemented and what is not.
 
-## Project And Architecture
+## Develop The Project
 
-- [Architecture and capability map](showcase.md) ([中文](showcase.zh.md))
-- [Architecture overview](architecture/overview.md) ([中文](architecture/overview.zh.md))
-- [Source structure](architecture/source-structure.md)
-- [Protocol extension guide](architecture/protocol-extension-guide.md) ([中文](architecture/protocol-extension-guide.zh.md))
-- [CLI command system and interactive assist plan](architecture/cli-command-system.md)
-- [SDK Developer API Guide](guides/sdk-api-guide.md): developer-facing API reference, lifecycle, categorized methods, and code samples.
-- [CLI Tooling & Studio User Guide](guides/cli-user-guide.md): CLI command reference, Live Shell Studio, interactive assist, and offline codec tools.
-- [CLI Command to SDK Mapping Specification](specs/2026-07-27-cli-sdk-mapping-spec.md): 1:1 mapping between CLI commands, SDK APIs, and raw LLRP frames.
+- [Architecture Overview](architecture/overview.md): layer boundaries and
+  ownership.
+- [Source Structure](architecture/source-structure.md): repository and project
+  map.
+- [Protocol Extension Guide](architecture/protocol-extension-guide.md): adding
+  protocol or vendor extensions.
+- [Decision Records](adr/README.md): decisions that affect long-term design.
 
-## Decision Records
+## Validate And Reference
 
-- [ADR index](adr/README.md)
-- [ADR 0001: Structured logging and frame observation](adr/0001-structured-logging-and-frame-observation.md)
-- [ADR 0002: Reader extension active initialization](adr/0002-reader-extension-active-initialization.md)
-- [ADR 0003: Reader configuration default profiles](adr/0003-reader-configuration-default-profiles.md)
-- [ADR 0004: Reader contributor pipeline](adr/0004-reader-contributors.md)
-- [ADR 0005: LLRP 1.0.1 Reader-first delivery](adr/0005-llrp101-reader-first-delivery.md)
+- [Reader Interoperability Acceptance](acceptance/reader-interoperability.md):
+  real-device and virtual-reader release checks.
+- [Protocol References](references/README.md): standards and vendor references.
+- [Protocol Definitions](../definitions/README.md): definition and code
+  generation workflow.
 
-## References
-
-- [Protocol source references](references/README.md)
+The roadmap is maintained for project planning, but is intentionally not part
+of the user-facing README path.

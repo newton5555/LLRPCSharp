@@ -1,4 +1,4 @@
-﻿# LLRPCSharp Architecture and Capability Map
+# LLRPCSharp Architecture and Capability Map
 
 [中文](showcase.zh.md)
 
@@ -10,17 +10,27 @@ This showcase explains the project positioning, architecture boundaries, and cur
 
 ## Architecture Advantages
 
-### 1. Modern .NET Foundation
+### 1. Modernizing the LTK.NET model
+
+LLRPCSharp retains the practical parts of the traditional LTK.NET workflow:
+machine-readable definitions, generated protocol types, and exact wire-level
+encoding. It modernizes the surrounding design for current .NET by separating
+the definition model, source generator, codec registry, asynchronous transport,
+version adapters, and managed Reader API. This makes protocol assets reusable
+by offline tools, vendor modules, the SDK, and the virtual reader without
+coupling them to one application stack.
+
+### 2. Modern .NET Foundation
 
 - **Async session and dispatch model**: The transport, session, and event dispatch layers use modern .NET async patterns for continuous reader message streams.
 - **Low-allocation protocol boundaries**: Transport and protocol parsing boundaries prefer memory-friendly types such as `ReadOnlyMemory<byte>` to reduce unnecessary copying.
 
-### 2. Clean Adapter Boundary
+### 3. Clean Adapter Boundary
 
 - **Version isolation**: LLRP 1.0.1 and 1.1 are isolated behind `ILlrpProtocolAdapter`; LLRP 2.0 definitions are present, while the adapter is still planned.
 - **Version-neutral application entry points**: Application code works primarily with managed APIs such as `LlrpReader`, `InventorySettings`, ROSpec services, and AccessSpec services instead of hand-assembling versioned protocol messages.
 
-### 3. Pluggable Reader Extensions
+### 4. Pluggable Reader Extensions
 
 - **Vendor extension registration**: Impinj support can be enabled through `UseImpinj()`, which registers generated strongly typed codec assets and extension modules.
 - **Low-intrusion extension model**: Standard LLRP behavior remains layered away from vendor extensions, so the generic LLRP path remains available when extensions are not enabled.

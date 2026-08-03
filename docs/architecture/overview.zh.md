@@ -6,7 +6,9 @@
 
 ## 项目定位
 
-本项目是一套现代化 .NET LLRP 开发套件，而不只是二进制编解码库。
+本项目是一套现代化 .NET LLRP 开发套件，而不只是二进制编解码库。它对传统
+LTK.NET 的定义与生成模式进行现代化改造，将协议定义、生成的线级资产、Codec
+注册、异步传输、版本 Adapter 和托管 Reader 工作流拆分开来。
 
 ![LLRPCSharp Architecture Overview](../images/llrpcsharp_infographic.png)
 

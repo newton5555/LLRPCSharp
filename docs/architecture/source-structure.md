@@ -123,7 +123,7 @@ src/
 
 ### 3.7 虚拟读写器 (`src/LlrpVirtualReader/`) —— [手写]
 - 最小 1.0.1 TCP Server，用于本地互操作和回归测试。
-- 当前支持能力查询与 ROSpec 生命周期；TagReport 生成、AccessSpec、故障注入和脚本化场景仍待补充。
+- 当前支持能力查询、ROSpec 生命周期、确定性 TagReport、最小 AccessSpec、标签筛选、User Memory 读写模拟和部分故障注入场景；不模拟真实射频。
 
 ---
 

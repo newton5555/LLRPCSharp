@@ -1,7 +1,11 @@
-﻿# ADR 0005：以 LLRP 1.0.1 Reader 能力为当前交付主线
+# ADR 0005：以 LLRP 1.0.1 Reader 能力为当前交付主线
 
 - 状态：Accepted（实施中）
 - 日期：2026-07-27
+
+> 实施说明：本文保留决策形成时的历史模型名称。当前托管配置 API 是
+> `QuerySettingsAsync()` / `ApplySettingsAsync()`，CLI 使用 `settings` 草稿
+> 与 `inventory start|stop|status`，不再提供 `config` 命令组。
 
 ## 背景
 
@@ -80,7 +84,7 @@ Live Shell 必须清晰管理一个 Reader 会话的连接、托管资源所有�
 
 - 1.0.1 Reader API 的缺口优先于 1.1/2.0、Virtual Reader 和新的 CLI 花样；
 - CLI 新命令没有对应 SDK API 时，先补 SDK API，再加 CLI 薄封装；
-- SDK 配置 API 统一使用 `QueryConfigurationAsync` / `ApplyConfigurationAsync`；盘点模型的规范命名为 `InventorySettings` / `CurrentInventorySettings`；
+- SDK 配置 API 统一使用 `QuerySettingsAsync` / `ApplySettingsAsync`；盘点模型使用 `InventorySettings` / `CurrentInventorySettings`；
 - Impinj 写入能力必须有精确能力证据与恢复/回滚策略，不能由读取投影自动推断；
 - 每项完成项需要标准协议测试与 R420/R700 实机证据之一；厂商扩展还需要版本/型号证据；
 - LLRP 2.0 及所有后续 Virtual Reader 扩展维持在最终阶段。

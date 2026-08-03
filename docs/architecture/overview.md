@@ -6,7 +6,10 @@ This document describes the long-term architecture boundaries of the LLRP C# SDK
 
 ## Project Positioning
 
-This project is a modern .NET LLRP development kit, not just a binary codec library.
+This project is a modern .NET LLRP development kit, not just a binary codec
+library. It modernizes the traditional LTK.NET definition-and-generation model
+by separating protocol definitions, generated wire assets, codec registration,
+async transport, version adapters, and the managed Reader workflow.
 
 ![LLRPCSharp Architecture Overview](../images/llrpcsharp_infographic.png)
 

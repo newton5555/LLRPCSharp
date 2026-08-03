@@ -1,4 +1,4 @@
-﻿# LLRPCSharp 架构与能力图谱
+# LLRPCSharp 架构与能力图谱
 
 [English](showcase.md)
 
@@ -10,17 +10,24 @@
 
 ## 核心架构优势
 
-### 1. 现代化 .NET 底座
+### 1. LTK.NET 思路的现代化改造
+
+LLRPCSharp 保留传统 LTK.NET 工作流中有价值的部分：机器可读定义、生成的协议
+类型和精确的线级编解码；同时面向现代 .NET 拆分定义模型、源码生成器、Codec
+Registry、异步传输、版本 Adapter 和托管 Reader API。协议资产因此可以被离线
+工具、厂商模块、SDK 和 Virtual Reader 复用，而不绑定到单一应用栈。
+
+### 2. 现代化 .NET 底座
 
 - **异步会话与分发模型**：底层会话、传输和事件分发围绕现代 .NET 异步模式构建，便于在长连接读写器场景下处理持续报文流。
 - **面向低分配的协议边界**：传输和协议解析边界尽量使用 `ReadOnlyMemory<byte>` 等内存友好类型，降低报文处理过程中的不必要复制。
 
-### 2. 干净的适配器边界
+### 3. 干净的适配器边界
 
 - **协议版本隔离**：LLRP 1.0.1 与 LLRP 1.1 通过 `ILlrpProtocolAdapter` 实现隔离；LLRP 2.0 定义已入库，Adapter 仍在规划中。
 - **版本无关的上层入口**：应用层优先面对 `LlrpReader`、`InventorySettings`、ROSpec 和 AccessSpec 服务等托管 API，减少业务代码直接拼装协议报文的需要。
 
-### 3. 可插拔的厂商扩展系统
+### 4. 可插拔的厂商扩展系统
 
 - **厂商扩展注册**：例如 Impinj 扩展可通过 `UseImpinj()` 接入生成的强类型 Codec 资产和扩展模块。
 - **低侵入性扩展模型**：标准 LLRP 能力与厂商扩展保持分层，未启用厂商扩展时可继续使用通用 LLRP 驱动路径。

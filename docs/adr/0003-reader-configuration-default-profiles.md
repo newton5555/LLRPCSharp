@@ -3,9 +3,16 @@
 - 状态：Accepted（第一阶段已实施）
 - 日期：2026-07-27
 
+> 实施说明：本文记录设计决策时使用的早期 API 名称。当前实现统一使用
+> `ReaderSettingsDefaults`、`GetDefaultSettingsAsync()`、`QuerySettingsAsync()`
+> 和 `ApplySettingsAsync()`；`ReaderConfigurationPatch` 与旧的
+> `*ConfigurationAsync` 名称不属于当前公开 API。
+
 ## 背景
 
-当前 SDK 已提供 `QueryConfigurationAsync()` 和 `ApplyConfigurationAsync()`：前者读取设备当前的 `GET_READER_CONFIG`，后者通过 `SET_READER_CONFIG` 提交完整配置。
+当前 SDK 通过 `QuerySettingsAsync()` 和 `ApplySettingsAsync()` 管理版本无关的
+`ReaderSettings`；底层 `GET_READER_CONFIG` / `SET_READER_CONFIG` 由 SDK 内部
+编译和执行。
 
 但部分设备存在以下需求：
 
@@ -23,7 +30,7 @@
 新增默认配置入口，首选语义为：
 
 ```csharp
-ReaderConfiguration defaults = reader.GetDefaultConfiguration();
+ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
 ```
 
 该方法：
@@ -31,10 +38,10 @@ ReaderConfiguration defaults = reader.GetDefaultConfiguration();
 - 不发送 `GET_READER_CONFIG`；
 - 使用连接初始化阶段已经获取的 `ReaderIdentity` 和 `ReaderCapabilities`；
 - 根据当前协议版本、厂商、型号、固件和已激活扩展选择 Profile；
-- 不自动调用 `ApplyConfigurationAsync()`；
+- 不自动调用 `ApplySettingsAsync()`；
 - 只返回 SDK 推荐的配置基线，不代表设备当前真实状态。
 
-`QueryConfigurationAsync()` 继续专门表示设备实际状态，两者不能互相替代。
+`QuerySettingsAsync()` 继续专门表示设备实际托管状态，两者不能互相替代。
 
 完全离线的 Profile 创建能力可以在后续增加，但必须由调用方显式提供厂商、型号、固件和协议版本等身份信息，不能从空的 `LlrpReader` 推断设备型号。
 
@@ -101,7 +108,7 @@ LLRP 通用安全默认值
 
 ### 5. 不自动写入设备
 
-`GetDefaultConfiguration()` 不产生网络副作用，也不自动 Apply。应用必须明确调用 `ApplyConfigurationAsync()` 才能修改设备。
+`GetDefaultSettingsAsync()` 不读取或修改 Reader 资源，也不自动 Apply。应用必须明确调用 `ApplySettingsAsync()` 才能修改设备。
 
 这条约束适用于：
 
@@ -138,8 +145,8 @@ LLRP 通用安全默认值
 
 1. 已定义 `ReaderConfigurationProfileContext`、`IReaderConfigurationDefaultsProvider`、`ReaderConfigurationProfile` 和冲突诊断模型；
 2. 已增加核心 LLRP 通用安全基线：不推测天线功率/信道/GPO，Keepalive 为 `None`；
-3. 已增加 `LlrpReader.GetDefaultConfiguration()`；该 API 仅依赖已初始化的身份、能力和激活扩展，不发送 LLRP 请求；
-   `GetDefaultConfigurationResult()` 可同时返回选中的 Provider/Profile 来源；
+3. 已增加 `LlrpReader.GetDefaultSettingsAsync()`；该 API 仅依赖已初始化的身份、能力和激活扩展，不发送 LLRP 请求；
+   `ReaderSettingsDefaults` 可同时返回选中的 Provider/Profile 来源；
 4. 在 Impinj 扩展包中增加厂商/型号 Profile；仅在厂商资料或实测能证明具体安全值时实施，当前不得猜测 R420/R700 的功率、信道或私有设置；
 5. 已增加 `ReaderConfigurationPatch`、`ResolveConfigurationPatchAsync()` 与 `ApplyConfigurationPatchAsync()`；前者仅查询并合并，后者才明确写入；
 6. 增加 Profile 冲突、未知型号和安全范围测试；

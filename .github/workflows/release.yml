@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to create, for example v0.4.0
+        description: Release tag to create, for example v0.5.0
         required: true
-        default: v0.4.0
+        default: v0.5.0
         type: string
 
 permissions:
@@ -87,14 +87,24 @@ jobs:
         dotnet pack src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
 
     - name: Publish LlrpCli (win-x64)
-      run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime win-x64 --self-contained true --output ./artifacts/cli-win64
+      run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime win-x64 --self-contained true --output ./artifacts/cli-win-x64
 
-    - name: Zip LlrpCli
+    - name: Publish LlrpCli (linux-x64)
+      run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime linux-x64 --self-contained true --output ./artifacts/cli-linux-x64
+
+    - name: Publish LlrpCli (osx-x64)
+      run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime osx-x64 --self-contained true --output ./artifacts/cli-osx-x64
+
+    - name: Publish LlrpCli (osx-arm64)
+      run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime osx-arm64 --self-contained true --output ./artifacts/cli-osx-arm64
+
+    - name: Package LlrpCli archives
       run: |
-        cp README.md ./artifacts/cli-win64/
-        cp LICENSE ./artifacts/cli-win64/
-        cd ./artifacts/cli-win64
-        zip -r ../LlrpCli-${{ steps.release.outputs.tag }}-win64.zip .
+        for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
+          cp README.md "./artifacts/cli-${rid}/"
+          cp LICENSE "./artifacts/cli-${rid}/"
+          (cd "./artifacts/cli-${rid}" && zip -r "../LlrpCli-${{ steps.release.outputs.tag }}-${rid}.zip" .)
+        done
 
     - name: Publish to NuGet.org
       run: |

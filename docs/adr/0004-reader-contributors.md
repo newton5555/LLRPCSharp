@@ -3,6 +3,10 @@
 - 状态：Accepted（部分实施）
 - 日期：2026-07-27
 
+> 实施说明：本文中的 `QueryConfigurationAsync` / `ApplyConfigurationAsync`
+> 是设计阶段名称。当前 Contributor 管道通过 `QuerySettingsAsync()` /
+> `ApplySettingsAsync()` 接入 `ReaderSettings`。
+
 ## 决定
 
 `ILlrpProtocolModule` 和 `IReaderExtension` 保持现有职责：前者在连接前注册 Codec，后者在读取标准身份后匹配并执行连接初始化。它们不直接承担托管配置、盘点编译和报告投影。
@@ -27,11 +31,11 @@ ITagReportContributor
 `ReaderConfiguration` 保留版本无关的标准配置。厂商私有配置不通过派生 `ReaderConfiguration` 表达，而是作为带稳定 Contributor Id 的独立配置片段参与查询和应用：
 
 ```text
-QueryConfigurationAsync
+QuerySettingsAsync
   → 标准 ReaderConfiguration
   → 已激活 Settings Contributor 的配置片段
 
-ApplyConfigurationAsync
+ApplySettingsAsync
   → 先校验和应用标准部分
   → 再按 Contributor 处理厂商片段
 ```
