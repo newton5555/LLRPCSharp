@@ -7,7 +7,7 @@
 | 文件 / 目录 | 类型 | 说明 | 常用命令 |
 |---|---|---|---|
 | `Generate-ProtocolCode.ps1` | PowerShell 脚本 | 自动化触发 `LlrpNet.ProtocolGenerator.Tool` 重新生成 LLRP 1.0.1/1.1/Impinj/2.0 的 `.g.cs` 协议代码；Impinj 生成资产写入独立的 `LlrpNet.Protocol.Impinj`。 | `./tools/Generate-ProtocolCode.ps1` |
-| `Verify-SourceEncoding.ps1` | PowerShell 脚本 | 检查协议生成的 `.g.cs` 文件编码，确保遵守仓库规范（UTF-8 无 BOM）。 | `./tools/Verify-SourceEncoding.ps1` |
+| `Verify-SourceEncoding.ps1` | PowerShell 脚本 | 检查协议生成的 `.g.cs` 文件编码和换行，确保遵守仓库规范（UTF-8 无 BOM、CRLF）；CI 和 Release 会自动执行。 | `./tools/Verify-SourceEncoding.ps1` |
 | `LlrpSdk.LiveSmoke/` | 控制台工具 | 读写器实机/烟雾测试实用小工具，用于快速连接硬件并验证端到端盘点与事件流。 | `dotnet run --project tools/LlrpSdk.LiveSmoke` |
 
 ---

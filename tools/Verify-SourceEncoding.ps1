@@ -34,4 +34,25 @@ if ($invalidFiles.Count -ne 0) {
             ($invalidFiles -join [Environment]::NewLine))
 }
 
-Write-Host "Verified UTF-8 without BOM for $($files.Count) generated C# source files."
+$invalidLineEndingFiles = foreach ($file in $files) {
+    $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
+    $hasBareLineFeed = $false
+    for ($index = 0; $index -lt $bytes.Length; $index++) {
+        if ($bytes[$index] -eq 0x0A -and ($index -eq 0 -or $bytes[$index - 1] -ne 0x0D)) {
+            $hasBareLineFeed = $true
+            break
+        }
+    }
+
+    if ($hasBareLineFeed) {
+        $file.FullName
+    }
+}
+
+if ($invalidLineEndingFiles.Count -ne 0) {
+    Write-Error (
+        "The following generated C# source files do not use CRLF line endings:`n" +
+            ($invalidLineEndingFiles -join [Environment]::NewLine))
+}
+
+Write-Host "Verified UTF-8 without BOM and CRLF line endings for $($files.Count) generated C# source files."

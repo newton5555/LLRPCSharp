@@ -68,6 +68,10 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore LLRPCSharp.slnx
 
+    - name: Verify generated source encoding
+      shell: pwsh
+      run: ./tools/Verify-SourceEncoding.ps1
+
     - name: Build Solution (Release)
       run: dotnet build LLRPCSharp.slnx --no-restore --configuration Release
 
