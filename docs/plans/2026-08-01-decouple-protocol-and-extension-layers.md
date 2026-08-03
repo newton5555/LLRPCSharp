@@ -32,7 +32,7 @@
 │    - 项目依赖: 引用 LlrpNet.Protocol.Impinj + LlrpSdk                       │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ 1. 协议扩展层: LlrpNet.Protocol.Impinj (独立协议引擎扩展)                  │
-│    - 物理位置: src/LlrpNet.Protocol.Impinj/                               │
+│    - 物理位置: src/LlrpNet/LlrpNet.Protocol.Impinj/                       │
 │    - 包含内容: 生成的 Impinj 报文/参数 Codecs (*.g.cs)、ImpinjProtocolModule │
 │    - 项目依赖: 仅引用 LlrpNet.Protocol + LlrpNet.Core (绝对不引用 LlrpSdk)    │
 └───────────────────────────────────────────────────────────────────────────┘
@@ -42,7 +42,7 @@
 
 ## 3. 详细实施计划
 
-### 步骤一：新建物理项目 `src/LlrpNet.Protocol.Impinj`（已完成）
+### 步骤一：新建物理项目 `src/LlrpNet/LlrpNet.Protocol.Impinj`（已完成）
 - 创建 `LlrpNet.Protocol.Impinj.csproj`，设置只引用 `LlrpNet.Protocol` 和 `LlrpNet.Core`。
 - 将生成目录从 `LlrpSdk.Extensions.Impinj` 迁移至 `LlrpNet.Protocol.Impinj`:
   - `Codecs/`
@@ -57,7 +57,7 @@
 - 仅保留 `ImpinjReaderExtension.cs`、`ImpinjReaderConfiguration.cs`、`ImpinjReaderSettings.cs` 等高层 SDK 模型。
 
 ### 步骤三：更新工具链与生成脚本（已完成）
-- 修改 [tools/Generate-ProtocolCode.ps1](file:///f:/Projects/LLRP/LLRPCSharp/tools/Generate-ProtocolCode.ps1)，将 Impinj 目标生成路径调整为 `src/LlrpNet.Protocol.Impinj`。
+- 修改 [tools/Generate-ProtocolCode.ps1](file:///f:/Projects/LLRP/LLRPCSharp/tools/Generate-ProtocolCode.ps1)，将 Impinj 目标生成路径调整为 `src/LlrpNet/LlrpNet.Protocol.Impinj`。
 - 更新 `definitions/README.md` 与生成命令文档。
 
 ### 步骤四：包边界（已完成基础拆分）

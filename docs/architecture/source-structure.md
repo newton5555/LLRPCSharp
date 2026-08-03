@@ -8,13 +8,26 @@
 
 ```text
 src/
-├── LlrpSdk/                    [手写] 应用层 SDK 根对象 (LlrpReader、RoSpecService)
-├── LlrpNet.Core/               [手写] 协议网络与传输层 (IO、TCP 流式帧切分、LlrpSession、FrameObserver)
-├── LlrpNet.ProtocolModel/      [手写] 协议定义模型与 LTK XML 导入器 (LtkXmlDefinitionImporter)
-├── LlrpNet.ProtocolGenerator/  [手写] C# 源码生成引擎 (ProtocolSourceGenerator)
-├── LlrpNet.Protocol/           [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
-├── LlrpNet.Protocol.Impinj/    [生成] Impinj 厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
+├── LlrpNet/                    [底层协议栈]
+│   ├── LlrpNet.Core/           [手写] 协议网络与传输层 (IO、TCP 流式帧切分、LlrpSession、FrameObserver)
+│   ├── LlrpNet.ProtocolModel/  [手写] 协议定义模型与 LTK XML 导入器 (LtkXmlDefinitionImporter)
+│   ├── LlrpNet.ProtocolGenerator/ [手写] C# 源码生成引擎 (ProtocolSourceGenerator)
+│   ├── LlrpNet.Protocol/       [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
+│   └── LlrpNet.Protocol.Impinj/ [生成] Impinj 厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
+├── LlrpSdk/                    [手写] 应用层 SDK（按职责分文件夹）
+│   ├── Reader/                  Reader 会话门面、连接状态与元数据
+│   ├── Settings/                ReaderSettings、配置模型与序列化
+│   ├── Inventory/               InventorySettings、编译器与盘点会话
+│   ├── Resources/               ROSpec/AccessSpec 专家资源服务
+│   ├── TagAccess/               标签访问编译与操作模型
+│   ├── Reports/                 报告模型、翻译器与时间戳
+│   ├── Protocol/                LLRP 版本适配器与协议访问
+│   └── Extensions/              SDK 扩展注册集合
 ├── LlrpSdk.Extensions.Impinj/  [手写扩展] Impinj 高层 SDK 映射、Settings/Inventory Contributor 与 UseImpinj()
+│   ├── Registration/            UseImpinj 与扩展注册
+│   ├── Settings/                Impinj 高层设置映射
+│   ├── Inventory/               Impinj 盘点扩展模型
+│   └── Reports/                 Impinj 报告扩展
 ├── LlrpCli/                    [手写] 交互式终端 Shell、智能提示链与 LLRP 报文树状分析器
 ├── LlrpReaderStudio.Core/      [手写] WPF 应用的 Reader 会话、Fleet、聚合与应用服务适配层
 ├── LlrpReaderStudio/           [手写/WPF] 基于 LlrpSdk 的首个桌面应用示例
@@ -88,19 +101,19 @@ src/
 - **`ReaderExtensionCollection`**：维护连接后激活的 Reader Extension，负责基于设备元数据筛选和互斥检查。
 - **`LlrpAutomaticReconnectOptions`**：控制有限自动重连；当前不会恢复期望 ROSpec/AccessSpec 或托管盘点状态。
 
-### 3.2 传输与会话层 (`src/LlrpNet.Core/`) —— [手写]
+### 3.2 传输与会话层 (`src/LlrpNet/LlrpNet.Core/`) —— [手写]
 - **`LlrpSession`**：底层的 LLRP 双向会话管理，负责并发 Request/Response 事务匹配、超时控制与取消广播。
 - **`Framing`**：实现网络大端序二进制 Buffer Reader/Writer、Bit Reader/Writer，以及 TCP 粘包/半包和多段缓冲区的流式帧切分。
 - **`ILlrpFrameObserver`**：网络边界级别的原始 LLRP 帧监听观察者接口，用于无侵入打印和捕获完整 TX/RX 报文。
 
-### 3.3 协议定义模型与导入器 (`src/LlrpNet.ProtocolModel/`) —— [手写]
+### 3.3 协议定义模型与导入器 (`src/LlrpNet/LlrpNet.ProtocolModel/`) —— [手写]
 - **`LtkXmlDefinitionImporter`**：直接读取与解析 LLRP 官方及 Impinj 等厂商发布的原始 LTK XML 规范文件（如 `llrp-1x0-def.xml`、`Impinjdef.xml`）。
 - **`ProtocolDefinition`**：将解析后的规范标准化为可校验的协议定义模型。
 
-### 3.4 源码生成引擎 (`src/LlrpNet.ProtocolGenerator/`) —— [手写]
+### 3.4 源码生成引擎 (`src/LlrpNet/LlrpNet.ProtocolGenerator/`) —— [手写]
 - **`ProtocolSourceGenerator`**：将导入的协议定义规范模型编译生成强类型的 C# 源码（包含二进制 Pack/Unpack、Bit-field 逻辑、保留位校验与 Codec 注册绑定）。
 
-### 3.5 协议二进制编解码集 (`src/LlrpNet.Protocol/`) —— [自动生成]
+### 3.5 协议二进制编解码集 (`src/LlrpNet/LlrpNet.Protocol/`) —— [自动生成]
 - **`Messages/`**：所有的 LLRP Message 强类型对象（如 `GetReaderCapabilities`、`AddRoSpec`、`RO_ACCESS_REPORT` 等）。
 - **`Parameters/`**：所有的 LLRP Parameter 强类型对象（如 `GeneralDeviceCapabilities`、`RoSpec`、`TagReportData`、`EPCData` 等）。
 - **`Enumerations/`**：协议中所有的枚举定义（如 `LlrpStatusCode`、`AirProtocolID` 等）。
@@ -120,5 +133,5 @@ src/
 
 | 类别 | 包含模块 / 目录 | 修改与维护原则 |
 |---|---|---|
-| **手写核心逻辑** | `LlrpSdk`, `LlrpNet.Core`, `LlrpNet.ProtocolModel`, `LlrpNet.ProtocolGenerator`, `LlrpCli` | 正常的 C# 逻辑代码，随需求功能演进手写维护。 |
-| **自动生成代码** | `LlrpNet.Protocol` 与 `LlrpNet.Protocol.Impinj` (`Messages`, `Parameters`, `Codecs`, `Registry`) | 不手写 C# 代码；通过更新 `definitions/` 下的 XML 定义并调用生成工具更新。高层 `LlrpSdk.Extensions.Impinj` 不存放生成的线协议类型。 |
+| **手写核心逻辑** | `LlrpSdk`, `LlrpNet/LlrpNet.Core`, `LlrpNet/LlrpNet.ProtocolModel`, `LlrpNet/LlrpNet.ProtocolGenerator`, `LlrpCli` | 正常的 C# 逻辑代码，随需求功能演进手写维护。 |
+| **自动生成代码** | `LlrpNet/LlrpNet.Protocol` 与 `LlrpNet/LlrpNet.Protocol.Impinj` (`Messages`, `Parameters`, `Codecs`, `Registry`) | 不手写 C# 代码；通过更新 `definitions/` 下的 XML 定义并调用生成工具更新。高层 `LlrpSdk.Extensions.Impinj` 不存放生成的线协议类型。 |

@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LlrpNet.Core\LlrpNet.Core.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

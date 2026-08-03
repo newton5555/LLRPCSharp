@@ -10,8 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" />
-    <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
+    <ProjectReference Include="..\LlrpNet\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
     <ProjectReference Include="..\LlrpSdk\LlrpSdk.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />

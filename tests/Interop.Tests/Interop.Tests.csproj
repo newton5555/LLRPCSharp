@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LlrpNet.Core\LlrpNet.Core.csproj" />
-    <ProjectReference Include="..\..\src\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk\LlrpSdk.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />

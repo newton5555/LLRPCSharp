@@ -12,9 +12,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LlrpNet.Core\LlrpNet.Core.csproj" />
-    <ProjectReference Include="..\..\src\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
-    <ProjectReference Include="..\..\src\LlrpNet.Protocol.Impinj\LlrpNet.Protocol.Impinj.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Protocol.Impinj\LlrpNet.Protocol.Impinj.csproj" />
   </ItemGroup>
 
   <ItemGroup>

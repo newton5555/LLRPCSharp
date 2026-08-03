@@ -20,7 +20,7 @@ function Invoke-Generator {
     )
 
     Write-Host "=== Generating $Name Code ===" -ForegroundColor Green
-    $cmdArgs = @('run', '--project', 'src/LlrpNet.ProtocolGenerator.Tool', '--') + $GeneratorArgs + $verifyArg
+    $cmdArgs = @('run', '--project', 'src/LlrpNet/LlrpNet.ProtocolGenerator.Tool', '--') + $GeneratorArgs + $verifyArg
     
     & dotnet @cmdArgs
     if ($LASTEXITCODE -ne 0) {
@@ -31,7 +31,7 @@ function Invoke-Generator {
 if ($Target -eq 'All' -or $Target -eq '1.0.1') {
     Invoke-Generator -Name "LLRP 1.0.1" -GeneratorArgs @(
         '--input', 'definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml',
-        '--output', 'src/LlrpNet.Protocol',
+        '--output', 'src/LlrpNet/LlrpNet.Protocol',
         '--root-namespace', 'LlrpNet.Protocol',
         '--version-namespace', 'V1_0_1',
         '--protocol-version', '1',
@@ -43,7 +43,7 @@ if ($Target -eq 'All' -or $Target -eq '1.1') {
     Invoke-Generator -Name "LLRP 1.1" -GeneratorArgs @(
         '--input', 'definitions/llrp-1.1.yaml',
         '--base', 'definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml',
-        '--output', 'src/LlrpNet.Protocol',
+        '--output', 'src/LlrpNet/LlrpNet.Protocol',
         '--root-namespace', 'LlrpNet.Protocol',
         '--version-namespace', 'V1_1',
         '--protocol-version', '2',
@@ -57,7 +57,7 @@ if ($Target -eq 'All' -or $Target -eq 'Impinj') {
         '--input', 'definitions/imports/xml/extensions/impinj/Impinjdef.xml',
         '--dependency', 'definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml',
         '--dependency-root-namespace', 'LlrpNet.Protocol',
-        '--output', 'src/LlrpNet.Protocol.Impinj',
+        '--output', 'src/LlrpNet/LlrpNet.Protocol.Impinj',
         '--root-namespace', 'LlrpNet.Protocol.Impinj',
         '--version-namespace', 'V1_0_1',
         '--protocol-version', '1',
@@ -71,7 +71,7 @@ if ($Target -eq '2.0') {
         '--input', 'definitions/llrp-2.0-delta.yaml',
         '--base', 'definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml',
         '--base', 'definitions/llrp-1.1.yaml',
-        '--output', 'src/LlrpNet.Protocol',
+        '--output', 'src/LlrpNet/LlrpNet.Protocol',
         '--root-namespace', 'LlrpNet.Protocol',
         '--version-namespace', 'V2_0',
         '--protocol-version', '3',

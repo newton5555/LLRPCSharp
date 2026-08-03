@@ -12,17 +12,19 @@
     <Project Path="src/LlrpCli/LlrpCli.csproj" />
     <Project Path="src/LlrpReaderStudio/LlrpReaderStudio.csproj" />
     <Project Path="src/LlrpReaderStudio.Core/LlrpReaderStudio.Core.csproj" />
-    <Project Path="src/LlrpNet.Core/LlrpNet.Core.csproj" />
-    <Project Path="src/LlrpNet.Protocol/LlrpNet.Protocol.csproj" />
-    <Project Path="src/LlrpNet.ProtocolGenerator/LlrpNet.ProtocolGenerator.csproj" />
-    <Project Path="src/LlrpNet.ProtocolGenerator.Tool/LlrpNet.ProtocolGenerator.Tool.csproj" />
-    <Project Path="src/LlrpNet.Protocol.Impinj/LlrpNet.Protocol.Impinj.csproj" />
-    <Project Path="src/LlrpNet.ProtocolModel/LlrpNet.ProtocolModel.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Abstractions/LlrpSdk.Extensions.Abstractions.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Seuic/LlrpSdk.Extensions.Seuic.csproj" />
     <Project Path="src/LlrpSdk/LlrpSdk.csproj" />
     <Project Path="src/LlrpVirtualReader/LlrpVirtualReader.csproj" />
+  </Folder>
+  <Folder Name="/src/LlrpNet/">
+    <Project Path="src/LlrpNet/LlrpNet.Core/LlrpNet.Core.csproj" />
+    <Project Path="src/LlrpNet/LlrpNet.Protocol/LlrpNet.Protocol.csproj" />
+    <Project Path="src/LlrpNet/LlrpNet.Protocol.Impinj/LlrpNet.Protocol.Impinj.csproj" />
+    <Project Path="src/LlrpNet/LlrpNet.ProtocolModel/LlrpNet.ProtocolModel.csproj" />
+    <Project Path="src/LlrpNet/LlrpNet.ProtocolGenerator/LlrpNet.ProtocolGenerator.csproj" />
+    <Project Path="src/LlrpNet/LlrpNet.ProtocolGenerator.Tool/LlrpNet.ProtocolGenerator.Tool.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Interop.Tests/Interop.Tests.csproj" />

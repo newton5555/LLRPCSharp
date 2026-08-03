@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LlrpNet.ProtocolModel\LlrpNet.ProtocolModel.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.ProtocolModel\LlrpNet.ProtocolModel.csproj" />
   </ItemGroup>
 
   <ItemGroup>

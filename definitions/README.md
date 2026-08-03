@@ -27,7 +27,7 @@ llrp-2.0-delta.yaml LLRP 2.0 delta, adapter pending
 ## Extension Generation
 
 ```powershell
-dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
+dotnet run --project src/LlrpNet/LlrpNet.ProtocolGenerator.Tool -- `
   --input definitions/my-extension.yaml --output src/MyExtension.Protocol `
   --root-namespace MyExtension.Protocol --version-namespace V1_0_1 `
   --protocol-version 1 --dependency definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
@@ -40,11 +40,11 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
 LLRP 2.0 is composed on top of the 1.0.1 XML model plus the 1.1 delta:
 
 ```powershell
-dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
+dotnet run --project src/LlrpNet/LlrpNet.ProtocolGenerator.Tool -- `
   --input definitions/llrp-2.0-delta.yaml `
   --base definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
   --base definitions/llrp-1.1.yaml `
-  --output src/LlrpNet.Protocol --root-namespace LlrpNet.Protocol `
+  --output src/LlrpNet/LlrpNet.Protocol --root-namespace LlrpNet.Protocol `
   --version-namespace V2_0 --protocol-version 3 --registry-module-name Llrp20StandardModule --codecs
 ```
 
@@ -53,11 +53,11 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
 The local Impinj 1.0.1 input comes from LTK Impinj Definition Files 10.58.0. The source XML remains local and ignored by Git; generated wire assets are committed under the SDK-independent `LlrpNet.Protocol.Impinj` project. The handwritten `LlrpSdk.Extensions.Impinj` project references that protocol package and adds only high-level SDK mappings and contributors.
 
 ```powershell
-dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
+dotnet run --project src/LlrpNet/LlrpNet.ProtocolGenerator.Tool -- `
   --input definitions/imports/xml/extensions/impinj/Impinjdef.xml `
   --dependency definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
   --dependency-root-namespace LlrpNet.Protocol `
-  --output src/LlrpNet.Protocol.Impinj --root-namespace LlrpNet.Protocol.Impinj `
+  --output src/LlrpNet/LlrpNet.Protocol.Impinj --root-namespace LlrpNet.Protocol.Impinj `
   --version-namespace V1_0_1 --protocol-version 1 `
   --registry-module-name ImpinjProtocolModule --codecs --verify
 ```

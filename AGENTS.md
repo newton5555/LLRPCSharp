@@ -31,21 +31,21 @@ protocol definition plus generator.
 
 Do not manually edit:
 
-- `src/LlrpNet.Protocol/**/*.g.cs`
-- `src/LlrpSdk.Extensions.Impinj/**/*.g.cs`
+- `src/LlrpNet/LlrpNet.Protocol/**/*.g.cs`
+- `src/LlrpNet/LlrpNet.Protocol.Impinj/**/*.g.cs`
 
 Change `definitions/`, importer/generator code, or the generation command
 instead, then regenerate and verify.
 
 ## Useful Entry Points
 
-- SDK facade: `src/LlrpSdk/LlrpReader.cs`
-- Reader builder/options: `src/LlrpSdk/LlrpReaderBuilder.cs`,
-  `src/LlrpSdk/LlrpReaderOptions.cs`
-- Protocol adapters: `src/LlrpSdk/Llrp101ProtocolAdapter.cs`,
-  `src/LlrpSdk/Llrp11ProtocolAdapter.cs`
-- Transport/session core: `src/LlrpNet.Core/Session/`,
-  `src/LlrpNet.Core/Transport/`
+- SDK facade: `src/LlrpSdk/Reader/LlrpReader.cs`
+- Reader builder/options: `src/LlrpSdk/Reader/LlrpReaderBuilder.cs`,
+  `src/LlrpSdk/Reader/LlrpReaderOptions.cs`
+- Protocol adapters: `src/LlrpSdk/Protocol/Llrp101ProtocolAdapter.cs`,
+  `src/LlrpSdk/Protocol/Llrp11ProtocolAdapter.cs`
+- Transport/session core: `src/LlrpNet/LlrpNet.Core/Session/`,
+  `src/LlrpNet/LlrpNet.Core/Transport/`
 - CLI commands: `src/LlrpCli/Commands/`
 - Virtual reader: `src/LlrpVirtualReader/`
 

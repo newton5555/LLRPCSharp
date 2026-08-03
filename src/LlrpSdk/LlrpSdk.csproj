@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
-    <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
+    <ProjectReference Include="..\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
+    <ProjectReference Include="..\LlrpNet\LlrpNet.Protocol\LlrpNet.Protocol.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
   </ItemGroup>
 

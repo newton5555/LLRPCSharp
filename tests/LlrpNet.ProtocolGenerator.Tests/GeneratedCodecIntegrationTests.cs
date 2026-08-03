@@ -249,8 +249,8 @@ public sealed class GeneratedCodecIntegrationTests
         Directory.CreateDirectory(temporaryDirectory);
         try
         {
-            string coreProject = Path.Combine(repositoryRoot, "src", "LlrpNet.Core", "LlrpNet.Core.csproj");
-            string protocolProject = Path.Combine(repositoryRoot, "src", "LlrpNet.Protocol", "LlrpNet.Protocol.csproj");
+            string coreProject = Path.Combine(repositoryRoot, "src", "LlrpNet", "LlrpNet.Core", "LlrpNet.Core.csproj");
+            string protocolProject = Path.Combine(repositoryRoot, "src", "LlrpNet", "LlrpNet.Protocol", "LlrpNet.Protocol.csproj");
             string projectPath = Path.Combine(temporaryDirectory, "GeneratedCodecSmoke.csproj");
             string project = $$"""
                 <Project Sdk="Microsoft.NET.Sdk">
@@ -272,7 +272,7 @@ public sealed class GeneratedCodecIntegrationTests
             {
                 string path = Path.Combine(temporaryDirectory, source.HintName.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, source.SourceText, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                File.WriteAllText(path, source.SourceText, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             }
 
             string localPackages = Path.Combine(
@@ -408,7 +408,7 @@ public sealed class GeneratedCodecIntegrationTests
         ProtocolGenerationResult result = new ProtocolSourceGenerator().Generate(definition, options);
         Assert.True(result.Succeeded);
 
-        string protocolProjectDir = Path.Combine(solutionRoot, "src", "LlrpNet.Protocol");
+        string protocolProjectDir = Path.Combine(solutionRoot, "src", "LlrpNet", "LlrpNet.Protocol");
 
         foreach (GeneratedSourceFile source in result.Sources)
         {
@@ -419,7 +419,7 @@ public sealed class GeneratedCodecIntegrationTests
                 Directory.CreateDirectory(dir);
             }
 
-            File.WriteAllText(targetPath, source.SourceText, Encoding.UTF8);
+            File.WriteAllText(targetPath, source.SourceText, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         }
     }
 }
