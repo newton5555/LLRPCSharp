@@ -40,7 +40,7 @@ end_of_line = crlf
 [*.md]
 charset = utf-8
 indent_size = 2
-end_of_line = lf
+end_of_line = crlf
 trim_trailing_whitespace = false
 
 [*.cs]

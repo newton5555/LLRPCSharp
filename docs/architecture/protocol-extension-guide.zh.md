@@ -33,7 +33,7 @@
 
 - **客户需要准备什么**：无需准备任何文件。
 - **项目处理机制**：
-  - 1.0.1 标准与 Impinj 1.0.1 扩展已基于本地 XML 预编译。当前 Impinj 输入为 LTK Definition Files 10.58.0，包含 4 条 Custom Message、104 个 Custom Parameter、49 个 Custom Enumeration。原始 XML 不随包分发，但生成模型和 Codec 已包含在 `LlrpSdk.Extensions.Impinj`。
+  - 1.0.1 标准与 Impinj 1.0.1 扩展已基于本地 XML 预编译。当前 Impinj 输入为 LTK Definition Files 10.58.0，包含 4 条 Custom Message、104 个 Custom Parameter、49 个 Custom Enumeration。原始 XML 不随包分发；生成模型和 Codec 位于不依赖 SDK 的 `LlrpNet.Protocol.Impinj`，高层映射位于 `LlrpSdk.Extensions.Impinj`。
   - LLRP 1.1 已由 SDK 内置 `llrp-1.1.yaml` 并生成代码；LLRP 2.0 的 `llrp-2.0-delta.yaml` 已入库，待完成 V2 Adapter 与协商后才成为可用 SDK 协议版本。
 
 ### 场景 2：接入第三方新厂商设备

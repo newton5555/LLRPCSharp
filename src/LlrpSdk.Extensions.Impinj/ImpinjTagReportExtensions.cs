@@ -1,4 +1,4 @@
-using LlrpSdk.Extensions.Impinj.Enumerations.V1_0_1;
+using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
 
 namespace LlrpSdk.Extensions.Impinj;
 

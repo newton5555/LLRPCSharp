@@ -53,7 +53,7 @@
 
 - `ILlrpProtocolModule`、`UseProtocolModule(...)`。
 - `IReaderExtension`、`UseReaderExtension(...)`、`reader.Extensions`。
-- `UseImpinj()` 扩展入口。
+- `UseImpinj()` 高层扩展入口；Impinj 生成协议资产已拆分到独立的 `LlrpNet.Protocol.Impinj` 项目，Raw 协议用户无需引用 `LlrpSdk` 即可使用其报文、参数、Codec 和注册模块。
 - Reader Extension 基于 Manufacturer/Model/Firmware/ProtocolVersion 匹配，并检查互斥组冲突。
 - **两阶段能力获取与主动连接初始化 (ADR 0002)**：重构 SDK 握手连接逻辑，实现“读取基础身份 -> 匹配并激活运行对应扩展的主动初始化（如 Impinj 自动发送 `IMPINJ_ENABLE_EXTENSIONS`）-> 读取包含厂商专属能力的完整 Capability 快照”的双阶段流，解决因扩展未使能而无法查询厂商扩展能力的限制。
 
@@ -110,7 +110,7 @@ R420 Firmware 6.4.1 的 ItemTest 抓包证明最新 Impinj 定义中的 `ImpinjT
 
 Virtual Reader 已能生成可配置 EPC 的基础 TagReport，对 EPC bit mask 执行最小标签筛选，并以可变的 User Memory 模拟 C1G2 Read/Write AccessSpec；也支持最小 `GET/SET_READER_CONFIG` 的 Keepalive、GPO、天线和事件配置状态，以及标准 `DELETE_ACCESSSPEC(0)` / `DELETE_ROSPEC(0)` 全资源清场。`Interop.Tests` 覆盖托管模式接管手动资源、Raw 后同步、写后读、配置查询/应用回读、SDK 超时、LLRP 错误状态和主动断线后的自动重连。它仍不模拟真实射频、跨进程持久化或 LLRP 2.0。
 
-2026-07-30 已使用隔离的 `bin-validation` 输出目录完成 `dotnet build LLRPCSharp.slnx --no-restore`（零警告、零错误）及 `dotnet test LLRPCSharp.slnx --no-build --no-restore`。全部八个测试项目通过，共 372 项；该结果验证源码和自动化场景，不替代真实设备验收。
+2026-08-03 已完成协议扩展分层后的 `dotnet build LLRPCSharp.slnx --no-restore`（零警告、零错误）及 `dotnet test LLRPCSharp.slnx --no-build --no-restore`。全部测试项目通过，共 391 项；该结果验证源码和自动化场景，不替代真实设备验收。
 
 本轮（2026-07-28）完成的主要工作：
 
@@ -122,7 +122,7 @@ Virtual Reader 已能生成可配置 EPC 的基础 TagReport，对 EPC bit mask 
 - **`CommandCatalog` 扩展**：新增 `Require`、`TryResolve(name, isConnected)`、`Assist(input, cursor, isConnected)` 方法，支持连接状态门控与末尾空格自动补全场景。
 - **`LlrpCli.csproj`**：添加 `InternalsVisibleTo("LlrpCli.Tests")`，允许测试项目访问 internal 命令处理器。
 - **CLI 用户指南**：[cli-user-guide.md](file:///f:/Projects/LLRP/LLRPCSharp/docs/guides/cli-user-guide.md) 全量更新，覆盖所有命令语法、参数表、settings 文件 JSON 格式示例与常见问题。
-- 测试：当前解决方案级验证共 **372 项**全部通过（0 失败），包括盘点草稿、临时天线覆盖、组合 Tag Access、Keepalive 超时、资源模式接管、Raw 后同步和命令目录测试。
+- 测试：当前解决方案级验证共 **391 项**全部通过（0 失败），包括盘点草稿、临时天线覆盖、组合 Tag Access、Keepalive 超时、资源模式接管、Raw 后同步、命令目录和协议扩展独立依赖测试。
 
 此前发生的 Impinj 扩展类型重复定义错误已解决：`LlrpNet.ProtocolGenerator.Tool` 已增加对输出目录孤立 `*.g.cs` 文件的检测与自动清理机制，旧编号遗留文件已全部清除。
 

@@ -4,6 +4,9 @@
 
 # Standard C# and .NET overrides
 *.cs text eol=crlf diff=csharp
+# Generated protocol sources use the same normalized line ending; encoding
+# (UTF-8 without BOM) is enforced by .editorconfig and Verify-SourceEncoding.ps1.
+*.g.cs text eol=crlf diff=csharp
 *.csproj text
 *.sln text eol=crlf
 *.slnx text
@@ -11,4 +14,4 @@
 *.targets text
 *.editorconfig text
 *.gitignore text
-*.md text
+*.md text eol=crlf

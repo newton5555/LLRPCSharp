@@ -50,18 +50,19 @@ dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
 
 ## Impinj Generation
 
-The local Impinj 1.0.1 input comes from LTK Impinj Definition Files 10.58.0. The source XML remains local and ignored by Git; generated `.g.cs` files are committed under `LlrpSdk.Extensions.Impinj`.
+The local Impinj 1.0.1 input comes from LTK Impinj Definition Files 10.58.0. The source XML remains local and ignored by Git; generated wire assets are committed under the SDK-independent `LlrpNet.Protocol.Impinj` project. The handwritten `LlrpSdk.Extensions.Impinj` project references that protocol package and adds only high-level SDK mappings and contributors.
 
 ```powershell
 dotnet run --project src/LlrpNet.ProtocolGenerator.Tool -- `
   --input definitions/imports/xml/extensions/impinj/Impinjdef.xml `
   --dependency definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
   --dependency-root-namespace LlrpNet.Protocol `
-  --output src/LlrpSdk.Extensions.Impinj --root-namespace LlrpSdk.Extensions.Impinj `
+  --output src/LlrpNet.Protocol.Impinj --root-namespace LlrpNet.Protocol.Impinj `
   --version-namespace V1_0_1 --protocol-version 1 `
   --registry-module-name ImpinjProtocolModule --codecs --verify
 ```
 
 Without `--verify`, the generator writes missing or changed `.g.cs` files. With `--verify`, it only checks that generated assets are current, which is suitable for CI.
+Generated sources are written as UTF-8 without a BOM and with CRLF line endings, matching `.editorconfig` and `.gitattributes`; verification compares the exact bytes so an old BOM is repaired instead of being silently accepted.
 
 Current input versions, SHA-256 hashes, and usage constraints are tracked in [`docs/references/README.md`](../docs/references/README.md).

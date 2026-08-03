@@ -1,9 +1,9 @@
 ﻿using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
-using LlrpSdk.Extensions.Impinj.Enumerations.V1_0_1;
-using LlrpSdk.Extensions.Impinj.Messages.V1_0_1;
-using LlrpSdk.Extensions.Impinj.Parameters.V1_0_1;
+using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
+using LlrpNet.Protocol.Impinj.Messages.V1_0_1;
+using LlrpNet.Protocol.Impinj.Parameters.V1_0_1;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -25,7 +25,7 @@ public sealed class ImpinjProtocolModule : ILlrpProtocolModule
     public void Register(LlrpCodecRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(registry);
-        Registry.V1_0_1.ImpinjProtocolModule.Register(registry);
+        LlrpNet.Protocol.Impinj.Registry.V1_0_1.ImpinjProtocolModule.Register(registry);
     }
 }
 

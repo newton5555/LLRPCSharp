@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>LlrpNet.Protocol.Impinj</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Title>LLRPCSharp Impinj Protocol Extension</Title>
+    <Description>Generated Impinj LLRP 1.0.1 messages, parameters, codecs, and registry module.</Description>
+    <PackageTags>llrp;impinj;protocol;codec;rfid</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\LlrpNet.Core\LlrpNet.Core.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
+  </ItemGroup>
+</Project>

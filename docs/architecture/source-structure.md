@@ -13,7 +13,8 @@ src/
 ├── LlrpNet.ProtocolModel/      [手写] 协议定义模型与 LTK XML 导入器 (LtkXmlDefinitionImporter)
 ├── LlrpNet.ProtocolGenerator/  [手写] C# 源码生成引擎 (ProtocolSourceGenerator)
 ├── LlrpNet.Protocol/           [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
-├── LlrpSdk.Extensions.Impinj/  [扩展/生成] Impinj 厂商私有扩展组件库与 Custom Codec 模块
+├── LlrpNet.Protocol.Impinj/    [生成] Impinj 厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
+├── LlrpSdk.Extensions.Impinj/  [手写扩展] Impinj 高层 SDK 映射、Settings/Inventory Contributor 与 UseImpinj()
 ├── LlrpCli/                    [手写] 交互式终端 Shell、智能提示链与 LLRP 报文树状分析器
 ├── LlrpReaderStudio.Core/      [手写] WPF 应用的 Reader 会话、Fleet、聚合与应用服务适配层
 ├── LlrpReaderStudio/           [手写/WPF] 基于 LlrpSdk 的首个桌面应用示例
@@ -61,8 +62,9 @@ src/
 `definitions/imports/xml/extensions/impinj/Impinjdef.xml`（LTK Definition Files 10.58.0）。
 
 * **厂商标识与命名空间规约**：
-  - 厂商私有扩展可生成在独立扩展项目 `LlrpSdk.Extensions.Impinj` 或 `LlrpNet.Protocol` 的 `Vendor/` 子目录下。
-  - **命名空间**：`LlrpSdk.Extensions.Impinj.Messages` / `Parameters` / `Codecs`。
+  - 线协议生成资产必须放在独立的 `LlrpNet.Protocol.Impinj` 项目中；该项目只依赖 `LlrpNet.Protocol` 与 `LlrpNet.Core`，不得依赖 `LlrpSdk`。
+  - **命名空间**：`LlrpNet.Protocol.Impinj.Messages` / `Parameters` / `Codecs`。
+  - `LlrpSdk.Extensions.Impinj` 只包含手写的高层映射和 Contributor，并通过项目引用使用协议扩展。
 * **类型与类名规约**：
   - 类名保持厂商定义名称，前缀显式带厂商标识，如：
     - 扩展 Message：`IMPINJ_ENABLE_EXTENSIONS`
@@ -119,4 +121,4 @@ src/
 | 类别 | 包含模块 / 目录 | 修改与维护原则 |
 |---|---|---|
 | **手写核心逻辑** | `LlrpSdk`, `LlrpNet.Core`, `LlrpNet.ProtocolModel`, `LlrpNet.ProtocolGenerator`, `LlrpCli` | 正常的 C# 逻辑代码，随需求功能演进手写维护。 |
-| **自动生成代码** | `LlrpNet.Protocol` (`Messages`, `Parameters`, `Codecs`, `Registry`), `LlrpSdk.Extensions.Impinj` | 不手写 C# 代码；通过更新 `definitions/` 下的 XML 定义并调用生成工具更新。 |
+| **自动生成代码** | `LlrpNet.Protocol` 与 `LlrpNet.Protocol.Impinj` (`Messages`, `Parameters`, `Codecs`, `Registry`) | 不手写 C# 代码；通过更新 `definitions/` 下的 XML 定义并调用生成工具更新。高层 `LlrpSdk.Extensions.Impinj` 不存放生成的线协议类型。 |

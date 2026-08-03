@@ -16,6 +16,7 @@
     <Project Path="src/LlrpNet.Protocol/LlrpNet.Protocol.csproj" />
     <Project Path="src/LlrpNet.ProtocolGenerator/LlrpNet.ProtocolGenerator.csproj" />
     <Project Path="src/LlrpNet.ProtocolGenerator.Tool/LlrpNet.ProtocolGenerator.Tool.csproj" />
+    <Project Path="src/LlrpNet.Protocol.Impinj/LlrpNet.Protocol.Impinj.csproj" />
     <Project Path="src/LlrpNet.ProtocolModel/LlrpNet.ProtocolModel.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Abstractions/LlrpSdk.Extensions.Abstractions.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj" />
@@ -27,6 +28,7 @@
     <Project Path="tests/Interop.Tests/Interop.Tests.csproj" />
     <Project Path="tests/LlrpCli.Tests/LlrpCli.Tests.csproj" />
     <Project Path="tests/LlrpNet.Core.Tests/LlrpNet.Core.Tests.csproj" />
+    <Project Path="tests/LlrpNet.Protocol.Impinj.Tests/LlrpNet.Protocol.Impinj.Tests.csproj" />
     <Project Path="tests/LlrpNet.Protocol.Tests/LlrpNet.Protocol.Tests.csproj" />
     <Project Path="tests/LlrpNet.ProtocolGenerator.Tests/LlrpNet.ProtocolGenerator.Tests.csproj" />
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />

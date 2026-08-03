@@ -18,7 +18,7 @@ For the exact current implementation status, see [docs/status.md](docs/status.md
 - `Microsoft.Extensions.Logging` integration and raw TX/RX frame observation through `ILlrpFrameObserver`.
 - LTK XML / YAML protocol definition import, validation, and C# code generation.
 - Spectre.Console CLI for online connect, monitor, and live shell workflows, plus offline inspect/decode/encode.
-- Impinj extension registration, `UseImpinj()`, and generated strongly typed codec assets.
+- SDK-level Impinj registration via `UseImpinj()` plus the independent `LlrpNet.Protocol.Impinj` package for generated strongly typed wire assets.
 - Minimal 1.0.1 virtual reader for capability queries and ROSpec lifecycle tests.
 
 ## Quick Start

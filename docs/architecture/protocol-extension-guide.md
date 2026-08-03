@@ -33,7 +33,7 @@ In `LLRPCSharp`, protocol definition ownership is intentionally strict: legacy X
 
 - **Customer input**: no files are required.
 - **SDK behavior**:
-  - LLRP 1.0.1 standard support and Impinj 1.0.1 extensions are precompiled from local XML inputs. The current Impinj input is LTK Definition Files 10.58.0 with 4 custom messages, 104 custom parameters, and 49 custom enumerations. The original XML is not redistributed, but generated models and codecs are included in `LlrpSdk.Extensions.Impinj`.
+  - LLRP 1.0.1 standard support and Impinj 1.0.1 extensions are precompiled from local XML inputs. The current Impinj input is LTK Definition Files 10.58.0 with 4 custom messages, 104 custom parameters, and 49 custom enumerations. The original XML is not redistributed; generated wire models and codecs live in the SDK-independent `LlrpNet.Protocol.Impinj`, while high-level mappings live in `LlrpSdk.Extensions.Impinj`.
   - LLRP 1.1 is generated from the SDK-provided `llrp-1.1.yaml`. LLRP 2.0 has `llrp-2.0-delta.yaml` in the repository, but it becomes a usable SDK protocol version only after the V2 adapter and negotiation path are implemented.
 
 ### Scenario 2: Integrating A New Third-Party Vendor Reader

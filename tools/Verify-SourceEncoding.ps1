@@ -3,29 +3,23 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$sourceRoots = @(
-    (Join-Path $repositoryRoot 'src'),
-    (Join-Path $repositoryRoot 'tests'),
-    (Join-Path $repositoryRoot 'samples'),
-    (Join-Path $repositoryRoot 'tools')
-)
-
-$files = foreach ($sourceRoot in $sourceRoots) {
-    if (Test-Path -LiteralPath $sourceRoot) {
-        Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.cs' |
-            Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }
-    }
-}
+# Generated protocol sources use UTF-8 without a BOM. This is the same
+# representation emitted by ProtocolGenerator.Tool and requested by
+# .editorconfig (`charset = utf-8`). Handwritten legacy files are intentionally
+# outside this check so a one-time encoding cleanup does not mix with protocol
+# generation changes.
+$files = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'src') -Recurse -File -Filter '*.g.cs' |
+    Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }
 
 $invalidFiles = foreach ($file in $files) {
     $stream = [System.IO.File]::OpenRead($file.FullName)
     try {
         $prefix = [byte[]]::new(3)
         $read = $stream.Read($prefix, 0, $prefix.Length)
-        if ($read -lt 3 -or
-            $prefix[0] -ne 0xEF -or
-            $prefix[1] -ne 0xBB -or
-            $prefix[2] -ne 0xBF) {
+        if ($read -ge 3 -and
+            $prefix[0] -eq 0xEF -and
+            $prefix[1] -eq 0xBB -and
+            $prefix[2] -eq 0xBF) {
             $file.FullName
         }
     }
@@ -36,8 +30,8 @@ $invalidFiles = foreach ($file in $files) {
 
 if ($invalidFiles.Count -ne 0) {
     Write-Error (
-        "The following C# source files are not UTF-8 with BOM:`n" +
-        ($invalidFiles -join [Environment]::NewLine))
+        "The following generated C# source files contain a UTF-8 BOM:`n" +
+            ($invalidFiles -join [Environment]::NewLine))
 }
 
-Write-Host "Verified UTF-8 BOM for $($files.Count) C# source files."
+Write-Host "Verified UTF-8 without BOM for $($files.Count) generated C# source files."

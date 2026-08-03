@@ -1,7 +1,7 @@
 # 架构解耦规划：底层协议扩展层与高层 SDK 插件层拆分
 
 > 日期：2026-08-01  
-> 状态：规划讨论中 (Draft for Review)  
+> 状态：已实现（2026-08-03，dev 分支）
 > 目标：解耦 `LlrpNet.Protocol`（协议层）与 `LlrpSdk`（托管层）对厂商扩展（以 Impinj 为代表）的物理依赖，建立可复用的协议引擎分层规范。
 
 ---
@@ -42,7 +42,7 @@
 
 ## 3. 详细实施计划
 
-### 步骤一：新建物理项目 `src/LlrpNet.Protocol.Impinj`
+### 步骤一：新建物理项目 `src/LlrpNet.Protocol.Impinj`（已完成）
 - 创建 `LlrpNet.Protocol.Impinj.csproj`，设置只引用 `LlrpNet.Protocol` 和 `LlrpNet.Core`。
 - 将生成目录从 `LlrpSdk.Extensions.Impinj` 迁移至 `LlrpNet.Protocol.Impinj`:
   - `Codecs/`
@@ -52,22 +52,22 @@
   - `Registry/`
   - `ImpinjProtocolModule.cs`
 
-### 步骤二：清理 `src/LlrpSdk.Extensions.Impinj`
+### 步骤二：清理 `src/LlrpSdk.Extensions.Impinj`（已完成）
 - 项目修改为引用 `LlrpNet.Protocol.Impinj` 和 `LlrpSdk`。
 - 仅保留 `ImpinjReaderExtension.cs`、`ImpinjReaderConfiguration.cs`、`ImpinjReaderSettings.cs` 等高层 SDK 模型。
 
-### 步骤三：更新工具链与生成脚本
+### 步骤三：更新工具链与生成脚本（已完成）
 - 修改 [tools/Generate-ProtocolCode.ps1](file:///f:/Projects/LLRP/LLRPCSharp/tools/Generate-ProtocolCode.ps1)，将 Impinj 目标生成路径调整为 `src/LlrpNet.Protocol.Impinj`。
 - 更新 `definitions/README.md` 与生成命令文档。
 
-### 步骤四：更新 NuGet 双包打包配置
-- 保持对外只发布 **2 个标准 NuGet 包** 的约定（`LlrpSdk` 和 `LlrpSdk.Extensions.Impinj`）。
-- 在 `LlrpSdk.Extensions.Impinj.csproj` 中配置 `<BuildOutputInPackage>` 自动包含 `LlrpNet.Protocol.Impinj.dll`，保证 NuGet 使用者的零破坏升级体验。
+### 步骤四：包边界（已完成基础拆分）
+- `LlrpNet.Protocol.Impinj` 是独立协议包，可被只使用 Raw 协议的应用单独引用。
+- `LlrpSdk.Extensions.Impinj` 依赖协议包并提供高层 SDK 映射。是否在发布流水线中将协议包作为高层包的传递依赖，由打包验证另行确认；源码项目不通过反向引用或复制 DLL 解决依赖。
 
 ---
 
 ## 4. 成本与风险评估
 
 - **工程成本**：低-中（约 1-2 小时），纯物理结构重构，零算法/逻辑变更。
-- **构建校验**：重构后执行全量 `dotnet build` 与 `dotnet test`，确保 372+ 项测试通过。
+- **构建校验**：重构后执行全量 `dotnet build` 与 `dotnet test`，并增加协议包不引用 SDK 的独立回归测试。
 - **长期收益**：建立了标准化的厂商扩展解耦范式，未来引入 Zebra、Alien 等其它厂商扩展时直接复用该物理分层。

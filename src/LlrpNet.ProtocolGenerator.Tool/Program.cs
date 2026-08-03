@@ -124,7 +124,8 @@ public static class Program
             validTargetPaths.Add(targetPath);
 
             string expected = source.SourceText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", CrLf, StringComparison.Ordinal);
-            if (File.Exists(targetPath) && File.ReadAllText(targetPath) == expected)
+            byte[] expectedBytes = Utf8.GetBytes(expected);
+            if (File.Exists(targetPath) && File.ReadAllBytes(targetPath).AsSpan().SequenceEqual(expectedBytes))
             {
                 continue;
             }
@@ -143,7 +144,7 @@ public static class Program
             }
 
             Directory.CreateDirectory(directory);
-            File.WriteAllText(targetPath, expected, Utf8);
+            File.WriteAllBytes(targetPath, expectedBytes);
         }
 
         if (Directory.Exists(outputRoot))
