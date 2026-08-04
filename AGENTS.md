@@ -86,6 +86,8 @@ When executing a version release (e.g. `0.6.0`), follow this strict step-by-step
    - Create the release notes file at `docs/releases/<version>.md`.
    - Update the project version number (e.g., `<Version>` in `Directory.Build.props`).
 3. **Local Commit**: Commit the release changes locally (e.g., `git commit -m "release: prepare <version>"`).
-4. **Manual Confirmation 1 (Push to Remote)**: Ask the user for explicit confirmation before pushing the release branch to `origin`.
+4. **Manual Confirmation 1 (Push Release Branch)**: Ask the user for explicit confirmation before pushing the release branch to `origin`.
 5. **Manual Confirmation 2 (Merge to Master)**: Ask the user for explicit confirmation before merging `release/<version>` back into `master`.
-6. **Manual Confirmation 3 (Cleanup Release Branch)**: Ask the user for explicit confirmation before deleting the local and remote `release/<version>` branches.
+6. **Create Version Tag**: Create annotated Git tag on master: `git tag -a v<version> -m "release v<version>"`.
+7. **Manual Confirmation 3 (Push Tag to Remote)**: Ask the user for explicit confirmation before pushing tags: `git push origin v<version>`.
+8. **Manual Confirmation 4 (Cleanup Release Branch)**: Ask the user for explicit confirmation before deleting local and remote `release/<version>` branches.
