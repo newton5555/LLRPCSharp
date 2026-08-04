@@ -31,6 +31,15 @@ dotnet run --project tools/LlrpSdk.LiveSmoke -- <reader-host>
 - 不执行 Kill、不可逆 Lock、永久化配置或无法恢复的 Tag Memory 写入。
 - 任何失败都必须尝试 Disable/Delete 临时 ROSpec 与 AccessSpec，并附上帧日志后才能判定为已知失败。
 
+## 验收执行与证据记录
+
+验收由工程师或编码代理（agent）执行，结果必须由执行者自行记录到下方「已记录证据」表。
+
+- 执行入口：`tools/LlrpSdk.LiveSmoke`（agent 冒烟，快速验证链路）、`src/LlrpCli`（Live Shell / 一次性命令）、`tests/LlrpSdk.Hardware.Tests`（xUnit 用例）。LiveSmoke 与 CLI 的实时输出本身不是验收证据，转成下方表格记录后才算。
+- 每行记录必须包含：测试日期、设备型号 / IP / 固件版本、执行内容（使用的命令或用例）、结果（含实测数据，如 EPC、回读一致等）、以及「未写标签或设备配置」等非破坏性确认。
+- 任何失败路径必须记录 Disable/Delete 临时 ROSpec / AccessSpec 的清理动作，并附帧日志（`LlrpFrameJournal` 或 CLI 报文输出）后才能判定为已知失败。
+- `LlrpSdk.Hardware.Tests` 在设备连不上时静默 Skip，记录时需确认用例确实执行（跳过不算验收证据）。
+
 ## 已记录证据
 
 | 日期 | 设备 | 结果 |

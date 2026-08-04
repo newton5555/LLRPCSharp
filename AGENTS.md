@@ -26,7 +26,7 @@ dotnet test LLRPCSharp.slnx --no-build
 dotnet test tests/LlrpSdk.Hardware.Tests/LlrpSdk.Hardware.Tests.csproj
 ```
 
-Known status as of 2026-07-25: the solution build passes cleanly with zero errors across all projects. See `docs/status.md` for current details.
+Build/test status is tracked in `docs/status.md` — do not hard-code build-status dates here.
 
 ## Do Not Hand Edit Generated Code
 
@@ -64,9 +64,10 @@ instead, then regenerate and verify.
 - LLRP 2.0 definitions exist, but there is no `Llrp20ProtocolAdapter` yet.
 - `InventorySettings` currently represents inventory intent, not a full reader
   configuration snapshot.
-- `QueryConfigurationAsync`, `ApplyConfigurationAsync`, tag memory access APIs, dynamic
-  YAML runtime loading, Settings Contributor, and TagReport Contributor are
-  planned design areas, not currently callable public SDK APIs.
+- `QueryConfigurationAsync`, `ApplyConfigurationAsync`, dynamic YAML runtime
+  loading, Settings Contributor, and TagReport Contributor are planned design
+  areas, not currently callable public SDK APIs. (Standard Tag Access — read,
+  write, lock, kill, block erase — is implemented; see `docs/status.md`.)
 - Automatic reconnect is limited; it does not yet restore desired ROSpec,
   AccessSpec, or managed inventory state.
 
@@ -77,6 +78,30 @@ instead, then regenerate and verify.
 - Keep `docs/roadmap.md` about future work and priority.
 - Keep `README.md` user-facing and brief.
 - Mark planned APIs clearly as planned when they appear in design documents.
+
+## AI Documentation Navigation
+
+For a new task, read in this order before acting: `AGENTS.md` → `docs/status.md`
+→ the relevant guide under `docs/guides/` → `tests/README.md`. When changing
+behavior, first check `docs/status.md` and the affected docs for an existing
+convention; update them in the same change.
+
+## Bilingual Documentation Convention
+
+Files that exist in both languages (`README.md`/`README.zh.md`,
+`docs/architecture/overview*.md`, `docs/showcase*.md`) keep **English as the
+authoritative version** and the Chinese copy as a translation. Never let the two
+versions diverge — edit both together, and treat the English version as truth on
+conflicts.
+
+## Hardware Acceptance Evidence
+
+Real-device acceptance is executed by an engineer or agent and the outcome is
+recorded by the executor into the evidence table in
+`docs/acceptance/reader-interoperability.md`. `tools/LlrpSdk.LiveSmoke` is for
+agent smoke checks only and is not acceptance evidence by itself; `dotnet test
+tests/LlrpSdk.Hardware.Tests` silently skips when the device is unreachable, so
+a recorded run must confirm the tests actually executed.
 
 ## Git Commit Rules
 
