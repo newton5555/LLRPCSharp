@@ -93,5 +93,6 @@ public sealed class PhysicalReaderConformanceTests
         }
 
         await session.StopAsync();
+        await reader.ClearManagedSettingsAsync(); // Clean up even on failure so tests never poison the shared device.
     }
 }

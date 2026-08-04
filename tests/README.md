@@ -205,6 +205,33 @@
   - **输入条件**：向真实设备下发天线盘点规则。
   - **OK 判定标准**：`ApplySettingsAsync` 成功下发 ROSpec；`StartInventoryAsync` 启动会话；`ReadReportsAsync()` 在真实射频环境下采样到真实的标签数据流；`StopAsync()` 正常停止盘点。
 
+#### 10.2 `ManagedReaderHardwareTests` (托管 SDK 真机验收)
+
+覆盖托管 `LlrpReader` 的核心应用路径。全部非破坏性：不执行 Kill、不可逆 Lock 或标签/设备配置写入。已在 Impinj R420 (firmware 6.4.1.x, LLRP 1.0.1) 上验证。
+
+* **`[Fact] ManagedInventory_OnePhaseStart_ReportsTagsAndCleansUp`**
+  - **测试内容**：一段式 `StartInventoryAsync(settings)`（部署并启动）→ 采样真实标签 → `ClearManagedSettingsAsync` 清理。
+  - **输入条件**：从 `GetDefaultSettingsAsync` 取基线，天线取 `appsettings.local.json` 配置。**需要至少一枚标签在场**。
+  - **OK 判定标准**：收到非空标签报告且 `EpcHex` 非空；清理后 `OperationState` 回到 `Idle`。
+* **`[Fact] ManagedInventory_TwoPhaseStart_StartsDeployedInventory`**
+  - **测试内容**：两段式 `ApplySettingsAsync`（部署不启动）→ `StartInventoryAsync()`（显式启动）。
+  - **输入条件**：同上一用例；**需要至少一枚标签在场**。
+  - **OK 判定标准**：部署后 `OperationState == Idle`（保持停止）；启动后采样到标签；`StopAsync` 停止。
+* **`[Fact] TagAccess_ReadsTagMemory_NonDestructive`**
+  - **测试内容**：先盘点定位一枚标签，再 `ReadTagMemoryAsync` 非破坏性读取 User 内存。
+  - **输入条件**：盘点采样到标签（无标签则跳过，视为环境问题）。
+  - **OK 判定标准**：`TagAccessResult.Operation.Success == true` 且返回读数据。
+* **`[Fact] ImpinjSerializedTid_IsProjectedWhenRequested`**
+  - **测试内容**：`UseImpinj()` + `IncludeSerializedTid` 时报告投影 `SerializedTidHex`。
+  - **输入条件**：`SupportsImpinjExtensions == true`（Impinj 设备）；**需要至少一枚标签在场**。
+  - **OK 判定标准**：至少一条报告 `SerializedTidHex` 非空（R420 6.4.1 已验证支持）。
+* **`[Fact] QuerySettingsAsync_ReturnsDeviceConfiguration`**
+  - **测试内容**：`QuerySettingsAsync` 返回设备配置快照。
+  - **输入条件**：设备在线即可，只读。
+  - **OK 判定标准**：`Configuration` 非空且包含天线列表。
+
+> 注意：部署型调用（`StartInventoryAsync(settings)` / `ApplySettingsAsync` 带 Inventory）会删除设备上全部 ROSpec/AccessSpec（SDK 完全接管）。真机测试仅在专用测试设备上运行；共享设备请先保存配置快照。
+
 ---
 
 ## 🏃 运行测试

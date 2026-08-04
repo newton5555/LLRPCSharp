@@ -13,7 +13,7 @@ public sealed record TargetReaderConfig
     public string Ip { get; init; } = "192.168.1.100";
     public int Port { get; init; } = 5084;
     public string Vendor { get; init; } = "Standard";
-    public IReadOnlyList<ushort> Antennas { get; init; } = [1];
+    public IReadOnlyList<ushort> Antennas { get; init; } = [];
     public bool SupportsImpinjExtensions { get; init; }
 }
 
