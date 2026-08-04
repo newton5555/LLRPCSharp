@@ -119,38 +119,60 @@ reader.TagsReported += (sender, reports) =>
 ### 5.1 读取标签内存 (User / TID)
 
 ```csharp
-byte[] tidData = await reader.ReadTagMemoryAsync(
-    targetEpcHex: "E28011910000000000000001",
-    bank: MemoryBank.Tid,
-    wordOffset: 0,
-    wordCount: 4);
+// 先构造标签选择条件:按 EPC 全匹配(96 位,12 字节)
+TagSelection selection = new()
+{
+    MemoryBank = TagMemoryBank.ElectronicProductCode,
+    BitPointer = 32,
+    BitLength = 96,
+    Mask = Enumerable.Repeat((byte)0xFF, 12).ToArray(),
+    Data = Convert.FromHexString("E28011910000000000000001"),
+};
 
-Console.WriteLine($"TID Data: {Convert.ToHexString(tidData)}");
+TagAccessResult result = await reader.ReadTagMemoryAsync(new ReadTagRequest
+{
+    Selection = selection,
+    MemoryBank = TagMemoryBank.Tid,
+    WordPointer = 0,
+    WordCount = 4,
+}, timeout: TimeSpan.FromSeconds(10));
+
+Console.WriteLine(
+    $"Success: {result.Operation.Success}, " +
+    $"Words: [{string.Join(", ", result.Operation.ReadData.Select(word => word.ToString("X4")))}], " +
+    $"Error: {result.Operation.Error}");
 ```
 
 ### 5.2 写入标签内存
 
 ```csharp
-byte[] dataToWrite = Convert.FromHexString("A1B2C3D4");
+TagAccessResult result = await reader.WriteTagMemoryAsync(new WriteTagRequest
+{
+    Selection = selection,          // 同上:按 EPC 选择标签
+    MemoryBank = TagMemoryBank.User,
+    WordPointer = 0,
+    WriteData = [0xA1B2, 0xC3D4],   // 16 位字列表
+}, timeout: TimeSpan.FromSeconds(10));
 
-bool success = await reader.WriteTagMemoryAsync(
-    targetEpcHex: "E28011910000000000000001",
-    bank: MemoryBank.User,
-    wordOffset: 0,
-    data: dataToWrite);
+Console.WriteLine($"Success: {result.Operation.Success}, WordsWritten: {result.Operation.WordsWritten}");
 ```
 
-### 5.3 标签锁定与销毁
+### 5.3 标签锁定与销毁(均为不可逆/危险操作,请谨慎)
 
 ```csharp
-await reader.LockTagMemoryAsync(
-    targetEpcHex: "E28011910000000000000001",
-    bank: MemoryBank.User,
-    accessPassword: 0);
+// 锁定 User 内存为 SecuredWrite 模式(锁后不可再写,需谨慎)
+TagAccessResult lockResult = await reader.LockTagMemoryAsync(new LockTagRequest
+{
+    Selection = selection,
+    UserMemoryLockMode = TagLockMode.SecuredWrite,
+}, timeout: TimeSpan.FromSeconds(10));
 
-await reader.KillTagAsync(
-    targetEpcHex: "E28011910000000000000001",
-    killPassword: 0x12345678);
+// Kill 标签(永久销毁,不可逆;生产环境默认禁止)
+TagAccessResult killResult = await reader.KillTagAsync(new KillTagRequest
+{
+    Selection = selection,
+    KillPassword = 0x12345678,
+}, timeout: TimeSpan.FromSeconds(10));
 ```
 
 ---
@@ -160,6 +182,10 @@ await reader.KillTagAsync(
 通过 `.UseImpinj()` 挂载扩展，可提取 Impinj 扩展属性（TID 序列号、相位角、Peak RSSI 等）：
 
 ```csharp
+using LlrpSdk;
+using LlrpSdk.Reader;
+using LlrpSdk.Extensions.Impinj;
+
 await using LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
     .UseImpinj()
     .Build();

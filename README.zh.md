@@ -3,12 +3,12 @@
 [English](README.md)
 
 ![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
-![C# 12](https://img.shields.io/badge/C%23-12.0-239120?style=flat-square&logo=c-sharp)
+![C# 14](https://img.shields.io/badge/C%23-14.0-239120?style=flat-square&logo=c-sharp)
 ![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-399%20Passed-10b981?style=flat-square)
 ![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1-3b82f6?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
-**LLRPCSharp** 是基于 **.NET 10.0 / C# 12** 构建的 RFID 超高频 (UHF) 读写器 LLRP 协议开发包与命令行工具。
+**LLRPCSharp** 是基于 **.NET 10.0 / C# 14** 构建的 RFID 超高频 (UHF) 读写器 LLRP 协议开发包与命令行工具。
 
 项目分为两层核心定位：
 * **`LlrpNet`**：传统 **LTK.NET** 的现代化改造，负责 LLRP 1.0.1 / 1.1 协议编解码、类型定义与 TCP 异步传输。
@@ -56,6 +56,7 @@ await foreach (TagReport tag in session.ReadReportsAsync())
 using LlrpSdk.Reader;
 using LlrpSdk.Settings;
 using LlrpSdk.Model;
+using LlrpSdk.Extensions.Impinj;
 
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
     .UseImpinj()

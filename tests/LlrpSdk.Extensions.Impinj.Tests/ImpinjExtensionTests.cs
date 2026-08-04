@@ -312,6 +312,37 @@ public sealed class ImpinjExtensionTests
     }
 
     [Fact]
+    public void GetSerializedTidHex_ReturnsUppercaseHex()
+    {
+        var report = new TagReport(
+            new byte[] { 0x30, 0x00 }, 14150, 1, 1, 2, -45, 3, null, null, 1, null,
+            Extensions: new Dictionary<string, object?>
+            {
+                [ImpinjTagReportExtensions.SerializedTidExtensionKey] =
+                    new ushort[] { 0xE280, 0x1171, 0x2000, 0x03EE, 0xADD3, 0x09A0 },
+            });
+
+        Assert.Equal("E2801171200003EEADD309A0", report.SerializedTidHex);
+    }
+
+    [Fact]
+    public void GetSerializedTidHex_AbsentOrWrongType_ReturnsNull()
+    {
+        var withoutKey = new TagReport(
+            new byte[] { 0x30, 0x00 }, 14150, 1, 1, 2, -45, 3, null, null, 1, null,
+            Extensions: new Dictionary<string, object?> { ["other"] = 1 });
+        Assert.Null(withoutKey.SerializedTidHex);
+
+        var wrongType = new TagReport(
+            new byte[] { 0x30, 0x00 }, 14150, 1, 1, 2, -45, 3, null, null, 1, null,
+            Extensions: new Dictionary<string, object?>
+            {
+                [ImpinjTagReportExtensions.SerializedTidExtensionKey] = "not-words",
+            });
+        Assert.Null(wrongType.SerializedTidHex);
+    }
+
+    [Fact]
     public void ImpinjReaderExtension_RegistersAsInventoryContributor()
     {
         Assert.IsAssignableFrom<IInventoryContributor>(ImpinjReaderExtension.Instance);

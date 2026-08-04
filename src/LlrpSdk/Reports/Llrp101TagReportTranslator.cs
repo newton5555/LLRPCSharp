@@ -18,8 +18,9 @@ internal static class Llrp101TagReportTranslator
         for (int index = 0; index < report.TagReportDataItems.Count; index++)
         {
             TagReportData tag = report.TagReportDataItems[index];
+            (ReadOnlyMemory<byte> epc, int epcBitLength) = GetElectronicProductCode(tag.EPCParameter);
             var translated = new TagReport(
-                GetElectronicProductCode(tag.EPCParameter),
+                epc,
                 tag.ROSpecID?.ROSpecID_2,
                 tag.SpecIndex?.SpecIndex_2,
                 tag.InventoryParameterSpecID?.InventoryParameterSpecID_2,
@@ -34,23 +35,26 @@ internal static class Llrp101TagReportTranslator
                     tag.LastSeenTimestampUptime?.Microseconds),
                 tag.TagSeenCount?.TagCount,
                 tag.AccessSpecID?.AccessSpecID_2,
-                TranslateAccessResults(tag.AccessCommandOpSpecResultItems));
+                TranslateAccessResults(tag.AccessCommandOpSpecResultItems),
+                EpcBitLength: epcBitLength);
             reports[index] = new TranslatedTagReport(translated, tag.CustomItems);
         }
 
         return reports;
     }
 
-    private static ReadOnlyMemory<byte> GetElectronicProductCode(IEPCParameter parameter)
+    private static (ReadOnlyMemory<byte> Bytes, int BitLength) GetElectronicProductCode(IEPCParameter parameter)
     {
         return parameter switch
         {
-            EPC_96 epc96 => epc96.EPC.ToArray(),
-            EPCData epcData => PackBits(epcData.EPC),
+            EPC_96 epc96 => (epc96.EPC.ToArray(), Epc96BitLength),
+            EPCData epcData => (PackBits(epcData.EPC), epcData.EPC.Count),
             _ => throw new NotSupportedException(
                 $"Unsupported LLRP 1.0.1 EPC parameter type {parameter.GetType().FullName}."),
         };
     }
+
+    private const int Epc96BitLength = 96;
 
     private static TagTimestamp? GetTimestamp(ulong? utcMicroseconds, ulong? uptimeMicroseconds)
     {

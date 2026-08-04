@@ -49,3 +49,27 @@ public sealed record ImpinjEnhancedIntegraResult(ImpinjEnhancedIntegraResultType
 
 /// <summary>Endpoint IC verification result returned by a tag report.</summary>
 public sealed record ImpinjEndpointIcVerification(byte VerificationOn, byte Identifier);
+
+/// <summary>Stable extension keys and strongly typed readers for vendor fields projected into <see cref="TagReport.Extensions"/>.</summary>
+public static class ImpinjTagReportExtensions
+{
+    /// <summary>Gets the extension key under which the Impinj serialized TID is projected.</summary>
+    public const string SerializedTidExtensionKey = "impinj.serializedTid";
+
+    /// <summary>
+    /// C# 14 extension members exposing strongly typed access to Impinj vendor fields on <see cref="TagReport"/>.
+    /// </summary>
+    extension(TagReport report)
+    {
+        /// <summary>
+        /// Gets the Impinj serialized TID as an uppercase hexadecimal string, or <see langword="null"/> when the
+        /// connected reader did not report one (for example, when <c>IncludeSerializedTid</c> was not requested).
+        /// </summary>
+        public string? SerializedTidHex =>
+            report.Extensions is not null &&
+            report.Extensions.TryGetValue(SerializedTidExtensionKey, out object? value) &&
+            value is IReadOnlyList<ushort> words
+                ? string.Concat(words.Select(static word => word.ToString("X4")))
+                : null;
+    }
+}

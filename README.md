@@ -3,12 +3,12 @@
 [中文](README.zh.md)
 
 ![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
-![C# 12](https://img.shields.io/badge/C%23-12.0-239120?style=flat-square&logo=c-sharp)
+![C# 14](https://img.shields.io/badge/C%23-14.0-239120?style=flat-square&logo=c-sharp)
 ![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-399%20Passed-10b981?style=flat-square)
 ![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1-3b82f6?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
-**LLRPCSharp** is a modern RFID (UHF) Reader LLRP protocol development kit and command-line tool built on **.NET 10.0 / C# 12**.
+**LLRPCSharp** is a modern RFID (UHF) Reader LLRP protocol development kit and command-line tool built on **.NET 10.0 / C# 14**.
 
 The project is structured around two core design pillars:
 * **`LlrpNet`**: A modern replacement for traditional **LTK.NET**, handling LLRP 1.0.1 / 1.1 binary encoding/decoding, protocol type definitions, and async TCP transport.
@@ -56,6 +56,7 @@ await foreach (TagReport tag in session.ReadReportsAsync())
 using LlrpSdk.Reader;
 using LlrpSdk.Settings;
 using LlrpSdk.Model;
+using LlrpSdk.Extensions.Impinj;
 
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
     .UseImpinj()
