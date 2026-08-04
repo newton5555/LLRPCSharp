@@ -1,6 +1,6 @@
 # LLRPCSharp
 
-[English](README.zh.md)
+[中文](README.zh.md)
 
 ![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
 ![C# 12](https://img.shields.io/badge/C%23-12.0-239120?style=flat-square&logo=c-sharp)

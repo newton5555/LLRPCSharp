@@ -9,49 +9,49 @@
 
   <!-- LAYER 3: Applications & CLI (Blue) -->
   <rect x="20" y="20" width="1160" height="160" rx="12" fill="#0284C7" />
-  <text x="600" y="52" class="layer-title">Layer 3 · 应用与命令行 (Client &amp; CLI)</text>
+  <text x="600" y="52" class="layer-title">Layer 3 · Application &amp; CLI Layer (Client &amp; CLI)</text>
   
   <rect x="40" y="70" width="540" height="90" rx="8" fill="#0369A1" />
-  <text x="310" y="108" class="box-title">LlrpCli 命令行调试工具</text>
-  <text x="310" y="134" class="box-desc">交互式 Live Shell / Agent 自动化脚本 / 现场设备调试</text>
+  <text x="310" y="108" class="box-title">LlrpCli Command Line Tool</text>
+  <text x="310" y="134" class="box-desc">Interactive Live Shell / Agent Scripts / Operations &amp; Diagnostics</text>
 
   <rect x="620" y="70" width="540" height="90" rx="8" fill="#0369A1" />
-  <text x="890" y="108" class="box-title">自定义 C# 业务应用</text>
-  <text x="890" y="134" class="box-desc">仓储门禁 / 智能柜 / 生产线 RFID 物料跟踪微服务</text>
+  <text x="890" y="108" class="box-title">Custom Business Applications</text>
+  <text x="890" y="134" class="box-desc">Warehouse Portals / Smart Cabinets / Production Line Tracking Services</text>
 
   <!-- LAYER 2: Managed SDK Layer (Purple) -->
   <rect x="20" y="200" width="1160" height="170" rx="12" fill="#6D28D9" />
-  <text x="600" y="232" class="layer-title">Layer 2 · 托管 SDK 层 (LlrpSdk - 参考 Impinj Octane SDK 理念)</text>
+  <text x="600" y="232" class="layer-title">Layer 2 · Managed SDK Layer (LlrpSdk - Inspired by Impinj Octane SDK)</text>
 
   <rect x="40" y="250" width="350" height="100" rx="8" fill="#5B21B6" />
-  <text x="215" y="292" class="box-title">LlrpReader 门面 API</text>
-  <text x="215" y="318" class="box-desc">连接管理 / 自动协议协商</text>
+  <text x="215" y="292" class="box-title">LlrpReader Facade API</text>
+  <text x="215" y="318" class="box-desc">Connection Management / Auto-Negotiation</text>
 
   <rect x="415" y="250" width="370" height="100" rx="8" fill="#5B21B6" />
-  <text x="600" y="292" class="box-title">ReaderSettings 配置管理</text>
-  <text x="600" y="318" class="box-desc">自动 ROSpec / AccessSpec 资源编排</text>
+  <text x="600" y="292" class="box-title">ReaderSettings &amp; Configuration</text>
+  <text x="600" y="318" class="box-desc">Automated ROSpec &amp; AccessSpec Assembly</text>
 
   <rect x="810" y="250" width="350" height="100" rx="8" fill="#5B21B6" />
-  <text x="985" y="292" class="box-title">厂商扩展管道 (UseImpinj)</text>
-  <text x="985" y="318" class="box-desc">TID / 相位角 / 扩展参数注入</text>
+  <text x="985" y="292" class="box-title">Vendor Extensions (UseImpinj)</text>
+  <text x="985" y="318" class="box-desc">Serialized TID / Phase Angle / Custom Hooks</text>
 
   <!-- LAYER 1: Protocol & Net Layer (Teal/Cyan) -->
   <rect x="20" y="390" width="1160" height="170" rx="12" fill="#0D9488" />
-  <text x="600" y="422" class="layer-title">Layer 1 · 协议与网络层 (LlrpNet - LTK.NET 现代化改造)</text>
+  <text x="600" y="422" class="layer-title">Layer 1 · Protocol &amp; Networking Layer (LlrpNet - Modernized LTK.NET)</text>
 
   <rect x="40" y="440" width="540" height="100" rx="8" fill="#0F766E" />
-  <text x="310" y="482" class="box-title">LlrpNet.Core (网络与传输)</text>
-  <text x="310" y="508" class="box-desc">TCP 连接生命周期 / 拆帧粘包 / 帧观测器</text>
+  <text x="310" y="482" class="box-title">LlrpNet.Core (Networking &amp; Transport)</text>
+  <text x="310" y="508" class="box-desc">TCP Transport Lifecycle / Frame Splitting / Frame Observer</text>
 
   <rect x="620" y="440" width="540" height="100" rx="8" fill="#0F766E" />
-  <text x="890" y="482" class="box-title">LlrpNet.Protocol (二进制编解码)</text>
-  <text x="890" y="508" class="box-desc">LTK.NET 现代化改造 / 强类型消息与自动生成代码 (.g.cs)</text>
+  <text x="890" y="482" class="box-title">LlrpNet.Protocol (Binary Codecs)</text>
+  <text x="890" y="508" class="box-desc">LTK.NET Modernization / Strongly Typed Messages &amp; Generated Code (.g.cs)</text>
 
   <!-- LAYER 0: Readers (Emerald) -->
   <rect x="20" y="580" width="1160" height="170" rx="12" fill="#059669" />
-  <text x="600" y="612" class="layer-title">硬件设备层 (Readers)</text>
+  <text x="600" y="612" class="layer-title">Hardware Layer (Readers)</text>
 
   <rect x="40" y="630" width="1120" height="100" rx="8" fill="#047857" />
-  <text x="600" y="672" class="box-title">📡 物理 LLRP RFID 读写器硬件</text>
-  <text x="600" y="698" class="box-desc">Impinj / Seuic / 标准 LLRP 1.0.1 &amp; 1.1 硬件设备</text>
+  <text x="600" y="672" class="box-title">📡 Physical LLRP RFID Reader Hardware</text>
+  <text x="600" y="698" class="box-desc">Impinj / Seuic / Standard LLRP 1.0.1 &amp; 1.1 Hardware Devices</text>
 </svg>
