@@ -88,5 +88,6 @@ When executing a version release (e.g. `0.6.0`), follow this strict step-by-step
 3. **Local Commit**: Commit the release changes locally (e.g., `git commit -m "release: prepare <version>"`).
 4. **Create Version Tag**: Create annotated Git tag directly on the release branch: `git tag -a v<version> -m "release v<version>"`.
 5. **Manual Confirmation 1 (Push Release Branch & Tags)**: Ask the user for explicit confirmation before pushing the release branch and tags to `origin`: `git push origin release/<version> --tags`.
-6. **Manual Confirmation 2 (Merge to Master)**: Ask the user for explicit confirmation before merging `release/<version>` back into `master`.
-7. **Manual Confirmation 3 (Cleanup Release Branch)**: Ask the user for explicit confirmation before deleting local and remote `release/<version>` branches.
+6. **Verify CI/CD Status (Actions OK)**: Wait for GitHub Actions build, test & publish workflow to complete successfully.
+7. **Manual Confirmation 2 (Merge to Master)**: Ask the user for explicit confirmation before merging `release/<version>` back into `master`.
+8. **Manual Confirmation 3 (Cleanup Release Branch)**: Ask the user for explicit confirmation before deleting local and remote `release/<version>` branches.
