@@ -83,7 +83,7 @@ When executing a version release (e.g. `0.6.0`), follow this strict step-by-step
 
 1. **Create Release Branch**: Create and switch to a local release branch: `git checkout -b release/<version>`.
 2. **Add Release Document & Update Version**:
-   - Create the release notes file at `docs/releases/<version>.md`.
+   - Create the release notes file at `docs/releases/v<version>.md` (e.g. `docs/releases/v0.6.0.md`).
    - Update the project version number (e.g., `<Version>` in `Directory.Build.props`).
 3. **Local Commit**: Commit the release changes locally (e.g., `git commit -m "release: prepare <version>"`).
 4. **Create Version Tag**: Create annotated Git tag directly on the release branch: `git tag -a v<version> -m "release v<version>"`.
