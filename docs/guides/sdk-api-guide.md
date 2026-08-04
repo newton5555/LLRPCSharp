@@ -268,6 +268,6 @@ await reader.ApplySettingsAsync(settings);
 await using var session = await reader.StartInventoryAsync();
 await foreach (TagReport tag in session.ReadReportsAsync())
 {
-    Console.WriteLine($"EPC: {tag.EpcHex}, TID: {tag.SerializedTidHex}");
+    Console.WriteLine($"EPC: {tag.EpcHex}, TID: {tag.GetSerializedTidHex()}");
 }
 ```

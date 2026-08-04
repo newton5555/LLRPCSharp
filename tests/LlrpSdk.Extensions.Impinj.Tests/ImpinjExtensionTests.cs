@@ -322,7 +322,7 @@ public sealed class ImpinjExtensionTests
                     new ushort[] { 0xE280, 0x1171, 0x2000, 0x03EE, 0xADD3, 0x09A0 },
             });
 
-        Assert.Equal("E2801171200003EEADD309A0", report.SerializedTidHex);
+        Assert.Equal("E2801171200003EEADD309A0", report.GetSerializedTidHex());
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public sealed class ImpinjExtensionTests
         var withoutKey = new TagReport(
             new byte[] { 0x30, 0x00 }, 14150, 1, 1, 2, -45, 3, null, null, 1, null,
             Extensions: new Dictionary<string, object?> { ["other"] = 1 });
-        Assert.Null(withoutKey.SerializedTidHex);
+        Assert.Null(withoutKey.GetSerializedTidHex());
 
         var wrongType = new TagReport(
             new byte[] { 0x30, 0x00 }, 14150, 1, 1, 2, -45, 3, null, null, 1, null,
@@ -339,7 +339,7 @@ public sealed class ImpinjExtensionTests
             {
                 [ImpinjTagReportExtensions.SerializedTidExtensionKey] = "not-words",
             });
-        Assert.Null(wrongType.SerializedTidHex);
+        Assert.Null(wrongType.GetSerializedTidHex());
     }
 
     [Fact]

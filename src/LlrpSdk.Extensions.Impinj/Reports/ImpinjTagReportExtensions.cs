@@ -57,19 +57,37 @@ public static class ImpinjTagReportExtensions
     public const string SerializedTidExtensionKey = "impinj.serializedTid";
 
     /// <summary>
-    /// C# 14 extension members exposing strongly typed access to Impinj vendor fields on <see cref="TagReport"/>.
+    /// Gets the Impinj serialized TID as an uppercase hexadecimal string, or <see langword="null"/> when the
+    /// connected reader did not report one (for example, when <c>IncludeSerializedTid</c> was not requested).
     /// </summary>
+    /// <remarks>
+    /// This C# 13-compatible accessor works on every compiler. The C# 14 <c>SerializedTidHex</c> extension
+    /// property (disabled below via <c>#if false</c> for toolchain compatibility) delegates to this method, so
+    /// both forms stay equivalent when re-enabled.
+    /// </remarks>
+    public static string? GetSerializedTidHex(this TagReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        if (report.Extensions is null ||
+            !report.Extensions.TryGetValue(SerializedTidExtensionKey, out object? value) ||
+            value is not IReadOnlyList<ushort> words)
+        {
+            return null;
+        }
+
+        return string.Concat(words.Select(static word => word.ToString("X4")));
+    }
+
+#if false // C# 14 extension property, disabled for broad toolchain compatibility (VS 2022 cannot compile it).
+    // Re-enable on a C# 14 toolchain by switching to #if NET10_0_OR_GREATER; the property delegates to
+    // GetSerializedTidHex(TagReport) so both forms stay equivalent.
     extension(TagReport report)
     {
         /// <summary>
         /// Gets the Impinj serialized TID as an uppercase hexadecimal string, or <see langword="null"/> when the
-        /// connected reader did not report one (for example, when <c>IncludeSerializedTid</c> was not requested).
+        /// connected reader did not report one. Equivalent to <see cref="GetSerializedTidHex(TagReport)"/>.
         /// </summary>
-        public string? SerializedTidHex =>
-            report.Extensions is not null &&
-            report.Extensions.TryGetValue(SerializedTidExtensionKey, out object? value) &&
-            value is IReadOnlyList<ushort> words
-                ? string.Concat(words.Select(static word => word.ToString("X4")))
-                : null;
+        public string? SerializedTidHex => report.GetSerializedTidHex();
     }
+#endif
 }
