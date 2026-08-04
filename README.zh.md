@@ -18,7 +18,7 @@
 
 ## 🏛️ 系统架构
 
-![LLRPCSharp 系统架构图](docs/images/architecture.svg)
+![LLRPCSharp 系统架构图](docs/images/architecture.zh.svg)
 
 ---
 
