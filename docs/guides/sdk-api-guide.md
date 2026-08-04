@@ -1,152 +1,184 @@
-# Managed SDK API Guide
+# SDK API 使用指南 (`LlrpSdk`)
 
-`LlrpSdk` is the application layer of LLRPCSharp. Use `LlrpReader` when an
-application needs to connect to one RFID reader, configure managed inventory,
-and consume translated tag reports. The generated protocol types in `LlrpNet`
-are not required for this workflow.
+`LlrpSdk` 是参考 **Impinj Octane SDK** 理念重新实现的托管高层 API。通过 `LlrpReader`，应用程序可直接管理连接、配置天线/功率、启动盘点以及执行标签内存操作，无需手动组装底层的 `ROSpec` 或 `AccessSpec` 消息。
 
-## Basic Lifecycle
+如需使用底层的编解码和原始消息（**LTK.NET** 的现代化替代），请直接查阅 `LlrpNet` 协议层架构说明。
+
+---
+
+## 1. 基础建立与盘点
 
 ```csharp
-await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")
+using LlrpSdk.Reader;
+using LlrpSdk.Settings;
+using LlrpSdk.Model;
+
+// 1. 创建并连接读写器
+await using var reader = LlrpReader.CreateBuilder("192.168.1.100").Build();
+await reader.ConnectAsync();
+
+// 2. 查询设备推荐默认配置，打印配置信息并下发到读写器
+ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
+Console.WriteLine($"已加载设备默认配置 Profile: {defaults.ProfileId}");
+Console.WriteLine($"默认盘点天线列表: {string.Join(", ", defaults.Settings.Inventory.AntennaIds)} (0代表全部天线)");
+
+await reader.ApplySettingsAsync(defaults.Settings);
+
+// 3. 启动盘点并消费标签数据
+await using var session = await reader.StartInventoryAsync();
+await foreach (TagReport tag in session.ReadReportsAsync())
+{
+    Console.WriteLine($"[天线 {tag.AntennaId}] EPC: {tag.EpcHex} | RSSI: {tag.PeakRssi} dBm");
+}
+```
+
+---
+
+## 2. 设备能力与参数索引 (`Capabilities`)
+
+在 LLRP 协议中，RF 模式 (`ModeIndex`)、发射功率 (`TransmitPowerIndex`) 等均为数字索引 (Index)。**索引对应的实际速率、调制模式或以 dBm 为单位的功率映射表均存储在 `reader.Capabilities` 中**。
+
+连接建立后，可通过 `reader.Capabilities` 查询设备硬件事实：
+
+```csharp
+ReaderCapabilities caps = reader.Capabilities!;
+
+// 查看硬件支持的天线数量
+Console.WriteLine($"读写器天线数量: {caps.MaxAntennas}");
+
+// 查看支持的 RF 模式表 (ModeIndex -> 速率与调制模式)
+foreach (var mode in caps.RfModes)
+{
+    Console.WriteLine($"RF Mode Index {mode.ModeIndex}: {mode.Description}");
+}
+
+// 查看发射功率表 (TransmitPowerIndex -> 实际 dBm 功率)
+foreach (var pwr in caps.TransmitPowerTable)
+{
+    Console.WriteLine($"Power Index {pwr.Index}: {pwr.TransmitPowerDbm / 100.0} dBm");
+}
+```
+
+---
+
+## 3. 配置与参数管理 (`ReaderSettings`)
+
+`ReaderSettings` 提供了强类型配置管理，支持配置天线列表、RF 模式索引、Gen2 Session 与标签上报策略。
+
+```csharp
+using LlrpSdk.Settings;
+
+ReaderSettings defaultSettings = (await reader.GetDefaultSettingsAsync()).Settings;
+
+ReaderSettings customSettings = defaultSettings.Edit(builder => builder
+    .Inventory(inv => inv
+        .Antennas(1, 2, 3, 4)       // 启用天线 1~4
+        .Mode(modeIndex: 1000)      // 设置指定的 RF 模式索引 (根据 caps.RfModes 查询)
+        .Session(2)                 // Gen2 Session = 2
+        .Population(128)            // 预计标签数量
+        .ReportEveryTag()));        // 实时上报每一条标签
+
+// 校验并应用到读写器
+await reader.ApplySettingsAsync(customSettings);
+```
+
+---
+
+## 4. 标签实时盘点 (Inventory Stream)
+
+通过 `StartInventoryAsync()` 获取独立的 `InventorySession`，该会话支持通过 `await foreach` 异步迭代器实时消费 `TagReport`：
+
+```csharp
+await using InventorySession session = await reader.StartInventoryAsync();
+
+await foreach (TagReport tag in session.ReadReportsAsync())
+{
+    Console.WriteLine($"EPC Hex: {tag.EpcHex}");
+    Console.WriteLine($"天线: {tag.AntennaId}, 频点: {tag.ChannelIndex}, RSSI: {tag.PeakRssi} dBm");
+}
+```
+
+全局事件监听：
+
+```csharp
+reader.TagsReported += (sender, reports) =>
+{
+    foreach (var tag in reports)
+    {
+        Console.WriteLine($"收到标签: {tag.EpcHex}");
+    }
+};
+```
+
+---
+
+## 5. 标签内存读写与锁定 (Tag Memory Access)
+
+提供高层 EPC C1G2 标签内存操作 API，自动管理底层 AccessSpec 声明与资源清理。
+
+### 5.1 读取标签内存 (User / TID)
+
+```csharp
+byte[] tidData = await reader.ReadTagMemoryAsync(
+    targetEpcHex: "E28011910000000000000001",
+    bank: MemoryBank.Tid,
+    wordOffset: 0,
+    wordCount: 4);
+
+Console.WriteLine($"TID Data: {Convert.ToHexString(tidData)}");
+```
+
+### 5.2 写入标签内存
+
+```csharp
+byte[] dataToWrite = Convert.FromHexString("A1B2C3D4");
+
+bool success = await reader.WriteTagMemoryAsync(
+    targetEpcHex: "E28011910000000000000001",
+    bank: MemoryBank.User,
+    wordOffset: 0,
+    data: dataToWrite);
+```
+
+### 5.3 标签锁定与销毁
+
+```csharp
+await reader.LockTagMemoryAsync(
+    targetEpcHex: "E28011910000000000000001",
+    bank: MemoryBank.User,
+    accessPassword: 0);
+
+await reader.KillTagAsync(
+    targetEpcHex: "E28011910000000000000001",
+    killPassword: 0x12345678);
+```
+
+---
+
+## 6. 厂商扩展使用 (以 Impinj 为例)
+
+通过 `.UseImpinj()` 挂载扩展，可提取 Impinj 扩展属性（TID 序列号、相位角、Peak RSSI 等）：
+
+```csharp
+await using LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
+    .UseImpinj()
     .Build();
 
 await reader.ConnectAsync();
 
-ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
-SettingsValidationResult validation =
-    await reader.ValidateSettingsAsync(defaults.Settings);
-validation.ThrowIfInvalid();
-
-await reader.ApplySettingsAsync(defaults.Settings);
-await using InventorySession session = await reader.StartInventoryAsync();
-
-await foreach (TagReport report in session.ReadReportsAsync())
-{
-    Console.WriteLine(report.Epc);
-}
-```
-
-The normal lifecycle is:
-
-1. Build a reader with `LlrpReader.CreateBuilder(...)`.
-2. Connect with `ConnectAsync()`; protocol negotiation is automatic by default.
-3. Obtain or build `ReaderSettings`.
-4. Validate and apply settings.
-5. Start a managed `InventorySession` and consume `TagReport` values.
-6. Stop the session and dispose the reader.
-
-For older devices, select a protocol explicitly with
-`WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)` or
-`Force11`.
-
-## Managed Settings
-
-`ReaderSettings` is the single model for managed reader configuration. It can
-be created from three sources:
-
-```csharp
-ReaderSettingsDefaults readerDefaults = await reader.GetDefaultSettingsAsync();
-ReaderSettings generic = ReaderSettingsDefaults.CreateGeneric().Settings;
-ReaderSettings current = (await reader.QuerySettingsAsync()).Settings;
-```
-
-- Reader defaults use the connected reader identity, firmware, capabilities,
-  and activated extensions.
-- Generic defaults are portable and do not require a connected reader.
-- Queried settings represent the reader's current managed state.
-
-Edit records directly or use the lightweight builders. Both produce the same
-`ReaderSettings` and `InventorySettings` records:
-
-```csharp
-ReaderSettings settings = ReaderSettings.Create(reader => reader
-    .Inventory(inventory => inventory
-        .Antennas(1, 2)
-        .Session(2)
-        .Population(64)
-        .ReportEveryTag()));
+ReaderSettings settings = ReaderSettings.Create(builder => builder
+    .Inventory(inv => inv
+        .Antennas(1)
+        .Impinj(imp => imp
+            .IncludeSerializedTid()
+            .IncludeRfPhaseAngle()
+            .IncludePeakRssi())));
 
 await reader.ApplySettingsAsync(settings);
-```
 
-`ValidateSettingsAsync()` is side-effect free. Applying settings deploys the
-managed resources in a stopped state; `StartAsync()` or
-`StartInventoryAsync()` starts RF inventory. `StopAsync()` stops inventory while
-keeping the managed settings available for a later start. Use
-`ClearManagedSettingsAsync()` when the application wants to release those
-managed resources.
-
-## Inventory And Reports
-
-Use `StartInventoryAsync()` when the caller wants an isolated report stream:
-
-```csharp
-await using InventorySession session = await reader.StartInventoryAsync(
-    new InventorySettings
-    {
-        AntennaIds = [1, 2],
-        Session = 2,
-        TagPopulationEstimate = 64,
-    });
-
-await foreach (TagReport report in session.ReadReportsAsync())
+await using var session = await reader.StartInventoryAsync();
+await foreach (TagReport tag in session.ReadReportsAsync())
 {
-    ReadOnlySpan<byte> epc = report.ElectronicProductCode.Span;
-    Console.WriteLine(Convert.ToHexString(epc));
+    Console.WriteLine($"EPC: {tag.EpcHex}, TID: {tag.SerializedTidHex}");
 }
 ```
-
-Use `TagsReported` or `ReadTagReportsAsync()` when the application needs to
-observe reports from the whole connection rather than one managed session.
-
-Inventory settings can express antennas, RF indexes, singulation, filters,
-report triggers, start/stop triggers, attached data, and vendor extension
-options. Unsupported combinations are returned as structured validation
-diagnostics before resources are written.
-
-## Tag Access
-
-The managed SDK exposes standard C1G2 operations without requiring the caller
-to construct an AccessSpec:
-
-- `ReadTagMemoryAsync`
-- `WriteTagMemoryAsync`
-- `LockTagMemoryAsync`
-- `KillTagAsync`
-- `BlockEraseTagMemoryAsync`
-
-When needed, the SDK manages the temporary resource lifecycle and returns the
-operation result through the translated report model.
-
-## Vendor Extensions
-
-Register an extension while building the reader:
-
-```csharp
-await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")
-    .UseImpinj()
-    .Build();
-```
-
-Common Impinj inventory options are available through the typed builder:
-
-```csharp
-InventorySettings inventory = InventorySettings.Create(settings => settings
-    .Antennas(1, 2)
-    .Impinj(impinj => impinj
-        .IncludeSerializedTid()
-        .IncludeRfPhaseAngle()
-        .IncludePeakRssi()));
-```
-
-Use extension-specific documentation only when the reader model and firmware
-are known to support the requested fields. Unverified vendor features are
-rejected by default.
-
-## When To Go Lower
-
-Use `LlrpNet` or the expert SDK APIs only when the managed Reader workflow is
-not enough, such as implementing a new protocol adapter, inspecting raw
-frames, or owning ROSpec/AccessSpec resources yourself. Those APIs are outside
-the normal application path and are described in the architecture documents.

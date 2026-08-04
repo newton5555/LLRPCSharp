@@ -1,139 +1,110 @@
-# CLI User Guide
+# CLI 命令行工具指南 (`LlrpCli`)
 
-`LlrpCli` is the operational front end for `LlrpSdk`. The primary interface is
-the Live Shell. It keeps one connection, one local settings draft, and one
-managed inventory workflow. A one-shot `inventory` command uses the same SDK
-workflow for agents and scripts.
+`LlrpCli` 是基于 `LlrpSdk` 构建的命令行工具，提供两种使用模式：
+1. **交互式 Live Shell 终端**：用于现场设备连接、调试、配置编辑与盘点测试；
+2. **单次自动化命令**：用于 Agent 脚本与自动化运维调度，默认输出 JSON 格式标签数据。
 
-## Start The Live Shell
+---
+
+## 🚀 1. 启动交互式 Live Shell
+
+在命令行执行：
 
 ```powershell
 dotnet run --project src/LlrpCli
 ```
 
-Connect to a reader:
+### 1.1 设备连接与状态查看
 
 ```text
-connect 192.0.2.10
-status
-caps
+> connect 192.168.1.100     # 连接到目标 RFID 读写器
+> status                    # 查看当前连接与设备生命周期状态
+> caps                      # 查询读写器天线数量、功率表与 RF 模式表
 ```
 
-The prompt shows the active reader. `status` shows connection and inventory
-state; `caps` shows reader capabilities and RF index tables.
+---
 
-## Managed Settings
+## 🔧 2. 配置编辑与下发 (Settings)
 
-Settings commands operate on a local draft until `apply` is executed:
+Live Shell 维护了一个本地配置草稿 (Draft)，可以先编辑校验，确认无误后再下发给读写器：
 
 ```text
-settings edit --from defaults
-settings show draft
-settings validate
-settings save warehouse.json
-settings apply --yes
+> settings edit --from defaults   # 从当前设备推荐默认值创建草稿
+> settings show draft             # 查看当前草稿配置
+> settings validate               # 校验草稿合法性
+> settings apply --yes            # 正式下发配置到读写器
 ```
 
-Available sources are:
+### 配置来源选项
 
-- `defaults`: settings recommended from the connected reader profile;
-- `reader`: the reader's current managed settings;
-- `generic`: a portable protocol baseline;
-- `settings load <file>`: an existing JSON document.
+* `defaults`：连接设备的推荐配置；
+* `reader`：读写器当前正在运行的配置；
+* `generic`：通用标准协议配置；
+* `settings load <file.json>`：从本地 JSON 文件加载。
 
-Command behavior:
+---
 
-| Command | Effect |
-|---|---|
-| `settings show [reader\|draft\|defaults] [--json]` | Read-only display. |
-| `settings edit [--from ...]` | Create or edit the local draft. |
-| `settings validate [file]` | Validate without writing to the reader. |
-| `settings apply [file] --yes` | Apply settings to the reader. |
-| `settings load <file>` | Load a local draft. |
-| `settings save <file>` | Save a draft or selected settings source. |
-| `settings discard` | Remove the local draft. |
-
-`settings apply` deploys managed settings but leaves inventory stopped. The
-explicit `--yes` protects the reader from accidental resource replacement.
-
-## Managed Inventory
+## 📡 3. 标签实时盘点 (Inventory)
 
 ```text
-inventory start
-inventory status
-inventory stop
+> inventory start                 # 启动标签盘点，终端实时滚动显示刷卡数据
+> inventory status                # 查看当前盘点运行状态
+> inventory stop                  # 停止盘点
 ```
 
-`inventory start` starts the settings already applied to the reader.
-`inventory status` reports the actual managed state, not the local draft.
-`inventory stop` stops RF inventory while keeping the managed settings. Use
-`resources clear` only when the managed resource ownership should be released.
-
-For foreground monitoring:
+### 监控模式选项
 
 ```text
-inventory start --monitor live
-inventory start --monitor frames
-inventory start --monitor none
-inventory start --monitor live --monitor-duration 30
+> inventory start --monitor live                  # 实时汇总标签数据 (默认)
+> inventory start --monitor frames                # 实时打印原始 LLRP 协议数据帧
+> inventory start --monitor live --monitor-duration 30  # 前台监控 30 秒后退出前台（后台仍运行）
 ```
 
-`live` aggregates tag reports, `frames` displays protocol frames, and `none`
-starts inventory without a foreground monitor. Ctrl+C or a monitor duration
-only exits the monitor; it does not stop inventory.
+---
 
-## Tag Operations
+## 🔓 4. 标签内存读写与锁定 (Tag)
 
 ```text
-tag read <epc> --bank user --word 0 --count 2
-tag write <epc> --bank user --word 0 --data CAFEBABE --yes
-tag lock <epc> --target user --privilege lock --yes
-tag erase <epc> --bank user --word 0 --count 2 --yes
-tag kill <epc> --yes
+# 读取 EPC 标签的 User 区
+> tag read E28011910000000000000001 --bank user --word 0 --count 2
+
+# 写入 User 区 (需要 --yes 确认下发)
+> tag write E28011910000000000000001 --bank user --word 0 --data CAFEBABE --yes
+
+# 锁定指定区域
+> tag lock E28011910000000000000001 --target user --privilege lock --yes
+
+# 销毁标签
+> tag kill E28011910000000000000001 --yes
 ```
 
-Read operations can run without `--yes`. Write, lock, erase, kill, and
-sequences require explicit confirmation. Without confirmation, write commands
-show a dry-run plan where supported.
+---
 
-The bank aliases are `reserved`, `epc`, `tid`, and `user`. The full command
-parser accepts the command-specific options shown by `help <command>`.
+## 🤖 5. 脚本与自动化单条命令 (Agent 命令)
 
-## One-Shot Inventory
-
-Use the root command when an agent or script needs one bounded operation:
+无需进入交互式 Shell，用单条命令直接完成自动化任务，默认输出标准 JSON：
 
 ```powershell
-dotnet run --project src/LlrpCli -- inventory 192.0.2.10 --duration 10 --yes
-dotnet run --project src/LlrpCli -- inventory 192.0.2.10 --settings warehouse.json --duration 30 --yes
+# 连接 192.168.1.100，执行 10 秒盘点并输出 JSON 数据
+dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
+
+# 使用自定义配置文件进行 30 秒自动化盘点
+dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --settings config.json --duration 30 --yes
 ```
 
-The command connects, loads or creates settings, validates and applies them,
-collects reports for the requested duration, then stops and clears the managed
-inventory resources. JSON is the default output format for automation; use
-`--output table` for interactive output.
+---
 
-The Live Shell and one-shot command share the same settings workflow and SDK;
-they are two invocation styles, not two implementations.
+## 🔍 6. 离线协议诊断工具
 
-## Help And Offline Tools
-
-Use `help` and command completion inside the Live Shell:
-
-```text
-help
-help settings
-help inventory
-```
-
-Offline protocol diagnostics do not connect to a reader:
+不连接真实读写器，直接分析或构造 LLRP 二进制十六进制数据帧：
 
 ```powershell
+# 解析十六进制 LLRP 字节帧结构
 dotnet run --project src/LlrpCli -- inspect "043E0000000A01020304"
+
+# 解码二进制帧为 JSON 文本
 dotnet run --project src/LlrpCli -- decode "043E0000000A01020304"
-dotnet run --project src/LlrpCli -- validate "043E0000000A01020304"
+
+# 构造 GET_ROSPECS 消息的十六进制字节串
 dotnet run --project src/LlrpCli -- encode get-rospecs --message-id 1
 ```
-
-Raw protocol and expert resource commands are intentionally secondary paths;
-use them only when the managed Reader workflow cannot express the operation.
