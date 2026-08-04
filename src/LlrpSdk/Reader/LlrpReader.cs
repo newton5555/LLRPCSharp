@@ -408,18 +408,19 @@ public sealed class LlrpReader : IAsyncDisposable
             InventoryRuntimeState initialState = active.StartTrigger.Type == InventoryStartTriggerType.None
                 ? InventoryRuntimeState.Running
                 : InventoryRuntimeState.Enabled;
-            var session = new InventorySession(this, active, ManagedInventoryRoSpecId,
-                active.AttachedData.Enabled ? ManagedInventoryAttachedDataAccessSpecId : null, initialState);
-            _inventorySession = session;
             try
             {
+                // Deploy first so the session snapshots the actual managed ROSpec/AccessSpec ids (they are only
+                // assigned during deployment); otherwise report routing (RoSpecId match) would miss every report.
                 await StartManagedInventoryCoreAsync(active, resourcesAlreadyCleared: false, cancellationToken).ConfigureAwait(false);
+                var session = new InventorySession(this, active, ManagedInventoryRoSpecId,
+                    active.AttachedData.Enabled ? ManagedInventoryAttachedDataAccessSpecId : null, initialState);
+                _inventorySession = session;
                 return session;
             }
             catch
             {
                 _inventorySession = null;
-                session.Complete(InventoryRuntimeState.Disabled);
                 throw;
             }
         }
@@ -3150,7 +3151,7 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         InventorySession? session = _inventorySession;
         if (session is not null && report.RoSpecId == session.RoSpecId &&
-            (report.AccessSpecId is null || report.AccessSpecId == session.AttachedDataAccessSpecId))
+            (report.AccessSpecId is null or 0 || report.AccessSpecId == session.AttachedDataAccessSpecId))
         {
             session.Publish(report);
         }
