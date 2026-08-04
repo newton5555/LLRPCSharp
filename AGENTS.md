@@ -15,11 +15,15 @@ It is intentionally short and operational. For user-facing documentation, start 
 
 ## Build And Test
 
-Use PowerShell from the repository root.
+Use PowerShell from the repository root. See [`tests/README.md`](tests/README.md) for full test architecture and physical hardware acceptance test guides.
 
 ```powershell
+# Automated Solution Build & Unit/Virtual Tests
 dotnet build LLRPCSharp.slnx --no-restore
 dotnet test LLRPCSharp.slnx --no-build
+
+# Local Physical Hardware Acceptance Test (Requires real reader device on network)
+dotnet test tests/LlrpSdk.Hardware.Tests/LlrpSdk.Hardware.Tests.csproj
 ```
 
 Known status as of 2026-07-25: the solution build passes cleanly with zero errors across all projects. See `docs/status.md` for current details.
@@ -52,6 +56,7 @@ instead, then regenerate and verify.
   `src/LlrpNet/LlrpNet.Core/Transport/`
 - CLI commands: `src/LlrpCli/Commands/`
 - Virtual reader: `src/LlrpVirtualReader/`
+- Live Hardware Smoke Tool: `tools/LlrpSdk.LiveSmoke/`
 
 ## Current Boundaries
 
@@ -85,9 +90,12 @@ When executing a version release (e.g. `0.6.0`), follow this strict step-by-step
 2. **Add Release Document & Update Version**:
    - Create the release notes file at `docs/releases/v<version>.md` (e.g. `docs/releases/v0.6.0.md`).
    - Update the project version number (e.g., `<Version>` in `Directory.Build.props`).
-3. **Local Commit**: Commit the release changes locally (e.g., `git commit -m "release: prepare <version>"`).
-4. **Create Version Tag**: Create annotated Git tag directly on the release branch: `git tag -a v<version> -m "release v<version>"`.
-5. **Manual Confirmation 1 (Push Release Branch & Tags)**: Ask the user for explicit confirmation before pushing the release branch and tags to `origin`: `git push origin release/<version> --tags`.
-6. **Verify CI/CD Status (Actions OK)**: Wait for GitHub Actions build, test & publish workflow to complete successfully.
-7. **Manual Confirmation 2 (Merge to Master)**: Ask the user for explicit confirmation before merging `release/<version>` back into `master`.
-8. **Manual Confirmation 3 (Cleanup Release Branch)**: Ask the user for explicit confirmation before deleting local and remote `release/<version>` branches.
+3. **Local Hardware Verification (Mandatory)**:
+   - CI/CD only runs unit/virtual tests. Before publishing, run local hardware acceptance tests on real hardware:
+     `dotnet run --project tools/LlrpSdk.LiveSmoke -- <real-reader-ip> --inventory`
+4. **Local Commit**: Commit the release changes locally (e.g., `git commit -m "release: prepare <version>"`).
+5. **Create Version Tag**: Create annotated Git tag directly on the release branch: `git tag -a v<version> -m "release v<version>"`.
+6. **Manual Confirmation 1 (Push Release Branch & Tags)**: Ask the user for explicit confirmation before pushing the release branch and tags to `origin`: `git push origin release/<version> --tags`.
+7. **Verify CI/CD Status (Actions OK)**: Wait for GitHub Actions build, test & publish workflow to complete successfully.
+8. **Manual Confirmation 2 (Merge to Master)**: Ask the user for explicit confirmation before merging `release/<version>` back into `master`.
+9. **Manual Confirmation 3 (Cleanup Release Branch)**: Ask the user for explicit confirmation before deleting local and remote `release/<version>` branches.

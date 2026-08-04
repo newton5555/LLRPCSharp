@@ -31,6 +31,7 @@
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj" />
+    <Project Path="tests/LlrpSdk.Hardware.Tests/LlrpSdk.Hardware.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/LlrpSdk.LiveSmoke/LlrpSdk.LiveSmoke.csproj" />
