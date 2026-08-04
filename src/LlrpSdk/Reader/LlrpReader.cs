@@ -58,6 +58,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private int _disposed;
     private long _lastKeepaliveUtcTicks;
     private int _keepaliveTimeoutSignaled;
+    private long _tagReportsDropped;
 
     /// <summary>
     /// Creates the application-facing fluent builder for one reader.
@@ -289,6 +290,12 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Occurs when the reader reports that its tag-report buffer has reached a warning level.
     /// </summary>
     public event EventHandler<ReportBufferWarningEventArgs>? ReportBufferWarning;
+
+    /// <summary>
+    /// Occurs when the SDK's connection-level tag-report stream dropped reports because the bounded buffer was full
+    /// (DropOldest policy). Distinct from <see cref="ReportBufferOverflow"/>, which is the reader's own buffer event.
+    /// </summary>
+    public event EventHandler<TagReportOverflowEventArgs>? TagReportsDropped;
 
     /// <summary>
     /// Connects the session and starts the sole unsolicited-frame consumer.
@@ -1289,6 +1296,12 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <summary>
     /// Sets the output state of a specified GPO port on the reader.
     /// </summary>
+    /// <remarks>
+    /// LLRP has no single-GPO write message: <c>SET_READER_CONFIG</c> carries the whole GPO list, so this method
+    /// replays the full configuration (query current settings, replace one GPO, re-apply). On shared readers the
+    /// re-apply can overwrite non-SDK configuration changes made since the last query. Vendors with an advanced GPO
+    /// extension (e.g. Impinj) may offer lower-level control separately.
+    /// </remarks>
     public async Task SetGpoAsync(
         ushort portNumber,
         bool state,
@@ -1918,6 +1931,26 @@ public sealed class LlrpReader : IAsyncDisposable
                     foreach (TranslatedTagReport translatedReport in GetProtocolAdapter().TranslateTagReports(message))
                     {
                         TagReport tagReport = ApplyTagReportContributors(translatedReport);
+                        if (_tagReports.Reader.Count >= Options.IncomingMessageCapacity)
+                        {
+                            // The bounded channel drops the oldest report on the next write; surface it so consumers
+                            // can detect silent data loss.
+                            long dropped = Interlocked.Increment(ref _tagReportsDropped);
+                            try
+                            {
+                                TagReportsDropped?.Invoke(
+                                    this,
+                                    new TagReportOverflowEventArgs(Options.IncomingMessageCapacity, dropped));
+                            }
+                            catch (Exception exception)
+                            {
+                                _logger.LogError(
+                                    exception,
+                                    "A tag-report overflow event subscriber failed for connection {ConnectionId}",
+                                    ConnectionId);
+                            }
+                        }
+
                         _tagReports.Writer.TryWrite(tagReport);
                         PublishTagReport(tagReport);
                     }

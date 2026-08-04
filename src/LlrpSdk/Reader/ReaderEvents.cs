@@ -153,3 +153,23 @@ public sealed class KeepaliveTimeoutEventArgs : EventArgs
     /// <summary>Gets when the SDK detected the timeout.</summary>
     public DateTimeOffset Timestamp { get; }
 }
+
+/// <summary>Describes dropped tag reports on the SDK connection-level report stream.</summary>
+public sealed class TagReportOverflowEventArgs : EventArgs
+{
+    internal TagReportOverflowEventArgs(int bufferCapacity, long totalDropped)
+    {
+        BufferCapacity = bufferCapacity;
+        TotalDropped = totalDropped;
+        Timestamp = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Gets the bounded capacity of the connection-level tag-report buffer.</summary>
+    public int BufferCapacity { get; }
+
+    /// <summary>Gets the total number of tag reports dropped since the reader was created.</summary>
+    public long TotalDropped { get; }
+
+    /// <summary>Gets when the SDK dropped the report.</summary>
+    public DateTimeOffset Timestamp { get; }
+}

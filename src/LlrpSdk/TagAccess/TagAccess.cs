@@ -23,6 +23,7 @@ public sealed record TagSelection
     public ushort BitPointer { get; init; } = 32;
 
     /// <summary>Gets the number of significant bits in <see cref="Mask"/> and <see cref="Data"/>.</summary>
+    /// <remarks>Zero means "use every packed bit" (LLRP masks are bit vectors whose array length is the bit count).</remarks>
     public ushort BitLength { get; init; }
 
     /// <summary>Gets the packed mask bits.</summary>

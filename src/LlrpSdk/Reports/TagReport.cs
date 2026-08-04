@@ -6,6 +6,11 @@
 /// <remarks>
 /// The value is intentionally independent from generated protocol parameter types. Vendor-specific report data is
 /// added by the extension pipeline in a later milestone.
+/// <para>
+/// <see cref="PeakRssi"/> is the standard LLRP 1.0.1/1.1 <c>PeakRSSI</c> parameter: a signed byte in dBm (e.g. -67).
+/// The Impinj extension projects a higher-resolution value under the <c>impinj.peakRssi</c> extension key as a
+/// signed 16-bit value in 0.01 dBm units (e.g. -6700); it is not this property.
+/// </para>
 /// </remarks>
 public sealed record TagReport(
     ReadOnlyMemory<byte> ElectronicProductCode,

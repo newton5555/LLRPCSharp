@@ -76,9 +76,9 @@ internal static class Llrp101TagAccessCompiler
     private static void Validate(TagAccessRequest request)
     {
         TagSelection selection = request.Selection ?? throw new ArgumentException("A tag selection is required.", nameof(request));
-        if (selection.BitLength == 0 || selection.BitLength > checked(selection.Mask.Length * 8) || selection.BitLength > checked(selection.Data.Length * 8))
+        if (selection.BitLength > checked(selection.Mask.Length * 8) || selection.BitLength > checked(selection.Data.Length * 8))
         {
-            throw new ArgumentException("Selection bit length must be positive and fit both mask and data.", nameof(request));
+            throw new ArgumentException("Selection bit length must fit both mask and data.", nameof(request));
         }
         if (request is ReadTagRequest { WordCount: 0 })
         {
@@ -143,8 +143,10 @@ internal static class Llrp101TagAccessCompiler
 
     private static IReadOnlyList<bool> ToBits(ReadOnlySpan<byte> bytes, ushort bitLength)
     {
-        var bits = new bool[bitLength];
-        for (int i = 0; i < bitLength; i++)
+        // LLRP masks are bit vectors; a zero bit length uses every packed bit (standard semantics: array length == bit count).
+        int length = bitLength == 0 ? checked(bytes.Length * 8) : bitLength;
+        var bits = new bool[length];
+        for (int i = 0; i < length; i++)
         {
             bits[i] = (bytes[i / 8] & (1 << (7 - (i % 8)))) != 0;
         }

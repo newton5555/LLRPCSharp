@@ -17,7 +17,7 @@ public sealed record AttachedDataOptions
     /// <summary>Gets the number of 16-bit words to read. Default is 6 words.</summary>
     public ushort WordCount { get; init; } = 6;
 
-    /// <summary>Gets the 32-bit hex access password string (8 hex characters).</summary>
+    /// <summary>Gets the 32-bit hex access password string (8 hex characters); converted internally to the LLRP unsigned 32-bit wire value.</summary>
     public string AccessPassword { get; init; } = "00000000";
 }
 
