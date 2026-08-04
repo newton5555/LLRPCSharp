@@ -47,7 +47,7 @@ coupling them to one application stack.
 
 - **ROSpec lifecycle service**: `reader.RoSpecs` provides Add, Delete, Enable, Disable, Start, Stop, and GetAll operations.
 - **AccessSpec lifecycle service**: `reader.AccessSpecs` provides Add, Delete, Enable, Disable, and GetAll operations.
-- **Inventory entry points**: `StartInventoryAsync` returns an `InventorySession` with an isolated report stream; `StartAsync`/`StopAsync` remain lifecycle compatibility APIs, while `ReadTagReportsAsync` and `TagsReported` observe the whole connection.
+- **Inventory entry points**: `StartInventoryAsync(settings)` deploys and starts inventory and returns an `InventorySession` with an isolated report stream; `StartInventoryAsync()` starts the previously deployed inventory. The session-less `StartAsync` overloads are internal (tag access and connection-level flows only). `ReadTagReportsAsync` and `TagsReported` observe the whole connection.
 
 ### 3. CLI Diagnostics and Interop
 

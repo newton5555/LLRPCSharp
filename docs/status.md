@@ -41,6 +41,10 @@
   `TagsReported` 和 `ReadTagReportsAsync()` 可观察连接级报告。
 - SDK 管理保留的 ROSpec/AccessSpec 资源；应用设置后保持停止，显式启动后才
   开始盘点。
+- 部署契约：带 Inventory 意图的 `ApplySettingsAsync` 或
+  `StartInventoryAsync(settings)` 会先删除设备上全部 ROSpec/AccessSpec
+  （LLRP id=0 语义）再部署，即 SDK 完全接管设备资源配置；共享设备请用
+  两段式（先部署，后 `StartInventoryAsync()` 仅启动）。
 - 标签访问 API 复用同一资源生命周期，不要求应用手写 AccessSpec。
 
 ### CLI

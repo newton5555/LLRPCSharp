@@ -110,6 +110,69 @@ reader.TagsReported += (sender, reports) =>
 };
 ```
 
+### 4.1 盘点配置的恢复模式（应用层）
+
+`InventorySettings` 是应用持有的盘点意图（类似 Impinj 模型中由应用持久化的部分），SDK 不隐式恢复。
+恢复策略由应用层实现，配置来源有三种：
+
+**① 从 SDK default 基线恢复**（无本地文件时的推荐起点）：
+
+```csharp
+ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
+await using var session = await reader.StartInventoryAsync(defaults.Settings.Inventory);
+```
+
+**② 从本地持久化文件恢复**：
+
+```csharp
+// 保存：InventorySettingsSerializer.SaveToFile("inventory.json", session.Settings);
+InventorySettings saved = InventorySettingsSerializer.LoadFromFile("inventory.json");
+await using var session = await reader.StartInventoryAsync(saved);
+```
+
+**③ 从设备当前快照恢复**（设备上恰好存在 SDK 托管盘点时）：
+
+```csharp
+ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync();
+if (snapshot.Inventory is { } inventory)
+{
+    await using var session = await reader.StartInventoryAsync(inventory);
+}
+```
+
+两段式流程保持不变（先部署、后启动）：
+
+```csharp
+await reader.ApplySettingsAsync(settings);          // 部署（含 Inventory 意图），不启动
+await using var session = await reader.StartInventoryAsync();  // 启动已部署资源
+```
+
+**④ 设备断电重启后的恢复**：
+
+设备上的 ROSpec/AccessSpec 是易失资源（LLRP 不强制设备持久化，Impinj 实测断电重启后不保留）。设备重启后直接调用无参
+`StartInventoryAsync()` 会按预期报错（"No stopped SDK-managed inventory configuration is available to start."），
+与 Impinj Octane 在设备重启后直接 `Start()` 报错的行为一致。应用需在重启后从本地配置重新部署：
+
+```csharp
+// 设备重启后：从本地文件重新部署并启动
+InventorySettings saved = InventorySettingsSerializer.LoadFromFile("inventory.json");
+await using var session = await reader.StartInventoryAsync(saved);
+```
+
+> ⚠️ 注意：带 Inventory 意图的部署会先删除设备上**全部** ROSpec/AccessSpec（SDK 完全接管设备资源配置），不要在共享设备上对正在运行的其他托管盘点执行部署型调用。无参 `StartInventoryAsync()` 仅启动已部署资源，不做任何部署或删除。
+
+### 4.2 入口选择：一段式 vs 两段式
+
+公开盘点入口只有两个重载，按场景选择：
+
+| 场景 | 入口 | 说明 |
+|---|---|---|
+| **快速/临时盘点** | `StartInventoryAsync(InventorySettings)` | 不重发设备配置（以设备为真相），仅部署盘点 ROSpec 并立即启动；适合临时巡检、快速验证、一次性盘点 |
+| **受控部署 + 显式启动** | `ApplySettingsAsync(ReaderSettings)` → `StartInventoryAsync()` | 先全量下发配置与盘点意图（保持停止），应用确认后再显式启动；适合正式业务流程（与 Impinj Octane 的 `ApplySettings` + `Start()` 一致） |
+| **恢复（断电重启/新会话）** | 见 4.1 三种来源 + 显式传入 | 设备重启后 ROSpec 丢失，无参 `StartInventoryAsync()` 会报错，需应用从本地/default 重新部署 |
+
+两段式对应 Octane 官方用法：`Connect` → `QueryDefaultSettings` → `ApplySettings(settings)`（部署，保持停止）→ `Start()`（显式启动）→ `Stop()`。
+
 ---
 
 ## 5. 标签内存读写与锁定 (Tag Memory Access)

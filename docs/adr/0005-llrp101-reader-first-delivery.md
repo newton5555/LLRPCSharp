@@ -76,7 +76,7 @@ Live Shell 必须清晰管理一个 Reader 会话的连接、托管资源所有�
 | 运行中快照 | 当前 `CurrentInventorySettings`（后续规范名为 `CurrentInventorySettings`） | SDK 正在托管的盘点参数；停止后失效 | `inventory status` 只读显示 |
 | 会话草稿 | `LiveSessionContext.DesiredInventorySettings` | 用户准备给下一次盘点使用的本地草稿；断开后丢弃 | Live Shell 内部状态 |
 
-`CurrentInventorySettings` 不能承担 CLI 会话草稿：它只反映当前运行的 SDK 托管盘点。CLI 也不得自行编译 ROSpec 或管理 AttachedData 所需的 AccessSpec；它只将草稿快照传给 `LlrpReader.StartAsync(...)`。
+`CurrentInventorySettings` 不能承担 CLI 会话草稿：它只反映当前运行的 SDK 托管盘点。CLI 也不得自行编译 ROSpec 或管理 AttachedData 所需的 AccessSpec；它只将草稿经 `ApplySettingsAsync(ReaderSettings)` 部署（保持停止）后，用无参 `StartInventoryAsync()` 显式启动（实施说明：`StartAsync` 系列已转为 internal，公开入口为 `StartInventoryAsync(InventorySettings)` 与 `StartInventoryAsync()` 两个重载）。
 
 `InventorySettings.Extensions` 不构成通用 JSON 持久化协议。标准盘点 Profile 可以序列化；厂商扩展必须由其 Extension 注册强类型 JSON 映射、版本和类型标识。未知扩展不得反序列化成不安全的 `object` 后再发送给设备。
 

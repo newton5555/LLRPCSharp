@@ -44,7 +44,7 @@ Registry、异步传输、版本 Adapter 和托管 Reader API。协议资产因�
 
 - **ROSpec 生命周期服务**：`reader.RoSpecs` 提供 Add、Delete、Enable、Disable、Start、Stop、GetAll 等操作。
 - **AccessSpec 生命周期服务**：`reader.AccessSpecs` 提供 Add、Delete、Enable、Disable、GetAll 等操作。
-- **盘点入口**：`StartInventoryAsync` 返回带独立报告流的 `InventorySession`；`StartAsync`/`StopAsync` 保留为生命周期兼容 API，`ReadTagReportsAsync` 与 `TagsReported` 则观察整个连接。
+- **盘点入口**：`StartInventoryAsync(settings)` 部署并启动盘点，返回带独立报告流的 `InventorySession`；`StartInventoryAsync()` 启动之前已部署的盘点。无会话版的 `StartAsync` 重载已转为 internal（仅 Tag Access 与连接级流程使用）。`ReadTagReportsAsync` 与 `TagsReported` 则观察整个连接。
 
 ### 3. CLI 诊断与互操作套件
 
