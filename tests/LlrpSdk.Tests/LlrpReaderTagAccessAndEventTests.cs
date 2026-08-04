@@ -465,4 +465,58 @@ public sealed class LlrpReaderTagAccessAndEventTests
         AccessSpecID: accessSpecId is uint id ? new AccessSpecID(id) : null,
         AccessCommandOpSpecResultItems: results,
         CustomItems: []);
+
+[Fact]
+public void TagSelection_BitLengthZero_UsesEveryPackedBit()
+{
+    var selection = new TagSelection
+    {
+        BitLength = 0,
+        Mask = new byte[] { 0xE2, 0x80 },
+        Data = new byte[] { 0xE2, 0x80 },
+    };
+    AccessSpec accessSpec = Llrp101TagAccessCompiler.CompileSequence(
+        9,
+        14150,
+        [new ReadTagRequest { Selection = selection, MemoryBank = TagMemoryBank.Tid, WordCount = 1 }]);
+
+    C1G2TargetTag target = Assert.Single(
+        Assert.IsType<C1G2TagSpec>(accessSpec.AccessCommand.AirProtocolTagSpec).C1G2TargetTagItems);
+    Assert.Equal(16, target.TagMask.Count);
+    Assert.Equal(16, target.TagData.Count);
+}
+
+[Fact]
+public async Task TagReportsDropped_RaisesWhenConnectionReportBufferIsFull()
+{
+    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+    var transport = new ScriptedLlrpTransport();
+    var options = new LlrpReaderOptionsBuilder("scripted.local")
+        .WithTransportFactory(_ => transport)
+        .WithIncomingMessageCapacity(2)
+        .Build();
+    await using var reader = new LlrpReader(options);
+    var dropped = new TaskCompletionSource<TagReportOverflowEventArgs>(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    reader.TagReportsDropped += (_, args) => dropped.TrySetResult(args);
+
+    await reader.ConnectAsync(timeout.Token);
+
+    for (int index = 0; index < 3; index++)
+    {
+        var report = new V101.RO_ACCESS_REPORT(
+            (uint)(100 + index),
+            TagReportDataItems:
+            [
+                CreateTagReportData(null),
+            ],
+            RFSurveyReportDataItems: [],
+            CustomItems: []);
+        transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, report));
+    }
+
+    TagReportOverflowEventArgs args = await dropped.Task.WaitAsync(timeout.Token);
+    Assert.Equal(2, args.BufferCapacity);
+    Assert.Equal(1, args.TotalDropped);
+}
 }
