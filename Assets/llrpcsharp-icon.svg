@@ -1,1 +1,63 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="LLRPCSharp LLRP SDK icon"><defs><linearGradient id="bg" x1="128" y1="96" x2="896" y2="928"><stop stop-color="#2563EB"/><stop offset="1" stop-color="#0891B2"/></linearGradient><linearGradient id="shine" x1="0" y1="96" x2="0" y2="448"><stop stop-color="white" stop-opacity=".27"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient></defs><rect x="96" y="96" width="832" height="832" rx="188" fill="url(#bg)"/><ellipse cx="512" cy="268" rx="352" ry="180" fill="url(#shine)"/><path d="M382 300A130 77 0 0 1 642 300M316 332A196 116 0 0 1 708 332M512 300V382" fill="none" stroke="white" stroke-width="28" stroke-linecap="round" opacity=".96"/><rect x="248" y="320" width="528" height="388" rx="58" fill="#0F172A" opacity=".31"/><g fill="white" opacity=".75"><rect x="304" y="290" width="34" height="50" rx="12"/><rect x="384" y="290" width="34" height="50" rx="12"/><rect x="464" y="290" width="34" height="50" rx="12"/><rect x="544" y="290" width="34" height="50" rx="12"/><rect x="624" y="290" width="34" height="50" rx="12"/><rect x="704" y="290" width="34" height="50" rx="12"/><rect x="304" y="688" width="34" height="50" rx="12"/><rect x="384" y="688" width="34" height="50" rx="12"/><rect x="464" y="688" width="34" height="50" rx="12"/><rect x="544" y="688" width="34" height="50" rx="12"/><rect x="624" y="688" width="34" height="50" rx="12"/><rect x="704" y="688" width="34" height="50" rx="12"/><rect x="218" y="376" width="50" height="34" rx="12"/><rect x="218" y="456" width="50" height="34" rx="12"/><rect x="218" y="536" width="50" height="34" rx="12"/><rect x="218" y="616" width="50" height="34" rx="12"/><rect x="756" y="376" width="50" height="34" rx="12"/><rect x="756" y="456" width="50" height="34" rx="12"/><rect x="756" y="536" width="50" height="34" rx="12"/><rect x="756" y="616" width="50" height="34" rx="12"/></g><text x="512" y="530" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="126" font-weight="800" fill="white">LLRP</text><text x="512" y="588" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="800" fill="white" opacity=".9">C# SDK</text><text x="512" y="682" text-anchor="middle" font-family="Consolas, monospace" font-size="82" font-weight="800" fill="#7DD3FC">&lt;/&gt;</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="LLRPCSharp – Modern LLRP C# SDK Icon">
+  <defs>
+    <!-- Background Gradient: Deep Slate Navy -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="50%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0B132B"/>
+    </linearGradient>
+
+    <!-- Glowing Accent Gradient for Signal / Core elements -->
+    <linearGradient id="cyanGlow" x1="0" y1="0" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+
+    <!-- Subtle backdrop radial glow -->
+    <radialGradient id="centerGlow" cx="512" cy="512" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Base canvas with smooth rounded square -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="220" fill="url(#centerGlow)"/>
+
+  <!-- Minimalist outer boundary frame (Modern Developer Tool aesthetics) -->
+  <rect x="256" y="256" width="512" height="512" rx="44"
+        fill="none" stroke="#334155" stroke-width="4"/>
+
+  <!-- Ultra-clean corner notches / pins (Only 4 elegant corner markers instead of dense pins) -->
+  <path d="M 236 256 L 256 256 M 768 256 L 788 256 M 236 768 L 256 768 M 768 768 L 788 768"
+        stroke="#38BDF8" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+  <path d="M 256 236 L 256 256 M 256 768 L 256 788 M 768 236 L 768 256 M 768 768 L 768 788"
+        stroke="#38BDF8" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Sleek RFID Wave / Signal Icon (Minimalist 2-arc design at top) -->
+  <path d="M 432 370 A 100 100 0 0 1 592 370" fill="none" stroke="url(#cyanGlow)" stroke-width="14" stroke-linecap="round"/>
+  <path d="M 462 415 A 60 60 0 0 1 552 415" fill="none" stroke="url(#cyanGlow)" stroke-width="12" stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Main Label: LLRP (Bold, Clean, High Contrast) -->
+  <text x="512" y="570"
+        text-anchor="middle"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif"
+        font-size="140"
+        font-weight="800"
+        fill="#F8FAFC"
+        letter-spacing="-2">LLRP</text>
+
+  <!-- Subtitle Badge / Language Indicator: C# SDK -->
+  <g transform="translate(512, 640)">
+    <!-- Subtle Pill Background -->
+    <rect x="-90" y="-32" width="180" height="52" rx="14" fill="#38BDF8" fill-opacity="0.12" stroke="#38BDF8" stroke-opacity="0.3" stroke-width="2"/>
+    <text x="0" y="4"
+          text-anchor="middle"
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif"
+          font-size="32"
+          font-weight="700"
+          fill="#38BDF8"
+          letter-spacing="3">C# SDK</text>
+  </g>
+
+</svg>
