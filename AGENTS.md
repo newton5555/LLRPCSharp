@@ -76,3 +76,16 @@ instead, then regenerate and verify.
 ## Git Commit Rules
 
 - **Do Not Automatically Commit to Git**: Coding agents must not make automatic Git commits unless explicitly requested by the user. If you believe a commit is necessary, always ask the user for permission first.
+
+## Standard Release Workflow
+
+When executing a version release (e.g. `0.6.0`), follow this strict step-by-step workflow:
+
+1. **Create Release Branch**: Create and switch to a local release branch: `git checkout -b release/<version>`.
+2. **Add Release Document & Update Version**:
+   - Create the release notes file at `docs/releases/<version>.md`.
+   - Update the project version number (e.g., `<Version>` in `Directory.Build.props`).
+3. **Local Commit**: Commit the release changes locally (e.g., `git commit -m "release: prepare <version>"`).
+4. **Manual Confirmation 1 (Push to Remote)**: Ask the user for explicit confirmation before pushing the release branch to `origin`.
+5. **Manual Confirmation 2 (Merge to Master)**: Ask the user for explicit confirmation before merging `release/<version>` back into `master`.
+6. **Manual Confirmation 3 (Cleanup Release Branch)**: Ask the user for explicit confirmation before deleting the local and remote `release/<version>` branches.
