@@ -34,6 +34,10 @@ Do not manually edit:
 - `src/LlrpNet/LlrpNet.Protocol/**/*.g.cs`
 - `src/LlrpNet/LlrpNet.Protocol.Impinj/**/*.g.cs`
 
+Test projects must not write to or normalize the committed `.g.cs` files above.
+Tests that need generated output should use temporary directories, in-memory
+sources, or checked-in fixtures outside the committed generated protocol tree.
+
 Change `definitions/`, importer/generator code, or the generation command
 instead, then regenerate and verify.
 
