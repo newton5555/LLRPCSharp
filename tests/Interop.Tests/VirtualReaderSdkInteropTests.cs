@@ -27,7 +27,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         await Assert.ThrowsAsync<TimeoutException>(
-            () => reader.StartAsync(new InventorySettings(), timeout.Token));
+            () => reader.StartInventoryAsync(new InventorySettings(), timeout.Token));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         LlrpReaderOperationException exception = await Assert.ThrowsAsync<LlrpReaderOperationException>(
-            () => reader.StartAsync(new InventorySettings(), timeout.Token));
+            () => reader.StartInventoryAsync(new InventorySettings(), timeout.Token));
 
         Assert.Equal((ushort)StatusCode.M_ParameterError, exception.StatusCode);
         Assert.Equal("Injected ADD_ROSPEC failure.", exception.ErrorDescription);
@@ -191,7 +191,7 @@ public sealed class VirtualReaderSdkInteropTests
         Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
         ReaderSettingsSnapshot deployed = await reader.QuerySettingsAsync(timeout.Token);
         Assert.Equal(InventoryRuntimeState.Disabled, deployed.Inventory!.State);
-        await reader.StartAsync(timeout.Token);
+        await reader.StartInventoryAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
         await reader.StopAsync(timeout.Token);
         await reader.ClearManagedSettingsAsync(timeout.Token);
@@ -238,7 +238,7 @@ public sealed class VirtualReaderSdkInteropTests
         };
 
         await reader.ConnectAsync(timeout.Token);
-        await reader.StartAsync(inventory, timeout.Token);
+        await reader.StartInventoryAsync(inventory, timeout.Token);
         try
         {
             ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync(timeout.Token);
@@ -281,7 +281,7 @@ public sealed class VirtualReaderSdkInteropTests
         Assert.Equal(ReaderResourceMode.ManualResources, reader.ResourceMode);
         await reader.RoSpecs.AddDefaultAsync(600, new InventorySettings(), timeout.Token);
 
-        await reader.StartAsync(new InventorySettings(), timeout.Token);
+        await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
         try
         {
             Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
@@ -300,13 +300,13 @@ public sealed class VirtualReaderSdkInteropTests
         ReaderSettingsSnapshot stopped = await reader.QuerySettingsAsync(timeout.Token);
         Assert.NotNull(stopped.Settings.Inventory);
         Assert.Equal(InventoryRuntimeState.Disabled, stopped.Inventory!.State);
-        await reader.StartAsync(timeout.Token);
+        await reader.StartInventoryAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
         await reader.StopAsync(timeout.Token);
         _ = await reader.Protocol.TransactAsync<GET_ROSPECS_RESPONSE>(
             new GET_ROSPECS(reader.Protocol.NextMessageId()), cancellationToken: timeout.Token);
         Assert.Equal(ReaderResourceMode.StateUnknown, reader.ResourceMode);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => reader.StartAsync(new InventorySettings(), timeout.Token));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => reader.StartInventoryAsync(new InventorySettings(), timeout.Token));
 
         await reader.SynchronizeStateAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
@@ -330,7 +330,7 @@ public sealed class VirtualReaderSdkInteropTests
 
         await reader.ConnectAsync(timeout.Token);
         _ = await reader.QuerySettingsAsync(timeout.Token);
-        await reader.StartAsync(new InventorySettings(), timeout.Token);
+        await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
         try
         {
             Assert.Equal(ReaderOperationState.Inventorying, reader.OperationState);
@@ -356,7 +356,7 @@ public sealed class VirtualReaderSdkInteropTests
             .Build();
 
         await reader.ConnectAsync(timeout.Token);
-        await reader.StartAsync(new InventorySettings(), timeout.Token);
+        await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
         try
         {
             await using IAsyncEnumerator<TagReport> reports = reader.ReadTagReportsAsync(timeout.Token)

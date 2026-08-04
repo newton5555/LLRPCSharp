@@ -115,6 +115,22 @@ public sealed class LlrpReaderLifecycleTests
         Assert.Equal(1, transport.DisposeCount);
     }
 
+    [Fact]
+    public async Task StartInventoryAsync_WithoutSettings_ThrowsInvalidOperationException()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using var reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => reader.StartInventoryAsync(timeout.Token));
+
+        Assert.Equal(
+            "No stopped SDK-managed inventory configuration is available to start.",
+            exception.Message);
+    }
+
     internal static LlrpReader CreateReader(ScriptedLlrpTransport transport)
     {
         LlrpReaderOptions options = new LlrpReaderOptionsBuilder("scripted.local")

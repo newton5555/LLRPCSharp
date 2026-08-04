@@ -377,7 +377,15 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    /// <summary>Starts exclusive SDK inventory and returns its isolated report session.</summary>
+    /// <summary>
+    /// Deploys and starts exclusive SDK-managed inventory and returns its isolated report session.
+    /// </summary>
+    /// <remarks>
+    /// Deployment takes full control of reader resources: before adding the SDK ROSpec (and optional attached-data
+    /// AccessSpec) it deletes <b>all</b> ROSpecs and AccessSpecs on the device (LLRP id=0 delete semantics), including
+    /// resources deployed by other applications. Do not use this on a reader shared with other managed ROSpecs; use
+    /// the parameterless <see cref="StartInventoryAsync(CancellationToken)"/> overload after a prior deployment.
+    /// </remarks>
     public async Task<InventorySession> StartInventoryAsync(InventorySettings settings, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -414,7 +422,10 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <summary>Starts the inventory resource previously applied to this reader.</summary>
     /// <remarks>
     /// This overload requires a persisted SDK-managed inventory resource. Use the settings overload or
-    /// <see cref="ApplySettingsAsync(ReaderSettings, CancellationToken)"/> first.
+    /// <see cref="ApplySettingsAsync(ReaderSettings, CancellationToken)"/> first. Restoring inventory from a
+    /// saved/default configuration is an application-layer concern: pass the recovered
+    /// <see cref="InventorySettings"/> to
+    /// <see cref="StartInventoryAsync(InventorySettings, CancellationToken)"/> explicitly.
     /// </remarks>
     public async Task<InventorySession> StartInventoryAsync(CancellationToken cancellationToken = default)
     {
@@ -657,16 +668,17 @@ public sealed class LlrpReader : IAsyncDisposable
     }
 
     /// <summary>
-    /// Compiles and starts one SDK-managed inventory operation.
+    /// Compiles and starts one SDK-managed inventory operation without an isolated report session.
     /// </summary>
     /// <param name="settings">The version-independent inventory intent to apply.</param>
     /// <param name="cancellationToken">Cancels the resource operations before inventory becomes active.</param>
     /// <returns>A task that completes after the reader accepts the managed ROSpec.</returns>
     /// <remarks>
-    /// The current baseline compiles settings to LLRP 1.0.1. The public method does not expose generated protocol
-    /// types, allowing later protocol adapters to compile the same intent for another negotiated version.
+    /// Internal: public inventory entry points are the <c>StartInventoryAsync</c> overloads, which return an
+    /// isolated <see cref="InventorySession"/>. This session-less variant is used by tag access and internal
+    /// flows where the connection-level report stream is sufficient.
     /// </remarks>
-    public async Task StartAsync(
+    internal async Task StartAsync(
         InventorySettings settings,
         CancellationToken cancellationToken = default)
     {
@@ -890,8 +902,9 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    /// <summary>Starts the previously applied SDK-managed inventory configuration.</summary>
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    /// <summary>Starts the previously applied SDK-managed inventory configuration without an isolated report session.</summary>
+    /// <remarks>Internal: public entry points are the <c>StartInventoryAsync</c> overloads.</remarks>
+    internal async Task StartAsync(CancellationToken cancellationToken = default)
     {
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -908,6 +921,11 @@ public sealed class LlrpReader : IAsyncDisposable
     }
 
     /// <summary>Applies high-level configuration and deploys optional exclusive inventory intent without starting it.</summary>
+    /// <remarks>
+    /// When <paramref name="settings"/> carries Inventory intent, deployment takes full control of reader resources
+    /// and first deletes <b>all</b> ROSpecs and AccessSpecs on the device (LLRP id=0 delete semantics), including
+    /// resources deployed by other applications.
+    /// </remarks>
     public async Task ApplySettingsAsync(ReaderSettings settings, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);

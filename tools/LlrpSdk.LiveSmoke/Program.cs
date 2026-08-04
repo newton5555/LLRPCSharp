@@ -140,15 +140,18 @@ if (args.Contains("--inventory", StringComparer.Ordinal) || requestImpinjReportF
         };
     }
     var inventorySettings = new InventorySettings { Extensions = inventoryExtensions };
+    InventorySession inventorySession;
     try
     {
-        await reader.StartAsync(inventorySettings, timeout.Token);
+        inventorySession = await reader.StartInventoryAsync(inventorySettings, timeout.Token);
     }
     catch
     {
         DumpRoSpecFrames(frameJournal);
         throw;
     }
+
+    await using var inventorySessionLease = inventorySession;
     try
     {
         bool observedTag = false;
