@@ -317,6 +317,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             table.AddRow("UTC Clock", capabilities.HasUtcClockCapability ? "[green]Yes[/]" : "[grey]No[/]");
             table.AddRow("Tx power entries", capabilities.TxPowers.Count.ToString());
             table.AddRow("Rx sensitivity entries", capabilities.RxSensitivities.Count.ToString());
+            if (capabilities.MaximumReceiveSensitivityDbm is { } maxRxSensitivity)
+            {
+                table.AddRow("Max Rx sensitivity (dBm)", $"[white]{maxRxSensitivity}[/]");
+            }
             table.AddRow("Transmit frequencies", capabilities.TxFrequencies.Count.ToString());
             table.AddRow("Additional Parameters", $"[cyan1]{capabilities.AdditionalParameters.Count}[/]");
 
@@ -344,13 +348,13 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             {
                 var rxTable = new Table().Border(TableBorder.Rounded);
                 rxTable.AddColumn("[bold grey70]Rx index[/]");
-                rxTable.AddColumn("[bold grey70]dBm[/]");
+                rxTable.AddColumn("[bold grey70]dB offset[/]");
                 foreach (RxSensitivityEntry sensitivity in capabilities.RxSensitivities)
                 {
-                    rxTable.AddRow(sensitivity.Index.ToString(), sensitivity.ReceiveSensitivityDbm.ToString("F2"));
+                    rxTable.AddRow(sensitivity.Index.ToString(), sensitivity.ReceiveSensitivityDb.ToString());
                 }
                 _console.Write(new Panel(rxTable)
-                    .Header("[bold yellow] RECEIVE SENSITIVITY TABLE — use index with config apply --rx-sens [/]")
+                    .Header("[bold yellow] RECEIVE SENSITIVITY TABLE — dB offset from max sensitivity; use index with config apply --rx-sens [/]")
                     .Border(BoxBorder.Rounded));
             }
 

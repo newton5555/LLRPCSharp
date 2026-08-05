@@ -54,7 +54,7 @@ public static class CommandCatalog
         },
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
-        new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index-to-dBm tables.", RequiresConnection: true),
+        new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index tables.", RequiresConnection: true),
         new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, save, or discard high-level ReaderSettings.", RequiresConnection: true)
         {
             CompletionCandidates = ["show", "edit", "validate", "apply", "load", "save", "discard", "reader", "draft", "defaults", "generic", "--from", "--source", "--json", "--yes"],

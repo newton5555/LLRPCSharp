@@ -142,7 +142,8 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
             isTagAccessAvailable,
             isBlockWrite,
             isBlockErase,
-            canDoStateAware);
+            canDoStateAware,
+            general.MaximumReceiveSensitivity?.MaximumSensitivityValue);
     }
 
     public ILlrpParameter CompileInventory(

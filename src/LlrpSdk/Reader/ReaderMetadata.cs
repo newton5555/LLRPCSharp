@@ -16,10 +16,19 @@ public sealed record TxPowerEntry(ushort Index, short TransmitPowerValue)
 /// <summary>
 /// Represents a receive sensitivity table entry.
 /// </summary>
+/// <remarks>
+/// Per LLRP 1.0.1/1.1, <see cref="ReceiveSensitivityValue"/> is the receive sensitivity expressed as
+/// an integer dB offset relative to the reader's maximum sensitivity: 0 dB means the most sensitive
+/// setting, and larger values are proportionally less sensitive. It is <b>not</b> an absolute dBm
+/// value and it is <b>not</b> scaled by 100.
+/// To compute an absolute sensitivity in dBm, add the offset to
+/// <see cref="ReaderCapabilities.MaximumReceiveSensitivityDbm"/> (LLRP 1.1 only); LLRP 1.0.1 does
+/// not advertise an absolute maximum, so the offset table is all that is available.
+/// </remarks>
 public sealed record RxSensitivityEntry(ushort Index, short ReceiveSensitivityValue)
 {
-    /// <summary>Gets the receive sensitivity formatted in dBm (ReceiveSensitivityValue / 100.0).</summary>
-    public double ReceiveSensitivityDbm => ReceiveSensitivityValue / 100.0;
+    /// <summary>Gets the receive sensitivity as an integer dB offset relative to the reader's maximum sensitivity (0 = most sensitive).</summary>
+    public int ReceiveSensitivityDb => ReceiveSensitivityValue;
 }
 
 /// <summary>
@@ -96,7 +105,8 @@ public sealed class ReaderCapabilities
         bool isTagAccessAvailable = true,
         bool isMultiwordBlockWriteAvailable = false,
         bool isMultiwordBlockEraseAvailable = false,
-        bool canDoTagInventoryStateAwareSingulation = false)
+        bool canDoTagInventoryStateAwareSingulation = false,
+        short? maximumReceiveSensitivityDbm = null)
     {
         ArgumentNullException.ThrowIfNull(generalDeviceParameters);
         ArgumentNullException.ThrowIfNull(rawResponse);
@@ -119,6 +129,7 @@ public sealed class ReaderCapabilities
         IsMultiwordBlockWriteAvailable = isMultiwordBlockWriteAvailable;
         IsMultiwordBlockEraseAvailable = isMultiwordBlockEraseAvailable;
         CanDoTagInventoryStateAwareSingulation = canDoTagInventoryStateAwareSingulation;
+        MaximumReceiveSensitivityDbm = maximumReceiveSensitivityDbm;
     }
 
     /// <summary>
@@ -175,6 +186,16 @@ public sealed class ReaderCapabilities
     /// Gets a value indicating whether C1G2 BlockErase is supported.
     /// </summary>
     public bool IsMultiwordBlockEraseAvailable { get; }
+
+    /// <summary>
+    /// Gets the reader's maximum receive sensitivity in absolute dBm — the raw LLRP 1.1
+    /// <c>MaximumReceiveSensitivity.MaximumSensitivityValue</c> wire value, or
+    /// <see langword="null"/> on LLRP 1.0.1, which does not advertise this parameter.
+    /// The value is an integer dBm, not scaled by 100. Combine it with each
+    /// <see cref="RxSensitivityEntry.ReceiveSensitivityValue"/> dB offset to obtain an absolute
+    /// sensitivity in dBm: <c>MaximumReceiveSensitivityDbm + offset</c>.
+    /// </summary>
+    public short? MaximumReceiveSensitivityDbm { get; }
 
     /// <summary>
     /// Gets a value indicating whether inventory state-aware singulation is supported.

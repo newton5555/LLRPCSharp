@@ -371,7 +371,7 @@ public sealed class LlrpReaderConfigurationTests
             rawResponse: new ENABLE_EVENTS_AND_REPORTS(1),
             additionalParameters: [],
             txPowers: [new TxPowerEntry(2, 2500), new TxPowerEntry(8, 3000)],
-            rxSensitivities: [new RxSensitivityEntry(1, -7000)]);
+            rxSensitivities: [new RxSensitivityEntry(1, 0)]);
         var context = new ReaderSettingsDefaultContext(
             new ReaderIdentity(SeuicReaderExtension.ManufacturerId, SeuicReaderExtension.Uf40ModelId, "1.0"),
             capabilities,
