@@ -54,7 +54,6 @@ public sealed class ImpinjExtensionTests
                 {
                     [ImpinjReaderConfiguration.ExtensionKey] = new ImpinjReaderConfiguration
                     {
-                        InventorySearchMode = ImpinjInventorySearchType.Single_Target,
                         GpiDebounce = [new ImpinjGpiDebounceSetting(1, 250)],
                     },
                     [ImpinjReaderFacts.ExtensionKey] = new ImpinjReaderFacts
@@ -72,6 +71,10 @@ public sealed class ImpinjExtensionTests
                         IncludeSerializedTid = true,
                         IncludePeakRssi = true,
                     },
+                    [ImpinjInventoryControlOptions.ExtensionKey] = new ImpinjInventoryControlOptions
+                    {
+                        InventorySearchMode = ImpinjInventorySearchType.Single_Target,
+                    },
                 },
             },
         };
@@ -86,6 +89,8 @@ public sealed class ImpinjExtensionTests
         var reports = Assert.IsType<ImpinjInventoryReportOptions>(restored.Inventory!.Extensions[ImpinjInventoryReportOptions.ExtensionKey]);
         Assert.True(reports.IncludeSerializedTid);
         Assert.True(reports.IncludePeakRssi);
+        var control = Assert.IsType<ImpinjInventoryControlOptions>(restored.Inventory.Extensions[ImpinjInventoryControlOptions.ExtensionKey]);
+        Assert.Equal(ImpinjInventorySearchType.Single_Target, control.InventorySearchMode);
     }
 
     [Fact]
@@ -97,7 +102,6 @@ public sealed class ImpinjExtensionTests
             {
                 [ImpinjReaderConfiguration.ExtensionKey] = new ImpinjReaderConfiguration
                 {
-                    InventorySearchMode = ImpinjInventorySearchType.Single_Target,
                     FixedFrequency = new ImpinjFixedFrequencySettings(
                         ImpinjFixedFrequencyMode.Channel_List, [1, 4]),
                     GpiDebounce = [new ImpinjGpiDebounceSetting(1, 250)],
@@ -110,7 +114,7 @@ public sealed class ImpinjExtensionTests
         IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> parameters =
             ImpinjReaderExtension.Instance.BuildApplyParameters(configuration);
 
-        Assert.Contains(parameters, static item => item is ImpinjInventorySearchMode);
+        Assert.DoesNotContain(parameters, static item => item is ImpinjInventorySearchMode);
         Assert.Contains(parameters, static item => item is ImpinjFixedFrequencyList list &&
             list.ChannelList.Count == 2 && list.ChannelList[0] == 1 && list.ChannelList[1] == 4);
         Assert.Contains(parameters, static item => item is ImpinjGPIDebounceConfiguration debounce && debounce.GPIDebounceTimerMSec == 250);
@@ -170,6 +174,44 @@ public sealed class ImpinjExtensionTests
             {
                 EnableTagPopulationEstimation = true,
             }));
+    }
+
+    [Fact]
+    public void InventoryControlConfigurator_EmitsSearchModeParameter()
+    {
+        var context = new ReaderExtensionMatchContext(
+            ManufacturerId: ImpinjReaderExtension.ManufacturerId,
+            ModelId: 999_999,
+            FirmwareVersion: "99.0.0",
+            ProtocolVersion: LlrpProtocolVersion.Version101);
+
+        IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> items =
+            ImpinjInventoryControlConfigurator.BuildCustomItems(context, new ImpinjInventoryControlOptions
+            {
+                InventorySearchMode = ImpinjInventorySearchType.Single_Target,
+            });
+
+        var searchMode = Assert.IsType<ImpinjInventorySearchMode>(Assert.Single(items));
+        Assert.Equal(ImpinjInventorySearchType.Single_Target, searchMode.InventorySearchMode);
+    }
+
+    [Fact]
+    public void InventoryControlQuery_RestoresSearchModeFromInventoryCommand()
+    {
+        var identity = new ReaderIdentity(ImpinjReaderExtension.ManufacturerId, 999_999, "99.0.0");
+        var extensions = new InventorySettingsExtensionBuilder();
+        ImpinjReaderExtension.Instance.ContributeQuery(
+            new InventorySettingsContributionContext(
+                identity,
+                null!,
+                LlrpProtocolVersion.Version101,
+                [],
+                [new ImpinjInventorySearchMode(ImpinjInventorySearchType.Single_Target, [])]),
+            extensions);
+
+        var restored = Assert.IsType<ImpinjInventoryControlOptions>(
+            extensions.Build()[ImpinjInventoryControlOptions.ExtensionKey]);
+        Assert.Equal(ImpinjInventorySearchType.Single_Target, restored.InventorySearchMode);
     }
 
     [Fact]

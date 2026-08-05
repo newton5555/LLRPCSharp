@@ -11,6 +11,11 @@ public sealed record ImpinjInventoryControlOptions
     public const string ExtensionKey = "impinj.inventoryControl";
 
     /// <summary>
+    /// Gets the inventory search mode used by the C1G2 inventory command.
+    /// </summary>
+    public ImpinjInventorySearchType? InventorySearchMode { get; init; }
+
+    /// <summary>
     /// Gets whether the reader derives the initial population estimate from preceding inventory rounds.
     /// </summary>
     public bool? EnableTagPopulationEstimation { get; init; }
@@ -78,7 +83,8 @@ public static class ImpinjInventoryControlConfigurator
         ArgumentNullException.ThrowIfNull(options);
         ArgumentOutOfRangeException.ThrowIfNegative(standardFilterCount);
 
-        bool hasControls = options.EnableTagPopulationEstimation is not null ||
+        bool hasControls = options.InventorySearchMode is not null ||
+            options.EnableTagPopulationEstimation is not null ||
             options.TagFilterVerificationMode is not null ||
             options.TruncatedReply is not null ||
             options.Gen2XInventory is not null ||
@@ -135,6 +141,10 @@ public static class ImpinjInventoryControlConfigurator
             capabilities.Reason);
 
         var items = new List<ILlrpParameter>();
+        if (options.InventorySearchMode is { } searchMode)
+        {
+            items.Add(new ImpinjInventorySearchMode(searchMode, []));
+        }
         if (options.EnableTagPopulationEstimation is { } enabled)
         {
             items.Add(new ImpinjEnableTagPopulationEstimationAlgorithm(

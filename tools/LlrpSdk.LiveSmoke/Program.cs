@@ -74,8 +74,7 @@ if (configuration.Extensions.TryGetValue(ImpinjReaderConfiguration.ExtensionKey,
     configurationValue is ImpinjReaderConfiguration impinjConfiguration)
 {
     Console.WriteLine(
-        $"Impinj configuration: searchMode={impinjConfiguration.InventorySearchMode}, " +
-        $"gpiDebounce={impinjConfiguration.GpiDebounce.Count}, linkMonitor={impinjConfiguration.LinkMonitor}, " +
+        $"Impinj configuration: gpiDebounce={impinjConfiguration.GpiDebounce.Count}, linkMonitor={impinjConfiguration.LinkMonitor}, " +
         $"reportBuffer={impinjConfiguration.ReportBufferMode}, accessSpec={impinjConfiguration.AccessSpec}");
 }
 if (configuration.Extensions.TryGetValue(ImpinjReaderFacts.ExtensionKey, out object? factsValue) &&
@@ -257,8 +256,7 @@ static string FormatExtensionValue(object? value)
 
 static bool Equivalent(ImpinjReaderConfiguration left, ImpinjReaderConfiguration right)
 {
-    return left.InventorySearchMode == right.InventorySearchMode &&
-        EquivalentFixedFrequency(left.FixedFrequency, right.FixedFrequency) &&
+    return EquivalentFixedFrequency(left.FixedFrequency, right.FixedFrequency) &&
         EquivalentReducedPowerFrequency(left.ReducedPowerFrequency, right.ReducedPowerFrequency) &&
         left.LowDutyCycle == right.LowDutyCycle &&
         left.GpiDebounce.SequenceEqual(right.GpiDebounce) &&

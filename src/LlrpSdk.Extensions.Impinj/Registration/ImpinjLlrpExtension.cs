@@ -168,7 +168,6 @@ public sealed class ImpinjReaderExtension :
 
         var configuration = new ImpinjReaderConfiguration
         {
-            InventorySearchMode = context.CustomItems.OfType<ImpinjInventorySearchMode>().FirstOrDefault()?.InventorySearchMode,
             FixedFrequency = context.CustomItems.OfType<ImpinjFixedFrequencyList>().FirstOrDefault() is { } fixedFrequency
                 ? new ImpinjFixedFrequencySettings(fixedFrequency.FixedFrequencyMode, fixedFrequency.ChannelList)
                 : null,
@@ -216,10 +215,6 @@ public sealed class ImpinjReaderExtension :
         }
 
         var parameters = new List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
-        if (settings.InventorySearchMode is { } searchMode)
-        {
-            parameters.Add(new ImpinjInventorySearchMode(searchMode, []));
-        }
         if (settings.FixedFrequency is { } fixedFrequency)
         {
             parameters.Add(new ImpinjFixedFrequencyList(fixedFrequency.Mode, fixedFrequency.ChannelList, []));
@@ -374,6 +369,8 @@ public sealed class ImpinjReaderExtension :
             });
         }
 
+        ImpinjInventorySearchMode? searchMode = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjInventorySearchMode>().SingleOrDefault();
         ImpinjEnableTagPopulationEstimationAlgorithm? population = context.C1G2InventoryCommandCustomItems
             .OfType<ImpinjEnableTagPopulationEstimationAlgorithm>().SingleOrDefault();
         ImpinjTagFilterVerificationConfiguration? filterVerification = context.C1G2InventoryCommandCustomItems
@@ -396,7 +393,8 @@ public sealed class ImpinjReaderExtension :
                 "The SDK-reserved ROSpec contains a Gen2X selection parameter that cannot be represented losslessly.");
         }
 
-        bool hasInventoryControls = population is not null ||
+        bool hasInventoryControls = searchMode is not null ||
+            population is not null ||
             filterVerification is not null ||
             truncatedReply is not null ||
             gen2XInventory is not null ||
@@ -423,6 +421,7 @@ public sealed class ImpinjReaderExtension :
 
             extensions.Add(ImpinjInventoryControlOptions.ExtensionKey, new ImpinjInventoryControlOptions
             {
+                InventorySearchMode = searchMode?.InventorySearchMode,
                 EnableTagPopulationEstimation = population is null
                     ? null
                     : population.TagPopulationEstimationMode == ImpinjTagPopulationEstimationMode.Enabled,

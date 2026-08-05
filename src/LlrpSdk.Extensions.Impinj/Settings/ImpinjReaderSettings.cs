@@ -10,7 +10,6 @@ public sealed record ImpinjReaderConfiguration
 {
     public const string ExtensionKey = "impinj.configuration";
 
-    public ImpinjInventorySearchType? InventorySearchMode { get; init; }
     public ImpinjFixedFrequencySettings? FixedFrequency { get; init; }
     public ImpinjReducedPowerFrequencySettings? ReducedPowerFrequency { get; init; }
     public ImpinjLowDutyCycleSettings? LowDutyCycle { get; init; }

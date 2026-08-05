@@ -1,5 +1,7 @@
 namespace LlrpSdk.Extensions.Impinj;
 
+using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
+
 /// <summary>Configures typed Impinj options on the core inventory settings builder.</summary>
 public sealed class ImpinjInventorySettingsBuilder
 {
@@ -97,6 +99,12 @@ public sealed class ImpinjInventorySettingsBuilder
         return this;
     }
 
+    public ImpinjInventorySettingsBuilder SearchMode(ImpinjInventorySearchType mode)
+    {
+        control = control with { InventorySearchMode = mode };
+        return this;
+    }
+
     public ImpinjInventorySettingsBuilder EnableTagPopulationEstimation(bool enabled = true)
     {
         control = control with { EnableTagPopulationEstimation = enabled };
@@ -133,7 +141,8 @@ public sealed class ImpinjInventorySettingsBuilder
 
     internal bool HasReportOptions => report.HasRequestedFields || report.AllowUnverifiedFields;
 
-    internal bool HasControlOptions => control.EnableTagPopulationEstimation is not null ||
+    internal bool HasControlOptions => control.InventorySearchMode is not null ||
+        control.EnableTagPopulationEstimation is not null ||
         control.TagFilterVerificationMode is not null ||
         control.TruncatedReply is not null ||
         control.Gen2XInventory is not null ||
