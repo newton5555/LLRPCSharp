@@ -10,8 +10,8 @@
     <Deterministic>true</Deterministic>
 
     <!-- Version & Package Metadata -->
-    <Version>0.7.1</Version>
-    <Authors>LLRPCSharp Authors</Authors>
+    <Version>0.7.2</Version>
+    <Authors>newton5555</Authors>
     <Product>LLRPCSharp</Product>
     <Description>Modern .NET LLRP SDK and CLI tooling supporting LLRP 1.0.1 and Impinj extensions.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
