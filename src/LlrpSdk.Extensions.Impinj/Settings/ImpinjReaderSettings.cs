@@ -10,9 +10,6 @@ public sealed record ImpinjReaderConfiguration
 {
     public const string ExtensionKey = "impinj.configuration";
 
-    public ImpinjFixedFrequencySettings? FixedFrequency { get; init; }
-    public ImpinjReducedPowerFrequencySettings? ReducedPowerFrequency { get; init; }
-    public ImpinjLowDutyCycleSettings? LowDutyCycle { get; init; }
     public IReadOnlyList<ImpinjGpiDebounceSetting> GpiDebounce { get; init; } = [];
     public ImpinjLinkMonitorSettings? LinkMonitor { get; init; }
     public ImpinjReportBufferMode? ReportBufferMode { get; init; }

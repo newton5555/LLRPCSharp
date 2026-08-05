@@ -168,15 +168,6 @@ public sealed class ImpinjReaderExtension :
 
         var configuration = new ImpinjReaderConfiguration
         {
-            FixedFrequency = context.CustomItems.OfType<ImpinjFixedFrequencyList>().FirstOrDefault() is { } fixedFrequency
-                ? new ImpinjFixedFrequencySettings(fixedFrequency.FixedFrequencyMode, fixedFrequency.ChannelList)
-                : null,
-            ReducedPowerFrequency = context.CustomItems.OfType<ImpinjReducedPowerFrequencyList>().FirstOrDefault() is { } reducedPower
-                ? new ImpinjReducedPowerFrequencySettings(reducedPower.ReducedPowerMode, reducedPower.ChannelList)
-                : null,
-            LowDutyCycle = context.CustomItems.OfType<ImpinjLowDutyCycle>().FirstOrDefault() is { } lowDutyCycle
-                ? new ImpinjLowDutyCycleSettings(lowDutyCycle.LowDutyCycleMode, lowDutyCycle.EmptyFieldTimeout, lowDutyCycle.FieldPingInterval)
-                : null,
             GpiDebounce = debounce,
             LinkMonitor = linkMonitor is null ? null : new ImpinjLinkMonitorSettings(
                 linkMonitor.LinkMonitorMode == ImpinjLinkMonitorMode.Enabled, linkMonitor.LinkDownThreshold),
@@ -215,18 +206,6 @@ public sealed class ImpinjReaderExtension :
         }
 
         var parameters = new List<global::LlrpNet.Protocol.Parameters.ILlrpParameter>();
-        if (settings.FixedFrequency is { } fixedFrequency)
-        {
-            parameters.Add(new ImpinjFixedFrequencyList(fixedFrequency.Mode, fixedFrequency.ChannelList, []));
-        }
-        if (settings.ReducedPowerFrequency is { } reducedPower)
-        {
-            parameters.Add(new ImpinjReducedPowerFrequencyList(reducedPower.Mode, reducedPower.ChannelList, []));
-        }
-        if (settings.LowDutyCycle is { } lowDutyCycle)
-        {
-            parameters.Add(new ImpinjLowDutyCycle(lowDutyCycle.Mode, lowDutyCycle.EmptyFieldTimeoutMilliseconds, lowDutyCycle.FieldPingIntervalMilliseconds, []));
-        }
         foreach (ImpinjGpiDebounceSetting debounce in settings.GpiDebounce)
         {
             parameters.Add(new ImpinjGPIDebounceConfiguration(debounce.GpiPortNumber, debounce.DebounceMilliseconds, []));
@@ -369,6 +348,12 @@ public sealed class ImpinjReaderExtension :
             });
         }
 
+        ImpinjFixedFrequencyList? fixedFrequency = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjFixedFrequencyList>().SingleOrDefault();
+        ImpinjReducedPowerFrequencyList? reducedPower = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjReducedPowerFrequencyList>().SingleOrDefault();
+        ImpinjLowDutyCycle? lowDutyCycle = context.C1G2InventoryCommandCustomItems
+            .OfType<ImpinjLowDutyCycle>().SingleOrDefault();
         ImpinjInventorySearchMode? searchMode = context.C1G2InventoryCommandCustomItems
             .OfType<ImpinjInventorySearchMode>().SingleOrDefault();
         ImpinjEnableTagPopulationEstimationAlgorithm? population = context.C1G2InventoryCommandCustomItems
@@ -393,7 +378,10 @@ public sealed class ImpinjReaderExtension :
                 "The SDK-reserved ROSpec contains a Gen2X selection parameter that cannot be represented losslessly.");
         }
 
-        bool hasInventoryControls = searchMode is not null ||
+        bool hasInventoryControls = fixedFrequency is not null ||
+            reducedPower is not null ||
+            lowDutyCycle is not null ||
+            searchMode is not null ||
             population is not null ||
             filterVerification is not null ||
             truncatedReply is not null ||
@@ -421,6 +409,18 @@ public sealed class ImpinjReaderExtension :
 
             extensions.Add(ImpinjInventoryControlOptions.ExtensionKey, new ImpinjInventoryControlOptions
             {
+                FixedFrequency = fixedFrequency is null
+                    ? null
+                    : new ImpinjFixedFrequencySettings(fixedFrequency.FixedFrequencyMode, fixedFrequency.ChannelList),
+                ReducedPowerFrequency = reducedPower is null
+                    ? null
+                    : new ImpinjReducedPowerFrequencySettings(reducedPower.ReducedPowerMode, reducedPower.ChannelList),
+                LowDutyCycle = lowDutyCycle is null
+                    ? null
+                    : new ImpinjLowDutyCycleSettings(
+                        lowDutyCycle.LowDutyCycleMode,
+                        lowDutyCycle.EmptyFieldTimeout,
+                        lowDutyCycle.FieldPingInterval),
                 InventorySearchMode = searchMode?.InventorySearchMode,
                 EnableTagPopulationEstimation = population is null
                     ? null

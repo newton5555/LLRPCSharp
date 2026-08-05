@@ -99,6 +99,37 @@ public sealed class ImpinjInventorySettingsBuilder
         return this;
     }
 
+    public ImpinjInventorySettingsBuilder FixedFrequency(
+        ImpinjFixedFrequencyMode mode,
+        IReadOnlyList<ushort> channelList)
+    {
+        control = control with { FixedFrequency = new ImpinjFixedFrequencySettings(mode, channelList) };
+        return this;
+    }
+
+    public ImpinjInventorySettingsBuilder ReducedPowerFrequency(
+        ImpinjReducedPowerMode mode,
+        IReadOnlyList<ushort> channelList)
+    {
+        control = control with { ReducedPowerFrequency = new ImpinjReducedPowerFrequencySettings(mode, channelList) };
+        return this;
+    }
+
+    public ImpinjInventorySettingsBuilder LowDutyCycle(
+        ImpinjLowDutyCycleMode mode,
+        ushort emptyFieldTimeoutMilliseconds,
+        ushort fieldPingIntervalMilliseconds)
+    {
+        control = control with
+        {
+            LowDutyCycle = new ImpinjLowDutyCycleSettings(
+                mode,
+                emptyFieldTimeoutMilliseconds,
+                fieldPingIntervalMilliseconds),
+        };
+        return this;
+    }
+
     public ImpinjInventorySettingsBuilder SearchMode(ImpinjInventorySearchType mode)
     {
         control = control with { InventorySearchMode = mode };
@@ -141,7 +172,10 @@ public sealed class ImpinjInventorySettingsBuilder
 
     internal bool HasReportOptions => report.HasRequestedFields || report.AllowUnverifiedFields;
 
-    internal bool HasControlOptions => control.InventorySearchMode is not null ||
+    internal bool HasControlOptions => control.FixedFrequency is not null ||
+        control.ReducedPowerFrequency is not null ||
+        control.LowDutyCycle is not null ||
+        control.InventorySearchMode is not null ||
         control.EnableTagPopulationEstimation is not null ||
         control.TagFilterVerificationMode is not null ||
         control.TruncatedReply is not null ||

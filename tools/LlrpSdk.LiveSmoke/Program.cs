@@ -256,20 +256,9 @@ static string FormatExtensionValue(object? value)
 
 static bool Equivalent(ImpinjReaderConfiguration left, ImpinjReaderConfiguration right)
 {
-    return EquivalentFixedFrequency(left.FixedFrequency, right.FixedFrequency) &&
-        EquivalentReducedPowerFrequency(left.ReducedPowerFrequency, right.ReducedPowerFrequency) &&
-        left.LowDutyCycle == right.LowDutyCycle &&
-        left.GpiDebounce.SequenceEqual(right.GpiDebounce) &&
+    return left.GpiDebounce.SequenceEqual(right.GpiDebounce) &&
         left.LinkMonitor == right.LinkMonitor &&
         left.ReportBufferMode == right.ReportBufferMode &&
         left.AccessSpec == right.AccessSpec &&
         left.AdvancedGpos.SequenceEqual(right.AdvancedGpos);
 }
-
-static bool EquivalentFixedFrequency(ImpinjFixedFrequencySettings? left, ImpinjFixedFrequencySettings? right) =>
-    left is null || right is null ? left is null && right is null :
-        left.Mode == right.Mode && left.ChannelList.SequenceEqual(right.ChannelList);
-
-static bool EquivalentReducedPowerFrequency(ImpinjReducedPowerFrequencySettings? left, ImpinjReducedPowerFrequencySettings? right) =>
-    left is null || right is null ? left is null && right is null :
-        left.Mode == right.Mode && left.ChannelList.SequenceEqual(right.ChannelList);

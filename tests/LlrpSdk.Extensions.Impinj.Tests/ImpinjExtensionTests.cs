@@ -102,8 +102,6 @@ public sealed class ImpinjExtensionTests
             {
                 [ImpinjReaderConfiguration.ExtensionKey] = new ImpinjReaderConfiguration
                 {
-                    FixedFrequency = new ImpinjFixedFrequencySettings(
-                        ImpinjFixedFrequencyMode.Channel_List, [1, 4]),
                     GpiDebounce = [new ImpinjGpiDebounceSetting(1, 250)],
                     LinkMonitor = new ImpinjLinkMonitorSettings(true, 3),
                     AccessSpec = new ImpinjAccessSpecSettings(4, 2, ImpinjAccessSpecOrderingMode.FIFO),
@@ -114,9 +112,7 @@ public sealed class ImpinjExtensionTests
         IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> parameters =
             ImpinjReaderExtension.Instance.BuildApplyParameters(configuration);
 
-        Assert.DoesNotContain(parameters, static item => item is ImpinjInventorySearchMode);
-        Assert.Contains(parameters, static item => item is ImpinjFixedFrequencyList list &&
-            list.ChannelList.Count == 2 && list.ChannelList[0] == 1 && list.ChannelList[1] == 4);
+        Assert.DoesNotContain(parameters, static item => item is ImpinjInventorySearchMode or ImpinjFixedFrequencyList or ImpinjLowDutyCycle);
         Assert.Contains(parameters, static item => item is ImpinjGPIDebounceConfiguration debounce && debounce.GPIDebounceTimerMSec == 250);
         Assert.Contains(parameters, static item => item is ImpinjLinkMonitorConfiguration monitor && monitor.LinkMonitorMode == ImpinjLinkMonitorMode.Enabled);
         Assert.Contains(parameters, static item => item is ImpinjAccessSpecConfiguration);
@@ -212,6 +208,64 @@ public sealed class ImpinjExtensionTests
         var restored = Assert.IsType<ImpinjInventoryControlOptions>(
             extensions.Build()[ImpinjInventoryControlOptions.ExtensionKey]);
         Assert.Equal(ImpinjInventorySearchType.Single_Target, restored.InventorySearchMode);
+    }
+
+    [Fact]
+    public void InventoryControlConfigurator_EmitsFrequencyAndDutyCycleParameters()
+    {
+        var context = new ReaderExtensionMatchContext(
+            ManufacturerId: ImpinjReaderExtension.ManufacturerId,
+            ModelId: 999_999,
+            FirmwareVersion: "99.0.0",
+            ProtocolVersion: LlrpProtocolVersion.Version101);
+
+        IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> items =
+            ImpinjInventoryControlConfigurator.BuildCustomItems(context, new ImpinjInventoryControlOptions
+            {
+                FixedFrequency = new ImpinjFixedFrequencySettings(ImpinjFixedFrequencyMode.Channel_List, [1, 4]),
+                ReducedPowerFrequency = new ImpinjReducedPowerFrequencySettings(ImpinjReducedPowerMode.Enabled, [2, 5]),
+                LowDutyCycle = new ImpinjLowDutyCycleSettings(ImpinjLowDutyCycleMode.Enabled, 500, 200),
+            });
+
+        var fixedList = Assert.IsType<ImpinjFixedFrequencyList>(items[0]);
+        Assert.Equal(ImpinjFixedFrequencyMode.Channel_List, fixedList.FixedFrequencyMode);
+        Assert.Equal([(ushort)1, 4], fixedList.ChannelList);
+        var reducedList = Assert.IsType<ImpinjReducedPowerFrequencyList>(items[1]);
+        Assert.Equal(ImpinjReducedPowerMode.Enabled, reducedList.ReducedPowerMode);
+        Assert.Equal([(ushort)2, 5], reducedList.ChannelList);
+        var dutyCycle = Assert.IsType<ImpinjLowDutyCycle>(items[2]);
+        Assert.Equal(ImpinjLowDutyCycleMode.Enabled, dutyCycle.LowDutyCycleMode);
+        Assert.Equal((ushort)500, dutyCycle.EmptyFieldTimeout);
+        Assert.Equal((ushort)200, dutyCycle.FieldPingInterval);
+    }
+
+    [Fact]
+    public void InventoryControlQuery_RestoresFrequencyAndDutyCycleFromInventoryCommand()
+    {
+        var identity = new ReaderIdentity(ImpinjReaderExtension.ManufacturerId, 999_999, "99.0.0");
+        var extensions = new InventorySettingsExtensionBuilder();
+        ImpinjReaderExtension.Instance.ContributeQuery(
+            new InventorySettingsContributionContext(
+                identity,
+                null!,
+                LlrpProtocolVersion.Version101,
+                [],
+                [
+                    new ImpinjFixedFrequencyList(ImpinjFixedFrequencyMode.Channel_List, [1, 4], []),
+                    new ImpinjReducedPowerFrequencyList(ImpinjReducedPowerMode.Enabled, [2, 5], []),
+                    new ImpinjLowDutyCycle(ImpinjLowDutyCycleMode.Enabled, 500, 200, []),
+                ]),
+            extensions);
+
+        var restored = Assert.IsType<ImpinjInventoryControlOptions>(
+            extensions.Build()[ImpinjInventoryControlOptions.ExtensionKey]);
+        Assert.Equal(ImpinjFixedFrequencyMode.Channel_List, restored.FixedFrequency?.Mode);
+        Assert.Equal([(ushort)1, 4], restored.FixedFrequency?.ChannelList);
+        Assert.Equal(ImpinjReducedPowerMode.Enabled, restored.ReducedPowerFrequency?.Mode);
+        Assert.Equal([(ushort)2, 5], restored.ReducedPowerFrequency?.ChannelList);
+        Assert.Equal(ImpinjLowDutyCycleMode.Enabled, restored.LowDutyCycle?.Mode);
+        Assert.Equal((ushort)500, restored.LowDutyCycle?.EmptyFieldTimeoutMilliseconds);
+        Assert.Equal((ushort)200, restored.LowDutyCycle?.FieldPingIntervalMilliseconds);
     }
 
     [Fact]

@@ -11,6 +11,21 @@ public sealed record ImpinjInventoryControlOptions
     public const string ExtensionKey = "impinj.inventoryControl";
 
     /// <summary>
+    /// Gets the fixed-frequency channel selection applied by the C1G2 inventory command.
+    /// </summary>
+    public ImpinjFixedFrequencySettings? FixedFrequency { get; init; }
+
+    /// <summary>
+    /// Gets the reduced-power channel list applied by the C1G2 inventory command.
+    /// </summary>
+    public ImpinjReducedPowerFrequencySettings? ReducedPowerFrequency { get; init; }
+
+    /// <summary>
+    /// Gets the low duty-cycle behavior applied by the C1G2 inventory command.
+    /// </summary>
+    public ImpinjLowDutyCycleSettings? LowDutyCycle { get; init; }
+
+    /// <summary>
     /// Gets the inventory search mode used by the C1G2 inventory command.
     /// </summary>
     public ImpinjInventorySearchType? InventorySearchMode { get; init; }
@@ -83,7 +98,10 @@ public static class ImpinjInventoryControlConfigurator
         ArgumentNullException.ThrowIfNull(options);
         ArgumentOutOfRangeException.ThrowIfNegative(standardFilterCount);
 
-        bool hasControls = options.InventorySearchMode is not null ||
+        bool hasControls = options.FixedFrequency is not null ||
+            options.ReducedPowerFrequency is not null ||
+            options.LowDutyCycle is not null ||
+            options.InventorySearchMode is not null ||
             options.EnableTagPopulationEstimation is not null ||
             options.TagFilterVerificationMode is not null ||
             options.TruncatedReply is not null ||
@@ -141,6 +159,22 @@ public static class ImpinjInventoryControlConfigurator
             capabilities.Reason);
 
         var items = new List<ILlrpParameter>();
+        if (options.FixedFrequency is { } fixedFrequency)
+        {
+            items.Add(new ImpinjFixedFrequencyList(fixedFrequency.Mode, fixedFrequency.ChannelList, []));
+        }
+        if (options.ReducedPowerFrequency is { } reducedPower)
+        {
+            items.Add(new ImpinjReducedPowerFrequencyList(reducedPower.Mode, reducedPower.ChannelList, []));
+        }
+        if (options.LowDutyCycle is { } lowDutyCycle)
+        {
+            items.Add(new ImpinjLowDutyCycle(
+                lowDutyCycle.Mode,
+                lowDutyCycle.EmptyFieldTimeoutMilliseconds,
+                lowDutyCycle.FieldPingIntervalMilliseconds,
+                []));
+        }
         if (options.InventorySearchMode is { } searchMode)
         {
             items.Add(new ImpinjInventorySearchMode(searchMode, []));
