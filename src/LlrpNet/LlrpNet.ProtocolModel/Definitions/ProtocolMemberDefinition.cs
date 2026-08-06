@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolModel.Definitions;
+namespace LlrpNet.ProtocolModel.Definitions;
 
 /// <summary>
 /// Represents one ordered member of a message or parameter value.

@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Diagnostics;
+namespace LlrpNet.Core.Diagnostics;
 
 /// <summary>
 /// Keeps a bounded, thread-safe in-memory journal of exact LLRP frames observed at the transport boundary.

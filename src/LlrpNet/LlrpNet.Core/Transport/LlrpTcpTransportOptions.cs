@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Frames;
+using LlrpNet.Core.Frames;
 using LlrpNet.Core.Protocol;
 
 namespace LlrpNet.Core.Transport;

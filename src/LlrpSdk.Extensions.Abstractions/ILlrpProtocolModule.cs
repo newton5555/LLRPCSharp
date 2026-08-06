@@ -1,4 +1,4 @@
-﻿using LlrpNet.Protocol.Registry;
+using LlrpNet.Protocol.Registry;
 
 namespace LlrpSdk.Extensions;
 

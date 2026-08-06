@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Sockets;
 using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;

@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolGenerator.Generation;
+namespace LlrpNet.ProtocolGenerator.Generation;
 
 /// <summary>
 /// Configures the namespace layout used by generated protocol model sources.

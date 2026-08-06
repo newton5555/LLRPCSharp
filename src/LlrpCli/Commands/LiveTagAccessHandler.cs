@@ -1,5 +1,5 @@
-using Spectre.Console;
 using LlrpSdk;
+using Spectre.Console;
 
 namespace LlrpCli.Commands;
 
@@ -24,105 +24,105 @@ internal sealed class LiveTagAccessHandler(IAnsiConsole console, LiveSessionCont
         switch (action)
         {
             case "read":
-            {
-                var options = ParseOptions(tokens, 3);
-                TagAccessCliRequest input = TagAccessCliRequest.Create(epc, options.Bank, options.WordPointer, options.AntennaId, options.Password, options.TimeoutSeconds);
-                ReadTagRequest req = input.ToReadRequest(options.WordCount);
-                TagAccessResult result = await TagAccessOperations.ReadAsync(session.Reader, req, input.Timeout, cancellationToken);
-                TagAccessRenderer.RenderReadResult(console, result);
-                break;
-            }
+                {
+                    var options = ParseOptions(tokens, 3);
+                    TagAccessCliRequest input = TagAccessCliRequest.Create(epc, options.Bank, options.WordPointer, options.AntennaId, options.Password, options.TimeoutSeconds);
+                    ReadTagRequest req = input.ToReadRequest(options.WordCount);
+                    TagAccessResult result = await TagAccessOperations.ReadAsync(session.Reader, req, input.Timeout, cancellationToken);
+                    TagAccessRenderer.RenderReadResult(console, result);
+                    break;
+                }
 
             case "write":
-            {
-                var options = ParseOptions(tokens, 3);
-                TagAccessCliRequest input = TagAccessCliRequest.Create(epc, options.Bank, options.WordPointer, options.AntennaId, options.Password, options.TimeoutSeconds);
-                WriteTagRequest req = input.ToWriteRequest(TagAccessCliRequest.ParseWords(options.Data ?? string.Empty));
-                if (options.DryRun)
                 {
-                    TagAccessRenderer.RenderWriteDryRun(console, req);
-                    return;
+                    var options = ParseOptions(tokens, 3);
+                    TagAccessCliRequest input = TagAccessCliRequest.Create(epc, options.Bank, options.WordPointer, options.AntennaId, options.Password, options.TimeoutSeconds);
+                    WriteTagRequest req = input.ToWriteRequest(TagAccessCliRequest.ParseWords(options.Data ?? string.Empty));
+                    if (options.DryRun)
+                    {
+                        TagAccessRenderer.RenderWriteDryRun(console, req);
+                        return;
+                    }
+                    RequireConfirmation(options.Confirm, "tag write");
+                    TagAccessResult result = await TagAccessOperations.WriteAsync(session.Reader, req, input.Timeout, cancellationToken);
+                    TagAccessRenderer.RenderOperationResult(console, "WRITE", result);
+                    break;
                 }
-                RequireConfirmation(options.Confirm, "tag write");
-                TagAccessResult result = await TagAccessOperations.WriteAsync(session.Reader, req, input.Timeout, cancellationToken);
-                TagAccessRenderer.RenderOperationResult(console, "WRITE", result);
-                break;
-            }
 
             case "lock":
-            {
-                var options = ParseOptions(tokens, 3);
-                TagAccessCliRequest input = TagAccessCliRequest.Create(epc, "user", 0, options.AntennaId, options.Password, options.TimeoutSeconds);
-                TagLockMode lockMode = ParseLockMode(options.Privilege);
-                string target = (options.Target ?? "all").ToLowerInvariant();
-
-                LockTagRequest req = new()
                 {
-                    Selection = input.CreateSelection(),
-                    AntennaId = options.AntennaId,
-                    AccessPassword = input.AccessPassword,
-                    UserMemoryLockMode = target is "user" or "all" ? lockMode : TagLockMode.NoChange,
-                    EpcMemoryLockMode = target is "epc" or "all" ? lockMode : TagLockMode.NoChange,
-                    TidMemoryLockMode = target is "tid" or "all" ? lockMode : TagLockMode.NoChange,
-                    AccessPasswordLockMode = target is "access-pwd" or "all" ? lockMode : TagLockMode.NoChange,
-                    KillPasswordLockMode = target is "kill-pwd" or "all" ? lockMode : TagLockMode.NoChange,
-                };
+                    var options = ParseOptions(tokens, 3);
+                    TagAccessCliRequest input = TagAccessCliRequest.Create(epc, "user", 0, options.AntennaId, options.Password, options.TimeoutSeconds);
+                    TagLockMode lockMode = ParseLockMode(options.Privilege);
+                    string target = (options.Target ?? "all").ToLowerInvariant();
 
-                RequireConfirmation(options.Confirm, "tag lock");
-                TagAccessResult result = await TagAccessOperations.LockAsync(session.Reader, req, input.Timeout, cancellationToken);
-                TagAccessRenderer.RenderOperationResult(console, "LOCK", result);
-                break;
-            }
+                    LockTagRequest req = new()
+                    {
+                        Selection = input.CreateSelection(),
+                        AntennaId = options.AntennaId,
+                        AccessPassword = input.AccessPassword,
+                        UserMemoryLockMode = target is "user" or "all" ? lockMode : TagLockMode.NoChange,
+                        EpcMemoryLockMode = target is "epc" or "all" ? lockMode : TagLockMode.NoChange,
+                        TidMemoryLockMode = target is "tid" or "all" ? lockMode : TagLockMode.NoChange,
+                        AccessPasswordLockMode = target is "access-pwd" or "all" ? lockMode : TagLockMode.NoChange,
+                        KillPasswordLockMode = target is "kill-pwd" or "all" ? lockMode : TagLockMode.NoChange,
+                    };
+
+                    RequireConfirmation(options.Confirm, "tag lock");
+                    TagAccessResult result = await TagAccessOperations.LockAsync(session.Reader, req, input.Timeout, cancellationToken);
+                    TagAccessRenderer.RenderOperationResult(console, "LOCK", result);
+                    break;
+                }
 
             case "kill":
-            {
-                var options = ParseOptions(tokens, 3);
-                uint killPassword = string.IsNullOrWhiteSpace(options.KillPassword) ? 0 : TagAccessCliRequest.ParseUInt32Hex(options.KillPassword, "--kill-pwd");
-                byte[] epcBytes = TagAccessCliRequest.ParseHex(epc, "EPC");
-
-                KillTagRequest req = new()
                 {
-                    Selection = new TagSelection
-                    {
-                        MemoryBank = TagMemoryBank.ElectronicProductCode,
-                        BitPointer = 32,
-                        BitLength = checked((ushort)(epcBytes.Length * 8)),
-                        Mask = epcBytes,
-                        Data = epcBytes,
-                    },
-                    AntennaId = options.AntennaId,
-                    KillPassword = killPassword,
-                };
+                    var options = ParseOptions(tokens, 3);
+                    uint killPassword = string.IsNullOrWhiteSpace(options.KillPassword) ? 0 : TagAccessCliRequest.ParseUInt32Hex(options.KillPassword, "--kill-pwd");
+                    byte[] epcBytes = TagAccessCliRequest.ParseHex(epc, "EPC");
 
-                TimeSpan? timeout = options.TimeoutSeconds is null ? null : TimeSpan.FromSeconds(options.TimeoutSeconds.Value);
-                RequireConfirmation(options.Confirm, "tag kill");
-                TagAccessResult result = await TagAccessOperations.KillAsync(session.Reader, req, timeout, cancellationToken);
-                TagAccessRenderer.RenderOperationResult(console, "KILL", result);
-                break;
-            }
+                    KillTagRequest req = new()
+                    {
+                        Selection = new TagSelection
+                        {
+                            MemoryBank = TagMemoryBank.ElectronicProductCode,
+                            BitPointer = 32,
+                            BitLength = checked((ushort)(epcBytes.Length * 8)),
+                            Mask = epcBytes,
+                            Data = epcBytes,
+                        },
+                        AntennaId = options.AntennaId,
+                        KillPassword = killPassword,
+                    };
+
+                    TimeSpan? timeout = options.TimeoutSeconds is null ? null : TimeSpan.FromSeconds(options.TimeoutSeconds.Value);
+                    RequireConfirmation(options.Confirm, "tag kill");
+                    TagAccessResult result = await TagAccessOperations.KillAsync(session.Reader, req, timeout, cancellationToken);
+                    TagAccessRenderer.RenderOperationResult(console, "KILL", result);
+                    break;
+                }
 
             case "erase" or "block-erase":
-            {
-                var options = ParseOptions(tokens, 3);
-                TagAccessCliRequest input = TagAccessCliRequest.Create(epc, options.Bank, options.WordPointer, options.AntennaId, options.Password, options.TimeoutSeconds);
-                BlockEraseTagRequest req = input.ToBlockEraseRequest(options.WordCount);
-                RequireConfirmation(options.Confirm, "tag erase");
-                TagAccessResult result = await TagAccessOperations.BlockEraseAsync(session.Reader, req, input.Timeout, cancellationToken);
-                TagAccessRenderer.RenderOperationResult(console, "ERASE", result);
-                break;
-            }
+                {
+                    var options = ParseOptions(tokens, 3);
+                    TagAccessCliRequest input = TagAccessCliRequest.Create(epc, options.Bank, options.WordPointer, options.AntennaId, options.Password, options.TimeoutSeconds);
+                    BlockEraseTagRequest req = input.ToBlockEraseRequest(options.WordCount);
+                    RequireConfirmation(options.Confirm, "tag erase");
+                    TagAccessResult result = await TagAccessOperations.BlockEraseAsync(session.Reader, req, input.Timeout, cancellationToken);
+                    TagAccessRenderer.RenderOperationResult(console, "ERASE", result);
+                    break;
+                }
 
             case "sequence":
-            {
-                (TagAccessSequenceRequest request, TimeSpan? timeout) = ParseSequenceRequest(epc, tokens, 3);
-                if (!tokens.Contains("--yes", StringComparer.OrdinalIgnoreCase) && request.Operations.Any(static operation => operation is not ReadTagRequest))
                 {
-                    throw new CliUsageException("tag sequence with write, erase, lock, or kill operations requires --yes.");
+                    (TagAccessSequenceRequest request, TimeSpan? timeout) = ParseSequenceRequest(epc, tokens, 3);
+                    if (!tokens.Contains("--yes", StringComparer.OrdinalIgnoreCase) && request.Operations.Any(static operation => operation is not ReadTagRequest))
+                    {
+                        throw new CliUsageException("tag sequence with write, erase, lock, or kill operations requires --yes.");
+                    }
+                    TagAccessSequenceResult result = await session.Reader.ExecuteTagAccessSequenceAsync(request, timeout, cancellationToken);
+                    TagAccessRenderer.RenderSequenceResult(console, result);
+                    break;
                 }
-                TagAccessSequenceResult result = await session.Reader.ExecuteTagAccessSequenceAsync(request, timeout, cancellationToken);
-                TagAccessRenderer.RenderSequenceResult(console, result);
-                break;
-            }
 
             default:
                 throw new CliUsageException("Usage: tag read|write|lock|kill|erase|sequence <epc> [options]");
@@ -192,23 +192,37 @@ internal sealed class LiveTagAccessHandler(IAnsiConsole console, LiveSessionCont
         {
             "read" when parts.Length == 4 => new ReadTagRequest
             {
-                Selection = selection, AntennaId = antenna, AccessPassword = accessPassword,
-                MemoryBank = TagAccessCliRequest.ParseBank(parts[1]), WordPointer = ParseUshort(parts[2], "word"), WordCount = ParseUshort(parts[3], "count")
+                Selection = selection,
+                AntennaId = antenna,
+                AccessPassword = accessPassword,
+                MemoryBank = TagAccessCliRequest.ParseBank(parts[1]),
+                WordPointer = ParseUshort(parts[2], "word"),
+                WordCount = ParseUshort(parts[3], "count")
             },
             "write" when parts.Length == 4 => new WriteTagRequest
             {
-                Selection = selection, AntennaId = antenna, AccessPassword = accessPassword,
-                MemoryBank = TagAccessCliRequest.ParseBank(parts[1]), WordPointer = ParseUshort(parts[2], "word"), WriteData = TagAccessCliRequest.ParseWords(parts[3])
+                Selection = selection,
+                AntennaId = antenna,
+                AccessPassword = accessPassword,
+                MemoryBank = TagAccessCliRequest.ParseBank(parts[1]),
+                WordPointer = ParseUshort(parts[2], "word"),
+                WriteData = TagAccessCliRequest.ParseWords(parts[3])
             },
             "erase" when parts.Length == 4 => new BlockEraseTagRequest
             {
-                Selection = selection, AntennaId = antenna, AccessPassword = accessPassword,
-                MemoryBank = TagAccessCliRequest.ParseBank(parts[1]), WordPointer = ParseUshort(parts[2], "word"), WordCount = ParseUshort(parts[3], "count")
+                Selection = selection,
+                AntennaId = antenna,
+                AccessPassword = accessPassword,
+                MemoryBank = TagAccessCliRequest.ParseBank(parts[1]),
+                WordPointer = ParseUshort(parts[2], "word"),
+                WordCount = ParseUshort(parts[3], "count")
             },
             "lock" when parts.Length == 3 => CreateSequenceLock(selection, antenna, accessPassword, parts[1], parts[2]),
             "kill" when parts.Length == 2 => new KillTagRequest
             {
-                Selection = selection, AntennaId = antenna, KillPassword = TagAccessCliRequest.ParseUInt32Hex(parts[1], "kill password")
+                Selection = selection,
+                AntennaId = antenna,
+                KillPassword = TagAccessCliRequest.ParseUInt32Hex(parts[1], "kill password")
             },
             _ => throw new CliUsageException($"Invalid tag sequence operation '{specification}'. Use read:bank:word:count, write:bank:word:hex, erase:bank:word:count, lock:target:privilege, or kill:password."),
         };

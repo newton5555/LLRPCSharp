@@ -1,10 +1,10 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Text.Json;
-using Spectre.Console;
-using Spectre.Console.Cli;
+using LlrpCli.Rendering;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
-using LlrpCli.Rendering;
+using Spectre.Console;
+using Spectre.Console.Cli;
 
 namespace LlrpCli.Commands;
 

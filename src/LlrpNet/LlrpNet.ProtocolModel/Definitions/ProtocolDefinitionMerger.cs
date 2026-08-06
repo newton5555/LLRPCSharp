@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolModel.Definitions;
+namespace LlrpNet.ProtocolModel.Definitions;
 
 /// <summary>
 /// Combines a complete protocol baseline with a protocol delta.

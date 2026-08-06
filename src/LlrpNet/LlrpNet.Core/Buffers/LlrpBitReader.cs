@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Buffers;
+namespace LlrpNet.Core.Buffers;
 
 /// <summary>
 /// Reads MSB-first bit fields from an LLRP byte buffer.

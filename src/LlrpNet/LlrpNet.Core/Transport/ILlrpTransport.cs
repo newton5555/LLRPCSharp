@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Transport;
+namespace LlrpNet.Core.Transport;
 
 /// <summary>
 /// Provides framed, bidirectional LLRP transport without interpreting message-specific payloads.

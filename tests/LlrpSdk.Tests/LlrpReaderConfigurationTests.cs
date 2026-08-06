@@ -1,19 +1,19 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Xunit;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpSdk.Tests.Support;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
 using LlrpSdk.Extensions.Seuic;
+using LlrpSdk.Tests.Support;
+using Xunit;
 using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
 namespace LlrpSdk.Tests;
@@ -132,7 +132,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
-        
+
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
 
@@ -251,7 +251,7 @@ public sealed class LlrpReaderConfigurationTests
             if (header.MessageType == SET_READER_CONFIG.MessageType)
             {
                 setConfigSent = true;
-                
+
                 var registry = new LlrpCodecRegistry();
                 Llrp101StandardModule.Register(registry);
                 var setConfigMsg = (SET_READER_CONFIG)registry.DecodeMessage(frame.Span);

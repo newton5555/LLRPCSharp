@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
 
 /// <summary>
 /// Provides one version-independent tag observation raised by <see cref="LlrpReader.TagsReported"/>.

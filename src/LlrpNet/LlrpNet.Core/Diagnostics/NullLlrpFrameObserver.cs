@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Diagnostics;
+namespace LlrpNet.Core.Diagnostics;
 
 /// <summary>
 /// An observer that discards frames without inspecting or copying them.

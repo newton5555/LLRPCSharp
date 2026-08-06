@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using LlrpNet.Core.Frames;
 using LlrpNet.Core.Protocol;
 

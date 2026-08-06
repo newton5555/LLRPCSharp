@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Session;
+namespace LlrpNet.Core.Session;
 
 /// <summary>
 /// Indicates that an in-flight LLRP transaction could not complete because its session disconnected.

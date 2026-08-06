@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Protocol;
+namespace LlrpNet.Core.Protocol;
 
 /// <summary>
 /// Represents malformed or unsupported data encountered in the LLRP wire protocol.

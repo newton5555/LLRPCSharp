@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolGenerator.Generation;
+namespace LlrpNet.ProtocolGenerator.Generation;
 
 /// <summary>
 /// Describes one deterministic protocol source-generation diagnostic.

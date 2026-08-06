@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Session;
+namespace LlrpNet.Core.Session;
 
 /// <summary>
 /// Configures request handling for an <see cref="LlrpSession"/>.

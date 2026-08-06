@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
 
 /// <summary>
 /// Represents timestamps reported by a reader for one tag observation.

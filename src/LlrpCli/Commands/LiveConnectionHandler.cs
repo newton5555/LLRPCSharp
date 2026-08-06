@@ -1,10 +1,10 @@
-using Spectre.Console;
+using LlrpCli.Rendering;
+using LlrpCli.Terminal;
 using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages.V1_0_1;
-using LlrpCli.Rendering;
-using LlrpCli.Terminal;
 using LlrpSdk;
+using Spectre.Console;
 
 namespace LlrpCli.Commands;
 

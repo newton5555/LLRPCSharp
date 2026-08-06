@@ -1,8 +1,8 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
+using LlrpCli.Rendering;
+using LlrpNet.Protocol.Messages;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using LlrpNet.Protocol.Messages;
-using LlrpCli.Rendering;
 
 namespace LlrpCli.Commands;
 

@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using LlrpNet.ProtocolGenerator.Generation;
 using LlrpNet.ProtocolModel.Definitions;
 

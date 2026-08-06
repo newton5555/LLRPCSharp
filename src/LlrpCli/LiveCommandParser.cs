@@ -1,5 +1,5 @@
-using Spectre.Console.Cli;
 using LlrpCli.Commands;
+using Spectre.Console.Cli;
 
 namespace LlrpCli;
 

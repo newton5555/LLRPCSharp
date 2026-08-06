@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Session;
+namespace LlrpNet.Core.Session;
 
 /// <summary>
 /// Reports that the bounded unsolicited-frame queue could not accept another reader-initiated message.

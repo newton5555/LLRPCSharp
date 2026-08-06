@@ -1,4 +1,4 @@
-﻿namespace LlrpVirtualReader;
+namespace LlrpVirtualReader;
 
 internal static class Program
 {

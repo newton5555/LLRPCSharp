@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Codecs;
 using LlrpNet.Protocol.Messages;

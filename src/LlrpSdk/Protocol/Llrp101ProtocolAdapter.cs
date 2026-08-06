@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;

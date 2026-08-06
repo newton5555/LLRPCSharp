@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Protocol.Parameters;
+namespace LlrpNet.Protocol.Parameters;
 
 /// <summary>
 /// Identifies the wire header form used by an LLRP parameter.

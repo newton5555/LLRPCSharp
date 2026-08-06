@@ -1,5 +1,5 @@
-﻿using LlrpNet.Protocol.Parameters;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Parameters;
 
 namespace LlrpSdk.Extensions;
 

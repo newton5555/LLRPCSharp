@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
 
 /// <summary>
 /// Describes the high-level operation currently managed by one reader.

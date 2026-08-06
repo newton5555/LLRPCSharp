@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using LlrpNet.Core.Transactions;
 
 namespace LlrpNet.Core.Tests.Transactions;

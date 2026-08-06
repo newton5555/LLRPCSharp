@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Diagnostics;
+using LlrpNet.Core.Diagnostics;
 
 namespace LlrpNet.Core.Tests.Diagnostics;
 

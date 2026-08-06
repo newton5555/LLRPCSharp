@@ -71,7 +71,8 @@ public sealed class StandardReaderHardwareTests
         // Standard generic defaults carry no vendor extensions; antenna set comes from the test configuration.
         ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
         InventorySettings inventory = (defaults.Settings.Inventory ?? new InventorySettings())
-            with { AntennaIds = config.Antennas.ToArray() };
+            with
+        { AntennaIds = config.Antennas.ToArray() };
 
         await using var session = await reader.StartInventoryAsync(inventory);
         var reports = new List<TagReport>();

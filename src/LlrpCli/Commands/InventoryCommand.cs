@@ -1,8 +1,8 @@
 using System.ComponentModel;
 using System.Text.Json;
+using LlrpSdk;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using LlrpSdk;
 
 namespace LlrpCli.Commands;
 

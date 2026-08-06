@@ -1,7 +1,5 @@
-﻿using System.Runtime.ExceptionServices;
-using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
-using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Session;
@@ -12,9 +10,11 @@ using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
+using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-using V11Messages = LlrpNet.Protocol.Messages.V1_1;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
+using V11Messages = LlrpNet.Protocol.Messages.V1_1;
 using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
 namespace LlrpSdk;
@@ -2619,7 +2619,10 @@ public sealed class LlrpReader : IAsyncDisposable
             StateAwareSingulation = stateAwareSingulation,
             AttachedData = read is null ? new AttachedDataOptions() : new AttachedDataOptions
             {
-                Enabled = true, MemoryBank = read.MB, WordPointer = read.WordPointer, WordCount = read.WordCount,
+                Enabled = true,
+                MemoryBank = read.MB,
+                WordPointer = read.WordPointer,
+                WordCount = read.WordCount,
                 AccessPassword = read.AccessPassword.ToString("X8")
             }
         };
@@ -2702,7 +2705,10 @@ public sealed class LlrpReader : IAsyncDisposable
             StateAwareSingulation = ParseStateAwareSingulation(command?.C1G2SingulationControl?.C1G2TagInventoryStateAwareSingulationAction),
             AttachedData = read is null ? new AttachedDataOptions() : new AttachedDataOptions
             {
-                Enabled = true, MemoryBank = read.MB, WordPointer = read.WordPointer, WordCount = read.WordCount,
+                Enabled = true,
+                MemoryBank = read.MB,
+                WordPointer = read.WordPointer,
+                WordCount = read.WordCount,
                 AccessPassword = read.AccessPassword.ToString("X8")
             }
         };

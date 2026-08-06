@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Buffers;
+using LlrpNet.Core.Buffers;
 
 namespace LlrpNet.Core.Tests.Buffers;
 

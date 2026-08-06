@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Diagnostics;
+using LlrpNet.Core.Diagnostics;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;

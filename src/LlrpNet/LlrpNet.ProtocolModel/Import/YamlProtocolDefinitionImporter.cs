@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using LlrpNet.ProtocolModel.Definitions;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
@@ -220,11 +220,22 @@ public sealed class YamlProtocolDefinitionImporter
 
     private static ProtocolFieldType FieldType(string source, Mark mark, string value) => value switch
     {
-        "u1" => ProtocolFieldType.U1, "u2" => ProtocolFieldType.U2, "s8" => ProtocolFieldType.S8, "u8" => ProtocolFieldType.U8,
-        "s16" => ProtocolFieldType.S16, "u16" => ProtocolFieldType.U16, "u32" => ProtocolFieldType.U32, "s32" => ProtocolFieldType.S32,
-        "u64" => ProtocolFieldType.U64, "u96" => ProtocolFieldType.U96, "bytesToEnd" => ProtocolFieldType.BytesToEnd,
-        "u1v" => ProtocolFieldType.U1Vector, "u8v" => ProtocolFieldType.U8Vector, "u16v" => ProtocolFieldType.U16Vector,
-        "u32v" => ProtocolFieldType.U32Vector, "utf8v" => ProtocolFieldType.Utf8Vector,
+        "u1" => ProtocolFieldType.U1,
+        "u2" => ProtocolFieldType.U2,
+        "s8" => ProtocolFieldType.S8,
+        "u8" => ProtocolFieldType.U8,
+        "s16" => ProtocolFieldType.S16,
+        "u16" => ProtocolFieldType.U16,
+        "u32" => ProtocolFieldType.U32,
+        "s32" => ProtocolFieldType.S32,
+        "u64" => ProtocolFieldType.U64,
+        "u96" => ProtocolFieldType.U96,
+        "bytesToEnd" => ProtocolFieldType.BytesToEnd,
+        "u1v" => ProtocolFieldType.U1Vector,
+        "u8v" => ProtocolFieldType.U8Vector,
+        "u16v" => ProtocolFieldType.U16Vector,
+        "u32v" => ProtocolFieldType.U32Vector,
+        "utf8v" => ProtocolFieldType.Utf8Vector,
         _ => throw Error(source, mark, $"Field type '{value}' is not supported."),
     };
 
@@ -258,8 +269,10 @@ public sealed class YamlProtocolDefinitionImporter
         string value = Required(source, map, "cardinality");
         return value switch
         {
-            "1" => Cardinality.Create(1, 1), "0-1" => Cardinality.Create(0, 1),
-            "1-N" => Cardinality.Create(1, null), "0-N" => Cardinality.Create(0, null),
+            "1" => Cardinality.Create(1, 1),
+            "0-1" => Cardinality.Create(0, 1),
+            "1-N" => Cardinality.Create(1, null),
+            "0-N" => Cardinality.Create(0, null),
             _ => throw Error(source, map.Start, $"Invalid cardinality '{value}'; expected 1, 0-1, 1-N, or 0-N."),
         };
     }

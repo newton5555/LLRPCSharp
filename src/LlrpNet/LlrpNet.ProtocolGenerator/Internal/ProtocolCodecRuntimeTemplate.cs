@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolGenerator.Internal;
+namespace LlrpNet.ProtocolGenerator.Internal;
 
 internal static class ProtocolCodecRuntimeTemplate
 {

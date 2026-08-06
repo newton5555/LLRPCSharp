@@ -1,4 +1,4 @@
-﻿using LlrpNet.ProtocolGenerator.Generation;
+using LlrpNet.ProtocolGenerator.Generation;
 using LlrpNet.ProtocolModel.Definitions;
 using LlrpNet.ProtocolModel.Import;
 using LlrpNet.ProtocolModel.Validation;

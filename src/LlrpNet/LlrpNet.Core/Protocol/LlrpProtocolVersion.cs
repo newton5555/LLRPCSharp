@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Protocol;
+namespace LlrpNet.Core.Protocol;
 
 /// <summary>
 /// Identifies the protocol version encoded in the three-bit LLRP message header field.

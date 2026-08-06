@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolModel.Import;
+namespace LlrpNet.ProtocolModel.Import;
 
 /// <summary>
 /// Reports a malformed or unsupported external protocol definition.

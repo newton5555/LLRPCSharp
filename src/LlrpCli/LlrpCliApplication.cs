@@ -1,8 +1,8 @@
 using System.Text;
+using LlrpCli.Commands;
+using LlrpNet.Core.Protocol;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using LlrpNet.Core.Protocol;
-using LlrpCli.Commands;
 
 namespace LlrpCli;
 

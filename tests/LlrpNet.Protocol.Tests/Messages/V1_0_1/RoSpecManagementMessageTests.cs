@@ -1,14 +1,14 @@
-using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 
 namespace LlrpNet.Protocol.Tests.Messages.V1_0_1;
 
@@ -47,7 +47,7 @@ public sealed class RoSpecManagementMessageTests
         Assert.Equal(expected, encoded);
         Assert.Equal(expected, reencoded);
         Assert.Equal(MessageId, decoded.MessageId);
-        V101Parameters.ROSpec roSpec= Assert.IsType<V101Parameters.ROSpec>(decoded.ROSpec);
+        V101Parameters.ROSpec roSpec = Assert.IsType<V101Parameters.ROSpec>(decoded.ROSpec);
         Assert.Equal(1U, roSpec.ROSpecID);
     }
 
@@ -214,7 +214,7 @@ public sealed class RoSpecManagementMessageTests
 
             byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
             ILlrpMessage decoded = registry.DecodeMessage(expected);
-            V101Parameters.LLRPStatus decodedStatus= GetStatus(decoded);
+            V101Parameters.LLRPStatus decodedStatus = GetStatus(decoded);
 
             Assert.Equal(expected, encoded);
             Assert.Equal(message.GetType(), decoded.GetType());
@@ -445,11 +445,11 @@ public sealed class RoSpecManagementMessageTests
     {
         return message switch
         {
-            V101Messages.DELETE_ROSPEC value=> value.ROSpecID,
-            V101Messages.START_ROSPEC value=> value.ROSpecID,
-            V101Messages.STOP_ROSPEC value=> value.ROSpecID,
-            V101Messages.ENABLE_ROSPEC value=> value.ROSpecID,
-            V101Messages.DISABLE_ROSPEC value=> value.ROSpecID,
+            V101Messages.DELETE_ROSPEC value => value.ROSpecID,
+            V101Messages.START_ROSPEC value => value.ROSpecID,
+            V101Messages.STOP_ROSPEC value => value.ROSpecID,
+            V101Messages.ENABLE_ROSPEC value => value.ROSpecID,
+            V101Messages.DISABLE_ROSPEC value => value.ROSpecID,
             _ => throw new ArgumentException("The supplied message is not a ROSpec-ID request.", nameof(message)),
         };
     }
@@ -458,12 +458,12 @@ public sealed class RoSpecManagementMessageTests
     {
         return message switch
         {
-            V101Messages.ADD_ROSPEC_RESPONSE value=> value.LLRPStatus,
-            V101Messages.DELETE_ROSPEC_RESPONSE value=> value.LLRPStatus,
-            V101Messages.START_ROSPEC_RESPONSE value=> value.LLRPStatus,
-            V101Messages.STOP_ROSPEC_RESPONSE value=> value.LLRPStatus,
-            V101Messages.ENABLE_ROSPEC_RESPONSE value=> value.LLRPStatus,
-            V101Messages.DISABLE_ROSPEC_RESPONSE value=> value.LLRPStatus,
+            V101Messages.ADD_ROSPEC_RESPONSE value => value.LLRPStatus,
+            V101Messages.DELETE_ROSPEC_RESPONSE value => value.LLRPStatus,
+            V101Messages.START_ROSPEC_RESPONSE value => value.LLRPStatus,
+            V101Messages.STOP_ROSPEC_RESPONSE value => value.LLRPStatus,
+            V101Messages.ENABLE_ROSPEC_RESPONSE value => value.LLRPStatus,
+            V101Messages.DISABLE_ROSPEC_RESPONSE value => value.LLRPStatus,
             _ => throw new ArgumentException("The supplied message is not a ROSpec status response.", nameof(message)),
         };
     }

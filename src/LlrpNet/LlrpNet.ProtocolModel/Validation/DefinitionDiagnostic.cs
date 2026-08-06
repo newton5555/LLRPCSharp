@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolModel.Validation;
+namespace LlrpNet.ProtocolModel.Validation;
 
 /// <summary>
 /// Describes one deterministic protocol-model validation result.

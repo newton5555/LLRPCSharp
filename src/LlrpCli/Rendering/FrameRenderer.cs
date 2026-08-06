@@ -1,12 +1,12 @@
 using System.Reflection;
 using System.Text;
-using Spectre.Console;
+using LlrpCli.Commands;
+using LlrpCli.Terminal;
 using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Parameters;
-using LlrpCli.Terminal;
-using LlrpCli.Commands;
+using Spectre.Console;
 
 namespace LlrpCli.Rendering;
 

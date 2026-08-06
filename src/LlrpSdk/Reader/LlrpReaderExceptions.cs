@@ -1,4 +1,4 @@
-﻿using LlrpNet.Protocol.Messages;
+using LlrpNet.Protocol.Messages;
 
 namespace LlrpSdk;
 

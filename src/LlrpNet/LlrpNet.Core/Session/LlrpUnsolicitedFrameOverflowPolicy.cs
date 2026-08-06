@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Session;
+namespace LlrpNet.Core.Session;
 
 /// <summary>
 /// Selects how a session reacts when its bounded unsolicited-frame queue is full.

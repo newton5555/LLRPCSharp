@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
 
 /// <summary>
 /// Describes the connection lifecycle of one <see cref="LlrpReader"/>.

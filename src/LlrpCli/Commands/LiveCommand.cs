@@ -1,16 +1,16 @@
-﻿using System.ComponentModel;
-using LlrpNet.Protocol.Messages.V1_0_1;
-using LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
-using Spectre.Console;
-using Spectre.Console.Cli;
-using LlrpNet.Core.Diagnostics;
-using LlrpNet.Core.Protocol;
-using LlrpNet.Protocol.Messages;
-using LlrpSdk;
+using System.ComponentModel;
 using LlrpCli.Analysis;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
+using LlrpNet.Core.Diagnostics;
+using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
+using LlrpNet.Protocol.Messages;
+using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Parameters.V1_0_1;
+using LlrpSdk;
+using Spectre.Console;
+using Spectre.Console.Cli;
 
 namespace LlrpCli.Commands;
 
@@ -127,76 +127,76 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 {
                     switch (command.Route)
                     {
-                    case LiveCommandRoute.Connect:
-                        await HandleConnectAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.Disconnect:
-                        await _connectionHandler.DisconnectAsync(cancellationToken);
-                        break;
-                    case LiveCommandRoute.Status:
-                        HandleStatus();
-                        break;
-                    case LiveCommandRoute.Capabilities:
-                        HandleCaps();
-                        break;
-                    case LiveCommandRoute.Inventory:
-                        await _inventoryHandler.HandleAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.Monitor:
-                        await _monitorHandler.HandleAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.Frames:
-                        HandleFrames(tokens);
-                        break;
-                    case LiveCommandRoute.RoSpec:
-                        await HandleRospecAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.AccessSpec:
-                        await HandleAccessSpecAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.Resources:
-                        await HandleResourcesAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.Settings:
-                        await _settingsHandler.HandleAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.TagAccess:
-                        await _tagAccessHandler.HandleAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.Raw:
-                        await HandleRawAsync(tokens, cancellationToken);
-                        break;
-                    case LiveCommandRoute.Synchronize:
-                        await HandleSynchronizeStateAsync(cancellationToken);
-                        break;
-                    case LiveCommandRoute.Inspect:
-                        LiveProtocolDiagnostics.Inspect(tokens, _console);
-                        break;
-                    case LiveCommandRoute.Decode:
-                        LiveProtocolDiagnostics.Decode(tokens, _console);
-                        break;
-                    case LiveCommandRoute.Validate:
-                        LiveProtocolDiagnostics.Validate(tokens, _console);
-                        break;
-                    case LiveCommandRoute.Encode:
-                        LiveProtocolDiagnostics.Encode(tokens, _console);
-                        break;
-                    case LiveCommandRoute.Clear:
-                        _console.Clear();
-                        RenderBanner();
-                        break;
-                    case LiveCommandRoute.Help:
-                        if (tokens.Length > 1)
-                        {
-                            RenderCommandHelp(tokens[1]);
-                        }
-                        else
-                        {
-                            RenderHelp();
-                        }
-                        break;
-                    default:
-                        throw new InvalidOperationException($"Unsupported live command route '{command.Route}'.");
+                        case LiveCommandRoute.Connect:
+                            await HandleConnectAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.Disconnect:
+                            await _connectionHandler.DisconnectAsync(cancellationToken);
+                            break;
+                        case LiveCommandRoute.Status:
+                            HandleStatus();
+                            break;
+                        case LiveCommandRoute.Capabilities:
+                            HandleCaps();
+                            break;
+                        case LiveCommandRoute.Inventory:
+                            await _inventoryHandler.HandleAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.Monitor:
+                            await _monitorHandler.HandleAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.Frames:
+                            HandleFrames(tokens);
+                            break;
+                        case LiveCommandRoute.RoSpec:
+                            await HandleRospecAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.AccessSpec:
+                            await HandleAccessSpecAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.Resources:
+                            await HandleResourcesAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.Settings:
+                            await _settingsHandler.HandleAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.TagAccess:
+                            await _tagAccessHandler.HandleAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.Raw:
+                            await HandleRawAsync(tokens, cancellationToken);
+                            break;
+                        case LiveCommandRoute.Synchronize:
+                            await HandleSynchronizeStateAsync(cancellationToken);
+                            break;
+                        case LiveCommandRoute.Inspect:
+                            LiveProtocolDiagnostics.Inspect(tokens, _console);
+                            break;
+                        case LiveCommandRoute.Decode:
+                            LiveProtocolDiagnostics.Decode(tokens, _console);
+                            break;
+                        case LiveCommandRoute.Validate:
+                            LiveProtocolDiagnostics.Validate(tokens, _console);
+                            break;
+                        case LiveCommandRoute.Encode:
+                            LiveProtocolDiagnostics.Encode(tokens, _console);
+                            break;
+                        case LiveCommandRoute.Clear:
+                            _console.Clear();
+                            RenderBanner();
+                            break;
+                        case LiveCommandRoute.Help:
+                            if (tokens.Length > 1)
+                            {
+                                RenderCommandHelp(tokens[1]);
+                            }
+                            else
+                            {
+                                RenderHelp();
+                            }
+                            break;
+                        default:
+                            throw new InvalidOperationException($"Unsupported live command route '{command.Route}'.");
                     }
                 }
             }

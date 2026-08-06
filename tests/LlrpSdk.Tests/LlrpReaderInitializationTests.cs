@@ -1,14 +1,14 @@
-﻿using System.Collections.Concurrent;
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+using System.Collections.Concurrent;
 using System.Reflection;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpSdk.Tests.Support;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using LlrpSdk.Tests.Support;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
@@ -336,7 +336,7 @@ public sealed class LlrpReaderInitializationTests
 
         Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
         Assert.True(await messages.MoveNextAsync());
-        V101Messages.KEEPALIVE keepalive= Assert.IsType<V101Messages.KEEPALIVE>(messages.Current);
+        V101Messages.KEEPALIVE keepalive = Assert.IsType<V101Messages.KEEPALIVE>(messages.Current);
         byte[] acknowledgement = await transport.ReadSentFrameAsync(
             V101Messages.KEEPALIVE_ACK.MessageType,
             timeout.Token);

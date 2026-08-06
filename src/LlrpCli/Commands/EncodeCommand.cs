@@ -1,13 +1,13 @@
-﻿using System.ComponentModel;
-using LlrpNet.Protocol.Parameters.V1_0_1;
-using Spectre.Console;
-using Spectre.Console.Cli;
+using System.ComponentModel;
+using LlrpCli.Rendering;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
-using LlrpCli.Rendering;
+using LlrpNet.Protocol.Parameters.V1_0_1;
+using Spectre.Console;
+using Spectre.Console.Cli;
 
 namespace LlrpCli.Commands;
 

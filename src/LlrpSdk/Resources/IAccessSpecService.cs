@@ -1,4 +1,4 @@
-﻿using LlrpNet.Protocol.Parameters;
+using LlrpNet.Protocol.Parameters;
 
 namespace LlrpSdk;
 

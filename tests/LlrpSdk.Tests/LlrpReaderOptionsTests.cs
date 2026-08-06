@@ -1,12 +1,12 @@
-﻿using LlrpNet.Core.Diagnostics;
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-using LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
+using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Transport;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry.V1_0_1;
 using LlrpSdk.Tests.Support;
 using Microsoft.Extensions.Logging.Abstractions;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace LlrpSdk.Tests;
 
@@ -93,7 +93,7 @@ public sealed class LlrpReaderOptionsTests
             .WithTransportFactory(_ => transport)
             .ConfigureProtocol(registry =>
             {
-                V101Messages.KEEPALIVE decoded= Assert.IsType<V101Messages.KEEPALIVE>(registry.DecodeMessage(
+                V101Messages.KEEPALIVE decoded = Assert.IsType<V101Messages.KEEPALIVE>(registry.DecodeMessage(
                     LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE.MessageType, 1)));
                 Assert.Equal(1U, decoded.MessageId);
                 calls.Add("first");

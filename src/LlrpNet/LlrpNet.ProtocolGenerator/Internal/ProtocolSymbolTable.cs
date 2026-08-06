@@ -1,4 +1,4 @@
-﻿using LlrpNet.ProtocolModel.Definitions;
+using LlrpNet.ProtocolModel.Definitions;
 
 namespace LlrpNet.ProtocolGenerator.Internal;
 

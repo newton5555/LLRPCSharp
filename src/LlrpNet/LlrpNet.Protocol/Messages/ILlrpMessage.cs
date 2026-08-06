@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Protocol.Messages;
+namespace LlrpNet.Protocol.Messages;
 
 /// <summary>
 /// Marks a strongly typed LLRP message that can participate in request/response correlation.

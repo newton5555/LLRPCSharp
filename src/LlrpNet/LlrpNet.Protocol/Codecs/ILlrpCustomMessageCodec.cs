@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 
 namespace LlrpNet.Protocol.Codecs;

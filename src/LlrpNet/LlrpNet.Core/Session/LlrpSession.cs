@@ -1,4 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
+using System.Runtime.ExceptionServices;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Transactions;

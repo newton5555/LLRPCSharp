@@ -1,4 +1,4 @@
-﻿using LlrpNet.Protocol.Choices.V1_1;
+using LlrpNet.Protocol.Choices.V1_1;
 using LlrpNet.Protocol.Messages.V1_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_1;

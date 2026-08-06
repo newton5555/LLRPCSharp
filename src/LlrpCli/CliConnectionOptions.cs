@@ -1,7 +1,7 @@
-using Spectre.Console;
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
 using LlrpSdk.Extensions.Seuic;
+using Spectre.Console;
 
 namespace LlrpCli;
 

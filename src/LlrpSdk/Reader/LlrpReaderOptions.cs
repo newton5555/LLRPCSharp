@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Diagnostics;
+using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Transport;
 using LlrpNet.Protocol.Registry;

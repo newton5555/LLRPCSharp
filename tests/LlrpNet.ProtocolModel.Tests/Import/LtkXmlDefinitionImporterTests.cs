@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using LlrpNet.ProtocolModel.Definitions;
 using LlrpNet.ProtocolModel.Import;
 

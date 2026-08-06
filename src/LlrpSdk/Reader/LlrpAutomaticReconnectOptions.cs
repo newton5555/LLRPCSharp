@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
 
 /// <summary>Configures bounded retry after an unexpected connected-session failure.</summary>
 /// <remarks>

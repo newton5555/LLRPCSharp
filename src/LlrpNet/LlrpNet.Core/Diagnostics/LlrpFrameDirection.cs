@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Diagnostics;
+namespace LlrpNet.Core.Diagnostics;
 
 /// <summary>
 /// Identifies the direction in which an LLRP frame crosses the transport boundary.

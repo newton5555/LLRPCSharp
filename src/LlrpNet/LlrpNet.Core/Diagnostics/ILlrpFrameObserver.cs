@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Diagnostics;
+namespace LlrpNet.Core.Diagnostics;
 
 /// <summary>
 /// Observes complete, unmodified LLRP frames at the transport boundary.

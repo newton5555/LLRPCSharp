@@ -1,7 +1,7 @@
-using Spectre.Console;
+using LlrpCli.Rendering;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
-using LlrpCli.Rendering;
+using Spectre.Console;
 
 namespace LlrpCli.Commands;
 

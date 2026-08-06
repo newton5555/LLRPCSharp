@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using Spectre.Console;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
 using LlrpSdk;
+using Spectre.Console;
 
 namespace LlrpCli.Commands;
 

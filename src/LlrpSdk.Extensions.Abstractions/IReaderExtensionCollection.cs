@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk.Extensions;
+namespace LlrpSdk.Extensions;
 
 /// <summary>Provides the reader extensions activated for one connected reader.</summary>
 public interface IReaderExtensionCollection : IReadOnlyCollection<IReaderExtension>

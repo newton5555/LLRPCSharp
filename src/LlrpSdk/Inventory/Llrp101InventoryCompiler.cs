@@ -1,9 +1,9 @@
-﻿using LlrpNet.Protocol.Enumerations.V1_0_1;
-using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Choices.V1_0_1;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
+using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 
 namespace LlrpSdk;
 

@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Transactions;
+using LlrpNet.Core.Transactions;
 using LlrpNet.Protocol.Parameters;
 
 namespace LlrpSdk;

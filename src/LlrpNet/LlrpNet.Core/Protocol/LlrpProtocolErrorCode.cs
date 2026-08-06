@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Protocol;
+namespace LlrpNet.Core.Protocol;
 
 /// <summary>
 /// Categorizes protocol errors detected before a message-specific codec runs.

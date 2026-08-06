@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Buffers;
+namespace LlrpNet.Core.Buffers;
 
 /// <summary>
 /// Writes MSB-first bit fields to an LLRP byte buffer.

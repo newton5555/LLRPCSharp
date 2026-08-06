@@ -1,11 +1,9 @@
-﻿using LlrpNet.Protocol.Parameters;
-using LlrpSdk.Extensions;
 using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Impinj.Parameters.V1_0_1;
-
-using LlrpSdk;
-
+using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
+using LlrpSdk;
+using LlrpSdk.Extensions;
 
 namespace LlrpSdk.Extensions.Impinj;
 

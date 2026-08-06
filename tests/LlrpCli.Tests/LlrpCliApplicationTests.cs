@@ -1,13 +1,13 @@
-﻿using System.Text.Json;
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-using LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
 using System.Reflection;
+using System.Text.Json;
 using LlrpCli.Commands;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
 using Spectre.Console;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace LlrpCli.Tests;
 

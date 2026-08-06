@@ -1,10 +1,10 @@
-using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
-using LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpNet.Protocol.Registry;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Impinj.Messages.V1_0_1;
 using LlrpNet.Protocol.Impinj.Parameters.V1_0_1;
+using LlrpNet.Protocol.Parameters.V1_0_1;
+using LlrpNet.Protocol.Registry;
 
 namespace LlrpSdk.Extensions.Impinj.Tests;
 

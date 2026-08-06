@@ -1,4 +1,4 @@
-﻿namespace LlrpSdk;
+namespace LlrpSdk;
 
 /// <summary>Controls how a reader connection selects its LLRP protocol version.</summary>
 public enum LlrpProtocolVersionPolicy

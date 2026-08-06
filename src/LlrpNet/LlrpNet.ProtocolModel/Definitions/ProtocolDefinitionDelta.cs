@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.ProtocolModel.Definitions;
+namespace LlrpNet.ProtocolModel.Definitions;
 
 /// <summary>
 /// Represents a versioned protocol delta relative to an externally selected baseline.

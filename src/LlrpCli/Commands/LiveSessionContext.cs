@@ -1,4 +1,4 @@
-﻿using LlrpCli.Terminal;
+using LlrpCli.Terminal;
 using LlrpSdk;
 
 namespace LlrpCli.Commands;

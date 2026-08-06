@@ -1,4 +1,4 @@
-﻿using LlrpSdk;
+using LlrpSdk;
 
 namespace LlrpCli;
 

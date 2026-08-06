@@ -28,7 +28,8 @@ public sealed class ManagedReaderHardwareTests
 
         ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
         InventorySettings inventory = (defaults.Settings.Inventory ?? new InventorySettings())
-            with { AntennaIds = config.Antennas.ToArray() };
+            with
+        { AntennaIds = config.Antennas.ToArray() };
 
         // One-phase: deploy (takes full control, deletes all ROSpecs) and start in one call.
         await using var session = await reader.StartInventoryAsync(inventory);
@@ -62,7 +63,8 @@ public sealed class ManagedReaderHardwareTests
 
         ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
         InventorySettings inventory = (defaults.Settings.Inventory ?? new InventorySettings())
-            with { AntennaIds = config.Antennas.ToArray() };
+            with
+        { AntennaIds = config.Antennas.ToArray() };
 
         // Two-phase: deploy without starting, then start explicitly.
         await reader.ApplySettingsAsync(defaults.Settings with { Inventory = inventory });

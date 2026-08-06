@@ -1,4 +1,4 @@
-﻿using LlrpSdk.Extensions;
+using LlrpSdk.Extensions;
 
 namespace LlrpSdk;
 

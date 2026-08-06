@@ -1,12 +1,12 @@
-using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
 using LlrpNet.Protocol.Registry.V1_0_1;
+using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 
 namespace LlrpNet.Protocol.Tests.Messages.V1_0_1;
 
@@ -67,7 +67,7 @@ public sealed class ErrorMessageTests
     public void Constructor_RejectsNullStatus()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        V101Messages.ERROR_MESSAGE message= new(MessageId, null!);
+        V101Messages.ERROR_MESSAGE message = new(MessageId, null!);
 
         Assert.Throws<ArgumentNullException>(
             () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));

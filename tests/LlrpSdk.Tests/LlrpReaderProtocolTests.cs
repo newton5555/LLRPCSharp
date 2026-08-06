@@ -1,10 +1,10 @@
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-using LlrpNet.Protocol.Parameters.V1_0_1;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpSdk.Tests.Support;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace LlrpSdk.Tests;
 
@@ -81,7 +81,7 @@ public sealed class LlrpReaderProtocolTests
             cancellationToken: timeout.Token);
 
         Assert.True(await messages.MoveNextAsync());
-        V101Messages.KEEPALIVE_ACK response= Assert.IsType<V101Messages.KEEPALIVE_ACK>(messages.Current);
+        V101Messages.KEEPALIVE_ACK response = Assert.IsType<V101Messages.KEEPALIVE_ACK>(messages.Current);
         Assert.Equal(900U, response.MessageId);
         await Assert.ThrowsAsync<TimeoutException>(() => transaction);
     }
@@ -110,7 +110,7 @@ public sealed class LlrpReaderProtocolTests
         transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE.MessageType, 0x12345678));
 
         Assert.True(await messages.MoveNextAsync());
-        V101Messages.KEEPALIVE keepalive= Assert.IsType<V101Messages.KEEPALIVE>(messages.Current);
+        V101Messages.KEEPALIVE keepalive = Assert.IsType<V101Messages.KEEPALIVE>(messages.Current);
         byte[] acknowledgement = await transport.ReadSentFrameAsync(
             V101Messages.KEEPALIVE_ACK.MessageType,
             timeout.Token);

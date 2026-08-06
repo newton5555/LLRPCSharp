@@ -1,7 +1,7 @@
 using LlrpNet.Core.Protocol;
-using LlrpSdk.Extensions;
 using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Impinj.Parameters.V1_0_1;
+using LlrpSdk.Extensions;
 
 namespace LlrpSdk.Extensions.Impinj.Tests;
 

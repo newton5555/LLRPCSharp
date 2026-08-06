@@ -1,14 +1,13 @@
-﻿using LlrpNet.Core.Protocol;
-using LlrpNet.Protocol.Registry;
-using LlrpSdk.Extensions;
-using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
-using LlrpNet.Protocol.Impinj.Messages.V1_0_1;
-using LlrpNet.Protocol.Impinj.Parameters.V1_0_1;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-
+using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Impinj.Enumerations.V1_0_1;
+using LlrpNet.Protocol.Impinj.Messages.V1_0_1;
+using LlrpNet.Protocol.Impinj.Parameters.V1_0_1;
+using LlrpNet.Protocol.Registry;
 using LlrpSdk;
+using LlrpSdk.Extensions;
 
 namespace LlrpSdk.Extensions.Impinj;
 
@@ -331,20 +330,20 @@ public sealed class ImpinjReaderExtension :
                 (selector.ImpinjEnableEndpointICVerification is not null && !capabilities.SupportsEndpointIcVerification);
             extensions.Add(ImpinjInventoryReportOptions.ExtensionKey, new ImpinjInventoryReportOptions
             {
-            IncludeSerializedTid = selector.ImpinjEnableSerializedTID?.SerializedTIDMode == ImpinjSerializedTIDMode.Enabled,
-            IncludeRfPhaseAngle = selector.ImpinjEnableRFPhaseAngle?.RFPhaseAngleMode == ImpinjRFPhaseAngleMode.Enabled,
-            IncludePeakRssi = selector.ImpinjEnablePeakRSSI?.PeakRSSIMode == ImpinjPeakRSSIMode.Enabled,
-            IncludeGpsCoordinates = selector.ImpinjEnableGPSCoordinates?.GPSCoordinatesMode == ImpinjGPSCoordinatesMode.Enabled,
-            IncludeOptimizedRead = selector.ImpinjEnableOptimizedRead?.OptimizedReadMode == ImpinjOptimizedReadMode.Enabled,
-            OptimizedReads = optimizedReads,
-            IncludeRfDopplerFrequency = selector.ImpinjEnableRFDopplerFrequency?.RFDopplerFrequencyMode == ImpinjRFDopplerFrequencyMode.Enabled,
-            IncludeTxPower = selector.ImpinjEnableTxPower?.TxPowerReportingMode == ImpinjTxPowerReportingModeEnum.Enabled,
-            IncludeXpcWords = selector.ImpinjEnableXPCWords?.XPCWordsMode == ImpinjXPCWordsMode.Enabled,
-            IncludeCrHandle = selector.ImpinjEnableCRHandle?.CRHandleMode == ImpinjCRHandleMode.Enabled,
-            IncludeId = selector.ImpinjEnableID?.IDMode == ImpinjIDMode.Enabled,
-            IncludeEnhancedIntegra = selector.ImpinjEnableEnhancedIntegra?.EnhancedIntegraMode == ImpinjEnhancedIntegraMode.Enabled,
-            IncludeEndpointIcVerification = selector.ImpinjEnableEndpointICVerification?.EndpointICVerificationReportMode == ImpinjEndpointICVerificationReportMode.Enabled,
-            AllowUnverifiedFields = unverified,
+                IncludeSerializedTid = selector.ImpinjEnableSerializedTID?.SerializedTIDMode == ImpinjSerializedTIDMode.Enabled,
+                IncludeRfPhaseAngle = selector.ImpinjEnableRFPhaseAngle?.RFPhaseAngleMode == ImpinjRFPhaseAngleMode.Enabled,
+                IncludePeakRssi = selector.ImpinjEnablePeakRSSI?.PeakRSSIMode == ImpinjPeakRSSIMode.Enabled,
+                IncludeGpsCoordinates = selector.ImpinjEnableGPSCoordinates?.GPSCoordinatesMode == ImpinjGPSCoordinatesMode.Enabled,
+                IncludeOptimizedRead = selector.ImpinjEnableOptimizedRead?.OptimizedReadMode == ImpinjOptimizedReadMode.Enabled,
+                OptimizedReads = optimizedReads,
+                IncludeRfDopplerFrequency = selector.ImpinjEnableRFDopplerFrequency?.RFDopplerFrequencyMode == ImpinjRFDopplerFrequencyMode.Enabled,
+                IncludeTxPower = selector.ImpinjEnableTxPower?.TxPowerReportingMode == ImpinjTxPowerReportingModeEnum.Enabled,
+                IncludeXpcWords = selector.ImpinjEnableXPCWords?.XPCWordsMode == ImpinjXPCWordsMode.Enabled,
+                IncludeCrHandle = selector.ImpinjEnableCRHandle?.CRHandleMode == ImpinjCRHandleMode.Enabled,
+                IncludeId = selector.ImpinjEnableID?.IDMode == ImpinjIDMode.Enabled,
+                IncludeEnhancedIntegra = selector.ImpinjEnableEnhancedIntegra?.EnhancedIntegraMode == ImpinjEnhancedIntegraMode.Enabled,
+                IncludeEndpointIcVerification = selector.ImpinjEnableEndpointICVerification?.EndpointICVerificationReportMode == ImpinjEndpointICVerificationReportMode.Enabled,
+                AllowUnverifiedFields = unverified,
             });
         }
 

@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Transactions;
+namespace LlrpNet.Core.Transactions;
 
 /// <summary>
 /// Generates non-zero LLRP message identifiers for a single logical channel.

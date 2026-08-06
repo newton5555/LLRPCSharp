@@ -1,4 +1,4 @@
-﻿namespace LlrpNet.Core.Session;
+namespace LlrpNet.Core.Session;
 
 /// <summary>
 /// Describes why one connected generation of an <see cref="LlrpSession"/> ended.

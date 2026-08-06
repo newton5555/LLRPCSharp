@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using LlrpNet.ProtocolModel.Definitions;
 
 namespace LlrpNet.ProtocolModel.Validation;

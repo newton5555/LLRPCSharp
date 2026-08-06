@@ -1,6 +1,6 @@
-﻿using Spectre.Console;
 using LlrpCli.Rendering;
 using LlrpSdk;
+using Spectre.Console;
 
 namespace LlrpCli.Commands;
 
@@ -23,34 +23,34 @@ internal sealed class LiveInventoryHandler(
         switch (tokens[1].ToLowerInvariant())
         {
             case "start":
-            {
-                if (!EnsureConnected())
                 {
-                    return;
-                }
-                LlrpReader reader = session.Reader!;
-                if (reader.OperationState == ReaderOperationState.Inventorying)
-                {
-                    console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
-                    return;
-                }
-                if (reader.CurrentInventorySettings is null)
-                {
-                    throw new CliUsageException("The reader has no deployed Inventory. Run 'settings edit', 'settings validate', then 'settings apply --yes'.");
-                }
+                    if (!EnsureConnected())
+                    {
+                        return;
+                    }
+                    LlrpReader reader = session.Reader!;
+                    if (reader.OperationState == ReaderOperationState.Inventorying)
+                    {
+                        console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
+                        return;
+                    }
+                    if (reader.CurrentInventorySettings is null)
+                    {
+                        throw new CliUsageException("The reader has no deployed Inventory. Run 'settings edit', 'settings validate', then 'settings apply --yes'.");
+                    }
 
-                LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
-                int? monitorDurationSeconds = ParseStartMonitorDurationSeconds(tokens);
-                if (monitorDurationSeconds is not null && monitorMode == LiveMonitorMode.None)
-                {
-                    throw new CliUsageException("inventory start --monitor-duration requires --monitor live or --monitor frames.");
-                }
+                    LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
+                    int? monitorDurationSeconds = ParseStartMonitorDurationSeconds(tokens);
+                    if (monitorDurationSeconds is not null && monitorMode == LiveMonitorMode.None)
+                    {
+                        throw new CliUsageException("inventory start --monitor-duration requires --monitor live or --monitor frames.");
+                    }
 
-                session.InventorySession = await reader.StartInventoryAsync(cancellationToken);
-                RenderStartedSummary(session.InventorySession.Settings);
-                await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, cancellationToken);
-                break;
-            }
+                    session.InventorySession = await reader.StartInventoryAsync(cancellationToken);
+                    RenderStartedSummary(session.InventorySession.Settings);
+                    await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, cancellationToken);
+                    break;
+                }
 
             case "stop":
                 if (!EnsureConnected())
