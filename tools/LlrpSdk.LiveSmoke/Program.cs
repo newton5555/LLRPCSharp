@@ -1,4 +1,4 @@
-﻿using LlrpNet.Core.Diagnostics;
+using LlrpNet.Core.Diagnostics;
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
 using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;

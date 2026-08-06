@@ -1,6 +1,6 @@
 ﻿using LlrpNet.Core.Protocol;
-using LlrpStatus = LlrpNet.Protocol.Parameters.V1_0_1.LLRPStatus;
-using LlrpStatusCode = LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Parameters;
@@ -17,17 +17,17 @@ public sealed class LlrpStatusTests
     {
         LlrpCodecRegistry registry = CreateRegistry();
         byte[] expected = [0x01, 0x1F, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00];
-        var parameter = new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null);
+        var parameter = new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null);
 
         byte[] encoded = registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter);
         LlrpParameterDecodeResult result = registry.DecodeParameter(
             LlrpProtocolVersion.Version101,
             expected);
-        var decoded = Assert.IsType<LlrpStatus>(result.Parameter);
+        var decoded = Assert.IsType<V101Parameters.LLRPStatus>(result.Parameter);
 
         Assert.Equal(expected, encoded);
         Assert.Equal(expected.Length, result.BytesConsumed);
-        Assert.Equal(LlrpStatusCode.M_Success, decoded.StatusCode);
+        Assert.Equal(V101Enumerations.StatusCode.M_Success, decoded.StatusCode);
         Assert.Equal(string.Empty, decoded.ErrorDescription);
         Assert.Null(decoded.FieldError);
         Assert.Null(decoded.ParameterError);
@@ -44,10 +44,10 @@ public sealed class LlrpStatusTests
             0x00, 0x03,
             0xE9, 0x94, 0x99,
         ];
-        var parameter = new LlrpStatus(LlrpStatusCode.M_ParameterError, "错", null, null);
+        var parameter = new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_ParameterError, "错", null, null);
 
         byte[] encoded = registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter);
-        var decoded = Assert.IsType<LlrpStatus>(registry.DecodeParameter(
+        var decoded = Assert.IsType<V101Parameters.LLRPStatus>(registry.DecodeParameter(
             LlrpProtocolVersion.Version101,
             expected).Parameter);
 
@@ -59,19 +59,19 @@ public sealed class LlrpStatusTests
     public void FieldErrorAndParameterError_RoundTripInWireOrder()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var expected = new LlrpStatus(
-            LlrpStatusCode.M_ParameterError,
+        var expected = new V101Parameters.LLRPStatus(
+            V101Enumerations.StatusCode.M_ParameterError,
             "bad",
-            new FieldError(1, LlrpStatusCode.M_FieldError),
-            new ParameterError(177, LlrpStatusCode.M_ParameterError, null, null));
+            new FieldError(1, V101Enumerations.StatusCode.M_FieldError),
+            new ParameterError(177, V101Enumerations.StatusCode.M_ParameterError, null, null));
         byte[] encoded = registry.EncodeParameter(LlrpProtocolVersion.Version101, expected);
-        var decoded = Assert.IsType<LlrpStatus>(registry.DecodeParameter(
+        var decoded = Assert.IsType<V101Parameters.LLRPStatus>(registry.DecodeParameter(
             LlrpProtocolVersion.Version101,
             encoded).Parameter);
         byte[] reencoded = registry.EncodeParameter(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(encoded, reencoded);
-        Assert.Equal(LlrpStatusCode.M_ParameterError, decoded.StatusCode);
+        Assert.Equal(V101Enumerations.StatusCode.M_ParameterError, decoded.StatusCode);
         Assert.Equal("bad", decoded.ErrorDescription);
         // FieldError (type 288) and ParameterError (type 289) are both decoded
         Assert.NotNull(decoded.FieldError);
@@ -135,7 +135,7 @@ public sealed class LlrpStatusTests
     public void Encode_RejectsUndefinedStatusCode()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var parameter = new LlrpStatus((LlrpStatusCode)99, string.Empty, null, null);
+        var parameter = new V101Parameters.LLRPStatus((V101Enumerations.StatusCode)99, string.Empty, null, null);
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter));

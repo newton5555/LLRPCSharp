@@ -1,5 +1,4 @@
 ﻿using LlrpSdk;
-using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpVirtualReader;
 using LlrpNet.Protocol.Messages.V1_0_1;

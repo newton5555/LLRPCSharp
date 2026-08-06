@@ -1,10 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
-using KeepaliveAck = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE_ACK;
-using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
-using EnableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC;
-using EnableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC_RESPONSE;
-using TagReportContentSelector = LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using System.Reflection;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -76,7 +71,7 @@ public sealed class LlrpReaderInitializationTests
         Assert.Single(rawResponse.CustomItems);
 
         byte[][] requests = transport.SentFrames.Where(static frame =>
-            LlrpMessageHeader.Decode(frame).MessageType == GetReaderCapabilities.MessageType)
+            LlrpMessageHeader.Decode(frame).MessageType == V101Messages.GET_READER_CAPABILITIES.MessageType)
             .ToArray();
         Assert.Equal(2, requests.Length);
 
@@ -173,7 +168,7 @@ public sealed class LlrpReaderInitializationTests
         await using LlrpReader reader = CreateReader(transport, TimeSpan.FromSeconds(30));
 
         Task connectTask = reader.ConnectAsync(connectCancellation.Token);
-        await transport.ReadSentFrameAsync(GetReaderCapabilities.MessageType, testTimeout.Token);
+        await transport.ReadSentFrameAsync(V101Messages.GET_READER_CAPABILITIES.MessageType, testTimeout.Token);
         Assert.Equal(ReaderConnectionState.Initializing, reader.ConnectionState);
         connectCancellation.Cancel();
 
@@ -227,14 +222,14 @@ public sealed class LlrpReaderInitializationTests
         };
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
-        await transport.ReadSentFrameAsync(GetReaderCapabilities.MessageType, timeout.Token);
-        await transport.ReadSentFrameAsync(GetReaderCapabilities.MessageType, timeout.Token);
+        await transport.ReadSentFrameAsync(V101Messages.GET_READER_CAPABILITIES.MessageType, timeout.Token);
+        await transport.ReadSentFrameAsync(V101Messages.GET_READER_CAPABILITIES.MessageType, timeout.Token);
         ReaderIdentity firstIdentity = Assert.IsType<ReaderIdentity>(reader.Identity);
         ReaderCapabilities firstCapabilities = Assert.IsType<ReaderCapabilities>(reader.Capabilities);
 
         Task reconnectTask = reader.ReconnectAsync(timeout.Token);
         byte[] secondRequest1 = await transport.ReadSentFrameAsync(
-            GetReaderCapabilities.MessageType,
+            V101Messages.GET_READER_CAPABILITIES.MessageType,
             timeout.Token);
         Assert.Equal(ReaderConnectionState.Initializing, reader.ConnectionState);
         Assert.Null(reader.Identity);
@@ -252,7 +247,7 @@ public sealed class LlrpReaderInitializationTests
             ]));
 
         byte[] secondRequest2 = await transport.ReadSentFrameAsync(
-            GetReaderCapabilities.MessageType,
+            V101Messages.GET_READER_CAPABILITIES.MessageType,
             timeout.Token);
         uint messageId2 = LlrpMessageHeader.Decode(secondRequest2).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(
@@ -290,19 +285,19 @@ public sealed class LlrpReaderInitializationTests
 
         Task connectTask = reader.ConnectAsync(timeout.Token);
         byte[] request = await transport.ReadSentFrameAsync(
-            GetReaderCapabilities.MessageType,
+            V101Messages.GET_READER_CAPABILITIES.MessageType,
             timeout.Token);
         Assert.Equal(ReaderConnectionState.Initializing, reader.ConnectionState);
 
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            reader.Protocol.SendAsync(new KeepaliveAck(99), timeout.Token));
+            reader.Protocol.SendAsync(new V101Messages.KEEPALIVE_ACK(99), timeout.Token));
         Assert.Contains(nameof(ReaderConnectionState.Initializing), exception.Message, StringComparison.Ordinal);
 
         uint messageId = LlrpMessageHeader.Decode(request).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(messageId));
 
         byte[] allRequest = await transport.ReadSentFrameAsync(
-            GetReaderCapabilities.MessageType,
+            V101Messages.GET_READER_CAPABILITIES.MessageType,
             timeout.Token);
         uint allMsgId = LlrpMessageHeader.Decode(allRequest).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(allMsgId));
@@ -322,10 +317,10 @@ public sealed class LlrpReaderInitializationTests
         transport.OnSendAsync = (frame, _) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
-            if (header.MessageType == GetReaderCapabilities.MessageType)
+            if (header.MessageType == V101Messages.GET_READER_CAPABILITIES.MessageType)
             {
                 transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(
-                    Keepalive.MessageType,
+                    V101Messages.KEEPALIVE.MessageType,
                     header.MessageId));
                 transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(header.MessageId));
             }
@@ -341,9 +336,9 @@ public sealed class LlrpReaderInitializationTests
 
         Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
         Assert.True(await messages.MoveNextAsync());
-        Keepalive keepalive = Assert.IsType<Keepalive>(messages.Current);
+        V101Messages.KEEPALIVE keepalive= Assert.IsType<V101Messages.KEEPALIVE>(messages.Current);
         byte[] acknowledgement = await transport.ReadSentFrameAsync(
-            KeepaliveAck.MessageType,
+            V101Messages.KEEPALIVE_ACK.MessageType,
             timeout.Token);
         LlrpMessageHeader acknowledgementHeader = LlrpMessageHeader.Decode(acknowledgement);
         Assert.Equal(keepalive.MessageId, acknowledgementHeader.MessageId);
@@ -370,9 +365,9 @@ public sealed class LlrpReaderInitializationTests
         transport.OnSendAsync = (frame, ct) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
-            if (header.MessageType == EnableRoSpec.MessageType)
+            if (header.MessageType == V101Messages.ENABLE_ROSPEC.MessageType)
             {
-                var response = new EnableRoSpecResponse(
+                var response = new V101Messages.ENABLE_ROSPEC_RESPONSE(
                     header.MessageId,
                     new LLRPStatus(StatusCode.M_Success, string.Empty, null, null));
                 byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
@@ -391,13 +386,13 @@ public sealed class LlrpReaderInitializationTests
 
         var sentTypes = transport.SentFrames
             .Select(frame => LlrpMessageHeader.Decode(frame).MessageType)
-            .Where(type => type == GetReaderCapabilities.MessageType || type == EnableRoSpec.MessageType)
+            .Where(type => type == V101Messages.GET_READER_CAPABILITIES.MessageType || type == V101Messages.ENABLE_ROSPEC.MessageType)
             .ToArray();
 
         Assert.Equal(3, sentTypes.Length);
-        Assert.Equal(GetReaderCapabilities.MessageType, sentTypes[0]);
-        Assert.Equal(EnableRoSpec.MessageType, sentTypes[1]);
-        Assert.Equal(GetReaderCapabilities.MessageType, sentTypes[2]);
+        Assert.Equal(V101Messages.GET_READER_CAPABILITIES.MessageType, sentTypes[0]);
+        Assert.Equal(V101Messages.ENABLE_ROSPEC.MessageType, sentTypes[1]);
+        Assert.Equal(V101Messages.GET_READER_CAPABILITIES.MessageType, sentTypes[2]);
     }
 
     [Fact]
@@ -533,8 +528,8 @@ public sealed class LlrpReaderInitializationTests
             LlrpSdk.Extensions.IReaderConnection connection,
             CancellationToken cancellationToken)
         {
-            await connection.TransactAsync<EnableRoSpecResponse>(
-                new EnableRoSpec(connection.NextMessageId(), 99),
+            await connection.TransactAsync<V101Messages.ENABLE_ROSPEC_RESPONSE>(
+                new V101Messages.ENABLE_ROSPEC(connection.NextMessageId(), 99),
                 timeout: null,
                 cancellationToken: cancellationToken);
         }

@@ -1,5 +1,5 @@
 ﻿using LlrpNet.Core.Diagnostics;
-using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Transport;
@@ -93,8 +93,8 @@ public sealed class LlrpReaderOptionsTests
             .WithTransportFactory(_ => transport)
             .ConfigureProtocol(registry =>
             {
-                Keepalive decoded = Assert.IsType<Keepalive>(registry.DecodeMessage(
-                    LlrpTestFrames.EmptyMessage(Keepalive.MessageType, 1)));
+                V101Messages.KEEPALIVE decoded= Assert.IsType<V101Messages.KEEPALIVE>(registry.DecodeMessage(
+                    LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE.MessageType, 1)));
                 Assert.Equal(1U, decoded.MessageId);
                 calls.Add("first");
             })

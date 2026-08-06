@@ -1,5 +1,5 @@
 ﻿using LlrpNet.Core.Protocol;
-using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
@@ -18,13 +18,13 @@ public sealed class GetReaderCapabilitiesTests
     {
         LlrpCodecRegistry registry = CreateRegistry();
         byte[] expected = [0x04, 0x01, 0x00, 0x00, 0x00, 0x0B, 0x01, 0x02, 0x03, 0x04, 0x00];
-        var message = new GetReaderCapabilities(
+        var message = new V101Messages.GET_READER_CAPABILITIES(
             0x01020304,
             GetReaderCapabilitiesRequestedData.All,
             CustomItems: []);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
-        var decoded = Assert.IsType<GetReaderCapabilities>(registry.DecodeMessage(expected));
+        var decoded = Assert.IsType<V101Messages.GET_READER_CAPABILITIES>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
         Assert.Equal((uint)0x01020304, decoded.MessageId);
@@ -60,7 +60,7 @@ public sealed class GetReaderCapabilitiesTests
     public void Encode_RejectsUndefinedRequestedData()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var message = new GetReaderCapabilities(
+        var message = new V101Messages.GET_READER_CAPABILITIES(
             1,
             (GetReaderCapabilitiesRequestedData)5,
             CustomItems: []);
@@ -73,7 +73,7 @@ public sealed class GetReaderCapabilitiesTests
     public void CustomParameters_RoundTripWithoutLosingBytes()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var message = new GetReaderCapabilities(
+        var message = new V101Messages.GET_READER_CAPABILITIES(
             MessageId: 7,
             GetReaderCapabilitiesRequestedData.General_Device_Capabilities,
             CustomItems:
@@ -86,7 +86,7 @@ public sealed class GetReaderCapabilitiesTests
             ]);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
-        var decoded = Assert.IsType<GetReaderCapabilities>(registry.DecodeMessage(encoded));
+        var decoded = Assert.IsType<V101Messages.GET_READER_CAPABILITIES>(registry.DecodeMessage(encoded));
         byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(encoded, reencoded);
@@ -106,13 +106,13 @@ public sealed class GetReaderCapabilitiesTests
             parameterSubtype: 7,
             new TestCustomParameterCodec());
         Llrp101StandardModule.Register(registry);
-        var message = new GetReaderCapabilities(
+        var message = new V101Messages.GET_READER_CAPABILITIES(
             MessageId: 9,
             GetReaderCapabilitiesRequestedData.LLRP_Capabilities,
             CustomItems: [new TestCustomParameter(0xCAFE)]);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
-        var decoded = Assert.IsType<GetReaderCapabilities>(registry.DecodeMessage(encoded));
+        var decoded = Assert.IsType<V101Messages.GET_READER_CAPABILITIES>(registry.DecodeMessage(encoded));
 
         Assert.Equal(
             new TestCustomParameter(0xCAFE),
@@ -123,7 +123,7 @@ public sealed class GetReaderCapabilitiesTests
     public void Encode_RejectsNonCustomTrailingParameter()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var message = new GetReaderCapabilities(
+        var message = new V101Messages.GET_READER_CAPABILITIES(
             MessageId: 1,
             GetReaderCapabilitiesRequestedData.All,
             CustomItems: [new UnknownParameter(LlrpProtocolVersion.Version101, 200, [])]);
@@ -140,7 +140,7 @@ public sealed class GetReaderCapabilitiesTests
             LlrpProtocolVersion.Version101,
             new UnknownMessage(
                 LlrpProtocolVersion.Version101,
-                GetReaderCapabilities.MessageType,
+                V101Messages.GET_READER_CAPABILITIES.MessageType,
                 messageId: 1,
                 [
                     (byte)GetReaderCapabilitiesRequestedData.All,

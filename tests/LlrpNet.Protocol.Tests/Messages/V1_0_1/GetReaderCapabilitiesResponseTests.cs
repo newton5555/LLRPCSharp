@@ -1,6 +1,5 @@
-using GetReaderCapabilitiesResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES_RESPONSE;
-using LlrpStatus = LlrpNet.Protocol.Parameters.V1_0_1.LLRPStatus;
-using LlrpStatusCode = LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -25,9 +24,9 @@ public sealed class GetReaderCapabilitiesResponseTests
             0x01, 0x1F, 0x00, 0x08,
             0x00, 0x00, 0x00, 0x00,
         ];
-        var message = new GetReaderCapabilitiesResponse(
+        var message = new V101Messages.GET_READER_CAPABILITIES_RESPONSE(
             0x01020304,
-            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
+            new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null),
             GeneralDeviceCapabilities: null,
             LLRPCapabilities: null,
             RegulatoryCapabilities: null,
@@ -35,11 +34,11 @@ public sealed class GetReaderCapabilitiesResponseTests
             CustomItems: []);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
-        var decoded = Assert.IsType<GetReaderCapabilitiesResponse>(registry.DecodeMessage(expected));
+        var decoded = Assert.IsType<V101Messages.GET_READER_CAPABILITIES_RESPONSE>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
         Assert.Equal((uint)0x01020304, decoded.MessageId);
-        Assert.Equal(LlrpStatusCode.M_Success, decoded.LLRPStatus.StatusCode);
+        Assert.Equal(V101Enumerations.StatusCode.M_Success, decoded.LLRPStatus.StatusCode);
         Assert.Null(decoded.GeneralDeviceCapabilities);
         Assert.Empty(decoded.CustomItems);
     }
@@ -57,11 +56,11 @@ public sealed class GetReaderCapabilitiesResponseTests
             0x00, 0x64, 0x00, 0x03, 0x62, 0x61, 0x64,
         ];
 
-        var decoded = Assert.IsType<GetReaderCapabilitiesResponse>(registry.DecodeMessage(expected));
+        var decoded = Assert.IsType<V101Messages.GET_READER_CAPABILITIES_RESPONSE>(registry.DecodeMessage(expected));
         byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(expected, reencoded);
-        Assert.Equal(LlrpStatusCode.M_ParameterError, decoded.LLRPStatus.StatusCode);
+        Assert.Equal(V101Enumerations.StatusCode.M_ParameterError, decoded.LLRPStatus.StatusCode);
         Assert.Equal("bad", decoded.LLRPStatus.ErrorDescription);
     }
 
@@ -70,9 +69,9 @@ public sealed class GetReaderCapabilitiesResponseTests
     {
         LlrpCodecRegistry registry = CreateRegistry();
         GeneralDeviceCapabilities caps = CreateGeneralDeviceCapabilities();
-        var message = new GetReaderCapabilitiesResponse(
+        var message = new V101Messages.GET_READER_CAPABILITIES_RESPONSE(
             MessageId: 7,
-            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
+            new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null),
             GeneralDeviceCapabilities: caps,
             LLRPCapabilities: null,
             RegulatoryCapabilities: null,
@@ -80,7 +79,7 @@ public sealed class GetReaderCapabilitiesResponseTests
             CustomItems: []);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
-        var decoded = Assert.IsType<GetReaderCapabilitiesResponse>(registry.DecodeMessage(encoded));
+        var decoded = Assert.IsType<V101Messages.GET_READER_CAPABILITIES_RESPONSE>(registry.DecodeMessage(encoded));
         byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(encoded, reencoded);
@@ -93,9 +92,9 @@ public sealed class GetReaderCapabilitiesResponseTests
     public void CapabilityAndCustomParameters_RoundTripInSchemaOrder()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var message = new GetReaderCapabilitiesResponse(
+        var message = new V101Messages.GET_READER_CAPABILITIES_RESPONSE(
             MessageId: 7,
-            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null),
+            new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null),
             GeneralDeviceCapabilities: CreateGeneralDeviceCapabilities(),
             LLRPCapabilities: null,
             RegulatoryCapabilities: null,
@@ -110,7 +109,7 @@ public sealed class GetReaderCapabilitiesResponseTests
             ]);
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
-        var decoded = Assert.IsType<GetReaderCapabilitiesResponse>(registry.DecodeMessage(encoded));
+        var decoded = Assert.IsType<V101Messages.GET_READER_CAPABILITIES_RESPONSE>(registry.DecodeMessage(encoded));
         byte[] reencoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, decoded);
 
         Assert.Equal(encoded, reencoded);
@@ -176,7 +175,7 @@ public sealed class GetReaderCapabilitiesResponseTests
     public void Constructor_RejectsMissingStatus()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        var response = new GetReaderCapabilitiesResponse(1, null!, null, null, null, null, []);
+        var response = new V101Messages.GET_READER_CAPABILITIES_RESPONSE(1, null!, null, null, null, null, []);
 
         Assert.Throws<ArgumentNullException>(
             () => registry.EncodeMessage(LlrpProtocolVersion.Version101, response));
@@ -216,7 +215,7 @@ public sealed class GetReaderCapabilitiesResponseTests
     {
         byte[] status = registry.EncodeParameter(
             LlrpProtocolVersion.Version101,
-            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
+            new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null));
         byte[][] trailing = parameters
             .Select(parameter => registry.EncodeParameter(LlrpProtocolVersion.Version101, parameter))
             .ToArray();
@@ -227,7 +226,7 @@ public sealed class GetReaderCapabilitiesResponseTests
         var frame = new byte[frameLength];
         new LlrpMessageHeader(
             LlrpProtocolVersion.Version101,
-            GetReaderCapabilitiesResponse.MessageType,
+            V101Messages.GET_READER_CAPABILITIES_RESPONSE.MessageType,
             (uint)frameLength,
             MessageId: 1).Encode(frame);
 

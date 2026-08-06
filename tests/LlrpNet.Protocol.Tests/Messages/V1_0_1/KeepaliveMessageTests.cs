@@ -1,6 +1,5 @@
 ﻿using LlrpNet.Core.Protocol;
-using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
-using KeepaliveAck = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE_ACK;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -19,8 +18,8 @@ public sealed class KeepaliveMessageTests
 
         byte[] encoded = registry.EncodeMessage(
             LlrpProtocolVersion.Version101,
-            new Keepalive(0x01020304));
-        var decoded = Assert.IsType<Keepalive>(registry.DecodeMessage(expected));
+            new V101Messages.KEEPALIVE(0x01020304));
+        var decoded = Assert.IsType<V101Messages.KEEPALIVE>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
         Assert.Equal((uint)0x01020304, decoded.MessageId);
@@ -34,8 +33,8 @@ public sealed class KeepaliveMessageTests
 
         byte[] encoded = registry.EncodeMessage(
             LlrpProtocolVersion.Version101,
-            new KeepaliveAck(0x01020304));
-        var decoded = Assert.IsType<KeepaliveAck>(registry.DecodeMessage(expected));
+            new V101Messages.KEEPALIVE_ACK(0x01020304));
+        var decoded = Assert.IsType<V101Messages.KEEPALIVE_ACK>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
         Assert.Equal((uint)0x01020304, decoded.MessageId);

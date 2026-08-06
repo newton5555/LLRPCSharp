@@ -1,18 +1,3 @@
-using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
-using AddRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC;
-using AddRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC_RESPONSE;
-using DeleteRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC;
-using DeleteRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC_RESPONSE;
-using EnableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC;
-using EnableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC_RESPONSE;
-using DisableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC;
-using DisableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC_RESPONSE;
-using StartRoSpec = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC;
-using StartRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC_RESPONSE;
-using StopRoSpec = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC;
-using StopRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC_RESPONSE;
-using GetRoSpecs = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS;
-using RoSpec = LlrpNet.Protocol.Parameters.V1_0_1.ROSpec;
 using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -56,7 +41,7 @@ public sealed class LlrpRoSpecServiceTests
         ILlrpMessage[] requests = transport.SentFrames
             .Where(static frame =>
                 LlrpMessageHeader.Decode(frame).MessageType is
-                    >= AddRoSpec.MessageType and <= GetRoSpecs.MessageType)
+                    >= V101Messages.ADD_ROSPEC.MessageType and <= V101Messages.GET_ROSPECS.MessageType)
             .Select(frame => registry.DecodeMessage(frame))
             .ToArray();
 
@@ -64,15 +49,15 @@ public sealed class LlrpRoSpecServiceTests
             requests,
             request =>
             {
-                var add = Assert.IsType<AddRoSpec>(request);
+                var add = Assert.IsType<V101Messages.ADD_ROSPEC>(request);
                 Assert.Equal(0xCAFEU, add.ROSpec.ROSpecID);
             },
-            request => Assert.Equal(10U, Assert.IsType<DeleteRoSpec>(request).ROSpecID),
-            request => Assert.Equal(20U, Assert.IsType<EnableRoSpec>(request).ROSpecID),
-            request => Assert.Equal(30U, Assert.IsType<DisableRoSpec>(request).ROSpecID),
-            request => Assert.Equal(40U, Assert.IsType<StartRoSpec>(request).ROSpecID),
-            request => Assert.Equal(50U, Assert.IsType<StopRoSpec>(request).ROSpecID),
-            request => Assert.IsType<GetRoSpecs>(request));
+            request => Assert.Equal(10U, Assert.IsType<V101Messages.DELETE_ROSPEC>(request).ROSpecID),
+            request => Assert.Equal(20U, Assert.IsType<V101Messages.ENABLE_ROSPEC>(request).ROSpecID),
+            request => Assert.Equal(30U, Assert.IsType<V101Messages.DISABLE_ROSPEC>(request).ROSpecID),
+            request => Assert.Equal(40U, Assert.IsType<V101Messages.START_ROSPEC>(request).ROSpecID),
+            request => Assert.Equal(50U, Assert.IsType<V101Messages.STOP_ROSPEC>(request).ROSpecID),
+            request => Assert.IsType<V101Messages.GET_ROSPECS>(request));
         Assert.All(requests, static request => Assert.NotEqual(0U, request.MessageId));
         Assert.Equal(requests.Length, requests.Select(static request => request.MessageId).Distinct().Count());
 
@@ -129,7 +114,7 @@ public sealed class LlrpRoSpecServiceTests
         transport.OnSendAsync = (frame, _) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
-            if (header.MessageType == DeleteRoSpec.MessageType)
+            if (header.MessageType == V101Messages.DELETE_ROSPEC.MessageType)
             {
                 transport.EnqueueFrame(LlrpTestFrames.ErrorMessageFrame(
                     header.MessageId,
@@ -195,10 +180,10 @@ public sealed class LlrpRoSpecServiceTests
         await Task.WhenAll(operations);
 
         LlrpCodecRegistry registry = CreateRegistry();
-        DeleteRoSpec[] requests = transport.SentFrames
+        V101Messages.DELETE_ROSPEC[] requests = transport.SentFrames
             .Where(static frame =>
-                LlrpMessageHeader.Decode(frame).MessageType == DeleteRoSpec.MessageType)
-            .Select(frame => Assert.IsType<DeleteRoSpec>(registry.DecodeMessage(frame)))
+                LlrpMessageHeader.Decode(frame).MessageType == V101Messages.DELETE_ROSPEC.MessageType)
+            .Select(frame => Assert.IsType<V101Messages.DELETE_ROSPEC>(registry.DecodeMessage(frame)))
             .ToArray();
         Assert.Equal(32, requests.Length);
         Assert.Equal(32, requests.Select(static request => request.MessageId).Distinct().Count());
@@ -251,7 +236,7 @@ public sealed class LlrpRoSpecServiceTests
 
         Task connectTask = reader.ConnectAsync(timeout.Token);
         byte[] capabilityRequest = await transport.ReadSentFrameAsync(
-            GetReaderCapabilities.MessageType,
+            V101Messages.GET_READER_CAPABILITIES.MessageType,
             timeout.Token);
         Assert.Equal(ReaderConnectionState.Initializing, reader.ConnectionState);
 
@@ -264,13 +249,13 @@ public sealed class LlrpRoSpecServiceTests
             StringComparison.Ordinal);
         Assert.DoesNotContain(
             transport.SentFrames,
-            static frame => LlrpMessageHeader.Decode(frame).MessageType == GetRoSpecs.MessageType);
+            static frame => LlrpMessageHeader.Decode(frame).MessageType == V101Messages.GET_ROSPECS.MessageType);
 
         uint messageId = LlrpMessageHeader.Decode(capabilityRequest).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(messageId));
 
         byte[] allRequest = await transport.ReadSentFrameAsync(
-            GetReaderCapabilities.MessageType,
+            V101Messages.GET_READER_CAPABILITIES.MessageType,
             timeout.Token);
         uint allMsgId = LlrpMessageHeader.Decode(allRequest).MessageId;
         transport.EnqueueFrame(LlrpTestFrames.CapabilitiesResponse(allMsgId));
@@ -287,7 +272,7 @@ public sealed class LlrpRoSpecServiceTests
         transport.OnSendAsync = (frame, _) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
-            if (header.MessageType == GetRoSpecs.MessageType)
+            if (header.MessageType == V101Messages.GET_ROSPECS.MessageType)
             {
                 int current = Interlocked.Increment(ref getCount);
                 transport.EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(
@@ -340,12 +325,12 @@ public sealed class LlrpRoSpecServiceTests
     {
         ushort? responseType = requestHeader.MessageType switch
         {
-            AddRoSpec.MessageType => AddRoSpecResponse.MessageType,
-            DeleteRoSpec.MessageType => DeleteRoSpecResponse.MessageType,
-            EnableRoSpec.MessageType => EnableRoSpecResponse.MessageType,
-            DisableRoSpec.MessageType => DisableRoSpecResponse.MessageType,
-            StartRoSpec.MessageType => StartRoSpecResponse.MessageType,
-            StopRoSpec.MessageType => StopRoSpecResponse.MessageType,
+            V101Messages.ADD_ROSPEC.MessageType => V101Messages.ADD_ROSPEC_RESPONSE.MessageType,
+            V101Messages.DELETE_ROSPEC.MessageType => V101Messages.DELETE_ROSPEC_RESPONSE.MessageType,
+            V101Messages.ENABLE_ROSPEC.MessageType => V101Messages.ENABLE_ROSPEC_RESPONSE.MessageType,
+            V101Messages.DISABLE_ROSPEC.MessageType => V101Messages.DISABLE_ROSPEC_RESPONSE.MessageType,
+            V101Messages.START_ROSPEC.MessageType => V101Messages.START_ROSPEC_RESPONSE.MessageType,
+            V101Messages.STOP_ROSPEC.MessageType => V101Messages.STOP_ROSPEC_RESPONSE.MessageType,
             _ => null,
         };
         if (responseType is ushort actualResponseType)
@@ -355,7 +340,7 @@ public sealed class LlrpRoSpecServiceTests
                 requestHeader.MessageId,
                 status));
         }
-        else if (requestHeader.MessageType == GetRoSpecs.MessageType)
+        else if (requestHeader.MessageType == V101Messages.GET_ROSPECS.MessageType)
         {
             transport.EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(
                 requestHeader.MessageId,

@@ -1,6 +1,5 @@
 ﻿using System.Runtime.ExceptionServices;
-using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
-using TagReportContentSelector = LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
@@ -2865,7 +2864,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             throw new InvalidOperationException("The reserved SDK ROSpec must contain an ROReportSpec.");
         }
-        TagReportContentSelector selector = reportSpec.TagReportContentSelector;
+        V101Parameters.TagReportContentSelector selector= reportSpec.TagReportContentSelector;
         C1G2EPCMemorySelector? epc = selector.AirProtocolEPCMemorySelectorItems.OfType<C1G2EPCMemorySelector>().SingleOrDefault();
         if (selector.AirProtocolEPCMemorySelectorItems.Count != 0 && epc is null)
         {

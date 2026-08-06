@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using DeleteRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using System.Reflection;
@@ -213,7 +212,7 @@ public sealed class LlrpCliApplicationTests
         Assert.Equal(0, encoded.ExitCode);
 
         LlrpCodecRegistry registry = CreateRegistry();
-        var message = Assert.IsType<DeleteRoSpec>(
+        var message = Assert.IsType<V101Messages.DELETE_ROSPEC>(
             registry.DecodeMessage(Convert.FromHexString(encoded.Output.Trim())));
         Assert.Equal((uint)7, message.MessageId);
         Assert.Equal(0xA1B2C3D4U, message.ROSpecID);

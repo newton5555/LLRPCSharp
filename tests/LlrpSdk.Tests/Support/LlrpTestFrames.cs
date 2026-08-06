@@ -1,13 +1,5 @@
 ﻿using System.Buffers.Binary;
-using GetReaderCapabilitiesResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES_RESPONSE;
-using AddRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC_RESPONSE;
-using DeleteRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC_RESPONSE;
-using EnableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC_RESPONSE;
-using DisableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC_RESPONSE;
-using StartRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC_RESPONSE;
-using StopRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC_RESPONSE;
-using GetRoSpecsResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS_RESPONSE;
-using ErrorMessage = LlrpNet.Protocol.Messages.V1_0_1.ERROR_MESSAGE;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Core.Protocol;
 
 namespace LlrpSdk.Tests.Support;
@@ -96,7 +88,7 @@ internal static class LlrpTestFrames
     {
         ILlrpParameter[] items = (parameters ?? [GeneralCapabilities()]).ToArray();
         GeneralDeviceCapabilities? general = items.OfType<GeneralDeviceCapabilities>().SingleOrDefault();
-        var response = new GetReaderCapabilitiesResponse(
+        var response = new V101Messages.GET_READER_CAPABILITIES_RESPONSE(
             messageId,
             status ?? new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
             general,
@@ -134,12 +126,12 @@ internal static class LlrpTestFrames
         LLRPStatus actualStatus = status ?? new LLRPStatus(StatusCode.M_Success, string.Empty, null, null);
         ILlrpMessage response = responseMessageType switch
         {
-            AddRoSpecResponse.MessageType => new AddRoSpecResponse(messageId, actualStatus),
-            DeleteRoSpecResponse.MessageType => new DeleteRoSpecResponse(messageId, actualStatus),
-            EnableRoSpecResponse.MessageType => new EnableRoSpecResponse(messageId, actualStatus),
-            DisableRoSpecResponse.MessageType => new DisableRoSpecResponse(messageId, actualStatus),
-            StartRoSpecResponse.MessageType => new StartRoSpecResponse(messageId, actualStatus),
-            StopRoSpecResponse.MessageType => new StopRoSpecResponse(messageId, actualStatus),
+            V101Messages.ADD_ROSPEC_RESPONSE.MessageType => new V101Messages.ADD_ROSPEC_RESPONSE(messageId, actualStatus),
+            V101Messages.DELETE_ROSPEC_RESPONSE.MessageType => new V101Messages.DELETE_ROSPEC_RESPONSE(messageId, actualStatus),
+            V101Messages.ENABLE_ROSPEC_RESPONSE.MessageType => new V101Messages.ENABLE_ROSPEC_RESPONSE(messageId, actualStatus),
+            V101Messages.DISABLE_ROSPEC_RESPONSE.MessageType => new V101Messages.DISABLE_ROSPEC_RESPONSE(messageId, actualStatus),
+            V101Messages.START_ROSPEC_RESPONSE.MessageType => new V101Messages.START_ROSPEC_RESPONSE(messageId, actualStatus),
+            V101Messages.STOP_ROSPEC_RESPONSE.MessageType => new V101Messages.STOP_ROSPEC_RESPONSE(messageId, actualStatus),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(responseMessageType),
                 responseMessageType,
@@ -154,7 +146,7 @@ internal static class LlrpTestFrames
         LLRPStatus? status = null,
         IEnumerable<ROSpec>? roSpecs = null)
     {
-        var response = new GetRoSpecsResponse(
+        var response = new V101Messages.GET_ROSPECS_RESPONSE(
             messageId,
             status ?? new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
             (roSpecs ?? []).ToArray());
@@ -166,7 +158,7 @@ internal static class LlrpTestFrames
         ArgumentNullException.ThrowIfNull(status);
         return Registry.EncodeMessage(
             LlrpProtocolVersion.Version101,
-            new ErrorMessage(messageId, status));
+            new V101Messages.ERROR_MESSAGE(messageId, status));
     }
 
     public static byte[] UnsupportedVersionResponse(uint messageId)

@@ -1,14 +1,5 @@
 ﻿using System.Net;
-using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
-using GetReaderCapabilitiesResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES_RESPONSE;
-using AddRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC;
-using DeleteRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC;
-using EnableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC;
-using DisableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC;
-using StartRoSpec = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC;
-using StopRoSpec = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC;
-using GetRoSpecs = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS;
-using ErrorMessage = LlrpNet.Protocol.Messages.V1_0_1.ERROR_MESSAGE;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using System.Net.Sockets;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -126,10 +117,10 @@ public sealed class VirtualReaderHost : IAsyncDisposable
                     return;
                 }
                 VirtualResponse dispatched = errorResponseMessageTypes.TryGetValue(header.MessageType, out VirtualReaderErrorResponse? fault)
-                    ? new(new ErrorMessage(header.MessageId, new LLRPStatus(fault.StatusCode, fault.Description, null, null)), [])
+                    ? new(new V101Messages.ERROR_MESSAGE(header.MessageId, new LLRPStatus(fault.StatusCode, fault.Description, null, null)), [])
                     : request switch
                     {
-                        GetReaderCapabilities => new(Capabilities(header.MessageId), []),
+                        V101Messages.GET_READER_CAPABILITIES => new(Capabilities(header.MessageId), []),
                         GET_READER_CONFIG get => new(GetReaderConfig(get), []),
                         SET_READER_CONFIG set => new(SetReaderConfig(set), []),
                         ADD_ROSPEC add => new(AddRoSpec(add), []),
@@ -144,7 +135,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
                         DELETE_ACCESSSPEC delete => new(DeleteAccessSpec(delete), []),
                         ENABLE_ACCESSSPEC enable => EnableAccessSpecWithReport(enable),
                         DISABLE_ACCESSSPEC disable => new(DisableAccessSpec(disable), []),
-                        _ => new(new ErrorMessage(header.MessageId, new LLRPStatus(StatusCode.M_UnsupportedMessage, "Virtual reader does not implement this request.", null, null)), []),
+                        _ => new(new V101Messages.ERROR_MESSAGE(header.MessageId, new LLRPStatus(StatusCode.M_UnsupportedMessage, "Virtual reader does not implement this request.", null, null)), []),
                     };
                 if (droppedResponseMessageTypes.Contains(header.MessageType))
                 {
@@ -166,7 +157,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         }
     }
 
-    private static GetReaderCapabilitiesResponse Capabilities(uint messageId) => new(
+    private static V101Messages.GET_READER_CAPABILITIES_RESPONSE Capabilities(uint messageId) => new(
         messageId,
         new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
         new GeneralDeviceCapabilities(4, true, true, 0, 0, "virtual-reader", [new ReceiveSensitivityTableEntry(1, 0)], [], new GPIOCapabilities(0, 0), [new PerAntennaAirProtocol(1, [AirProtocols.Unspecified])]),

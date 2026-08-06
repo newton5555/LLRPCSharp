@@ -1,21 +1,6 @@
 ﻿using LlrpNet.Core.Protocol;
-using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
-using AddRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC;
-using AddRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC_RESPONSE;
-using DeleteRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC;
-using DeleteRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC_RESPONSE;
-using EnableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC;
-using EnableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC_RESPONSE;
-using DisableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC;
-using DisableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC_RESPONSE;
-using StartRoSpec = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC;
-using StartRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC_RESPONSE;
-using StopRoSpec = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC;
-using StopRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC_RESPONSE;
-using GetRoSpecs = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS;
-using GetRoSpecsResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS_RESPONSE;
-using ErrorMessage = LlrpNet.Protocol.Messages.V1_0_1.ERROR_MESSAGE;
-using RoSpec = LlrpNet.Protocol.Parameters.V1_0_1.ROSpec;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -35,7 +20,7 @@ public sealed class Llrp101StandardModuleTests
 
         Assert.Throws<InvalidOperationException>(() => Llrp101StandardModule.Register(registry));
 
-        Assert.IsType<Keepalive>(
+        Assert.IsType<V101Messages.KEEPALIVE>(
             registry.DecodeMessage([0x04, 0x3E, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x01]));
     }
 
@@ -54,7 +39,7 @@ public sealed class Llrp101StandardModuleTests
         var unknown = Assert.IsType<UnknownMessage>(registry.DecodeMessage(version11Keepalive));
 
         Assert.Equal(LlrpProtocolVersion.Version11, unknown.Version);
-        Assert.Equal(Keepalive.MessageType, unknown.MessageType);
+        Assert.Equal(V101Messages.KEEPALIVE.MessageType, unknown.MessageType);
     }
 
     [Fact]
@@ -65,25 +50,25 @@ public sealed class Llrp101StandardModuleTests
         (ushort MessageType, Type ExpectedType, byte[] Payload)[] mappings =
         [
             (
-                AddRoSpec.MessageType,
-                typeof(AddRoSpec),
+                V101Messages.ADD_ROSPEC.MessageType,
+                typeof(V101Messages.ADD_ROSPEC),
                 registry.EncodeParameter(
                     LlrpProtocolVersion.Version101,
                     CreateMinimalRoSpec())),
-            (DeleteRoSpec.MessageType, typeof(DeleteRoSpec), [0x00, 0x00, 0x00, 0x01]),
-            (StartRoSpec.MessageType, typeof(StartRoSpec), [0x00, 0x00, 0x00, 0x01]),
-            (StopRoSpec.MessageType, typeof(StopRoSpec), [0x00, 0x00, 0x00, 0x01]),
-            (EnableRoSpec.MessageType, typeof(EnableRoSpec), [0x00, 0x00, 0x00, 0x01]),
-            (DisableRoSpec.MessageType, typeof(DisableRoSpec), [0x00, 0x00, 0x00, 0x01]),
-            (GetRoSpecs.MessageType, typeof(GetRoSpecs), []),
-            (AddRoSpecResponse.MessageType, typeof(AddRoSpecResponse), CreateSuccessStatus()),
-            (DeleteRoSpecResponse.MessageType, typeof(DeleteRoSpecResponse), CreateSuccessStatus()),
-            (StartRoSpecResponse.MessageType, typeof(StartRoSpecResponse), CreateSuccessStatus()),
-            (StopRoSpecResponse.MessageType, typeof(StopRoSpecResponse), CreateSuccessStatus()),
-            (EnableRoSpecResponse.MessageType, typeof(EnableRoSpecResponse), CreateSuccessStatus()),
-            (DisableRoSpecResponse.MessageType, typeof(DisableRoSpecResponse), CreateSuccessStatus()),
-            (GetRoSpecsResponse.MessageType, typeof(GetRoSpecsResponse), CreateSuccessStatus()),
-            (ErrorMessage.MessageType, typeof(ErrorMessage), CreateSuccessStatus()),
+            (V101Messages.DELETE_ROSPEC.MessageType, typeof(V101Messages.DELETE_ROSPEC), [0x00, 0x00, 0x00, 0x01]),
+            (V101Messages.START_ROSPEC.MessageType, typeof(V101Messages.START_ROSPEC), [0x00, 0x00, 0x00, 0x01]),
+            (V101Messages.STOP_ROSPEC.MessageType, typeof(V101Messages.STOP_ROSPEC), [0x00, 0x00, 0x00, 0x01]),
+            (V101Messages.ENABLE_ROSPEC.MessageType, typeof(V101Messages.ENABLE_ROSPEC), [0x00, 0x00, 0x00, 0x01]),
+            (V101Messages.DISABLE_ROSPEC.MessageType, typeof(V101Messages.DISABLE_ROSPEC), [0x00, 0x00, 0x00, 0x01]),
+            (V101Messages.GET_ROSPECS.MessageType, typeof(V101Messages.GET_ROSPECS), []),
+            (V101Messages.ADD_ROSPEC_RESPONSE.MessageType, typeof(V101Messages.ADD_ROSPEC_RESPONSE), CreateSuccessStatus()),
+            (V101Messages.DELETE_ROSPEC_RESPONSE.MessageType, typeof(V101Messages.DELETE_ROSPEC_RESPONSE), CreateSuccessStatus()),
+            (V101Messages.START_ROSPEC_RESPONSE.MessageType, typeof(V101Messages.START_ROSPEC_RESPONSE), CreateSuccessStatus()),
+            (V101Messages.STOP_ROSPEC_RESPONSE.MessageType, typeof(V101Messages.STOP_ROSPEC_RESPONSE), CreateSuccessStatus()),
+            (V101Messages.ENABLE_ROSPEC_RESPONSE.MessageType, typeof(V101Messages.ENABLE_ROSPEC_RESPONSE), CreateSuccessStatus()),
+            (V101Messages.DISABLE_ROSPEC_RESPONSE.MessageType, typeof(V101Messages.DISABLE_ROSPEC_RESPONSE), CreateSuccessStatus()),
+            (V101Messages.GET_ROSPECS_RESPONSE.MessageType, typeof(V101Messages.GET_ROSPECS_RESPONSE), CreateSuccessStatus()),
+            (V101Messages.ERROR_MESSAGE.MessageType, typeof(V101Messages.ERROR_MESSAGE), CreateSuccessStatus()),
         ];
 
         foreach ((ushort messageType, Type expectedType, byte[] payload) in mappings)
@@ -112,9 +97,9 @@ public sealed class Llrp101StandardModuleTests
         return [0x01, 0x1F, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00];
     }
 
-    private static RoSpec CreateMinimalRoSpec()
+    private static V101Parameters.ROSpec CreateMinimalRoSpec()
     {
-        return new RoSpec(
+        return new V101Parameters.ROSpec(
             ROSpecID: 1,
             Priority: 0,
             ROSpecState.Disabled,

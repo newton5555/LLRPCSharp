@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using System.Threading.Channels;
@@ -88,7 +87,7 @@ internal sealed class ScriptedLlrpTransport : ILlrpTransport
         {
             EnqueueFrame(LlrpTestFrames.UnsupportedVersionResponse(header.MessageId));
         }
-        else if (AutoRespondToCapabilities && header.MessageType == GetReaderCapabilities.MessageType)
+        else if (AutoRespondToCapabilities && header.MessageType == V101Messages.GET_READER_CAPABILITIES.MessageType)
         {
             byte[]? response = CapabilityResponseFactory is null
                 ? LlrpTestFrames.CapabilitiesResponse(header.MessageId)

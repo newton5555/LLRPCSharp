@@ -1,5 +1,5 @@
 ﻿using LlrpNet.Protocol.Enumerations.V1_0_1;
-using TagReportContentSelector = LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Choices.V1_0_1;
 using LlrpNet.Protocol.Parameters;
@@ -98,7 +98,7 @@ internal static class Llrp101InventoryCompiler
             Array.Empty<ILlrpParameter>());
 
         ArgumentNullException.ThrowIfNull(settings.Report);
-        var reportSelector = new TagReportContentSelector(
+        var reportSelector = new V101Parameters.TagReportContentSelector(
             EnableROSpecID: settings.Report.IncludeRoSpecId,
             EnableSpecIndex: settings.Report.IncludeSpecIndex,
             EnableInventoryParameterSpecID: settings.Report.IncludeInventoryParameterSpecId,

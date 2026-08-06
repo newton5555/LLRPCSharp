@@ -1,5 +1,4 @@
 ﻿using LlrpNet.Protocol.Choices.V1_1;
-using TagReportContentSelector = LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector;
 using LlrpNet.Protocol.Enumerations.V1_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_1;

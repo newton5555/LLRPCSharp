@@ -1,5 +1,4 @@
-using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
-using KeepaliveAck = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE_ACK;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
@@ -19,10 +18,10 @@ public sealed class LlrpReaderProtocolTests
         transport.OnSendAsync = (frame, _) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
-            if (header.MessageType == Keepalive.MessageType)
+            if (header.MessageType == V101Messages.KEEPALIVE.MessageType)
             {
                 transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(
-                    KeepaliveAck.MessageType,
+                    V101Messages.KEEPALIVE_ACK.MessageType,
                     header.MessageId));
             }
 
@@ -31,15 +30,15 @@ public sealed class LlrpReaderProtocolTests
         await using var reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
 
-        Task<KeepaliveAck>[] typed = Enumerable.Range(1, 16)
-            .Select(id => reader.Protocol.TransactAsync<KeepaliveAck>(
-                new Keepalive((uint)id),
+        Task<V101Messages.KEEPALIVE_ACK>[] typed = Enumerable.Range(1, 16)
+            .Select(id => reader.Protocol.TransactAsync<V101Messages.KEEPALIVE_ACK>(
+                new V101Messages.KEEPALIVE((uint)id),
                 cancellationToken: timeout.Token))
             .ToArray();
         Task<ReadOnlyMemory<byte>>[] raw = Enumerable.Range(101, 16)
             .Select(id => reader.Protocol.TransactRawAsync(
-                LlrpTestFrames.EmptyMessage(Keepalive.MessageType, (uint)id),
-                static (header, _) => header.MessageType == KeepaliveAck.MessageType,
+                LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE.MessageType, (uint)id),
+                static (header, _) => header.MessageType == V101Messages.KEEPALIVE_ACK.MessageType,
                 cancellationToken: timeout.Token))
             .ToArray();
 
@@ -61,10 +60,10 @@ public sealed class LlrpReaderProtocolTests
         transport.OnSendAsync = (frame, _) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
-            if (header.MessageType == Keepalive.MessageType)
+            if (header.MessageType == V101Messages.KEEPALIVE.MessageType)
             {
                 transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(
-                    KeepaliveAck.MessageType,
+                    V101Messages.KEEPALIVE_ACK.MessageType,
                     header.MessageId));
             }
 
@@ -76,13 +75,13 @@ public sealed class LlrpReaderProtocolTests
             .ReadMessagesAsync(timeout.Token)
             .GetAsyncEnumerator(timeout.Token);
 
-        Task<Keepalive> transaction = reader.Protocol.TransactAsync<Keepalive>(
-            new Keepalive(900),
+        Task<V101Messages.KEEPALIVE> transaction = reader.Protocol.TransactAsync<V101Messages.KEEPALIVE>(
+            new V101Messages.KEEPALIVE(900),
             timeout: TimeSpan.FromMilliseconds(100),
             cancellationToken: timeout.Token);
 
         Assert.True(await messages.MoveNextAsync());
-        KeepaliveAck response = Assert.IsType<KeepaliveAck>(messages.Current);
+        V101Messages.KEEPALIVE_ACK response= Assert.IsType<V101Messages.KEEPALIVE_ACK>(messages.Current);
         Assert.Equal(900U, response.MessageId);
         await Assert.ThrowsAsync<TimeoutException>(() => transaction);
     }
@@ -92,8 +91,8 @@ public sealed class LlrpReaderProtocolTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             new LlrpUnexpectedResponseException(
-                typeof(Keepalive),
-                typeof(KeepaliveAck),
+                typeof(V101Messages.KEEPALIVE),
+                typeof(V101Messages.KEEPALIVE_ACK),
                 null!));
     }
 
@@ -108,16 +107,16 @@ public sealed class LlrpReaderProtocolTests
             .ReadMessagesAsync(timeout.Token)
             .GetAsyncEnumerator(timeout.Token);
 
-        transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(Keepalive.MessageType, 0x12345678));
+        transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE.MessageType, 0x12345678));
 
         Assert.True(await messages.MoveNextAsync());
-        Keepalive keepalive = Assert.IsType<Keepalive>(messages.Current);
+        V101Messages.KEEPALIVE keepalive= Assert.IsType<V101Messages.KEEPALIVE>(messages.Current);
         byte[] acknowledgement = await transport.ReadSentFrameAsync(
-            KeepaliveAck.MessageType,
+            V101Messages.KEEPALIVE_ACK.MessageType,
             timeout.Token);
         LlrpMessageHeader header = LlrpMessageHeader.Decode(acknowledgement);
         Assert.Equal(0x12345678U, keepalive.MessageId);
-        Assert.Equal(KeepaliveAck.MessageType, header.MessageType);
+        Assert.Equal(V101Messages.KEEPALIVE_ACK.MessageType, header.MessageType);
         Assert.Equal(keepalive.MessageId, header.MessageId);
     }
 
@@ -132,8 +131,8 @@ public sealed class LlrpReaderProtocolTests
             .Build();
         await reader.ConnectAsync(timeout.Token);
 
-        transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(KeepaliveAck.MessageType, 1));
-        transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(KeepaliveAck.MessageType, 2));
+        transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE_ACK.MessageType, 1));
+        transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE_ACK.MessageType, 2));
 
         await Task.Delay(100, timeout.Token);
         Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
@@ -148,13 +147,13 @@ public sealed class LlrpReaderProtocolTests
         await using var reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
 
-        await reader.Protocol.SendAsync(new KeepaliveAck(41), timeout.Token);
-        byte[] raw = LlrpTestFrames.EmptyMessage(KeepaliveAck.MessageType, 42);
+        await reader.Protocol.SendAsync(new V101Messages.KEEPALIVE_ACK(41), timeout.Token);
+        byte[] raw = LlrpTestFrames.EmptyMessage(V101Messages.KEEPALIVE_ACK.MessageType, 42);
         await reader.Protocol.SendRawAsync(raw, timeout.Token);
 
         byte[][] sentMessages = transport.SentFrames
             .Where(static frame =>
-                LlrpMessageHeader.Decode(frame).MessageType == KeepaliveAck.MessageType)
+                LlrpMessageHeader.Decode(frame).MessageType == V101Messages.KEEPALIVE_ACK.MessageType)
             .ToArray();
         Assert.Equal(2, sentMessages.Length);
         LlrpMessageHeader[] headers = sentMessages

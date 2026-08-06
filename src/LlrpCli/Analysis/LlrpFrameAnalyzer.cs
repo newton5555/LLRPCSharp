@@ -1,5 +1,5 @@
 ﻿using System.Reflection;
-using LlrpStatus = LlrpNet.Protocol.Parameters.V1_0_1.LLRPStatus;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using System.Text;
@@ -18,7 +18,7 @@ public sealed record LlrpSemanticNode(string Name, string? Value = null, IReadOn
 public sealed record FrameAnalysisResult(
     LlrpMessageHeader Header,
     ILlrpMessage? DecodedMessage,
-    LlrpStatus? Status,
+    V101Parameters.LLRPStatus? Status,
     LlrpSemanticNode SemanticTree,
     string Summary);
 
@@ -27,7 +27,7 @@ public static class LlrpFrameAnalyzer
     public static FrameAnalysisResult Analyze(byte[] frame, ILlrpMessage? message)
     {
         LlrpMessageHeader header = LlrpMessageHeader.Decode(frame);
-        LlrpStatus? status = ExtractStatus(message);
+        V101Parameters.LLRPStatus? status = ExtractStatus(message);
 
         string messageTypeName = message?.GetType().Name ?? header.MessageType.ToString();
         string summary = BuildSummary(header, message, status);
@@ -36,7 +36,7 @@ public static class LlrpFrameAnalyzer
         return new FrameAnalysisResult(header, message, status, tree, summary);
     }
 
-    private static LlrpStatus? ExtractStatus(ILlrpMessage? message)
+    private static V101Parameters.LLRPStatus? ExtractStatus(ILlrpMessage? message)
     {
         if (message is null)
         {
@@ -44,7 +44,7 @@ public static class LlrpFrameAnalyzer
         }
 
         PropertyInfo? prop = message.GetType().GetProperty("Status");
-        if (prop != null && prop.GetValue(message) is LlrpStatus status)
+        if (prop != null && prop.GetValue(message) is V101Parameters.LLRPStatus status)
         {
             return status;
         }
@@ -52,7 +52,7 @@ public static class LlrpFrameAnalyzer
         return null;
     }
 
-    private static string BuildSummary(LlrpMessageHeader header, ILlrpMessage? message, LlrpStatus? status)
+    private static string BuildSummary(LlrpMessageHeader header, ILlrpMessage? message, V101Parameters.LLRPStatus? status)
     {
         var sb = new StringBuilder();
         string name = message?.GetType().Name ?? $"MessageType({header.MessageType})";

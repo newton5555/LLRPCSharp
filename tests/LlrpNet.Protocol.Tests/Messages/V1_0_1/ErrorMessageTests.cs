@@ -1,6 +1,5 @@
-using ErrorMessage = LlrpNet.Protocol.Messages.V1_0_1.ERROR_MESSAGE;
-using LlrpStatus = LlrpNet.Protocol.Parameters.V1_0_1.LLRPStatus;
-using LlrpStatusCode = LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages.V1_0_1;
@@ -26,16 +25,16 @@ public sealed class ErrorMessageTests
             0x01, 0x1F, 0x00, 0x08,
             0x00, 0x00, 0x00, 0x00,
         ];
-        var message = new ErrorMessage(
+        var message = new V101Messages.ERROR_MESSAGE(
             MessageId,
-            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
+            new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null));
 
         byte[] encoded = registry.EncodeMessage(LlrpProtocolVersion.Version101, message);
-        var decoded = Assert.IsType<ErrorMessage>(registry.DecodeMessage(expected));
+        var decoded = Assert.IsType<V101Messages.ERROR_MESSAGE>(registry.DecodeMessage(expected));
 
         Assert.Equal(expected, encoded);
         Assert.Equal(MessageId, decoded.MessageId);
-        Assert.Equal(LlrpStatusCode.M_Success, decoded.LLRPStatus.StatusCode);
+        Assert.Equal(V101Enumerations.StatusCode.M_Success, decoded.LLRPStatus.StatusCode);
     }
 
     [Fact]
@@ -44,7 +43,7 @@ public sealed class ErrorMessageTests
         LlrpCodecRegistry registry = CreateRegistry();
         byte[] status = registry.EncodeParameter(
             LlrpProtocolVersion.Version101,
-            new LlrpStatus(LlrpStatusCode.M_Success, string.Empty, null, null));
+            new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null));
 
         LlrpProtocolException missing = Assert.Throws<LlrpProtocolException>(
             () => registry.DecodeMessage(CreateFrame()));
@@ -67,7 +66,7 @@ public sealed class ErrorMessageTests
     public void Constructor_RejectsNullStatus()
     {
         LlrpCodecRegistry registry = CreateRegistry();
-        ErrorMessage message = new(MessageId, null!);
+        V101Messages.ERROR_MESSAGE message= new(MessageId, null!);
 
         Assert.Throws<ArgumentNullException>(
             () => registry.EncodeMessage(LlrpProtocolVersion.Version101, message));
@@ -87,7 +86,7 @@ public sealed class ErrorMessageTests
         var frame = new byte[frameLength];
         new LlrpMessageHeader(
             LlrpProtocolVersion.Version101,
-            ErrorMessage.MessageType,
+            V101Messages.ERROR_MESSAGE.MessageType,
             (uint)frameLength,
             MessageId).Encode(frame);
 
