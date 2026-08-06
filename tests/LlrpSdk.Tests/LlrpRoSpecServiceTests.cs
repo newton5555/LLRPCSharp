@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
