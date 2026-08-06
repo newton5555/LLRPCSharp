@@ -36,10 +36,6 @@
   <Folder Name="/tools/">
     <Project Path="tools/LlrpSdk.LiveSmoke/LlrpSdk.LiveSmoke.csproj" />
   </Folder>
-  <Folder Name="/docs/images/">
-    <File Path="docs/images/llrpcsharp_infographic.png" />
-    <File Path="docs/images/vendor_extension_infographic.png" />
-  </Folder>
   <Folder Name="/definitions/">
     <File Path="definitions/llrp-definition.schema.yaml" />
     <File Path="definitions/llrp-1.1.yaml" />
@@ -54,6 +50,78 @@
   <Folder Name="/definitions/imports/xml/llrp-1.0.1/">
     <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml" />
     <File Path="definitions/imports/xml/llrp-1.0.1/llrp-1x0.xsd" />
+  </Folder>
+
+  <Folder Name="/docs/">
+    <File Path="docs/README.md" />
+    <File Path="docs/roadmap.md" />
+    <File Path="docs/showcase.md" />
+    <File Path="docs/showcase.zh.md" />
+    <File Path="docs/status.md" />
+  </Folder>
+  <Folder Name="/docs/acceptance/">
+    <File Path="docs/acceptance/reader-interoperability.md" />
+  </Folder>
+  <Folder Name="/docs/adr/">
+    <File Path="docs/adr/0001-structured-logging-and-frame-observation.md" />
+    <File Path="docs/adr/0002-reader-extension-active-initialization.md" />
+    <File Path="docs/adr/0003-reader-configuration-default-profiles.md" />
+    <File Path="docs/adr/0004-reader-contributors.md" />
+    <File Path="docs/adr/0005-llrp101-reader-first-delivery.md" />
+    <File Path="docs/adr/README.md" />
+  </Folder>
+  <Folder Name="/docs/architecture/">
+    <File Path="docs/architecture/cli-command-system.md" />
+    <File Path="docs/architecture/llrpnet-llrpsdk-analysis.md" />
+    <File Path="docs/architecture/overview.md" />
+    <File Path="docs/architecture/overview.zh.md" />
+    <File Path="docs/architecture/protocol-extension-guide.md" />
+    <File Path="docs/architecture/protocol-extension-guide.zh.md" />
+    <File Path="docs/architecture/source-structure.md" />
+  </Folder>
+  <Folder Name="/docs/guides/">
+    <File Path="docs/guides/README.md" />
+    <File Path="docs/guides/cli-user-guide.md" />
+    <File Path="docs/guides/sdk-api-guide.md" />
+  </Folder>
+  <Folder Name="/docs/images/">
+    <File Path="docs/images/architecture.svg" />
+    <File Path="docs/images/architecture.zh.svg" />
+    <File Path="docs/images/llrpcsharp_infographic.png" />
+    <File Path="docs/images/sequence_workflow.svg" />
+    <File Path="docs/images/vendor_extension_infographic.png" />
+  </Folder>
+  <Folder Name="/docs/references/">
+    <File Path="docs/references/README.md" />
+  </Folder>
+  <Folder Name="/docs/references/impinj/">
+    <File Path="docs/references/impinj/llrp-extension-alignment.md" />
+    <File Path="docs/references/impinj/octane-sdk-architecture.md" />
+  </Folder>
+  <Folder Name="/docs/references/standards/">
+    <File Path="docs/references/standards/README.md" />
+  </Folder>
+  <Folder Name="/docs/references/standards/llrp-1.0.1/">
+    <File Path="docs/references/standards/llrp-1.0.1/llrp_1_0_1-standard-20070813.pdf" />
+  </Folder>
+  <Folder Name="/docs/references/standards/llrp-1.1/">
+    <File Path="docs/references/standards/llrp-1.1/llrp_1_1-conformance-20101013.pdf" />
+    <File Path="docs/references/standards/llrp-1.1/llrp_1_1-standard-20101013.pdf" />
+  </Folder>
+  <Folder Name="/docs/references/standards/llrp-2.0/">
+    <File Path="docs/references/standards/llrp-2.0/LLRP_standard_i2_r_2021-01-27.pdf" />
+  </Folder>
+  <Folder Name="/docs/releases/">
+    <File Path="docs/releases/v0.2.0.md" />
+    <File Path="docs/releases/v0.3.0.md" />
+    <File Path="docs/releases/v0.3.1.md" />
+    <File Path="docs/releases/v0.4.0.md" />
+    <File Path="docs/releases/v0.5.0.md" />
+    <File Path="docs/releases/v0.6.0.md" />
+    <File Path="docs/releases/v0.7.0.md" />
+    <File Path="docs/releases/v0.7.1.md" />
+    <File Path="docs/releases/v0.7.2.md" />
+    <File Path="docs/releases/v0.8.0.md" />
   </Folder>
 
 </Solution>
