@@ -2,9 +2,6 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Transport;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
-using LlrpNet.Protocol.Messages.V1_0_1;
-using LlrpNet.Protocol.Parameters.V1_0_1;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 using V11Messages = LlrpNet.Protocol.Messages.V1_1;
 
