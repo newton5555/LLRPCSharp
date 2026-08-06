@@ -45,6 +45,36 @@ sources, or checked-in fixtures outside the committed generated protocol tree.
 Change `definitions/`, importer/generator code, or the generation command
 instead, then regenerate and verify.
 
+## Multi-Version Protocol Code Convention
+
+The protocol tree ships separate generated type sets per LLRP version
+(`LlrpNet.Protocol.Messages|Parameters|Enumerations.V1_0_1` and `.V1_1`).
+Version must always be explicit in SDK/CLI/tool code — never rely on a
+"default" version.
+
+- **No bare versioned namespace usings** in code that could touch more than one
+  version: `using LlrpNet.Protocol.Parameters.V1_0_1;` is not allowed there.
+- Use version-prefixed namespace aliases and qualify every reference:
+  ```csharp
+  using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;      // LLRP 1.0.1
+  using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+  using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
+  using V11Messages = LlrpNet.Protocol.Messages.V1_1;          // LLRP 1.1
+  using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
+  using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
+
+  V101Parameters.ROSpec  // 1.0.1 type
+  V11Parameters.ROSpec   // 1.1 type — same concept, different version
+  ```
+- **No legacy camel-case type aliases** (`using RoSpec = ...V1_0_1.ROSpec;`)
+  — they hide the version and collide visually with other versions.
+- Single-version files may use bare references only when the file itself is
+  unambiguously version-bound by name (e.g. `Llrp101InventoryCompiler.cs`).
+  Any file that touches two versions (like `src/LlrpSdk/Reader/LlrpReader.cs`)
+  must qualify every protocol type reference with its `V101*`/`V11*` prefix.
+- When adding a new protocol version (e.g. 2.0), add `V20*` aliases and follow
+  the same rule; never introduce a default-version path.
+
 ## Useful Entry Points
 
 - SDK facade: `src/LlrpSdk/Reader/LlrpReader.cs`

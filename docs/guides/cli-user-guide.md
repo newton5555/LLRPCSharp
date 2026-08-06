@@ -108,3 +108,82 @@ dotnet run --project src/LlrpCli -- decode "043E0000000A01020304"
 # 构造 GET_ROSPECS 消息的十六进制字节串
 dotnet run --project src/LlrpCli -- encode get-rospecs --message-id 1
 ```
+
+> 注：离线工具当前只注册 LLRP 1.0.1 标准编解码模块；`inspect` 仍可检查 1.1
+> 帧的 Header，但 `decode`/`validate` 无法展开 1.1 消息字段，1.1 `encode` 暂不支持。
+
+---
+
+## 🌐 7. 协议版本支持 (LLRP 1.0.1 / 1.1)
+
+CLI 的协议版本能力取决于命令的实现层。实时 Reader 命令走 `LlrpReader`，
+离线协议工具则直接使用 CLI 自己创建的 Codec 注册表，因此两者的覆盖范围不同。
+
+### 7.1 实时功能 (Live):由 SDK 协商或强制选择版本
+
+`connect` / `inventory` / `tag` / `monitor` / `settings` 等实时命令通过
+`LlrpReader`（SDK 门面）与设备交互，协议版本由 SDK 在连接阶段协商：
+
+```text
+> connect 192.168.1.100 --llrp auto    # 自动协商（默认）
+> connect 192.168.1.100 --llrp 1.0.1   # 强制 1.0.1
+> connect 192.168.1.100 --llrp 1.1     # 强制 1.1
+```
+
+* `auto`（默认）：先建立 TCP 连接并以 1.0.1 Adapter 作为初始状态，然后发送
+  LLRP 1.1 的 `GET_SUPPORTED_VERSION`。如果 Reader 声明支持 1.1，SDK 再发送
+  `SET_PROTOCOL_VERSION(1.1)` 并切换到 1.1 Adapter；如果 Reader 明确返回不支持
+  （或声明的最高版本低于 1.1），则保留 1.0.1。
+* `1.0.1`：跳过版本协商，直接使用 1.0.1。设备可能在后续协议初始化或操作阶段
+  报告不兼容，而不一定在 TCP 连接阶段失败。
+* `1.1`：必须完成 1.1 版本协商；Reader 不支持、拒绝、超时或返回无效响应时，
+  连接初始化失败，不会静默回退到 1.0.1。
+
+成功切换后，SDK 的标准能力（Reader 初始化、Settings、Inventory、TagReport 和
+标准 Tag Access）使用 1.1 对应的消息、参数和 Adapter。CLI 通常不需要区分版本，
+但 1.1 目前属于可用基线，真实 Reader 型号/固件的互操作仍需单独验证；厂商扩展也
+可能存在版本边界（例如当前 Impinj 扩展只在 1.0.1 下激活）。
+
+### 7.2 离线协议工具 (Inspect/Decode/Validate/Encode):标准 Codec 当前仅 1.0.1
+
+`inspect` / `decode` / `validate` / `encode` 直接操作 LLRP 报文（不连接设备），
+走协议层（`LlrpNet.Protocol`）。CLI 当前注册了标准 1.0.1 编解码模块，另外注册了
+1.0.1 的 Impinj 扩展模块：
+
+* `inspect` 只读取 Header，因此 1.1 帧仍可显示协议版本、消息类型、消息 ID 和长度；
+* `decode` / `validate` 可以校验帧结构，但未注册的 1.1 消息主体会得到
+  `UnknownMessage`，无法展开字段；
+* `encode` 当前没有 `--version` 参数，消息模板和编码版本固定为 1.0.1，构造 1.1
+  消息暂不支持。
+
+这是已记录的待办(`docs/roadmap.md`),补齐方式是在 `Helpers.CreateRegistry()`
+中注册 `Llrp11StandardModule`，并让 `encode` 支持 `--version 1.0.1|1.1` 参数，
+同时按所选版本构造对应的消息、参数和枚举类型。
+
+### 7.3 为什么两层能力不同
+
+```
+实时命令 → LlrpReader(SDK 版本协商) → LlrpNet(1.0.1 + 1.1 双模块)
+离线工具 → LlrpNet.Protocol 直连(注册表只挂了 1.0.1)
+```
+
+`LlrpNet` 已具备 1.0.1/1.1 的协议模型和编解码基础，`LlrpSdk` 已具备两套对应
+Adapter 和自动协商能力；CLI 实时命令可以使用两种版本，而离线工具目前只注册了
+标准 1.0.1 编解码模块。补齐离线注册表和版本化消息构造后，离线工具才能获得更
+完整的 1.1 能力。
+
+### 7.4 SDK 连接真实 1.1 Reader 时会发生什么
+
+以 `LlrpReader` 为入口时，实际流程如下：
+
+1. 建立 TCP 连接，状态进入 `Negotiating`，默认 Adapter 暂时为 1.0.1。
+2. `auto` 或 `1.1` 策略发送 1.1 的 `GET_SUPPORTED_VERSION`。
+3. Reader 支持 1.1 时，SDK 发送 `SET_PROTOCOL_VERSION(1.1)`，随后选择
+   `Llrp11ProtocolAdapter` 并继续能力初始化。
+4. 后续标准请求、响应、Reader Event、TagReport、Inventory 和 Tag Access 都按
+   1.1 的消息/参数类型处理。
+
+因此，连接一个实现正常的真实 1.1 Reader，预期结果是连接完成后状态为 `Ready`，
+并在 1.1 Adapter 下运行。当前仓库的自动化测试主要覆盖 1.0.1 和虚拟 Reader；
+1.1 的真实设备兼容性仍需要使用目标 Reader 执行硬件验收，不能仅凭 CLI 构建通过
+就视为已验证。

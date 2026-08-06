@@ -7,9 +7,18 @@
 ## 近期
 
 1. 完成 LLRP 1.0.1 目标设备的最终实机验收，并补充失败场景记录。
-2. 体系化设计与扩充 `LlrpSdk.Hardware.Tests` 真机测试用例集（包含多天线配置、真实标签 Memory Bank 读写、高并发稳定性及厂商扩展字段校验）。
-3. 根据真实设备证据扩充 Impinj 型号/固件能力目录。
-4. 完善独立的 Reader Studio 项目，但不把 WPF 依赖带回 SDK 仓库。
+2. 补充 LLRP 1.1 目标 Reader 的实机互操作验收，覆盖版本协商、标准 Settings、
+   Inventory、TagReport 和 Tag Access，并记录具体型号/固件证据。
+3. 体系化设计与扩充 `LlrpSdk.Hardware.Tests` 真机测试用例集（包含多天线配置、真实标签 Memory Bank 读写、高并发稳定性及厂商扩展字段校验）。
+4. 根据真实设备证据扩充 Impinj 型号/固件能力目录。
+5. 完善独立的 Reader Studio 项目，但不把 WPF 依赖带回 SDK 仓库。
+6. CLI 离线协议工具（`inspect` / `decode` / `validate` / `encode`）补齐 LLRP 1.1 支持：
+   在 `src/LlrpCli/Commands/Helpers.cs` 的 `CreateRegistry()` 注册
+   `Llrp11StandardModule`，并让 `encode` 支持 `--version 1.0.1|1.1` 参数选择
+   构造版本；`inspect` 继续作为版本无关的 Header 检查工具。实时命令（走
+   `LlrpReader`）已具备 1.0.1/1.1 自动协商基线，但仍需真实设备验收。
+7. `LlrpFrameAnalyzer`（死代码，未接线）的 `FrameAnalysisResult.Status` 目前
+   绑定 `V1_0_1.LLRPStatus`，1.1 消息无法匹配；接线前改为版本无关的反射取值。
 
 ## 中期
 

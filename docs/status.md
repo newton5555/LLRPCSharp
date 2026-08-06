@@ -22,12 +22,12 @@
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | LLRP 1.0.1 | 可用 | SDK、CLI、Virtual Reader 和主要标准资源/标签操作已覆盖。 |
-| LLRP 1.1 | 可用基线 | 支持协商、强制版本策略和对应 Adapter；设备覆盖仍需持续验证。 |
+| LLRP 1.1 | 可用基线 | SDK 支持自动协商、强制版本策略和对应 Adapter；真实 Reader 型号/固件覆盖仍需持续验证。 |
 | LLRP 2.0 | 预留 | 有定义 Delta，但尚无 `Llrp20ProtocolAdapter`。 |
 | 托管 Reader SDK | 可用 | `ReaderSettings`、校验、应用、托管盘点和报告流已接入。 |
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；能力目录仍需扩充。 |
-| CLI | 可用 | Live Shell、一次性 `inventory`、settings 草稿和离线 Codec 已稳定。 |
+| CLI | 可用 | Live Shell、一次性 `inventory`、settings 草稿和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
 | Virtual Reader | 测试基线 | 覆盖核心 1.0.1 生命周期、报告和部分 AccessSpec 场景，不模拟真实射频。 |
 
 ## 已实现的应用能力
@@ -56,6 +56,17 @@
 - 根级一次性 `inventory <host>` 与 Live Shell 共用 SDK 和 Settings 工作流，
   默认输出适合 Agent 使用的 JSON。
 - `inspect`、`decode`、`validate`、`encode` 为离线协议诊断命令。
+- `inspect` 只解析任意版本的 Header；`decode`/`validate`/`encode` 的标准消息
+  Codec 当前仅注册 LLRP 1.0.1，1.1 消息主体会显示为 `UnknownMessage` 或暂不支持构造。
+
+### LLRP 1.1 Reader 连接边界
+
+- `Auto` 连接先建立 TCP，再用 LLRP 1.1 `GET_SUPPORTED_VERSION` 查询；协商成功后
+  发送 `SET_PROTOCOL_VERSION(1.1)` 并切换到 1.1 Adapter，明确不支持时回退 1.0.1。
+- `Force101` 跳过版本协商；`Force11` 协商失败、超时或 Reader 不支持时连接初始化失败，
+  不会静默回退到 1.0.1。
+- 连接成功后，标准 Settings、Inventory、TagReport 和 Tag Access 使用协商版本的
+  消息/参数类型；1.1 的真实设备互操作尚未由当前自动化测试完整覆盖。
 
 ### 协议与扩展
 
