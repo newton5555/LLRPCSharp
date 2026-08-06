@@ -620,17 +620,17 @@ public sealed class LlrpReaderConfigurationTests
             types: [typeof(ILlrpParameter), typeof(IReadOnlyList<ILlrpParameter>)],
             modifiers: null)!;
 
-        var snapshot = Assert.IsType<InventorySnapshot>(parse.Invoke(reader, [roSpec, Array.Empty<ILlrpParameter>()]));
+        var snapshot = Assert.IsType<ManagedRoSpecSnapshot>(parse.Invoke(reader, [roSpec, Array.Empty<ILlrpParameter>()]));
 
         Assert.Equal(InventoryRuntimeState.Running, snapshot.State);
-        Assert.Equal(InventorySelectedFlag.All, snapshot.Settings.StateAwareSingulation!.SelectedFlag);
-        Assert.Equal(InventoryTarget.StateB, snapshot.Settings.StateAwareSingulation.Target);
-        Assert.Equal(expected.StartTrigger, snapshot.Settings.StartTrigger);
-        Assert.Equal(expected.StopTrigger, snapshot.Settings.StopTrigger);
-        Assert.Equal(expected.ReportEveryNTags, snapshot.Settings.ReportEveryNTags);
-        Assert.Equal(expected.Report, snapshot.Settings.Report);
-        Assert.Equal(expected.AntennaConfigurations, snapshot.Settings.AntennaConfigurations);
-        InventorySelectFilter filter = Assert.Single(snapshot.Settings.Filters);
+        Assert.Equal(InventorySelectedFlag.All, snapshot.Inventory.StateAwareSingulation!.SelectedFlag);
+        Assert.Equal(InventoryTarget.StateB, snapshot.Inventory.StateAwareSingulation.Target);
+        Assert.Equal(expected.StartTrigger, snapshot.Inventory.StartTrigger);
+        Assert.Equal(expected.StopTrigger, snapshot.Inventory.StopTrigger);
+        Assert.Equal(expected.ReportEveryNTags, snapshot.Inventory.ReportEveryNTags);
+        Assert.Equal(expected.Report, snapshot.Inventory.Report);
+        Assert.Equal(expected.AntennaConfigurations, snapshot.Inventory.AntennaConfigurations);
+        InventorySelectFilter filter = Assert.Single(snapshot.Inventory.Filters);
         Assert.Equal((ushort)1, filter.MemoryBank);
         Assert.Equal((ushort)32, filter.BitPointer);
         Assert.Equal((ushort)9, filter.BitLength);

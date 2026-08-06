@@ -454,6 +454,65 @@ await reader.ApplySettingsAsync(defaults.Settings);
 ReaderSettingsSnapshot current = await reader.QuerySettingsAsync();
 ```
 
+#### ReaderSettingsSnapshot 结构树(两域模型)
+
+`QuerySettingsAsync` 一次拉取 LLRP 的两个资源域,组合成一个快照:
+
+```
+ReaderSettingsSnapshot
+│
+├─ Settings : ReaderSettings            ◀─ Config 域(可编辑/可回发 ApplySettingsAsync)
+│   │                                      ← 来源:GET_READER_CONFIG
+│   ├─ Configuration : ReaderConfiguration
+│   │   ├─ Keepalive / Antennas / Gpos / Gpis / Events
+│   │   └─ Extensions(厂商配置,如 ImpinjReaderSettings)
+│   │
+│   ├─ Inventory : InventorySettings?   ★ = ManagedRoSpec.Inventory(同引用)
+│   │
+│   └─ Extensions : 字典
+│
+└─ ManagedRoSpec : ManagedRoSpecSnapshot?  ◀─ RO 域(设备上 SDK 托管的 RO Spec)
+    │                                          ← 来源:GET_ROSPECS
+    ├─ Inventory : InventorySettings    ★ = Settings.Inventory(同一实例)
+    └─ State    : InventoryRuntimeState(Disabled/Enabled/Running,RO 域独有)
+```
+
+**★ 两域相同的属性**(同一个 `InventorySettings` 实例,两条路径暴露):
+
+| 路径 | 类型 | 视角 |
+|---|---|---|
+| `Settings.Inventory` | `InventorySettings` | "我**想配置**的盘点"(编辑/回发) |
+| `ManagedRoSpec.Inventory` | `InventorySettings` | "设备**实际部署**的盘点"(诊断/恢复) |
+
+两者是 `QuerySettingsAsync` 内部的一次同引用赋值(不是两份数据),名称、类型完全一致;
+区别只在 RO 域的 `State`(配置域没有运行状态)。
+
+#### 命名依据:协议层两树 → SDK 两域
+
+`Settings`(Config 域)与 `ManagedRoSpec`(RO 域)的划分直接对应 LLRP 协议层的
+两个资源树:
+
+| SDK 命名 | 协议层来源 |
+|---|---|
+| `ReaderSettingsSnapshot.Settings` | `GET_READER_CONFIG_RESPONSE`(Config 树) |
+| `ReaderSettingsSnapshot.ManagedRoSpec` | `ROSpec` 参数(RO 树,`GET_ROSPECS`) |
+| `ManagedRoSpecSnapshot.Inventory` | RO 树 `InventoryParameterSpec` 子树 |
+| `ManagedRoSpecSnapshot.State` | 无协议参数(SDK 附加的运行视图) |
+
+两树共有参数(协议层的事实):
+
+```
+Config 树(GET_READER_CONFIG_RESPONSE)      RO 树(ROSpec)
+├─ AntennaConfiguration ★                  ├─ … → InventoryParameterSpec → AntennaConfiguration ★
+├─ ROReportSpec        ★                  └─ ROReportSpec ★
+└─ …(KeepaliveSpec 等仅 Config)            └─ …(ROBoundarySpec 等仅 RO)
+```
+
+`AntennaConfiguration`、`ROReportSpec` 这两个参数**两树都出现**——Config 树描述
+"设备现状",RO 树描述"该盘点任务自己的设置"。SDK 层把它们连同 AISpec 等合并
+抽象为 `InventorySettings` 领域类型,两个域各持有一份(同引用),因此两域属性
+同名 `Inventory` 正好反映协议层的共享事实。
+
 ### 标签操作
 
 ```csharp

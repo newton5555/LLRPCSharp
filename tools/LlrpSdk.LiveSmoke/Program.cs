@@ -68,7 +68,7 @@ Console.WriteLine($"Identity: {reader.Identity?.ManufacturerId}/{reader.Identity
 Console.WriteLine($"Extensions: {string.Join(", ", reader.Extensions.Select(static extension => extension.Id))}");
 Console.WriteLine($"Capabilities: antennas={reader.Capabilities?.MaxNumberOfAntennas}, additional={reader.Capabilities?.AdditionalParameters.Count}");
 Console.WriteLine($"Configuration: antennas={configuration.Antennas.Count}, gpi={configuration.Gpis.Count}, gpo={configuration.Gpos.Count}");
-Console.WriteLine($"Managed inventory: {settingsSnapshot.Inventory?.State.ToString() ?? "none"}");
+Console.WriteLine($"Managed inventory: {settingsSnapshot.ManagedRoSpec?.State.ToString() ?? "none"}");
 Console.WriteLine($"ROSpecs: {string.Join(", ", configuredRoSpecs.Select(DescribeRoSpec))}");
 if (configuration.Extensions.TryGetValue(ImpinjReaderConfiguration.ExtensionKey, out object? configurationValue) &&
     configurationValue is ImpinjReaderConfiguration impinjConfiguration)

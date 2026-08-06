@@ -831,9 +831,9 @@ public sealed class LlrpReader : IAsyncDisposable
             IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
             ILlrpParameter? managed = roSpecs.SingleOrDefault(IsManagedRoSpec);
-            InventorySnapshot? snapshot = managed is null ? null : ParseManagedInventory(managed, accessSpecs);
+            ManagedRoSpecSnapshot? snapshot = managed is null ? null : ParseManagedInventory(managed, accessSpecs);
             AdoptManagedInventorySnapshot(managed, accessSpecs, snapshot);
-            InventorySettings? inventory = snapshot?.Settings;
+            InventorySettings? inventory = snapshot?.Inventory;
             return new ReaderSettingsSnapshot(new ReaderSettings { Configuration = configuration, Inventory = inventory }, snapshot);
         }
         finally
@@ -2418,7 +2418,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private void AdoptManagedInventorySnapshot(
         ILlrpParameter? managedRoSpec,
         IReadOnlyList<ILlrpParameter> accessSpecs,
-        InventorySnapshot? snapshot = null)
+        ManagedRoSpecSnapshot? snapshot = null)
     {
         if (managedRoSpec is null)
         {
@@ -2427,7 +2427,7 @@ public sealed class LlrpReader : IAsyncDisposable
             return;
         }
 
-        InventorySnapshot actual = snapshot ?? ParseManagedInventory(managedRoSpec, accessSpecs);
+        ManagedRoSpecSnapshot actual = snapshot ?? ParseManagedInventory(managedRoSpec, accessSpecs);
         _managedInventoryRoSpecId = ManagedInventoryRoSpecId;
         _managedInventoryAttachedDataAccessSpecId = accessSpecs.Any(item => item switch
         {
@@ -2435,7 +2435,7 @@ public sealed class LlrpReader : IAsyncDisposable
             LlrpNet.Protocol.Parameters.V1_1.AccessSpec v11 => v11.AccessSpecID == ManagedInventoryAttachedDataAccessSpecId,
             _ => false,
         }) ? ManagedInventoryAttachedDataAccessSpecId : null;
-        Volatile.Write(ref _currentInventorySettings, actual.Settings);
+        Volatile.Write(ref _currentInventorySettings, actual.Inventory);
         bool running = actual.State == InventoryRuntimeState.Running;
         Volatile.Write(ref _operationState, (int)(running ? ReaderOperationState.Inventorying : ReaderOperationState.Idle));
         Volatile.Write(ref _resourceMode, (int)(running ? ReaderResourceMode.HighLevelRunning : ReaderResourceMode.HighLevelConfigured));
@@ -2554,7 +2554,7 @@ public sealed class LlrpReader : IAsyncDisposable
         _ => false,
     };
 
-    private InventorySnapshot ParseManagedInventory(ILlrpParameter item, IReadOnlyList<ILlrpParameter> accessSpecs)
+    private ManagedRoSpecSnapshot ParseManagedInventory(ILlrpParameter item, IReadOnlyList<ILlrpParameter> accessSpecs)
     {
         return item switch
         {
@@ -2564,7 +2564,7 @@ public sealed class LlrpReader : IAsyncDisposable
         };
     }
 
-    private InventorySnapshot ParseManagedInventory(V101Parameters.ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
+    private ManagedRoSpecSnapshot ParseManagedInventory(V101Parameters.ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
     {
         ArgumentNullException.ThrowIfNull(roSpec);
         ArgumentNullException.ThrowIfNull(accessSpecs);
@@ -2646,10 +2646,10 @@ public sealed class LlrpReader : IAsyncDisposable
             LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecState.Inactive => InventoryRuntimeState.Enabled,
             _ => InventoryRuntimeState.Disabled
         };
-        return new InventorySnapshot(settings, state);
+        return new ManagedRoSpecSnapshot(settings, state);
     }
 
-    private InventorySnapshot ParseManagedInventory(V11Parameters.ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
+    private ManagedRoSpecSnapshot ParseManagedInventory(V11Parameters.ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
     {
         ArgumentNullException.ThrowIfNull(roSpec);
         ArgumentNullException.ThrowIfNull(accessSpecs);
@@ -2732,7 +2732,7 @@ public sealed class LlrpReader : IAsyncDisposable
             V11Enumerations.ROSpecState.Inactive => InventoryRuntimeState.Enabled,
             _ => InventoryRuntimeState.Disabled
         };
-        return new InventorySnapshot(settings, state);
+        return new ManagedRoSpecSnapshot(settings, state);
     }
 
     private static InventorySelectFilter ParseFilter(V101Parameters.C1G2Filter filter)

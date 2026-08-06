@@ -28,10 +28,10 @@ public sealed record ReaderSettings
 }
 
 /// <summary>Device facts returned by <see cref="LlrpReader.QuerySettingsAsync"/>.</summary>
-public sealed record ReaderSettingsSnapshot(ReaderSettings Settings, InventorySnapshot? Inventory);
+public sealed record ReaderSettingsSnapshot(ReaderSettings Settings, ManagedRoSpecSnapshot? ManagedRoSpec);
 
 /// <summary>Describes a reader-resident SDK inventory resource.</summary>
-public sealed record InventorySnapshot(InventorySettings Settings, InventoryRuntimeState State);
+public sealed record ManagedRoSpecSnapshot(InventorySettings Inventory, InventoryRuntimeState State);
 
 public enum InventoryRuntimeState
 {

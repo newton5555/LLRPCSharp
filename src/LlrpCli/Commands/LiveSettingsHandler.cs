@@ -65,7 +65,7 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
             case "reader":
                 ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
                 settings = snapshot.Settings;
-                state = snapshot.Inventory?.State;
+                state = snapshot.ManagedRoSpec?.State;
                 title = "Reader settings";
                 break;
             case "draft":
@@ -164,7 +164,7 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         SettingsRenderer.RenderApplyImpact(console, settings);
         ReaderSettingsSnapshot deployed = await ManagedSettingsWorkflow.ApplyAsync(reader, settings, cancellationToken).ConfigureAwait(false);
         SetDraft(settings, path is null ? session.DraftInfo ?? SettingsDraftInfo.Generic : SettingsDraftInfo.FromFile(path));
-        SettingsRenderer.RenderSummary(console, "Deployed reader settings", deployed.Settings, deployed.Inventory?.State, session.DraftInfo);
+        SettingsRenderer.RenderSummary(console, "Deployed reader settings", deployed.Settings, deployed.ManagedRoSpec?.State, session.DraftInfo);
         console.MarkupLine("[bold springgreen2]✔ Settings applied. Inventory remains Disabled until 'inventory start'.[/]");
     }
 

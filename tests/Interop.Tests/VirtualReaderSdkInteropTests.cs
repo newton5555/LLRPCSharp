@@ -191,7 +191,7 @@ public sealed class VirtualReaderSdkInteropTests
         Assert.True(reader.IsManagedStateSynchronized);
         Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
         ReaderSettingsSnapshot deployed = await reader.QuerySettingsAsync(timeout.Token);
-        Assert.Equal(InventoryRuntimeState.Disabled, deployed.Inventory!.State);
+        Assert.Equal(InventoryRuntimeState.Disabled, deployed.ManagedRoSpec!.State);
         await reader.StartInventoryAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
         await reader.StopAsync(timeout.Token);
@@ -243,17 +243,17 @@ public sealed class VirtualReaderSdkInteropTests
         try
         {
             ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync(timeout.Token);
-            InventorySnapshot managed = Assert.IsType<InventorySnapshot>(snapshot.Inventory);
+            ManagedRoSpecSnapshot managed = Assert.IsType<ManagedRoSpecSnapshot>(snapshot.ManagedRoSpec);
 
             Assert.Equal(InventoryRuntimeState.Running, managed.State);
-            Assert.Equal((byte)2, managed.Settings.Session);
-            Assert.Equal((ushort)64, managed.Settings.TagPopulationEstimate);
-            InventorySelectFilter filter = Assert.Single(managed.Settings.Filters);
+            Assert.Equal((byte)2, managed.Inventory.Session);
+            Assert.Equal((ushort)64, managed.Inventory.TagPopulationEstimate);
+            InventorySelectFilter filter = Assert.Single(managed.Inventory.Filters);
             Assert.Equal((ushort)4, filter.BitLength);
             Assert.Equal(new byte[] { 0b_1010_0000 }, filter.Mask);
-            Assert.True(managed.Settings.AttachedData.Enabled);
-            Assert.Equal((ushort)3, managed.Settings.AttachedData.WordPointer);
-            Assert.Equal((ushort)2, managed.Settings.AttachedData.WordCount);
+            Assert.True(managed.Inventory.AttachedData.Enabled);
+            Assert.Equal((ushort)3, managed.Inventory.AttachedData.WordPointer);
+            Assert.Equal((ushort)2, managed.Inventory.AttachedData.WordCount);
         }
         finally
         {
@@ -300,7 +300,7 @@ public sealed class VirtualReaderSdkInteropTests
         Assert.NotNull(reader.CurrentInventorySettings);
         ReaderSettingsSnapshot stopped = await reader.QuerySettingsAsync(timeout.Token);
         Assert.NotNull(stopped.Settings.Inventory);
-        Assert.Equal(InventoryRuntimeState.Disabled, stopped.Inventory!.State);
+        Assert.Equal(InventoryRuntimeState.Disabled, stopped.ManagedRoSpec!.State);
         await reader.StartInventoryAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
         await reader.StopAsync(timeout.Token);
