@@ -1,4 +1,14 @@
 ﻿using System.Net;
+using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
+using GetReaderCapabilitiesResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES_RESPONSE;
+using AddRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC;
+using DeleteRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC;
+using EnableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC;
+using DisableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC;
+using StartRoSpec = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC;
+using StopRoSpec = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC;
+using GetRoSpecs = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS;
+using ErrorMessage = LlrpNet.Protocol.Messages.V1_0_1.ERROR_MESSAGE;
 using System.Net.Sockets;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;

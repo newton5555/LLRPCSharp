@@ -1,3 +1,18 @@
+using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
+using AddRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC;
+using AddRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC_RESPONSE;
+using DeleteRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC;
+using DeleteRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC_RESPONSE;
+using EnableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC;
+using EnableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC_RESPONSE;
+using DisableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC;
+using DisableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC_RESPONSE;
+using StartRoSpec = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC;
+using StartRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC_RESPONSE;
+using StopRoSpec = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC;
+using StopRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC_RESPONSE;
+using GetRoSpecs = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS;
+using RoSpec = LlrpNet.Protocol.Parameters.V1_0_1.ROSpec;
 using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;

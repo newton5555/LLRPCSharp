@@ -1,4 +1,13 @@
 ﻿using System.Buffers.Binary;
+using GetReaderCapabilitiesResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES_RESPONSE;
+using AddRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC_RESPONSE;
+using DeleteRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC_RESPONSE;
+using EnableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC_RESPONSE;
+using DisableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC_RESPONSE;
+using StartRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC_RESPONSE;
+using StopRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC_RESPONSE;
+using GetRoSpecsResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS_RESPONSE;
+using ErrorMessage = LlrpNet.Protocol.Messages.V1_0_1.ERROR_MESSAGE;
 using LlrpNet.Core.Protocol;
 
 namespace LlrpSdk.Tests.Support;

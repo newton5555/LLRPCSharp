@@ -1,4 +1,5 @@
 ﻿using System;
+using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;

@@ -1,4 +1,10 @@
 ﻿using System.Collections.Concurrent;
+using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
+using KeepaliveAck = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE_ACK;
+using GetReaderCapabilities = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES;
+using EnableRoSpec = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC;
+using EnableRoSpecResponse = LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC_RESPONSE;
+using TagReportContentSelector = LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector;
 using System.Reflection;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;

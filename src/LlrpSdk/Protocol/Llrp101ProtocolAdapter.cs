@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
 using System.Linq;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;

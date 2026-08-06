@@ -1,4 +1,7 @@
 ﻿using System.Runtime.ExceptionServices;
+using Keepalive = LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE;
+using TagReportContentSelector = LlrpNet.Protocol.Parameters.V1_0_1.TagReportContentSelector;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;

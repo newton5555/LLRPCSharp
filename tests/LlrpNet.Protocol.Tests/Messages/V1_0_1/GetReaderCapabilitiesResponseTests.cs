@@ -1,3 +1,7 @@
+using GetReaderCapabilitiesResponse = LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES_RESPONSE;
+using LlrpStatus = LlrpNet.Protocol.Parameters.V1_0_1.LLRPStatus;
+using LlrpStatusCode = LlrpNet.Protocol.Enumerations.V1_0_1.StatusCode;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
