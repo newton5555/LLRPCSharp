@@ -580,6 +580,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Ready);
+                await SynchronizeManagedStateOnReconnectAsync(cancellationToken).ConfigureAwait(false);
                 StartKeepaliveMonitor();
             }
             catch (Exception exception)
@@ -673,6 +674,38 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             _operationLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Queries the reader's current ROSpec/AccessSpec state after a reconnection and aligns the SDK's locally
+    /// cached managed-inventory assumptions to the device facts.
+    /// </summary>
+    /// <remarks>
+    /// Called from <see cref="ReconnectAsync(CancellationToken)"/> while the lifecycle lock is already held. It
+    /// deliberately does <b>not</b> recreate or redeploy the previous managed inventory operation: it only observes
+    /// device reality. If the SDK-managed ROSpec is still present the prior session is retained so its isolated
+    /// report stream can continue receiving reports (routing already matches on the managed RoSpec id); if the
+    /// resource disappeared (e.g. the device rebooted and wiped its configuration) the stale session is completed
+    /// and the reader returns to idle so the application can explicitly re-establish its next desired state.
+    /// </remarks>
+    private async Task SynchronizeManagedStateOnReconnectAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        ILlrpParameter? managed = roSpecs.SingleOrDefault(IsManagedRoSpec);
+        if (managed is null)
+        {
+            InventorySession? session = _inventorySession;
+            _inventorySession = null;
+            session?.Complete(InventoryRuntimeState.Disabled);
+            AdoptManagedInventorySnapshot(null, accessSpecs);
+        }
+        else
+        {
+            AdoptManagedInventorySnapshot(managed, accessSpecs);
+        }
+
+        Volatile.Write(ref _managedStateIsSynchronized, 1);
     }
 
     /// <summary>

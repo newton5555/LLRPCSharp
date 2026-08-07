@@ -95,6 +95,14 @@ internal sealed class ScriptedLlrpTransport : ILlrpTransport
                 EnqueueFrame(response);
             }
         }
+        else if (AutoRespondToCapabilities && header.MessageType == V101Messages.GET_ROSPECS.MessageType && OnSendAsync is null)
+        {
+            EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(header.MessageId));
+        }
+        else if (AutoRespondToCapabilities && header.MessageType == V101Messages.GET_ACCESSSPECS.MessageType && OnSendAsync is null)
+        {
+            EnqueueFrame(LlrpTestFrames.GetAccessSpecsResponseFrame(header.MessageId));
+        }
 
         Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask>? handler = OnSendAsync;
         if (handler is not null)

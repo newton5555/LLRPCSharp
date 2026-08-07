@@ -153,6 +153,18 @@ internal static class LlrpTestFrames
         return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
     }
 
+    public static byte[] GetAccessSpecsResponseFrame(
+        uint messageId,
+        LLRPStatus? status = null,
+        IEnumerable<AccessSpec>? accessSpecs = null)
+    {
+        var response = new V101Messages.GET_ACCESSSPECS_RESPONSE(
+            messageId,
+            status ?? new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
+            (accessSpecs ?? []).ToArray());
+        return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
+    }
+
     public static byte[] ErrorMessageFrame(uint messageId, LLRPStatus status)
     {
         ArgumentNullException.ThrowIfNull(status);

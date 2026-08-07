@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Session;
 using LlrpSdk.Tests.Support;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace LlrpSdk.Tests;
 
@@ -88,6 +89,40 @@ public sealed class LlrpReaderLifecycleTests
         Assert.True(reader.IsConnected);
         Assert.Equal(2, transport.ConnectCallCount);
         Assert.Contains(ReaderConnectionState.Reconnecting, transitions);
+    }
+
+    [Fact]
+    public async Task Reconnect_AfterFault_QueriesCurrentDeviceResourceState()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using var reader = CreateReader(transport);
+        var faulted = new TaskCompletionSource<ReaderConnectionChangedEventArgs>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        reader.ConnectionChanged += (_, args) =>
+        {
+            if (args.CurrentState == ReaderConnectionState.Faulted)
+            {
+                faulted.TrySetResult(args);
+            }
+        };
+
+        await reader.ConnectAsync(timeout.Token);
+        transport.EnqueueFailure(new IOException("simulated receive failure"));
+        await faulted.Task.WaitAsync(timeout.Token);
+        Assert.Equal(ReaderConnectionState.Faulted, reader.ConnectionState);
+
+        await reader.ReconnectAsync(timeout.Token);
+        Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
+        Assert.True(reader.IsConnected);
+
+        // Reconnect must observe the device's current resource state rather than assuming the previous configuration.
+        Assert.Contains(
+            transport.SentFrames,
+            frame => LlrpMessageHeader.Decode(frame).MessageType == V101Messages.GET_ROSPECS.MessageType);
+        Assert.Contains(
+            transport.SentFrames,
+            frame => LlrpMessageHeader.Decode(frame).MessageType == V101Messages.GET_ACCESSSPECS.MessageType);
     }
 
     [Fact]

@@ -37,7 +37,7 @@ Registry、异步传输、版本 Adapter 和托管 Reader API。协议资产因�
 ### 1. 会话生命周期管理
 
 - **连接与版本协商**：支持 LLRP 1.1 自动协商，并可按策略强制 1.0.1 或 1.1。
-- **有限自动重连**：提供 `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`，用于意外断线后的重连基线。重连后的 ROSpec、AccessSpec 和托管盘点状态恢复仍属于后续增强方向。
+- **有限自动重连**：提供 `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`，用于意外断线后的重连基线。重连成功后 SDK 会自动查询设备当前 ROSpec/AccessSpec 状态并对齐内部状态（只对齐设备现状，不重放之前的期望配置）。
 - **托管状态同步**：Raw Protocol 操作后会使托管状态失效，可通过 `SynchronizeStateAsync()` 恢复到可继续 Managed 操作的状态。
 
 ### 2. 进阶资源控制

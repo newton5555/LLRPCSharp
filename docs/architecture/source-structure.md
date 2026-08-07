@@ -97,7 +97,8 @@ src/
 - **`RoSpecService`**：高级资源服务，提供 `reader.RoSpecs.AddAsync` / `EnableAsync` / `StartAsync` / `StopAsync` / `DeleteAsync` / `GetAllAsync` 操作。
 - **`AccessSpecService`**：进阶 AccessSpec 生命周期服务，提供 Add/Delete/Enable/Disable/GetAll；当前不是标签读写的高级业务 API。
 - **`ReaderExtensionCollection`**：维护连接后激活的 Reader Extension，负责基于设备元数据筛选和互斥检查。
-- **`LlrpAutomaticReconnectOptions`**：控制有限自动重连；当前不会恢复期望 ROSpec/AccessSpec 或托管盘点状态。
+- **`LlrpAutomaticReconnectOptions`**：控制有限自动重连；重连成功后自动查询设备当前
+  ROSpec/AccessSpec 状态并对齐 SDK 内部状态，不重放期望配置。
 
 ### 3.2 传输与会话层 (`src/LlrpNet/LlrpNet.Core/`) —— [手写]
 - **`LlrpSession`**：底层的 LLRP 双向会话管理，负责并发 Request/Response 事务匹配、超时控制与取消广播。

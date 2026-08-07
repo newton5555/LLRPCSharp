@@ -66,7 +66,7 @@ public sealed class VirtualReaderSdkInteropTests
         await using var host = new VirtualReaderHost(
             options: new VirtualReaderOptions
             {
-                CloseConnectionAfterRequestMessageTypes = new HashSet<ushort> { GET_ROSPECS.MessageType }
+                CloseConnectionAfterRequestMessageTypes = new HashSet<ushort> { GET_READER_CONFIG.MessageType }
             });
         host.Start();
 
@@ -97,7 +97,15 @@ public sealed class VirtualReaderSdkInteropTests
         };
 
         await reader.ConnectAsync(timeout.Token);
-        await Assert.ThrowsAnyAsync<Exception>(() => reader.RoSpecs.GetAllAsync(timeout.Token));
+        await Assert.ThrowsAnyAsync<Exception>(() => reader.Protocol.TransactAsync<GET_READER_CONFIG_RESPONSE>(
+            new GET_READER_CONFIG(
+                reader.Protocol.NextMessageId(),
+                AntennaID: 0,
+                RequestedData: GetReaderConfigRequestedData.All,
+                GPIPortNum: 0,
+                GPOPortNum: 0,
+                CustomItems: []),
+            cancellationToken: timeout.Token));
         await reconnected.Task.WaitAsync(timeout.Token);
 
         Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);

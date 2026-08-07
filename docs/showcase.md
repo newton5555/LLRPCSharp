@@ -40,7 +40,7 @@ coupling them to one application stack.
 ### 1. Session Lifecycle Management
 
 - **Connection and version negotiation**: Supports automatic LLRP 1.1 negotiation, with policy-based forcing of 1.0.1 or 1.1.
-- **Limited automatic reconnect**: Provides `LlrpAutomaticReconnectOptions` and `WithAutomaticReconnect(...)` as a reconnect baseline after unexpected disconnects. Restoring desired ROSpec, AccessSpec, and managed inventory state after reconnect is still future work.
+- **Limited automatic reconnect**: Provides `LlrpAutomaticReconnectOptions` and `WithAutomaticReconnect(...)` as a reconnect baseline after unexpected disconnects. After a successful reconnect the SDK queries the device's current ROSpec/AccessSpec state and realigns its internal state (observing reality rather than re-applying the previous desired configuration).
 - **Managed state synchronization**: Raw Protocol operations invalidate managed state; `SynchronizeStateAsync()` can restore a state where managed operations may continue.
 
 ### 2. Advanced Resource Control
