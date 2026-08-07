@@ -334,8 +334,24 @@ public sealed class GeneratedCodecIntegrationTests
 
         using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Could not start dotnet compile smoke process.");
-        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();
-        Task<string> standardError = process.StandardError.ReadToEndAsync();
+        // Drain both redirected streams through event handlers. Reading asynchronously via
+        // ReadToEndAsync and then blocking on WaitForExit can deadlock the test host on some
+        // machines; event-driven draining keeps the child's stdout/stderr pipes moving.
+        var capturedOutput = new StringBuilder();
+        DataReceivedEventHandler drain = (_, e) =>
+        {
+            if (e.Data is not null)
+            {
+                lock (capturedOutput)
+                {
+                    capturedOutput.AppendLine(e.Data);
+                }
+            }
+        };
+        process.OutputDataReceived += drain;
+        process.ErrorDataReceived += drain;
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
         if (!process.WaitForExit(timeoutMilliseconds))
         {
             process.Kill(entireProcessTree: true);
@@ -343,8 +359,10 @@ public sealed class GeneratedCodecIntegrationTests
                 $"dotnet {arguments[0]} exceeded {timeoutMilliseconds / 1000} seconds.");
         }
 
-        string output = standardOutput.GetAwaiter().GetResult() + standardError.GetAwaiter().GetResult();
-        Assert.True(process.ExitCode == 0, output);
+        lock (capturedOutput)
+        {
+            Assert.True(process.ExitCode == 0, capturedOutput.ToString());
+        }
     }
 
     private static string FindRepositoryRoot()
