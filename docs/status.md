@@ -26,7 +26,7 @@
 | LLRP 2.0 | 预留 | 有定义 Delta，但尚无 `Llrp20ProtocolAdapter`。 |
 | 托管 Reader SDK | 可用 | `ReaderSettings`、校验、应用、托管盘点和报告流已接入。 |
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
-| Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；能力目录仍需扩充。 |
+| Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
 | CLI | 可用 | Live Shell、一次性 `inventory`、settings 草稿和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
 | Virtual Reader | 测试基线 | 覆盖核心 1.0.1 生命周期、报告和部分 AccessSpec 场景，不模拟真实射频。 |
 
