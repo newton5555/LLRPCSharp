@@ -513,6 +513,133 @@ Config 树(GET_READER_CONFIG_RESPONSE)      RO 树(ROSpec)
 抽象为 `InventorySettings` 领域类型,两个域各持有一份(同引用),因此两域属性
 同名 `Inventory` 正好反映协议层的共享事实。
 
+#### 设备属性类型族:类图与属性树
+
+**类图式**(Mermaid,展示类型关系——哪个类型是哪个的属性、1对多、依赖):
+
+```mermaid
+classDiagram
+  class LlrpReader
+  LlrpReader : Identity ReaderIdentity?
+  LlrpReader : Capabilities ReaderCapabilities?
+  LlrpReader : GetDefaultSettingsAsync() ReaderSettingsDefaults
+  LlrpReader : QuerySettingsAsync() ReaderSettingsSnapshot
+
+  class ReaderIdentity {
+    +uint ManufacturerId
+    +uint ModelId
+    +string FirmwareVersion
+  }
+
+  class ReaderCapabilities {
+    +ushort MaxNumberOfAntennas
+    +bool CanSetAntennaProperties
+    +bool HasUtcClockCapability
+    +IReadOnlyList~TxPowerEntry~ TxPowers
+    +IReadOnlyList~RxSensitivityEntry~ RxSensitivities
+    +IReadOnlyList~uint~ TxFrequencies
+    +IReadOnlyList~FrequencyHopTableEntry~ HopTables
+    +IReadOnlyList~C1G2RfModeEntry~ RfModes
+    +bool IsTagAccessAvailable
+    +bool IsMultiwordBlockWriteAvailable
+    +bool IsMultiwordBlockEraseAvailable
+    +short? MaximumReceiveSensitivityDbm
+    +bool CanDoTagInventoryStateAwareSingulation
+  }
+
+  class ReaderConfiguration {
+    +bool HoldEventsAndReportsUponReconnect
+    +KeepaliveConfiguration Keepalive
+    +IReadOnlyList~AntennaConfigurationSettings~ Antennas
+    +IReadOnlyList~GpoConfiguration~ Gpos
+    +IReadOnlyList~GpiStatus~ Gpis
+    +EventNotificationConfiguration Events
+  }
+  ReaderConfiguration *-- "1" KeepaliveConfiguration
+  ReaderConfiguration *-- "n" AntennaConfigurationSettings
+  ReaderConfiguration *-- "n" GpoConfiguration
+  ReaderConfiguration *-- "n" GpiStatus
+  ReaderConfiguration *-- "1" EventNotificationConfiguration
+
+  class ReaderSettings {
+    +ReaderConfiguration Configuration
+    +InventorySettings? Inventory
+  }
+  ReaderSettings *-- "1" ReaderConfiguration
+  ReaderSettings *-- "0..1" InventorySettings
+
+  class ReaderSettingsSnapshot {
+    +ReaderSettings Settings
+    +ManagedRoSpecSnapshot? ManagedRoSpec
+  }
+  ReaderSettingsSnapshot *-- "1" ReaderSettings
+  ReaderSettingsSnapshot *-- "0..1" ManagedRoSpecSnapshot
+
+  class ManagedRoSpecSnapshot {
+    +InventorySettings Inventory
+    +InventoryRuntimeState State
+  }
+  ManagedRoSpecSnapshot *-- "1" InventorySettings
+  ManagedRoSpecSnapshot ..> InventoryRuntimeState : enum
+
+  ReaderSettings ..> ReaderSettingsSnapshot : creates
+  ManagedRoSpecSnapshot ..> InventorySettings : alias same instance
+
+  class ReaderSettingsDefaults {
+    +ReaderSettings Settings
+  }
+  ReaderSettingsDefaults *-- "1" ReaderSettings
+```
+
+**属性树式**(同一结构的嵌套视角):
+
+```
+Reader (LlrpReader)
+│
+├─ 属性(连接期缓存,只读)
+│   ├─ Identity : ReaderIdentity{ ManufacturerId, ModelId, FirmwareVersion }
+│   ├─ Capabilities : ReaderCapabilities{ MaxNumberOfAntennas, TxPowers[], RxSensitivities[],
+│   │     TxFrequencies[], HopTables[], RfModes[], IsTagAccessAvailable, … }
+│   └─ CurrentInventorySettings : InventorySettings?(SDK 维护的托管盘点意图)
+│
+└─ 方法(每次实时拉取设备状态)
+    └─ QuerySettingsAsync() → ReaderSettingsSnapshot{    ← 返回快照,不是 Reader 属性
+        ├─ Settings : ReaderSettings{  可编辑/回发
+        │   ├─ Configuration : ReaderConfiguration{ HoldEventsAndReportsUponReconnect,
+        │   │     Keepalive{TriggerType, IntervalMs}, Antennas[], Gpos[], Gpis[], Events{} }
+        │   ├─ Inventory : InventorySettings?(= ManagedRoSpec.Inventory 同引用)
+        │   └─ Extensions : 字典 }
+        └─ ManagedRoSpec : ManagedRoSpecSnapshot?{   ← 快照属性,不是 Reader 属性
+            ├─ Inventory : InventorySettings
+            └─ State : InventoryRuntimeState }
+    }
+```
+
+> 注:`Reader` 上没有 `Settings`/`Snapshot` 属性——配置与快照通过
+> `QuerySettingsAsync()` **实时方法**获取(动态状态,不缓存避免陈旧);
+> `Identity`/`Capabilities` 是**出厂静态能力**,连接期拉取一次缓存为属性。
+
+**属性 vs 方法(缓存原则,设计约定)**:
+
+```
+能缓存为只读属性 = "SDK 自己可控的状态" + "出厂静态能力"
+  ├─ Identity / Capabilities     出厂固定,连接期拉一次
+  └─ CurrentInventorySettings    SDK 自己部署/采纳的盘点意图(本地写,Volatile)
+每次方法实时读     = "设备动态状态"(外部可改,缓存必陈旧)
+  ├─ QuerySettingsAsync() → Settings.Configuration   (GET_READER_CONFIG)
+  └─ QuerySettingsAsync() → ManagedRoSpec            (GET_ROSPECS)
+```
+
+规则:属性 = SDK 可控/静态(缓存安全);方法 = 设备动态(每次拉取避免陈旧)。
+**不要新增** `Reader.CurrentConfiguration` 这类缓存属性——它无法反映外部对设备
+的改动,会误导用户以为是实时配置。新增只读属性前先问:这个值是"SDK 拥有"还是
+"设备动态状态"?后者必须走方法。
+
+**三者语义**:`ReaderIdentity`(只读身份)/ `ReaderCapabilities`(只读出厂能力)/
+`ReaderConfiguration`+`ReaderSettings`(可写,下发)/ `ReaderSettingsSnapshot`(查询状态视图)。
+`ManagedRoSpec` 不要与 `ReaderConfiguration.Antennas` 混淆:
+前者是**盘点资源**(RO Spec,含 InventoryParameterSpec),后者是**全局射频配置**。
+
 ### 标签操作
 
 ```csharp

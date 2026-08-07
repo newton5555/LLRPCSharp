@@ -134,9 +134,9 @@ await using var session = await reader.StartInventoryAsync(saved);
 
 ```csharp
 ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync();
-if (snapshot.Inventory is { } inventory)
+if (snapshot.ManagedRoSpec is { } managed)
 {
-    await using var session = await reader.StartInventoryAsync(inventory);
+    await using var session = await reader.StartInventoryAsync(managed.Inventory);
 }
 ```
 
