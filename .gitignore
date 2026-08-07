@@ -13,6 +13,10 @@ docs/plans/
 *.user
 *.suo
 
+# Local (machine-specific) test configuration. The IP/credentials/`Enabled` flag
+# are per-developer and must not be tracked; template the real values instead.
+tests/**/appsettings.local.json
+
 # Local standard documents and unprocessed captures may be proprietary or large.
 references/standards/**
 references/captures/raw/**
