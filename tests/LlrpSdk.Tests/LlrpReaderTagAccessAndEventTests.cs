@@ -182,6 +182,48 @@ public sealed class LlrpReaderTagAccessAndEventTests
     }
 
     [Fact]
+    public async Task ReaderExceptionEvent_IsExposedWithContext()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        var exceptionTcs = new TaskCompletionSource<ReaderExceptionEventArgs>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        reader.ReaderExceptionOccurred += (_, args) => exceptionTcs.TrySetResult(args);
+
+        await reader.ConnectAsync(timeout.Token);
+
+        var eventData = new ReaderEventNotificationData(
+            new Uptime(1000),
+            null,
+            null,
+            null,
+            null,
+            null,
+            new ReaderExceptionEvent(
+                "RF module failure",
+                new ROSpecID(55501),
+                new SpecIndex(1),
+                new InventoryParameterSpecID(2),
+                new AntennaID(3),
+                null,
+                null,
+                []),
+            null, null, null, null, null, []);
+        var notificationMsg = new V101.READER_EVENT_NOTIFICATION(102, eventData);
+        transport.EnqueueFrame(Registry.EncodeMessage(LlrpProtocolVersion.Version101, notificationMsg));
+
+        ReaderExceptionEventArgs args = await exceptionTcs.Task.WaitAsync(timeout.Token);
+        Assert.Equal("RF module failure", args.Message);
+        Assert.Equal(55501U, args.ROSpecId);
+        Assert.Equal((ushort)1, args.SpecIndex);
+        Assert.Equal((ushort)2, args.InventoryParameterSpecId);
+        Assert.Equal((ushort)3, args.AntennaId);
+        Assert.Null(args.AccessSpecId);
+        Assert.Null(args.OpSpecId);
+    }
+
+    [Fact]
     public async Task KeepaliveTimeout_IsOptInAndDoesNotDisconnectTheReader()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

@@ -118,6 +118,8 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
 
         bool isTagAccessAvailable = response.LLRPCapabilities is null || response.LLRPCapabilities.MaxNumAccessSpecs > 0;
         bool canDoStateAware = response.LLRPCapabilities?.CanDoTagInventoryStateAwareSingulation ?? false;
+        bool supportsClientRequestOpSpec = response.LLRPCapabilities?.SupportsClientRequestOpSpec ?? false;
+        bool canDoRfSurvey = response.LLRPCapabilities?.CanDoRFSurvey ?? false;
         bool isBlockWrite = false;
         bool isBlockErase = false;
 
@@ -143,6 +145,8 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
             isBlockWrite,
             isBlockErase,
             canDoStateAware,
+            supportsClientRequestOpSpec,
+            canDoRfSurvey,
             general.MaximumReceiveSensitivity?.MaximumSensitivityValue);
     }
 

@@ -19,6 +19,16 @@
    `LlrpReader`）已具备 1.0.1/1.1 自动协商基线，但仍需真实设备验收。
 7. `LlrpFrameAnalyzer`（死代码，未接线）的 `FrameAnalysisResult.Status` 目前
    绑定 `V1_0_1.LLRPStatus`，1.1 消息无法匹配；接线前改为版本无关的反射取值。
+8. LLRP 1.0.1 收尾:`ENABLE_EVENTS_AND_REPORTS` 重连放行已实现并真机验证
+   （R430）;`CLIENT_REQUEST_OP` 经实机实测（R430 固件 6.4.1.240）设备不支持,
+   SDK 不接线、仅提供 `SupportsClientRequestOpSpec` 门控。事件子参数投影已完成
+   `ReaderExceptionEvent`（`ReaderExceptionOccurred` 事件）;其余事件子参数按
+   分析不做（ConnectionAttempt/ConnectionClose/RFSurveyEvent/Hopping/AISpec,
+   可经 `ReadMessagesAsync` 取原始协议对象）。TagReport 补充投影已完成
+   `C1G2_PC`（`TagReport.PcBits`）;`C1G2_CRC`/`C1G2SingulationDetails`
+   低价值可暂缓。
+缺口明细见
+   [coverage/llrp101-sdk-coverage.md](coverage/llrp101-sdk-coverage.md)。
 
 ## 中期
 

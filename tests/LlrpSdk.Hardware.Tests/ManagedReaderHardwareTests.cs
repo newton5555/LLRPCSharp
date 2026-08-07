@@ -1,5 +1,6 @@
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace LlrpSdk.Hardware.Tests;
 
@@ -175,6 +176,64 @@ public sealed class ManagedReaderHardwareTests
 
         Assert.NotNull(snapshot.Settings.Configuration);
         Assert.NotEmpty(snapshot.Settings.Configuration.Antennas);
+    }
+
+    [Fact]
+    public async Task HoldEventsAndReportsUponReconnect_ReportsFlowRestoredAfterReconnect()
+    {
+        if (HardwareTestEnvironment.SkipReason is { } skip)
+        {
+            return;
+        }
+
+        TargetReaderConfig config = HardwareTestEnvironment.Config.TargetReader;
+        await using LlrpReader reader = CreateReader(config);
+        await reader.ConnectAsync();
+
+        // Only meaningful when the device advertises event/report holding support.
+        if (reader.Capabilities?.RawResponse is not V101Messages.GET_READER_CAPABILITIES_RESPONSE capabilities ||
+            capabilities.LLRPCapabilities?.SupportsEventAndReportHolding != true)
+        {
+            return; // Device does not support the hold mechanism; environment capability, not an SDK failure.
+        }
+
+        await reader.ClearManagedSettingsAsync(); // Defensive: ensure a clean device before deployment.
+        try
+        {
+            // 1. Configure HoldEventsAndReportsUponReconnect=true (configuration only, no inventory).
+            ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
+            ReaderConfiguration configuration = defaults.Settings.Configuration with
+            {
+                HoldEventsAndReportsUponReconnect = true,
+            };
+            await reader.ApplySettingsAsync(defaults.Settings with { Configuration = configuration, Inventory = null });
+            // 2. Deploy and start inventory; reports flow while connected (hold applies on reconnect).
+            var inventory = new InventorySettings { AntennaIds = config.Antennas.ToArray() };
+            await using var session = await reader.StartInventoryAsync(inventory);
+            IReadOnlyList<TagReport> before = await SampleReportsAsync(session, maxReports: 3, duration: TimeSpan.FromSeconds(8));
+            Assert.NotEmpty(before); // Requires at least one tag in the field.
+
+            // 3. Reconnect: the reader holds events/reports until the SDK releases them with
+            //    ENABLE_EVENTS_AND_REPORTS after managed state synchronization.
+            await reader.ReconnectAsync();
+            // 4. Reports must resume after the reconnect.
+            IReadOnlyList<TagReport> after = await SampleReportsAsync(session, maxReports: 3, duration: TimeSpan.FromSeconds(8));
+            Assert.NotEmpty(after);
+
+            // 5. Restore the hold configuration to its default (false).
+            await session.StopAsync();
+            ReaderSettingsDefaults restoredDefaults = await reader.GetDefaultSettingsAsync();
+            await reader.ApplySettingsAsync(restoredDefaults.Settings with
+            {
+                Configuration = restoredDefaults.Settings.Configuration with { HoldEventsAndReportsUponReconnect = false },
+                Inventory = null,
+            });
+        }
+        finally
+        {
+            // Never leave the shared device poisoned, even on failure.
+            await reader.ClearManagedSettingsAsync();
+        }
     }
 
     private static LlrpReader CreateReader(TargetReaderConfig config)

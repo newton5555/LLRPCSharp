@@ -36,6 +36,12 @@ internal static class LlrpTestFrames
         return frame;
     }
 
+    public static byte[] CloseConnectionFrame(uint messageId)
+    {
+        // CLOSE_CONNECTION carries no parameters; the frame is exactly the common header.
+        return EmptyMessage(V101Messages.CLOSE_CONNECTION.MessageType, messageId);
+    }
+
     public static GeneralDeviceCapabilities GeneralCapabilities(
         ushort maxNumberOfAntennas = 4,
         bool canSetAntennaProperties = true,
@@ -99,6 +105,19 @@ internal static class LlrpTestFrames
         return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
     }
 
+    public static byte[] CapabilitiesResponseWithLlrpCapabilities(uint messageId, LLRPCapabilities llrpCapabilities)
+    {
+        var response = new V101Messages.GET_READER_CAPABILITIES_RESPONSE(
+            messageId,
+            new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
+            GeneralCapabilities(),
+            llrpCapabilities,
+            null,
+            null,
+            []);
+        return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
+    }
+
     public static byte[] CapabilitiesResponseWithDuplicateGeneral(uint messageId)
     {
         byte[] frame = CapabilitiesResponse(messageId);
@@ -116,6 +135,26 @@ internal static class LlrpTestFrames
             duplicated.AsSpan(sizeof(ushort), sizeof(uint)),
             checked((uint)duplicated.Length));
         return duplicated;
+    }
+
+    public static byte[] GetReaderConfigResponseFrame(uint messageId, EventsAndReports? eventsAndReports = null)
+    {
+        var response = new V101Messages.GET_READER_CONFIG_RESPONSE(
+            messageId,
+            new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
+            Identification: null,
+            AntennaPropertiesItems: [],
+            AntennaConfigurationItems: [],
+            ReaderEventNotificationSpec: null,
+            ROReportSpec: null,
+            AccessReportSpec: null,
+            LLRPConfigurationStateValue: null,
+            KeepaliveSpec: null,
+            GPIPortCurrentStateItems: [],
+            GPOWriteDataItems: [],
+            EventsAndReports: eventsAndReports,
+            CustomItems: []);
+        return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
     }
 
     public static byte[] RoSpecStatusResponse(

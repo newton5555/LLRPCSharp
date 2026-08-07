@@ -106,6 +106,8 @@ public sealed class ReaderCapabilities
         bool isMultiwordBlockWriteAvailable = false,
         bool isMultiwordBlockEraseAvailable = false,
         bool canDoTagInventoryStateAwareSingulation = false,
+        bool supportsClientRequestOpSpec = false,
+        bool canDoRfSurvey = false,
         short? maximumReceiveSensitivityDbm = null)
     {
         ArgumentNullException.ThrowIfNull(generalDeviceParameters);
@@ -129,6 +131,8 @@ public sealed class ReaderCapabilities
         IsMultiwordBlockWriteAvailable = isMultiwordBlockWriteAvailable;
         IsMultiwordBlockEraseAvailable = isMultiwordBlockEraseAvailable;
         CanDoTagInventoryStateAwareSingulation = canDoTagInventoryStateAwareSingulation;
+        SupportsClientRequestOpSpec = supportsClientRequestOpSpec;
+        CanDoRfSurvey = canDoRfSurvey;
         MaximumReceiveSensitivityDbm = maximumReceiveSensitivityDbm;
     }
 
@@ -201,6 +205,26 @@ public sealed class ReaderCapabilities
     /// Gets a value indicating whether inventory state-aware singulation is supported.
     /// </summary>
     public bool CanDoTagInventoryStateAwareSingulation { get; }
+
+    /// <summary>
+    /// Gets whether the reader advertises support for the client-requested access pattern
+    /// (<c>ClientRequestOpSpec</c> / <c>CLIENT_REQUEST_OP</c>).
+    /// </summary>
+    /// <remarks>
+    /// This is the LLRP capability gate (<c>LLRPCapabilities.SupportsClientRequestOpSpec</c>); the SDK does not
+    /// implement client-requested access, so applications should gate any use of it on this flag. Devices that
+    /// report <see langword="false"/> reject a <c>ClientRequestOpSpec</c> AccessSpec at ADD_ACCESSSPEC time.
+    /// </remarks>
+    public bool SupportsClientRequestOpSpec { get; }
+
+    /// <summary>
+    /// Gets whether the reader advertises RF survey support (<c>LLRPCapabilities.CanDoRFSurvey</c>).
+    /// </summary>
+    /// <remarks>
+    /// The SDK does not implement RF survey report translation; applications should gate any use of RF survey on
+    /// this flag. Many Impinj devices report <see langword="false"/> (e.g. R430 firmware 6.4.1.240).
+    /// </remarks>
+    public bool CanDoRfSurvey { get; }
 
     /// <summary>
     /// Gets unnormalized parameters nested inside GeneralDeviceCapabilities in wire order.

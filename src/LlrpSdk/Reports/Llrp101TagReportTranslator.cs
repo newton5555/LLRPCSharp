@@ -36,11 +36,17 @@ internal static class Llrp101TagReportTranslator
                 tag.TagSeenCount?.TagCount,
                 tag.AccessSpecID?.AccessSpecID_2,
                 TranslateAccessResults(tag.AccessCommandOpSpecResultItems),
-                EpcBitLength: epcBitLength);
+                EpcBitLength: epcBitLength,
+                PcBits: GetPcBits(tag.AirProtocolTagDataItems));
             reports[index] = new TranslatedTagReport(translated, tag.CustomItems);
         }
 
         return reports;
+    }
+
+    private static ushort? GetPcBits(IReadOnlyList<IAirProtocolTagData> items)
+    {
+        return items.OfType<C1G2_PC>().FirstOrDefault()?.PC_Bits;
     }
 
     private static (ReadOnlyMemory<byte> Bytes, int BitLength) GetElectronicProductCode(IEPCParameter parameter)

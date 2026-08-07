@@ -38,6 +38,8 @@ internal sealed class ScriptedLlrpTransport : ILlrpTransport
 
     public Func<uint, byte[]?>? CapabilityResponseFactory { get; set; }
 
+    public Func<uint, byte[]?>? ReaderConfigResponseFactory { get; set; }
+
     public IReadOnlyCollection<byte[]> SentFrames => _sentFrameSnapshot.ToArray();
 
     public async ValueTask ConnectAsync(CancellationToken cancellationToken = default)
@@ -102,6 +104,16 @@ internal sealed class ScriptedLlrpTransport : ILlrpTransport
         else if (AutoRespondToCapabilities && header.MessageType == V101Messages.GET_ACCESSSPECS.MessageType && OnSendAsync is null)
         {
             EnqueueFrame(LlrpTestFrames.GetAccessSpecsResponseFrame(header.MessageId));
+        }
+        else if (AutoRespondToCapabilities && header.MessageType == V101Messages.GET_READER_CONFIG.MessageType && OnSendAsync is null)
+        {
+            byte[]? configResponse = ReaderConfigResponseFactory is null
+                ? LlrpTestFrames.GetReaderConfigResponseFrame(header.MessageId)
+                : ReaderConfigResponseFactory(header.MessageId);
+            if (configResponse is not null)
+            {
+                EnqueueFrame(configResponse);
+            }
         }
 
         Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask>? handler = OnSendAsync;

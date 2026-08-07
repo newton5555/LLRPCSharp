@@ -4,6 +4,9 @@
 artifacts/
 TestResults/
 coverage/
+# 文档型 coverage 目录(完成度审计)需要跟踪,不受测试覆盖率规则影响。
+!docs/coverage/
+!docs/coverage/**
 docs/plans/
 
 # IDE and user files

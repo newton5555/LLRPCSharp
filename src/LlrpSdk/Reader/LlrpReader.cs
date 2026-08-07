@@ -52,6 +52,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private InventorySession? _inventorySession;
     private int _nextManagedAccessSpecId = 24000;
     private int _connectionState = (int)ReaderConnectionState.Disconnected;
+    private int _deviceInitiatedClose;
     private int _managedStateIsSynchronized = 1;
     private int _operationState = (int)ReaderOperationState.Idle;
     private int _resourceMode = (int)ReaderResourceMode.Idle;
@@ -292,6 +293,12 @@ public sealed class LlrpReader : IAsyncDisposable
     public event EventHandler<ReportBufferWarningEventArgs>? ReportBufferWarning;
 
     /// <summary>
+    /// Occurs when the reader reports an internal exception (ReaderExceptionEvent), for example an RF or command
+    /// execution failure. The event carries the reader-supplied message and optional ROSpec/AccessSpec context.
+    /// </summary>
+    public event EventHandler<ReaderExceptionEventArgs>? ReaderExceptionOccurred;
+
+    /// <summary>
     /// Occurs when the SDK's connection-level tag-report stream dropped reports because the bounded buffer was full
     /// (DropOldest policy). Distinct from <see cref="ReportBufferOverflow"/>, which is the reader's own buffer event.
     /// </summary>
@@ -319,6 +326,7 @@ public sealed class LlrpReader : IAsyncDisposable
             }
 
             InvalidateMetadata();
+            Volatile.Write(ref _deviceInitiatedClose, 0);
             SelectProtocolAdapter(LlrpProtocolVersion.Version101);
 
             if (ConnectionState == ReaderConnectionState.Ready)
@@ -559,6 +567,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             ThrowIfDisposed();
             InvalidateMetadata();
+            Volatile.Write(ref _deviceInitiatedClose, 0);
             SelectProtocolAdapter(LlrpProtocolVersion.Version101);
             AddTransition(transitions, ReaderConnectionState.Reconnecting);
             try
@@ -581,6 +590,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Ready);
                 await SynchronizeManagedStateOnReconnectAsync(cancellationToken).ConfigureAwait(false);
+                await EnsureEventsAndReportsEnabledOnReconnectAsync(cancellationToken).ConfigureAwait(false);
                 StartKeepaliveMonitor();
             }
             catch (Exception exception)
@@ -706,6 +716,40 @@ public sealed class LlrpReader : IAsyncDisposable
         }
 
         Volatile.Write(ref _managedStateIsSynchronized, 1);
+    }
+
+    private async Task EnsureEventsAndReportsEnabledOnReconnectAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            ReaderConfiguration configuration = await QueryConfigurationCoreAsync(cancellationToken).ConfigureAwait(false);
+            if (!configuration.HoldEventsAndReportsUponReconnect)
+            {
+                return;
+            }
+
+            // The reader is holding events and reports after this reconnect (the application configured
+            // HoldEventsAndReportsUponReconnect=true); release them now that managed state is synchronized.
+            ILlrpMessage enableMessage = NegotiatedVersion switch
+            {
+                LlrpProtocolVersion.Version101 => new V101Messages.ENABLE_EVENTS_AND_REPORTS(_messageIds.Next()),
+                LlrpProtocolVersion.Version11 => new V11Messages.ENABLE_EVENTS_AND_REPORTS(_messageIds.Next()),
+                _ => throw new NotSupportedException(
+                    $"No ENABLE_EVENTS_AND_REPORTS encoder is available for LLRP {NegotiatedVersion}."),
+            };
+            byte[] enableFrame = _registry.EncodeMessage(NegotiatedVersion, enableMessage);
+            await _session.SendFrameAsync(enableFrame, cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Released held events and reports after reconnect on connection {ConnectionId}",
+                ConnectionId);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to release held events and reports after reconnect on connection {ConnectionId}",
+                ConnectionId);
+        }
     }
 
     /// <summary>
@@ -1953,6 +1997,18 @@ public sealed class LlrpReader : IAsyncDisposable
                             .SendFrameAsync(acknowledgement, cancellationToken)
                             .ConfigureAwait(false);
                     }
+                    else if (message is V101Messages.CLOSE_CONNECTION v101Close)
+                    {
+                        Volatile.Write(ref _deviceInitiatedClose, 1);
+                        await SendCloseConnectionAcknowledgmentAsync(v101Close.MessageId, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else if (message is V11Messages.CLOSE_CONNECTION v11Close)
+                    {
+                        Volatile.Write(ref _deviceInitiatedClose, 1);
+                        await SendCloseConnectionAcknowledgmentAsync(v11Close.MessageId, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
                     else if (message is V101Messages.READER_EVENT_NOTIFICATION v101Notification)
                     {
                         ProcessReaderEventNotification(v101Notification);
@@ -2047,7 +2103,11 @@ public sealed class LlrpReader : IAsyncDisposable
             _pumpTask = null;
             ResetManagedInventoryState();
             InvalidateMetadata();
-            AddTransition(transitions, ReaderConnectionState.Faulted, failure);
+            AddTransition(
+                transitions,
+                ReaderConnectionState.Faulted,
+                failure,
+                Volatile.Read(ref _deviceInitiatedClose) != 0);
             scheduleAutomaticReconnect = Options.AutomaticReconnect is not null;
             try
             {
@@ -2075,6 +2135,37 @@ public sealed class LlrpReader : IAsyncDisposable
         if (scheduleAutomaticReconnect)
         {
             StartAutomaticReconnect();
+        }
+    }
+
+    private async Task SendCloseConnectionAcknowledgmentAsync(
+        uint messageId,
+        CancellationToken cancellationToken)
+    {
+        ILlrpMessage responseMessage = NegotiatedVersion switch
+        {
+            LlrpProtocolVersion.Version101 => new V101Messages.CLOSE_CONNECTION_RESPONSE(
+                messageId,
+                new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null)),
+            LlrpProtocolVersion.Version11 => new V11Messages.CLOSE_CONNECTION_RESPONSE(
+                messageId,
+                new V11Parameters.LLRPStatus(V11Enumerations.StatusCode.M_Success, string.Empty, null, null)),
+            _ => throw new NotSupportedException(
+                $"No CLOSE_CONNECTION_RESPONSE encoder is available for LLRP {NegotiatedVersion}."),
+        };
+        try
+        {
+            byte[] responseFrame = _registry.EncodeMessage(NegotiatedVersion, responseMessage);
+            await _session.SendFrameAsync(responseFrame, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Best-effort acknowledgment: the reader may close the TCP connection immediately after sending
+            // CLOSE_CONNECTION, so a failed reply must not surface as an additional pump failure.
+            _logger.LogDebug(
+                exception,
+                "Failed to acknowledge a reader-initiated CLOSE_CONNECTION for connection {ConnectionId}",
+                ConnectionId);
         }
     }
 
@@ -3136,7 +3227,8 @@ public sealed class LlrpReader : IAsyncDisposable
     private void AddTransition(
         ICollection<StateTransition> transitions,
         ReaderConnectionState newState,
-        Exception? error = null)
+        Exception? error = null,
+        bool deviceInitiatedClose = false)
     {
         ReaderConnectionState previousState = ConnectionState;
         if (previousState == newState)
@@ -3145,7 +3237,7 @@ public sealed class LlrpReader : IAsyncDisposable
         }
 
         Volatile.Write(ref _connectionState, (int)newState);
-        transitions.Add(new StateTransition(previousState, newState, error));
+        transitions.Add(new StateTransition(previousState, newState, error, deviceInitiatedClose));
     }
 
     private void PublishTransitions(IEnumerable<StateTransition> transitions)
@@ -3159,7 +3251,8 @@ public sealed class LlrpReader : IAsyncDisposable
                     new ReaderConnectionChangedEventArgs(
                         transition.PreviousState,
                         transition.CurrentState,
-                        transition.Error));
+                        transition.Error,
+                        transition.DeviceInitiatedClose));
             }
             catch (Exception exception)
             {
@@ -3256,6 +3349,10 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             PublishReportBufferWarning(warning.ReportBufferPercentageFull);
         }
+        if (data.ReaderExceptionEvent is { } readerException)
+        {
+            PublishReaderException(readerException);
+        }
     }
 
     private void ProcessReaderEventNotification(V11Messages.READER_EVENT_NOTIFICATION msg)
@@ -3284,6 +3381,10 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             PublishReportBufferWarning(warning.ReportBufferPercentageFull);
         }
+        if (data.ReaderExceptionEvent is { } readerException)
+        {
+            PublishReaderException(readerException);
+        }
     }
 
     private void PublishGpiChanged(ushort portNumber, bool state)
@@ -3295,6 +3396,54 @@ public sealed class LlrpReader : IAsyncDisposable
         catch (Exception exception)
         {
             _logger.LogError(exception, "A reader GPI event subscriber failed for connection {ConnectionId}", ConnectionId);
+        }
+    }
+
+    private void PublishReaderException(V101Parameters.ReaderExceptionEvent exception)
+    {
+        try
+        {
+            ReaderExceptionOccurred?.Invoke(
+                this,
+                new ReaderExceptionEventArgs(
+                    exception.Message,
+                    exception.ROSpecID?.ROSpecID_2,
+                    exception.SpecIndex?.SpecIndex_2,
+                    exception.InventoryParameterSpecID?.InventoryParameterSpecID_2,
+                    exception.AntennaID?.AntennaID_2,
+                    exception.AccessSpecID?.AccessSpecID_2,
+                    exception.OpSpecID?.OpSpecID_2));
+        }
+        catch (Exception subscriberFailure)
+        {
+            _logger.LogError(
+                subscriberFailure,
+                "A reader exception event subscriber failed for connection {ConnectionId}",
+                ConnectionId);
+        }
+    }
+
+    private void PublishReaderException(V11Parameters.ReaderExceptionEvent exception)
+    {
+        try
+        {
+            ReaderExceptionOccurred?.Invoke(
+                this,
+                new ReaderExceptionEventArgs(
+                    exception.Message,
+                    exception.ROSpecID?.ROSpecID_2,
+                    exception.SpecIndex?.SpecIndex_2,
+                    exception.InventoryParameterSpecID?.InventoryParameterSpecID_2,
+                    exception.AntennaID?.AntennaID_2,
+                    exception.AccessSpecID?.AccessSpecID_2,
+                    exception.OpSpecID?.OpSpecID_2));
+        }
+        catch (Exception subscriberFailure)
+        {
+            _logger.LogError(
+                subscriberFailure,
+                "A reader exception event subscriber failed for connection {ConnectionId}",
+                ConnectionId);
         }
     }
 
@@ -3463,6 +3612,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private readonly record struct StateTransition(
         ReaderConnectionState PreviousState,
         ReaderConnectionState CurrentState,
-        Exception? Error);
+        Exception? Error,
+        bool DeviceInitiatedClose);
 
 }

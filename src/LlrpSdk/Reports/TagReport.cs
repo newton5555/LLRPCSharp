@@ -26,7 +26,8 @@ public sealed record TagReport(
     uint? AccessSpecId,
     IReadOnlyList<TagAccessOperationResult>? AccessOperationResults = null,
     IReadOnlyDictionary<string, object?>? Extensions = null,
-    int? EpcBitLength = null)
+    int? EpcBitLength = null,
+    ushort? PcBits = null)
 {
     /// <summary>
     /// Gets the EPC as an uppercase hexadecimal string, or <see cref="string.Empty"/> when no EPC is present.

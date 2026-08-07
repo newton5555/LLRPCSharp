@@ -61,7 +61,9 @@ public sealed class TagReportTests
         Assert.Equal("E2801191000000000000000100", tag.EpcHex);
     }
 
-    private static TagReportData CreateTagReportData(IEPCParameter epc) => new(
+    private static TagReportData CreateTagReportData(
+        IEPCParameter epc,
+        IReadOnlyList<IAirProtocolTagData>? airProtocolTagDataItems = null) => new(
         epc,
         ROSpecID: null,
         SpecIndex: null,
@@ -74,10 +76,30 @@ public sealed class TagReportTests
         LastSeenTimestampUTC: null,
         LastSeenTimestampUptime: null,
         TagSeenCount: null,
-        AirProtocolTagDataItems: [],
+        AirProtocolTagDataItems: airProtocolTagDataItems ?? [],
         AccessSpecID: null,
         AccessCommandOpSpecResultItems: [],
         CustomItems: []);
+
+    [Fact]
+    public void Translate_WithPcBits_ExposesPc()
+    {
+        // PC word 0x3000: EPC-length encoding 0b110 -> 7 words (112-bit EPC); SDK exposes the raw PC bits.
+        var report = new V101.RO_ACCESS_REPORT(
+            1,
+            TagReportDataItems:
+            [
+                CreateTagReportData(
+                    new EPC_96(new byte[] { 0xE2, 0x80, 0x11, 0x91, 0, 0, 0, 0, 0, 0, 0, 1 }),
+                    airProtocolTagDataItems: [new C1G2_PC(0x3000)]),
+            ],
+            RFSurveyReportDataItems: [],
+            CustomItems: []);
+
+        TagReport tag = Assert.Single(Llrp101TagReportTranslator.Translate(report)).Report;
+
+        Assert.Equal((ushort)0x3000, tag.PcBits);
+    }
 
     private static IReadOnlyList<bool> BuildBits(int bitLength, byte[] bytes)
     {

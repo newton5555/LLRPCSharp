@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
+using System.Linq;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Session;
 using LlrpSdk.Tests.Support;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 
 namespace LlrpSdk.Tests;
 
@@ -166,11 +168,101 @@ public sealed class LlrpReaderLifecycleTests
             exception.Message);
     }
 
+    [Fact]
+    public async Task Reconnect_WithHoldConfigured_SendsEnableEventsAndReports()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport
+        {
+            ReaderConfigResponseFactory = messageId => LlrpTestFrames.GetReaderConfigResponseFrame(
+                messageId,
+                new V101Parameters.EventsAndReports(HoldEventsAndReportsUponReconnect: true)),
+        };
+        await using var reader = CreateReader(transport);
+        var faulted = new TaskCompletionSource<ReaderConnectionChangedEventArgs>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        reader.ConnectionChanged += (_, args) =>
+        {
+            if (args.CurrentState == ReaderConnectionState.Faulted)
+            {
+                faulted.TrySetResult(args);
+            }
+        };
+
+        await reader.ConnectAsync(timeout.Token);
+        transport.EnqueueFailure(new IOException("simulated receive failure"));
+        await faulted.Task.WaitAsync(timeout.Token);
+        Assert.Equal(ReaderConnectionState.Faulted, reader.ConnectionState);
+
+        await reader.ReconnectAsync(timeout.Token);
+        Assert.Equal(ReaderConnectionState.Ready, reader.ConnectionState);
+
+        // With HoldEventsAndReportsUponReconnect=true on the device, the SDK must release held
+        // events/reports by sending ENABLE_EVENTS_AND_REPORTS after reconnecting.
+        Assert.Contains(
+            transport.SentFrames,
+            frame => LlrpMessageHeader.Decode(frame).MessageType ==
+                V101Messages.ENABLE_EVENTS_AND_REPORTS.MessageType);
+    }
+
     internal static LlrpReader CreateReader(ScriptedLlrpTransport transport)
     {
         LlrpReaderOptions options = new LlrpReaderOptionsBuilder("scripted.local")
             .WithTransportFactory(_ => transport)
             .Build();
         return new LlrpReader(options);
+    }
+
+    [Fact]
+    public async Task Receive_CloseConnection_FlagsDeviceInitiatedCloseAndAcknowledges()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using var reader = CreateReader(transport);
+        var faulted = new TaskCompletionSource<ReaderConnectionChangedEventArgs>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        reader.ConnectionChanged += (_, args) =>
+        {
+            if (args.CurrentState == ReaderConnectionState.Faulted)
+            {
+                faulted.TrySetResult(args);
+            }
+        };
+
+        await reader.ConnectAsync(timeout.Token);
+        transport.EnqueueFrame(LlrpTestFrames.CloseConnectionFrame(7));
+        // The reader closes the TCP connection shortly after sending CLOSE_CONNECTION; wait for the SDK's
+        // acknowledgment to be sent before simulating the link loss (mirrors the real-device ordering).
+        byte[]? acknowledgment = await WaitForSentFrameAsync(
+            transport,
+            frame => LlrpMessageHeader.Decode(frame).MessageType ==
+                V101Messages.CLOSE_CONNECTION_RESPONSE.MessageType,
+            timeout.Token);
+        transport.EnqueueFailure(new IOException("simulated close after CLOSE_CONNECTION"));
+
+        ReaderConnectionChangedEventArgs transition = await faulted.Task.WaitAsync(timeout.Token);
+        Assert.Equal(ReaderConnectionState.Ready, transition.PreviousState);
+        Assert.True(transition.DeviceInitiatedClose);
+        Assert.NotNull(acknowledgment);
+    }
+
+    private static async Task<byte[]?> WaitForSentFrameAsync(
+        ScriptedLlrpTransport transport,
+        Func<byte[], bool> predicate,
+        CancellationToken cancellationToken)
+    {
+        DateTime deadline = DateTime.UtcNow.AddSeconds(2);
+        while (DateTime.UtcNow < deadline)
+        {
+            byte[]? match = transport.SentFrames.FirstOrDefault(predicate);
+            if (match is not null)
+            {
+                return match;
+            }
+
+            await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+        }
+
+        return null;
     }
 }

@@ -35,6 +35,16 @@
 ### 托管 Reader SDK
 
 - `LlrpReader` 负责连接、协议协商、能力初始化和生命周期管理。
+- `ReaderCapabilities` 暴露 LLRP 标准能力门控:`SupportsClientRequestOpSpec`
+  （客户端请求式访问）与 `CanDoRfSurvey`（RF 调查）。SDK 本身不实现这两种
+  访问模式，仅提供门控;R430 固件 6.4.1.240 实测两者均为 false。
+- 收到设备主动关闭（`CLOSE_CONNECTION` 消息）时回 `CLOSE_CONNECTION_RESPONSE`
+  并在 `ConnectionChanged` 事件携带 `DeviceInitiatedClose` 标记,应用可区分
+  “设备主动关闭”与“网络故障”。主动断开仍直接关 TCP。
+- `ReaderExceptionOccurred` 事件暴露 Reader 内部异常（ReaderExceptionEvent）:
+  Message + ROSpec/SpecIndex/天线/AccessSpec 上下文,用于故障诊断。
+- `TagReport.PcBits` 暴露标签 PC 字（C1G2_PC）:EPC 长度/编码类型信息,
+  变长 EPC 场景必须依赖它;配合 `InventoryReportSettings.IncludePcBits` 请求。
 - `ReaderSettings` 是托管配置模型；支持 Reader Defaults、Generic Defaults、
   查询事实、编辑、校验、应用、序列化和清理。
 - `StartInventoryAsync()` 返回独立的 `InventorySession`；
@@ -71,6 +81,10 @@
   若 SDK 托管 ROSpec 仍在则保留会话继续接收报告；若已丢失（如设备重启清空配置）
   则结束旧会话并回到 Idle，由应用显式重建期望状态。只对齐设备现状，不会重放
   应用之前的期望配置。
+- 重连后若设备配置了 `HoldEventsAndReportsUponReconnect=true`，SDK 会在状态同步
+  完成后发送 `ENABLE_EVENTS_AND_REPORTS` 释放被挂起的事件/报告（内部逻辑，不新增
+  公开 API；hold 未配置时不发送）。已由 `LlrpSdk.Hardware.Tests` 真机验证
+  （Impinj R430 固件 6.4.1.240）。
 
 ### 协议与扩展
 
@@ -81,6 +95,11 @@
 
 ## 当前缺口
 
+- LLRP 1.0.1 完成度审计:协议层 42 消息 / 111 参数全覆盖,SDK 层 42/42 消息
+  有业务路径或已定案（`CLIENT_REQUEST_OP` 经实机实测设备不支持,SDK 不接线、
+  仅提供 `SupportsClientRequestOpSpec` 门控）;`ReaderExceptionEvent` 已暴露为
+  `ReaderExceptionOccurred`,`TagReport.PcBits` 已投影。详见
+  [coverage/llrp101-sdk-coverage.md](coverage/llrp101-sdk-coverage.md)。
 - 没有 LLRP 2.0 Adapter 和完整互操作闭环。
 - 其他厂商/型号/固件的扩展能力目录仍需按实测证据补充。
 - Virtual Reader 不模拟真实射频、跨进程持久化或全部设备配置行为。

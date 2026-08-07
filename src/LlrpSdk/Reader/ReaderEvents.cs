@@ -11,14 +11,17 @@ public sealed class ReaderConnectionChangedEventArgs : EventArgs
     /// <param name="previousState">The state before the transition.</param>
     /// <param name="currentState">The state after the transition.</param>
     /// <param name="error">The failure that caused the transition, when applicable.</param>
+    /// <param name="deviceInitiatedClose">Whether the reader itself requested the connection close.</param>
     internal ReaderConnectionChangedEventArgs(
         ReaderConnectionState previousState,
         ReaderConnectionState currentState,
-        Exception? error)
+        Exception? error,
+        bool deviceInitiatedClose = false)
     {
         PreviousState = previousState;
         CurrentState = currentState;
         Error = error;
+        DeviceInitiatedClose = deviceInitiatedClose;
         Timestamp = DateTimeOffset.UtcNow;
     }
 
@@ -36,6 +39,16 @@ public sealed class ReaderConnectionChangedEventArgs : EventArgs
     /// Gets the failure that caused the transition, if any.
     /// </summary>
     public Exception? Error { get; }
+
+    /// <summary>
+    /// Gets whether the reader itself requested the connection close by sending a CLOSE_CONNECTION message.
+    /// </summary>
+    /// <remarks>
+    /// When <see langword="true"/> the transition was caused by a device-initiated graceful close (for example a
+    /// reader restart or an administrative action) rather than by a network failure; applications can use this to
+    /// distinguish intentional device shutdown from unexpected link loss.
+    /// </remarks>
+    public bool DeviceInitiatedClose { get; }
 
     /// <summary>
     /// Gets the UTC time at which the SDK recorded the transition.
@@ -115,6 +128,55 @@ public sealed class AntennaChangedEventArgs : EventArgs
     public bool IsConnected { get; }
 
     /// <summary>Gets when the SDK observed the event.</summary>
+    public DateTimeOffset Timestamp { get; }
+}
+
+/// <summary>
+/// Describes a reader-internal exception notification (ReaderExceptionEvent) from the reader.
+/// </summary>
+public sealed class ReaderExceptionEventArgs : EventArgs
+{
+    internal ReaderExceptionEventArgs(
+        string message,
+        uint? roSpecId,
+        ushort? specIndex,
+        ushort? inventoryParameterSpecId,
+        ushort? antennaId,
+        uint? accessSpecId,
+        ushort? opSpecId)
+    {
+        Message = message;
+        ROSpecId = roSpecId;
+        SpecIndex = specIndex;
+        InventoryParameterSpecId = inventoryParameterSpecId;
+        AntennaId = antennaId;
+        AccessSpecId = accessSpecId;
+        OpSpecId = opSpecId;
+        Timestamp = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Gets the reader-supplied exception description.</summary>
+    public string Message { get; }
+
+    /// <summary>Gets the ROSpec the exception occurred in, when the reader supplied one.</summary>
+    public uint? ROSpecId { get; }
+
+    /// <summary>Gets the spec index within the ROSpec, when supplied.</summary>
+    public ushort? SpecIndex { get; }
+
+    /// <summary>Gets the inventory parameter spec identifier, when supplied.</summary>
+    public ushort? InventoryParameterSpecId { get; }
+
+    /// <summary>Gets the antenna the exception is associated with, when supplied.</summary>
+    public ushort? AntennaId { get; }
+
+    /// <summary>Gets the access spec identifier, when supplied.</summary>
+    public uint? AccessSpecId { get; }
+
+    /// <summary>Gets the op spec identifier, when supplied.</summary>
+    public ushort? OpSpecId { get; }
+
+    /// <summary>Gets the UTC time at which the SDK observed the exception.</summary>
     public DateTimeOffset Timestamp { get; }
 }
 

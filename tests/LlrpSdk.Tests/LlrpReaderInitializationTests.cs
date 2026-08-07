@@ -572,6 +572,52 @@ public sealed class LlrpReaderInitializationTests
         };
     }
 
+    [Fact]
+    public async Task Capabilities_ExposesSupportsClientRequestOpSpecGate()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponseWithLlrpCapabilities(
+                messageId,
+                new LLRPCapabilities(
+                    CanDoRFSurvey: true,
+                    CanReportBufferFillWarning: true,
+                    SupportsClientRequestOpSpec: true,
+                    CanDoTagInventoryStateAwareSingulation: false,
+                    SupportsEventAndReportHolding: false,
+                    MaxNumPriorityLevelsSupported: 0,
+                    ClientRequestOpSpecTimeout: 2000,
+                    MaxNumROSpecs: 100,
+                    MaxNumSpecsPerROSpec: 10,
+                    MaxNumInventoryParameterSpecsPerAISpec: 10,
+                    MaxNumAccessSpecs: 100,
+                    MaxNumOpSpecsPerAccessSpec: 10)),
+        };
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        ReaderCapabilities capabilities = Assert.IsType<ReaderCapabilities>(reader.Capabilities);
+        Assert.True(capabilities.SupportsClientRequestOpSpec);
+        Assert.True(capabilities.CanDoRfSurvey);
+    }
+
+    [Fact]
+    public async Task Capabilities_WithoutLlrpCapabilities_ExposesFalseClientRequestOpSpecGate()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponse(messageId),
+        };
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        ReaderCapabilities capabilities = Assert.IsType<ReaderCapabilities>(reader.Capabilities);
+        Assert.False(capabilities.SupportsClientRequestOpSpec);
+        Assert.False(capabilities.CanDoRfSurvey);
+    }
+
     private static LlrpReader CreateReader(
         ScriptedLlrpTransport transport,
         TimeSpan? requestTimeout = null)
