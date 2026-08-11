@@ -40,12 +40,14 @@ public sealed class LlrpCliApplicationTests
 
         Assert.Equal(LiveSettingsHandler.Usage, config.Usage);
         Assert.Contains("show", assist.Candidates, StringComparer.Ordinal);
+        Assert.Contains("default", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("edit", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("validate", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("load", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("save", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("discard", assist.Candidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("draft", assist.Candidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("discard", assist.Candidates, StringComparer.Ordinal);
         Assert.DoesNotContain("get", config.CompletionCandidates, StringComparer.Ordinal);
         Assert.DoesNotContain("wizard", config.CompletionCandidates, StringComparer.Ordinal);
         Assert.DoesNotContain("export", config.CompletionCandidates, StringComparer.Ordinal);

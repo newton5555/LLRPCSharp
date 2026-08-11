@@ -788,7 +788,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             "[grey][cyan1]rospec list[/] / [cyan1]start[/] / [cyan1]stop[/] / [cyan1]caps[/] / [cyan1]status[/][/]");
         grid.AddRow(
             "[bold yellow1]🏷️ 托管盘点流[/]",
-            "[grey][cyan1]settings edit → validate → apply --yes[/] 部署意图；[cyan1]inventory start|stop[/] 控制托管盘点[/]");
+            "[grey][cyan1]settings apply <file> --yes[/] 或 [cyan1]settings defaults --yes[/] 部署意图；[cyan1]inventory start|stop[/] 控制托管盘点[/]");
         grid.AddRow(
             "[bold cyan1]📡 被动推流监听[/]",
             "[grey][cyan1]monitor 10[/] 纯被动接收打印 10 秒 TCP 回调帧[/]");
@@ -824,7 +824,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("  [cyan1]disconnect[/]", "断开当前读写器 TCP 会话");
         table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
         table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");
-        table.AddRow("  [cyan1]settings show|edit|validate|apply|load|save|discard[/]", "查看、编辑、校验和应用唯一的 ReaderSettings 草稿");
+        table.AddRow("  [cyan1]settings show|defaults|edit|validate|apply|load|save[/]", "查看、编辑、校验和应用 ReaderSettings；应用必须显式确认");
 
         // 分组 2: 高层托管盘点 (Managed Inventory)
         table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
@@ -887,11 +887,12 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             optionsTable.AddColumn("[bold grey70]Type / Format[/]");
             optionsTable.AddColumn("[bold grey70]Description[/]");
 
-            optionsTable.AddRow(Markup.Escape("show [reader|draft|defaults] [--json]"), "Command", "Read one explicit settings source");
-            optionsTable.AddRow(Markup.Escape("edit [--from defaults|reader|generic]"), "Command", "Edit the local settings draft");
-            optionsTable.AddRow(Markup.Escape("validate [file]"), "Command", "Validate a draft or file against the connected reader");
-            optionsTable.AddRow(Markup.Escape("apply [file] --yes"), "Command", "Validate, apply, and query the deployed result");
-            optionsTable.AddRow("load/save/discard", "Command", "Manage the local settings draft or JSON file");
+            optionsTable.AddRow(Markup.Escape("show [--json]"), "Command", "Read the connected reader settings");
+            optionsTable.AddRow(Markup.Escape("defaults|default [--json|--yes]"), "Command", "Show or explicitly apply SDK/vendor defaults");
+            optionsTable.AddRow(Markup.Escape("edit [--from defaults|<file>]"), "Command", "Interactively edit and optionally apply settings");
+            optionsTable.AddRow(Markup.Escape("validate <file>"), "Command", "Validate a settings file against the connected reader");
+            optionsTable.AddRow(Markup.Escape("apply <file> --yes"), "Command", "Validate, apply, and query a settings file");
+            optionsTable.AddRow("load/save", "Command", "Load or save a settings JSON file");
 
             _console.Write(new Panel(optionsTable)
                 .Header("[bold yellow] settings [/]")

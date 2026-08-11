@@ -27,7 +27,7 @@
 | 托管 Reader SDK | 可用 | `ReaderSettings`、校验、应用、托管盘点和报告流已接入。 |
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
-| CLI | 可用 | Live Shell、一次性 `inventory`、settings 草稿和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
+| CLI | 可用 | Live Shell、一次性 `inventory`、简化 Settings 应用流程和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
 | Virtual Reader | 测试基线 | 覆盖核心 1.0.1 生命周期、报告和部分 AccessSpec 场景，不模拟真实射频。 |
 
 ## 已实现的应用能力
@@ -64,8 +64,9 @@
 
 - Live Shell 提供 `connect`、`status`、`caps`、`settings`、`inventory` 和
   `tag` 等操作。
-- `settings show|edit|validate|apply|load|save|discard` 区分设备事实、本地草稿
-  和写入动作。
+- `settings show|defaults|edit|validate|apply|load|save` 提供简化的设置查看、编辑、
+  校验和写入；`settings apply <file> --yes` 与 `settings defaults --yes` 是唯一的
+  显式批量应用入口，不维护 CLI 草稿状态。
 - 根级一次性 `inventory <host>` 与 Live Shell 共用 SDK 和 Settings 工作流，
   默认输出适合 Agent 使用的 JSON。
 - `inspect`、`decode`、`validate`、`encode` 为离线协议诊断命令。

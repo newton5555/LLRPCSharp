@@ -6,7 +6,7 @@ namespace LlrpCli.Commands;
 /// <summary>Implements the stable Live Shell settings command contract.</summary>
 internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionContext session)
 {
-    public const string Usage = "settings show [--json] | defaults [--json] | edit [--from defaults|<file>] | load <file> [--apply] | save <file> | validate <file>";
+    public const string Usage = "settings show [--json] | defaults|default [--json|--yes] | edit [--from defaults|<file>] | validate <file> | apply <file> --yes | load <file> [--apply] | save <file>";
 
     public async Task HandleAsync(string[] tokens, CancellationToken cancellationToken)
     {
@@ -22,6 +22,7 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
                 await ShowAsync(reader, tokens, cancellationToken).ConfigureAwait(false);
                 return;
             case "defaults":
+            case "default":
                 await DefaultsAsync(reader, tokens, cancellationToken).ConfigureAwait(false);
                 return;
             case "edit":
@@ -35,6 +36,9 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
                 return;
             case "validate":
                 await ValidateAsync(reader, tokens, cancellationToken).ConfigureAwait(false);
+                return;
+            case "apply":
+                await ApplyAsync(reader, tokens, cancellationToken).ConfigureAwait(false);
                 return;
             default:
                 throw new CliUsageException(Usage);
@@ -63,13 +67,21 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
     private async Task DefaultsAsync(LlrpReader reader, string[] tokens, CancellationToken cancellationToken)
     {
         bool json = tokens.Any(static token => token.Equals("--json", StringComparison.OrdinalIgnoreCase));
-        if (tokens.Length > 3 || (tokens.Length == 3 && !json))
+        bool apply = tokens.Any(static token => token.Equals("--yes", StringComparison.OrdinalIgnoreCase));
+        if (tokens.Length > 3 || (tokens.Length == 3 && !json && !apply) || (json && apply))
         {
-            throw new CliUsageException("Usage: settings defaults [--json]");
+            throw new CliUsageException("Usage: settings defaults|default [--json|--yes]");
         }
 
         ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync(cancellationToken).ConfigureAwait(false);
-        if (json)
+        if (apply)
+        {
+            SettingsRenderer.RenderApplyImpact(console, defaults.Settings);
+            ReaderSettingsSnapshot deployed = await ManagedSettingsWorkflow.ApplyAsync(reader, defaults.Settings, cancellationToken).ConfigureAwait(false);
+            SettingsRenderer.RenderSummary(console, "Applied default reader settings", deployed.Settings, deployed.ManagedRoSpec?.State);
+            console.MarkupLine("[bold springgreen2]✔ Default settings applied. Inventory remains Disabled until 'inventory start'.[/]");
+        }
+        else if (json)
         {
             SettingsRenderer.RenderJson(console, reader, defaults.Settings);
         }
@@ -107,7 +119,7 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
 
         if (result.Action == EditorResultAction.Discard)
         {
-            console.MarkupLine("[bold springgreen2]✔ Edit discarded.[/]");
+            console.MarkupLine("[bold springgreen2]✔ Edit cancelled.[/]");
             return;
         }
 
@@ -199,6 +211,32 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         ReaderSettings settings = ManagedSettingsWorkflow.Load(reader, path);
         SettingsValidationResult result = await ManagedSettingsWorkflow.ValidateAsync(reader, settings, cancellationToken).ConfigureAwait(false);
         SettingsRenderer.RenderValidation(console, result);
+    }
+
+    private async Task ApplyAsync(LlrpReader reader, string[] tokens, CancellationToken cancellationToken)
+    {
+        bool confirmed = tokens.Any(static token => token.Equals("--yes", StringComparison.OrdinalIgnoreCase));
+        string[] positional = tokens.Skip(2)
+            .Where(static token => !token.Equals("--yes", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (!confirmed || positional.Length != 1)
+        {
+            throw new CliUsageException("Usage: settings apply <file> --yes");
+        }
+
+        ReaderSettings settings = ManagedSettingsWorkflow.Load(reader, positional[0]);
+        SettingsValidationResult validation = await ManagedSettingsWorkflow.ValidateAsync(reader, settings, cancellationToken).ConfigureAwait(false);
+        SettingsRenderer.RenderValidation(console, validation);
+        if (!validation.IsValid)
+        {
+            console.MarkupLine("[bold red]Apply aborted due to validation errors.[/]");
+            return;
+        }
+
+        SettingsRenderer.RenderApplyImpact(console, settings);
+        ReaderSettingsSnapshot deployed = await ManagedSettingsWorkflow.ApplyAsync(reader, settings, cancellationToken).ConfigureAwait(false);
+        SettingsRenderer.RenderSummary(console, "Applied reader settings", deployed.Settings, deployed.ManagedRoSpec?.State);
+        console.MarkupLine("[bold springgreen2]✔ Settings applied. Inventory remains Disabled until 'inventory start'.[/]");
     }
 
     private LlrpReader RequireReader()

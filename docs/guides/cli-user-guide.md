@@ -26,21 +26,21 @@ dotnet run --project src/LlrpCli
 
 ## 🔧 2. 配置编辑与下发 (Settings)
 
-Live Shell 维护了一个本地配置草稿 (Draft)，可以先编辑校验，确认无误后再下发给读写器：
+Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来源，写入动作必须显式确认：
 
 ```text
-> settings edit --from defaults   # 从当前设备推荐默认值创建草稿
-> settings show draft             # 查看当前草稿配置
-> settings validate               # 校验草稿合法性
-> settings apply --yes            # 正式下发配置到读写器
+> settings defaults               # 查看 SDK/厂商默认值
+> settings defaults --yes         # 应用默认值（保持 Inventory Disabled）
+> settings apply settings.json --yes  # 校验并应用指定文件
+> settings show                   # 重新读取设备实况
 ```
 
 ### 配置来源选项
 
-* `defaults`：连接设备的推荐配置；
-* `reader`：读写器当前正在运行的配置；
-* `generic`：通用标准协议配置；
-* `settings load <file.json>`：从本地 JSON 文件加载。
+* `defaults`：连接设备的推荐配置；加 `--yes` 才会写入设备；
+* `settings apply <file.json> --yes`：校验并应用本地 JSON 文件；
+* `settings load <file.json>`：读取并校验文件，不会写入设备；需要交互编辑时使用
+  `settings edit --from <file.json>`。
 
 ---
 

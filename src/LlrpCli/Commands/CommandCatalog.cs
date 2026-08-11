@@ -55,9 +55,9 @@ public static class CommandCatalog
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
         new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index tables.", RequiresConnection: true),
-        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, load, save, or validate high-level ReaderSettings.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, or save high-level ReaderSettings.", RequiresConnection: true)
         {
-            CompletionCandidates = ["show", "defaults", "edit", "load", "save", "validate", "--json", "--apply", "--from"],
+            CompletionCandidates = ["show", "defaults", "default", "edit", "validate", "apply", "load", "save", "--json", "--yes", "--apply", "--from"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
