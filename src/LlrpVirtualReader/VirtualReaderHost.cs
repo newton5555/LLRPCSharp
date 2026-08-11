@@ -112,7 +112,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
                     return;
                 }
                 ILlrpMessage request = registry.DecodeMessage(frame);
-                if (closeConnectionRequestMessageTypes.Contains(header.MessageType))
+                if (ShouldCloseConnection(header.MessageType))
                 {
                     return;
                 }
@@ -154,6 +154,14 @@ public sealed class VirtualReaderHost : IAsyncDisposable
                     await stream.WriteAsync(reportFrame, token).ConfigureAwait(false);
                 }
             }
+        }
+    }
+
+    private bool ShouldCloseConnection(ushort messageType)
+    {
+        lock (closeConnectionRequestMessageTypes)
+        {
+            return closeConnectionRequestMessageTypes.Remove(messageType);
         }
     }
 

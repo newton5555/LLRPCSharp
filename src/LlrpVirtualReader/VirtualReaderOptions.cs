@@ -25,7 +25,7 @@ public sealed record VirtualReaderOptions
     public IReadOnlyDictionary<ushort, VirtualReaderErrorResponse> ErrorResponseForMessageTypes { get; init; } =
         new Dictionary<ushort, VirtualReaderErrorResponse>();
 
-    /// <summary>Gets request message types after which the virtual reader closes the current TCP connection.</summary>
+    /// <summary>Gets request message types after which the virtual reader closes the current TCP connection once.</summary>
     /// <remarks>This fault is evaluated before request state is mutated or a response is written.</remarks>
     public IReadOnlySet<ushort> CloseConnectionAfterRequestMessageTypes { get; init; } = new HashSet<ushort>();
 
