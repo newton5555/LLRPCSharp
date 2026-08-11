@@ -14,10 +14,12 @@ This file records the exact protocol-definition and standards-reference versions
 | LLRP 1.1 Standard (2010-10-13) | `references/standards/llrp-1.1/llrp_1_1-standard-20101013.pdf` | `23C7BDFD382B7F76918A712EF86E8867FE6DB2262B62B7B4CB529B1B82F3F47C` | 1.1 definition and version-delta verification |
 | LLRP 1.1 Conformance (2010-10-13) | `references/standards/llrp-1.1/llrp_1_1-conformance-20101013.pdf` | `A2A09874FF0708C59B028D1E1DB2906A487D09D79209EAE0853F453B94E2B25D` | Conformance test design |
 | LLRP 2.0 Standard (2021-01-27) | `references/standards/llrp-2.0/LLRP_standard_i2_r_2021-01-27.pdf` | `C886D011086737EEAED3DBEFBCB472F5A7D6AE70B19BC26DE825D38761BBB7B1` | 2.0 delta, Gen2v2, and version-negotiation verification |
+| Zebra LLRP Interface Control Guide (English) | `references/zebra/interface-control-guide-en.pdf` | `345741D0612D80E271D37272DE5C5E51BD099DFFF20E5A11020BDA24CD3DCFA0` | Vendor-specific LLRP extensions and reader behavior reference; used when mapping Zebra custom parameters |
 
 ## Known Constraints
 
 - The core definition XML can currently be used as the main 1.0.1 import input; its file header declares Apache License 2.0.
 - XSD and definition XML differ in message counts and some field-width expressions. Binary codec generation should use the cross-check between definition XML and the standard PDF.
 - The local Impinj definition is marked confidential/proprietary and remains excluded by `.gitignore`. The hash here is only for local traceability and generation consistency; it is not redistribution permission.
+- The Zebra Interface Control Guide is a vendor reference document without a corresponding LTK `def.xml`; any Zebra-specific extensions derived from it must be authored as hand-maintained YAML definitions under `definitions/extensions/`.
 - The current input was verified from the user-provided `LTK_Impinj_Definition_Files_10_58_0.zip`. Future updates must record source version, updated hashes, and protocol regression results.
