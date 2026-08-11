@@ -27,7 +27,7 @@ internal sealed class LiveConnectionHandler(
 
         session.FrameObserver = new DelegateFrameObserver(frame =>
         {
-            if (IsTagReport(frame) && !session.IsRawFrameMonitorActive())
+            if (IsBackgroundTraffic(frame) && !session.IsRawFrameMonitorActive())
             {
                 // Live mode aggregates tag reports in its table. Outside explicit frame mode they remain captured,
                 // but do not flood the command prompt after the user leaves the monitor with Ctrl+C.
@@ -37,6 +37,21 @@ internal sealed class LiveConnectionHandler(
             if (session.TryDeferFrameDuringLiveMonitor(frame))
             {
                 return;
+            }
+
+            if (session.IsRawFrameMonitorActive() && session.MonitorFilterType is not null)
+            {
+                string? messageName = null;
+                try
+                {
+                    messageName = Helpers.CreateRegistry().DecodeMessage(frame.Bytes)?.GetType().Name;
+                }
+                catch { }
+
+                if (messageName == null || !messageName.Contains(session.MonitorFilterType, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
             }
 
             lock (session.FrameRenderLock)
@@ -116,16 +131,19 @@ internal sealed class LiveConnectionHandler(
         UpdateWindowTitle("offline");
     }
 
-    private static bool IsTagReport(CapturedFrame frame)
+    private static bool IsBackgroundTraffic(CapturedFrame frame)
     {
-        if (frame.Direction != LlrpFrameDirection.Receive)
+        if (frame.Direction != LlrpFrameDirection.Receive && frame.Direction != LlrpFrameDirection.Transmit)
         {
             return false;
         }
 
         try
         {
-            return LlrpMessageHeader.Decode(frame.Bytes).MessageType == RO_ACCESS_REPORT.MessageType;
+            uint messageType = LlrpMessageHeader.Decode(frame.Bytes).MessageType;
+            return messageType == RO_ACCESS_REPORT.MessageType ||
+                   messageType == KEEPALIVE.MessageType ||
+                   messageType == KEEPALIVE_ACK.MessageType;
         }
         catch
         {

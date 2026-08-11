@@ -25,14 +25,6 @@ internal sealed class LiveSessionContext
 
     public InventorySession? InventorySession { get; set; }
 
-    /// <summary>
-    /// Gets or sets the application's complete high-level intent draft. The CLI owns this value;
-    /// the reader owns device facts and the deployed high-level resource state.
-    /// </summary>
-    public ReaderSettings? SettingsDraft { get; set; }
-
-    /// <summary>Explains which explicit source initialized <see cref="SettingsDraft"/>.</summary>
-    public SettingsDraftInfo? DraftInfo { get; set; }
 
     public string? Host { get; set; }
 
@@ -43,11 +35,15 @@ internal sealed class LiveSessionContext
 
     public bool IsConnected => Reader?.IsConnected == true;
 
-    public void BeginMonitor(LiveMonitorMode mode)
+    public LiveMonitorMode? ActiveMonitorMode { get; private set; }
+    public string? MonitorFilterType { get; private set; }
+
+    public void BeginMonitor(LiveMonitorMode mode, string? filterType = null)
     {
         lock (monitorStateLock)
         {
             ActiveMonitorMode = mode;
+            MonitorFilterType = filterType;
         }
     }
 
@@ -84,28 +80,4 @@ internal sealed class LiveSessionContext
         }
     }
 
-    private LiveMonitorMode? ActiveMonitorMode { get; set; }
-}
-
-/// <summary>CLI-local provenance for an editable settings draft. It is never sent to a reader.</summary>
-internal sealed record SettingsDraftInfo(
-    string Source,
-    string? ProfileId = null,
-    IReadOnlyList<string>? Notes = null,
-    string? FilePath = null,
-    bool IsLocallyModified = false)
-{
-    public static SettingsDraftInfo Generic { get; } = new("SDK generic baseline", "llrp.generic");
-
-    public static SettingsDraftInfo FromDefaults(ReaderSettingsDefaults defaults, bool isLocallyModified = false) => new(
-        defaults.Source == ReaderSettingsDefaultSource.ReaderProfile ? "Reader profile" : "SDK generic baseline",
-        defaults.ProfileId,
-        defaults.Notes,
-        IsLocallyModified: isLocallyModified);
-
-    public static SettingsDraftInfo FromReader { get; } = new("Reader snapshot");
-
-    public static SettingsDraftInfo FromFile(string path) => new("Settings file", FilePath: path);
-
-    public SettingsDraftInfo MarkLocallyModified() => this with { IsLocallyModified = true };
 }

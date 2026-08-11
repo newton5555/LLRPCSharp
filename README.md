@@ -98,8 +98,8 @@ dotnet run --project src/LlrpCli
 connect 192.168.1.100   # Connect to reader
 status                  # View current connection status and protocol version
 caps                    # Query reader antenna count, TransmitPowerIndex table, & ModeIndex table
-settings edit           # Edit draft settings
-settings apply --yes    # Apply settings to reader
+settings edit           # Interactively edit and apply settings to reader
+settings show           # View currently deployed settings
 inventory start         # Start inventory scan
 inventory stop          # Stop inventory
 ```

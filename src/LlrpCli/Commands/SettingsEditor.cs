@@ -7,10 +7,19 @@ using Spectre.Console;
 
 namespace LlrpCli.Commands;
 
+internal enum EditorResultAction
+{
+    Apply,
+    SaveToFile,
+    Discard
+}
+
+internal sealed record EditorResult(ReaderSettings Settings, EditorResultAction Action);
+
 /// <summary>Interactive editor for the canonical SDK settings records.</summary>
 internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
 {
-    public ReaderSettings Edit(ReaderSettings source)
+    public EditorResult Edit(ReaderSettings source)
     {
         ArgumentNullException.ThrowIfNull(source);
         ReaderSettings working = source;
@@ -47,11 +56,13 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
                 case SettingsArea.VendorExtensions:
                     working = EditVendorExtensions(working);
                     break;
-                case SettingsArea.ReviewAndFinish:
-                    SettingsRenderer.RenderSummary(console, "Settings draft", working);
-                    return working;
-                case SettingsArea.Cancel:
-                    return source;
+                case SettingsArea.ApplyToReader:
+                    SettingsRenderer.RenderSummary(console, "Settings to apply", working);
+                    return new EditorResult(working, EditorResultAction.Apply);
+                case SettingsArea.SaveToFile:
+                    return new EditorResult(working, EditorResultAction.SaveToFile);
+                case SettingsArea.Discard:
+                    return new EditorResult(source, EditorResultAction.Discard);
             }
         }
     }
@@ -68,8 +79,9 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
             SettingsArea.AttachedData => "Attached data",
             SettingsArea.ReaderConfiguration => "Reader configuration",
             SettingsArea.VendorExtensions => "Vendor extensions",
-            SettingsArea.ReviewAndFinish => "[bold green]Review and finish[/]",
-            SettingsArea.Cancel => "[bold red]Cancel[/]",
+            SettingsArea.ApplyToReader => "[bold green]Apply to reader[/]",
+            SettingsArea.SaveToFile => "[bold blue]Save to file[/]",
+            SettingsArea.Discard => "[bold red]Discard[/]",
             _ => throw new ArgumentOutOfRangeException(nameof(area), area, null),
         };
     }
@@ -84,8 +96,9 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         AttachedData,
         ReaderConfiguration,
         VendorExtensions,
-        ReviewAndFinish,
-        Cancel,
+        ApplyToReader,
+        SaveToFile,
+        Discard,
     }
 
     private ReaderSettings EditAntennasAndRf(ReaderSettings settings)

@@ -170,10 +170,6 @@
   - **测试内容**：验证 CLI 连接指令解析。
   - **输入文本**：`connect 192.168.1.100:5084`
   - **OK 判定标准**：成功解析出 Host=`192.168.1.100`，Port=`5084`。
-* **`[Fact] Parse_SettingsCommand_UpdatesDraftState`**
-  - **测试内容**：验证 CLI 命令行草稿状态同步。
-  - **输入文本**：`settings antennas 1,2`
-  - **OK 判定标准**：CLI 内部暂存的 `DraftSettings.Antennas` 数组被成功更新为 `[1, 2]`。
 
 ---
 

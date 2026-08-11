@@ -127,22 +127,6 @@ public sealed class LlrpCliApplicationTests
         Assert.Contains("Next: connect", assist.Hint, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void CommandCatalog_SettingsApplyOffersConfirmation()
-    {
-        InputAssist assist = CommandCatalog.Assist("settings apply ", cursor: 15, isConnected: true);
-
-        Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
-    }
-
-    [Fact]
-    public void LiveSessionContext_StartsWithoutAnImplicitDraft()
-    {
-        var session = new LiveSessionContext();
-
-        Assert.Null(session.DraftInfo);
-        Assert.Null(session.SettingsDraft);
-    }
 
     [Fact]
     public void Inspect_PrintsValidatedHeaderFields()

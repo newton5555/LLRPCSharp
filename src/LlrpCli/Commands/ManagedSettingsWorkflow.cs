@@ -17,7 +17,7 @@ internal static class ManagedSettingsWorkflow
         ReaderSettingsSerializer.SaveToFile(path, settings, GetSerializationContributors(reader));
     }
 
-    public static async Task<(ReaderSettings Settings, SettingsDraftInfo Info)> ResolveSourceAsync(
+    public static async Task<ReaderSettings> ResolveSourceAsync(
         LlrpReader reader,
         string source,
         CancellationToken cancellationToken)
@@ -25,9 +25,9 @@ internal static class ManagedSettingsWorkflow
         ArgumentNullException.ThrowIfNull(reader);
         return source.ToLowerInvariant() switch
         {
-            "defaults" => FromDefaults(await reader.GetDefaultSettingsAsync(cancellationToken).ConfigureAwait(false)),
-            "reader" => FromReader(await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false)),
-            "generic" => (ReaderSettingsDefaults.CreateGeneric().Settings, SettingsDraftInfo.Generic),
+            "defaults" => (await reader.GetDefaultSettingsAsync(cancellationToken).ConfigureAwait(false)).Settings,
+            "reader" => (await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false)).Settings,
+            "generic" => ReaderSettingsDefaults.CreateGeneric().Settings,
             _ => throw new CliUsageException("Settings source must be defaults, reader, or generic."),
         };
     }
@@ -51,10 +51,4 @@ internal static class ManagedSettingsWorkflow
 
     public static IEnumerable<IReaderSettingsSerializationContributor> GetSerializationContributors(LlrpReader reader) =>
         reader.Extensions.OfType<IReaderSettingsSerializationContributor>();
-
-    private static (ReaderSettings Settings, SettingsDraftInfo Info) FromDefaults(ReaderSettingsDefaults defaults) =>
-        (defaults.Settings, SettingsDraftInfo.FromDefaults(defaults));
-
-    private static (ReaderSettings Settings, SettingsDraftInfo Info) FromReader(ReaderSettingsSnapshot snapshot) =>
-        (snapshot.Settings, SettingsDraftInfo.FromReader);
 }

@@ -48,7 +48,7 @@ internal sealed class LiveInventoryHandler(
 
                     session.InventorySession = await reader.StartInventoryAsync(cancellationToken);
                     RenderStartedSummary(session.InventorySession.Settings);
-                    await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, cancellationToken);
+                    await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, filterType: null, cancellationToken);
                     break;
                 }
 

@@ -12,26 +12,11 @@ internal static class SettingsRenderer
         IAnsiConsole console,
         string title,
         ReaderSettings settings,
-        InventoryRuntimeState? inventoryState = null,
-        SettingsDraftInfo? draftInfo = null)
+        InventoryRuntimeState? inventoryState = null)
     {
         var table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("[bold grey70]Area[/]");
         table.AddColumn("[bold grey70]Value[/]");
-
-        if (draftInfo is not null)
-        {
-            table.AddRow("Source", Markup.Escape(draftInfo.Source));
-            if (draftInfo.ProfileId is not null)
-            {
-                table.AddRow("Profile", Markup.Escape(draftInfo.ProfileId));
-            }
-            if (draftInfo.FilePath is not null)
-            {
-                table.AddRow("File", Markup.Escape(draftInfo.FilePath));
-            }
-            table.AddRow("Modified", draftInfo.IsLocallyModified ? "yes" : "no");
-        }
 
         KeepaliveConfiguration keepalive = settings.Configuration.Keepalive;
         table.AddRow("Keepalive", keepalive.TriggerType == LlrpSdk.KeepaliveTriggerType.Periodic

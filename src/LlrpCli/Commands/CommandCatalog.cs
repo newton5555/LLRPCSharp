@@ -55,9 +55,9 @@ public static class CommandCatalog
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
         new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index tables.", RequiresConnection: true),
-        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, save, or discard high-level ReaderSettings.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, load, save, or validate high-level ReaderSettings.", RequiresConnection: true)
         {
-            CompletionCandidates = ["show", "edit", "validate", "apply", "load", "save", "discard", "reader", "draft", "defaults", "generic", "--from", "--source", "--json", "--yes"],
+            CompletionCandidates = ["show", "defaults", "edit", "load", "save", "validate", "--json", "--apply", "--from"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
@@ -89,7 +89,10 @@ public static class CommandCatalog
         new("decode", LiveCommandRoute.Decode, "decode <hex>", "Decode LLRP hexadecimal payload into parameter tree."),
         new("validate", LiveCommandRoute.Validate, "validate <hex>", "Validate structural integrity of an LLRP payload."),
         new("encode", LiveCommandRoute.Encode, "encode <message-type-or-json>", "Encode message template to hex."),
-        new("monitor", LiveCommandRoute.Monitor, "monitor [live|frames] [duration-sec]", "Foreground monitor for tags or raw LLRP frames; Ctrl+C returns to the prompt.", RequiresConnection: true),
+        new("monitor", LiveCommandRoute.Monitor, "monitor [live|frames] [duration-sec] [--type MessageName]", "Foreground monitor for tags or raw LLRP frames; Ctrl+C returns to the prompt.", RequiresConnection: true)
+        {
+            CompletionCandidates = ["live", "frames", "none", "--type", "KEEPALIVE", "RO_ACCESS_REPORT", "GET_READER_CAPABILITIES_RESPONSE", "GET_READER_CONFIG_RESPONSE", "KEEPALIVE_ACK"],
+        },
         new("clear", LiveCommandRoute.Clear, "clear", "Clear console screen.", Aliases: ["cls"]),
         new("help", LiveCommandRoute.Help, "help [command]", "Show command help or list commands.", Aliases: ["?"]),
         new("exit", LiveCommandRoute.Exit, "exit", "Exit session.", Aliases: ["quit", "q"]),

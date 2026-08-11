@@ -98,8 +98,8 @@ dotnet run --project src/LlrpCli
 connect 192.168.1.100   # 连接读写器
 status                  # 查看当前状态与协议版本
 caps                    # 查询读写器天线数量、功率表 (TransmitPowerIndex) 与 RF 模式表 (ModeIndex)
-settings edit           # 编辑配置草稿
-settings apply --yes    # 应用配置
+settings edit           # 交互式编辑配置并应用到读写器
+settings show           # 查看当前读写器已应用的配置
 inventory start         # 启动标签盘点
 inventory stop          # 停止盘点
 ```

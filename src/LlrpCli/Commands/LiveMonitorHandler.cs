@@ -33,12 +33,12 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
             return;
         }
 
-        (LiveMonitorMode mode, int? seconds) = ParseMonitorArguments(tokens, startIndex: 1);
-        await MonitorAsync(mode, seconds, cancellationToken);
+        (LiveMonitorMode mode, int? seconds, string? filterType) = ParseMonitorArguments(tokens, startIndex: 1);
+        await MonitorAsync(mode, seconds, filterType, cancellationToken);
     }
 
     /// <summary>Runs an exclusive foreground monitor. Ctrl+C leaves the monitor but does not stop inventory.</summary>
-    public async Task MonitorAsync(LiveMonitorMode mode, int? seconds, CancellationToken cancellationToken)
+    public async Task MonitorAsync(LiveMonitorMode mode, int? seconds, string? filterType, CancellationToken cancellationToken)
     {
         if (mode == LiveMonitorMode.None)
         {
@@ -50,7 +50,7 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
             return;
         }
 
-        session.BeginMonitor(mode);
+        session.BeginMonitor(mode, filterType);
 
         using var monitorCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         if (seconds is int duration)
@@ -68,7 +68,11 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         {
             if (mode == LiveMonitorMode.Frames)
             {
-                await MonitorFramesAsync(monitorCancellation.Token);
+                await MonitorFramesAsync(monitorCancellation.Token, filterType);
+            }
+            else if (string.Equals(filterType, "KEEPALIVE", StringComparison.OrdinalIgnoreCase))
+            {
+                await MonitorKeepaliveTableAsync(monitorCancellation.Token);
             }
             else
             {
@@ -84,32 +88,45 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
 
     }
 
-    public static (LiveMonitorMode Mode, int? Seconds) ParseMonitorArguments(string[] tokens, int startIndex)
+    public static (LiveMonitorMode Mode, int? Seconds, string? FilterType) ParseMonitorArguments(string[] tokens, int startIndex)
     {
-        LiveMonitorMode mode = LiveMonitorMode.Live;
+        LiveMonitorMode? mode = null;
         int? seconds = null;
+        string? filterType = null;
         for (int index = startIndex; index < tokens.Length; index++)
         {
-            string token = tokens[index].ToLowerInvariant();
-            mode = token switch
+            string token = tokens[index];
+            string lowerToken = token.ToLowerInvariant();
+            
+            if (lowerToken == "--type" && index + 1 < tokens.Length)
+            {
+                filterType = tokens[index + 1];
+                index++;
+                continue;
+            }
+
+            mode = lowerToken switch
             {
                 "live" or "--live" or "--table" or "-t" => LiveMonitorMode.Live,
                 "frames" or "--frames" or "-f" or "raw" => LiveMonitorMode.Frames,
                 "none" => LiveMonitorMode.None,
                 _ when int.TryParse(token, out int parsed) && parsed > 0 => mode,
-                _ => throw new CliUsageException("Usage: monitor [live|frames] [duration-sec]")
+                _ => throw new CliUsageException("Usage: monitor [live|frames] [duration-sec] [--type MessageName]")
             };
             if (int.TryParse(token, out int parsedSeconds) && parsedSeconds > 0)
             {
                 seconds = parsedSeconds;
             }
         }
-        return (mode, seconds);
+        
+        LiveMonitorMode resolvedMode = mode ?? (filterType != null ? LiveMonitorMode.Frames : LiveMonitorMode.Live);
+        return (resolvedMode, seconds, filterType);
     }
 
-    private async Task MonitorFramesAsync(CancellationToken cancellationToken)
+    private async Task MonitorFramesAsync(CancellationToken cancellationToken, string? filterType)
     {
-        console.MarkupLine("[bold springgreen2]📡 Monitoring raw LLRP frames. Press Ctrl+C to return to the prompt; inventory keeps running.[/]");
+        string extraInfo = filterType != null ? $" (Filtered by type: [yellow]{filterType}[/])" : "";
+        console.MarkupLine($"[bold springgreen2]📡 Monitoring raw LLRP frames{extraInfo}. Press Ctrl+C to return to the prompt; inventory keeps running.[/]");
         try
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
@@ -150,8 +167,12 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
                 });
         };
 
+        DateTime? lastKeepalive = null;
+        EventHandler<EventArgs>? keepaliveHandler = (_, _) => lastKeepalive = DateTime.Now;
+
         session.Reader!.TagsReported += reportHandler;
-        var table = new Table { Border = TableBorder.Rounded, BorderStyle = new Style(Color.DeepSkyBlue1) };
+        session.Reader!.KeepaliveReceived += keepaliveHandler;
+        var table = new Table { Border = TableBorder.Rounded, BorderStyle = new Style(Color.DeepSkyBlue1) }.Expand();
         table.AddColumn("[bold deepskyblue1]🏷️ EPC (Hex)[/]");
         table.AddColumn("[bold springgreen2]📡 Antenna[/]");
         table.AddColumn("[bold yellow1]📶 Peak RSSI[/]");
@@ -171,7 +192,8 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
                     {
                         table.AddRow($"[bold white]{tag.Epc}[/]", $"[cyan1]{tag.AntennaId}[/]", $"[yellow1]{tag.PeakRssi} dBm[/]", $"[bold springgreen2]{tag.ReadCount:N0}[/]", $"[grey]{tag.LastSeen:HH:mm:ss.fff}[/]");
                     }
-                    table.Title = new TableTitle($"[bold white on deepskyblue1] 🏷️ LIVE TAG MONITOR [/] [grey]Unique Tags:[/] [bold yellow]{tagStats.Count}[/] | [grey]Total Reads:[/] [bold springgreen2]{totalReads:N0}[/]");
+                    string keepaliveMarkup = lastKeepalive.HasValue ? $" | [grey]💓 Heartbeat:[/] [bold deeppink1]{lastKeepalive:HH:mm:ss}[/]" : "";
+                    table.Title = new TableTitle($"[bold white on deepskyblue1] 🏷️ LIVE TAG MONITOR [/] [grey]Unique Tags:[/] [bold yellow]{tagStats.Count}[/] | [grey]Total Reads:[/] [bold springgreen2]{totalReads:N0}[/]{keepaliveMarkup}");
                     context.Refresh();
                     try { await Task.Delay(100, cancellationToken); }
                     catch (OperationCanceledException) { break; }
@@ -181,7 +203,67 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         finally
         {
             session.Reader.TagsReported -= reportHandler;
+            session.Reader.KeepaliveReceived -= keepaliveHandler;
             console.MarkupLine($"[bold cyan1]✔ Live tag monitor ended ({tagStats.Count} unique tags); inventory state was unchanged.[/]");
+        }
+    }
+
+    private async Task MonitorKeepaliveTableAsync(CancellationToken cancellationToken)
+    {
+        console.MarkupLine("[bold deeppink1]💓 Monitoring live heartbeats (KEEPALIVE). Press Ctrl+C to return to the prompt; inventory keeps running.[/]");
+        DateTime? lastKeepalive = null;
+        int keepaliveCount = 0;
+        
+        EventHandler<EventArgs>? keepaliveHandler = (_, _) =>
+        {
+            lastKeepalive = DateTime.Now;
+            Interlocked.Increment(ref keepaliveCount);
+        };
+
+        session.Reader!.KeepaliveReceived += keepaliveHandler;
+
+        try
+        {
+            var table = new Table
+            {
+                Border = TableBorder.Rounded,
+                BorderStyle = new Style(Color.DeepPink1),
+                Title = new TableTitle("[bold white on deeppink1] 💓 KEEPALIVE STATUS [/]"),
+                Expand = true
+            };
+            table.HideHeaders();
+            table.AddColumn(new TableColumn("Label").RightAligned());
+            table.AddColumn(new TableColumn("Value").LeftAligned());
+
+            await console.Live(table).AutoClear(false).StartAsync(async context =>
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    table.Rows.Clear();
+                    if (lastKeepalive.HasValue)
+                    {
+                        var timeSince = DateTime.Now - lastKeepalive.Value;
+                        string status = timeSince.TotalSeconds < 15 ? "[springgreen2]🟢 Healthy[/]" : "[yellow]🟡 Delayed / Silent[/]";
+                        
+                        table.AddRow("[grey70]Status:[/]", status);
+                        table.AddRow("[grey70]Last Heartbeat:[/]", $"[bold white]{lastKeepalive.Value:HH:mm:ss}[/] [grey]({timeSince.TotalSeconds:F1}s ago)[/]");
+                        table.AddRow("[grey70]Total Received:[/]", $"[bold deeppink1]{keepaliveCount}[/]");
+                    }
+                    else
+                    {
+                        table.AddRow("[grey70]Status:[/]", "[yellow]Waiting for first heartbeat...[/]");
+                    }
+                    
+                    context.Refresh();
+                    try { await Task.Delay(100, cancellationToken); }
+                    catch (OperationCanceledException) { break; }
+                }
+            });
+        }
+        finally
+        {
+            session.Reader.KeepaliveReceived -= keepaliveHandler;
+            console.MarkupLine($"[bold cyan1]✔ Live keepalive monitor ended ({keepaliveCount} total received); inventory state was unchanged.[/]");
         }
     }
 
