@@ -325,6 +325,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 table.AddRow("Max Rx sensitivity (dBm)", $"[white]{maxRxSensitivity}[/]");
             }
             table.AddRow("Transmit frequencies", capabilities.TxFrequencies.Count.ToString());
+            table.AddRow("RF mode entries", capabilities.RfModes.Count.ToString());
             table.AddRow("Additional Parameters", $"[cyan1]{capabilities.AdditionalParameters.Count}[/]");
 
             var panel = new Panel(table)
@@ -372,6 +373,42 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 }
                 _console.Write(new Panel(frequencyTable)
                     .Header("[bold yellow] FIXED FREQUENCY TABLE — channel index is reader-specific [/]")
+                    .Border(BoxBorder.Rounded));
+            }
+
+            if (capabilities.RfModes.Count > 0)
+            {
+                var rfModeTable = new Table().Border(TableBorder.Rounded);
+                rfModeTable.AddColumn("[bold grey70]Mode ID[/]");
+                rfModeTable.AddColumn("[bold grey70]DR[/]");
+                rfModeTable.AddColumn("[bold grey70]M[/]");
+                rfModeTable.AddColumn("[bold grey70]Modulation[/]");
+                rfModeTable.AddColumn("[bold grey70]Spectral mask[/]");
+                rfModeTable.AddColumn("[bold grey70]BDR[/]");
+                rfModeTable.AddColumn("[bold grey70]PIE[/]");
+                rfModeTable.AddColumn("[bold grey70]Min Tari[/]");
+                rfModeTable.AddColumn("[bold grey70]Max Tari[/]");
+                rfModeTable.AddColumn("[bold grey70]Step Tari[/]");
+                rfModeTable.AddColumn("[bold grey70]HAG-TC[/]");
+
+                foreach (C1G2RfModeEntry mode in capabilities.RfModes)
+                {
+                    rfModeTable.AddRow(
+                        mode.ModeIdentifier.ToString(),
+                        mode.DrValue,
+                        FormatC1G2MValue(mode.MValue),
+                        mode.ForwardLinkModulation,
+                        mode.SpectralMaskIndicator,
+                        mode.BdrValue.ToString(),
+                        mode.PieValue.ToString(),
+                        mode.MinTariValue.ToString(),
+                        mode.MaxTariValue.ToString(),
+                        mode.StepTariValue.ToString(),
+                        mode.EpchagtcConformance ? "Yes" : "No");
+                }
+
+                _console.Write(new Panel(rfModeTable)
+                    .Header("[bold yellow] C1G2 RF MODE TABLE — use Mode ID when configuring inventory [/]")
                     .Border(BoxBorder.Rounded));
             }
         }
@@ -861,5 +898,14 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 .Border(BoxBorder.Rounded));
         }
     }
+
+    private static string FormatC1G2MValue(byte value) => value switch
+    {
+        0 => "MV_FM0",
+        1 => "MV_2",
+        2 => "MV_4",
+        3 => "MV_8",
+        _ => value.ToString(),
+    };
 
 }
