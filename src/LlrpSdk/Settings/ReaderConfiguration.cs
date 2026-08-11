@@ -96,6 +96,11 @@ public sealed record AntennaConfigurationSettings
     public ushort? TransmitPowerIndex { get; init; }
 
     /// <summary>
+    /// Gets the identifier of the frequency hop table to use.
+    /// </summary>
+    public ushort? HopTableId { get; init; }
+
+    /// <summary>
     /// Gets the index of the receiver sensitivity table to use.
     /// </summary>
     public ushort? ReceiverSensitivityIndex { get; init; }

@@ -154,7 +154,7 @@ public sealed class LlrpReaderConfigurationTests
                     new(
                         AntennaID: 1,
                         new RFReceiver(80),
-                        new RFTransmitter(HopTableID: 0, ChannelIndex: 2, TransmitPower: 60),
+                        new RFTransmitter(HopTableID: 7, ChannelIndex: 2, TransmitPower: 60),
                         []
                     )
                 };
@@ -219,6 +219,7 @@ public sealed class LlrpReaderConfigurationTests
         Assert.True(ant.IsConnected);
         Assert.Equal((short)15, ant.Gain);
         Assert.Equal((ushort)60, ant.TransmitPowerIndex);
+        Assert.Equal((ushort)7, ant.HopTableId);
         Assert.Equal((ushort)80, ant.ReceiverSensitivityIndex);
         Assert.Equal((ushort)2, ant.ChannelIndex);
 
@@ -266,6 +267,7 @@ public sealed class LlrpReaderConfigurationTests
                 Assert.Equal((ushort)1, antConfig.AntennaID);
                 Assert.NotNull(antConfig.RFTransmitter);
                 Assert.Equal((ushort)30, antConfig.RFTransmitter.TransmitPower);
+                Assert.Equal((ushort)3, antConfig.RFTransmitter.HopTableID);
                 Assert.Equal((ushort)4, antConfig.RFTransmitter.ChannelIndex);
 
                 Assert.Single(setConfigMsg.GPOWriteDataItems);
@@ -285,7 +287,16 @@ public sealed class LlrpReaderConfigurationTests
         var config = new ReaderConfiguration
         {
             Keepalive = new KeepaliveConfiguration { TriggerType = KeepaliveTriggerType.Periodic, IntervalMs = 5000 },
-            Antennas = [new AntennaConfigurationSettings { AntennaId = 1, TransmitPowerIndex = 30, ChannelIndex = 4 }],
+            Antennas =
+            [
+                new AntennaConfigurationSettings
+                {
+                    AntennaId = 1,
+                    TransmitPowerIndex = 30,
+                    HopTableId = 3,
+                    ChannelIndex = 4,
+                },
+            ],
             Gpos = [new GpoConfiguration { GpoPortNumber = 2, GpoData = true }]
         };
 

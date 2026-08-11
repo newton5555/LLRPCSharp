@@ -47,6 +47,9 @@
   变长 EPC 场景必须依赖它;配合 `InventoryReportSettings.IncludePcBits` 请求。
 - `ReaderSettings` 是托管配置模型；支持 Reader Defaults、Generic Defaults、
   查询事实、编辑、校验、应用、序列化和清理。
+- Reader 级 `AntennaConfiguration` 查询和应用会完整保留 `RFTransmitter` 的
+  `HopTableID`、`ChannelIndex` 与 `TransmitPower`，避免查询快照回写时把跳频表
+  ID 降为零。
 - `StartInventoryAsync()` 返回独立的 `InventorySession`；
   `TagsReported` 和 `ReadTagReportsAsync()` 可观察连接级报告。
 - SDK 管理保留的 ROSpec/AccessSpec 资源；应用设置后保持停止，显式启动后才

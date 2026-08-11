@@ -57,6 +57,33 @@ public sealed class StandardReaderHardwareTests
     }
 
     [Fact]
+    public async Task StandardReader_QueriedConfigurationCanBeReappliedWithoutLosingRfTransmitterFields()
+    {
+        if (HardwareTestEnvironment.SkipReason is not null)
+        {
+            return;
+        }
+
+        TargetReaderConfig config = HardwareTestEnvironment.Config.TargetReader;
+        await using LlrpReader reader = CreateStandardReader(config);
+        await reader.ConnectAsync();
+
+        ReaderSettingsSnapshot before = await reader.QuerySettingsAsync();
+        Assert.NotEmpty(before.Settings.Configuration.Antennas);
+        Assert.All(
+            before.Settings.Configuration.Antennas
+                .Where(static antenna => antenna.TransmitPowerIndex.HasValue),
+            static antenna => Assert.True(antenna.HopTableId.HasValue));
+
+        await reader.ApplySettingsAsync(before.Settings with { Inventory = null });
+
+        ReaderSettingsSnapshot after = await reader.QuerySettingsAsync();
+        Assert.Equal(
+            before.Settings.Configuration.Antennas,
+            after.Settings.Configuration.Antennas);
+    }
+
+    [Fact]
     public async Task StandardReader_InventoryReportsTagsAndCleansUp()
     {
         if (HardwareTestEnvironment.SkipReason is { } skip)

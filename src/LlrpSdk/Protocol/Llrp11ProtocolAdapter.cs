@@ -352,6 +352,7 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
                 IsConnected = prop?.AntennaConnected,
                 Gain = prop?.AntennaGain,
                 TransmitPowerIndex = conf?.RFTransmitter?.TransmitPower,
+                HopTableId = conf?.RFTransmitter?.HopTableID,
                 ReceiverSensitivityIndex = conf?.RFReceiver?.ReceiverSensitivity,
                 ChannelIndex = conf?.RFTransmitter?.ChannelIndex
             });
@@ -428,9 +429,12 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
             foreach (var item in configuration.Antennas)
             {
                 RFTransmitter? rfTransmitter = null;
-                if (item.TransmitPowerIndex.HasValue || item.ChannelIndex.HasValue)
+                if (item.TransmitPowerIndex.HasValue || item.HopTableId.HasValue || item.ChannelIndex.HasValue)
                 {
-                    rfTransmitter = new RFTransmitter(0, item.ChannelIndex ?? 0, item.TransmitPowerIndex ?? 0);
+                    rfTransmitter = new RFTransmitter(
+                        item.HopTableId ?? 0,
+                        item.ChannelIndex ?? 0,
+                        item.TransmitPowerIndex ?? 0);
                 }
 
                 RFReceiver? rfReceiver = null;
