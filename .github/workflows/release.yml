@@ -75,8 +75,17 @@ jobs:
     - name: Build Solution (Release)
       run: dotnet build LLRPCSharp.slnx --no-restore --configuration Release -p:EnableWindowsTargeting=true
 
-    - name: Run Tests
-      run: dotnet test LLRPCSharp.slnx --no-build --configuration Release -p:EnableWindowsTargeting=true
+    - name: Run Automated Tests
+      run: |
+        dotnet test tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpNet.ProtocolGenerator.Tests/LlrpNet.ProtocolGenerator.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpNet.Core.Tests/LlrpNet.Core.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpNet.Protocol.Tests/LlrpNet.Protocol.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpNet.Protocol.Impinj.Tests/LlrpNet.Protocol.Impinj.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpCli.Tests/LlrpCli.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/Interop.Tests/Interop.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
 
     - name: Clean Artifacts Directory
       run: rm -rf ./artifacts

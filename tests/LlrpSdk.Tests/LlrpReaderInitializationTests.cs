@@ -452,7 +452,10 @@ public sealed class LlrpReaderInitializationTests
             vendorId: 25_882,
             subtype: 53,
             data: [1]);
-        var settings = new InventorySettings();
+        var settings = new InventorySettings
+        {
+            AntennaIds = [1],
+        };
 
         var v101 = (V101Parameters.ROSpec)InvokeInventoryCompiler(
             "LlrpSdk.Llrp101InventoryCompiler",
@@ -474,6 +477,7 @@ public sealed class LlrpReaderInitializationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             Report = new InventoryReportSettings
             {
                 Trigger = InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
