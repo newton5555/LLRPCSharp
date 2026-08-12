@@ -100,6 +100,15 @@ await foreach (TagReport tag in session.ReadReportsAsync())
 
 全局事件监听：
 
+`TagsReported` 与 `session.ReadReportsAsync()` 是互斥的报告出口。一次盘点中，首次
+开始消费的出口取得所有权；随后尝试使用另一出口会抛出
+`InvalidOperationException`。需要连接级异步观察时可使用
+`reader.ReadTagReportsAsync()`，它同样不能与 Session 流或 `TagsReported` 混用。
+
+LLRP 允许设备在报告选择器中关闭 `ROSpecID` 字段。SDK 托管独占盘点时会在报告缺少
+`ROSpecID` 的情况下，结合当前托管资源和 `AccessSpecID` 继续将标签报告路由到 Session；
+若报告带有其他 ROSpec ID，仍会被隔离。
+
 ```csharp
 reader.TagsReported += (sender, reports) =>
 {
@@ -160,6 +169,17 @@ await using var session = await reader.StartInventoryAsync(saved);
 ```
 
 > ⚠️ 注意：带 Inventory 意图的部署会先删除设备上**全部** ROSpec/AccessSpec（SDK 完全接管设备资源配置），不要在共享设备上对正在运行的其他托管盘点执行部署型调用。无参 `StartInventoryAsync()` 仅启动已部署资源，不做任何部署或删除。
+
+**⑤ 非托管操作后的强制接管**：如果应用通过 `reader.Protocol`、`reader.RoSpecs` 或
+`reader.AccessSpecs` 使用了非托管资源接口，SDK 会将本地托管状态标记为未知。此时有两种选择：
+
+- 需要保留并检查设备现有资源：调用 `SynchronizeStateAsync()`，再继续无参托管操作；
+- 需要 SDK 完全覆盖设备现状：直接调用 `StartInventoryAsync(desiredInventory)`，或调用带
+  `Inventory` 的 `ApplySettingsAsync(desiredSettings)`。这两个入口会删除全部标准 ROSpec/AccessSpec
+  后重新部署 SDK 托管资源，不需要先同步。
+
+这类强制接管会删除其他应用创建的标准资源；仅修改 Reader 全局配置而不提供 `Inventory` 的
+`ApplySettingsAsync` 仍要求先同步，不会隐式删除资源。
 
 ### 4.2 入口选择：一段式 vs 两段式
 

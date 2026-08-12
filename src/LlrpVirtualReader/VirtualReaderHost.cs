@@ -33,6 +33,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
     private readonly Dictionary<ushort, VirtualReaderErrorResponse> errorResponseMessageTypes;
     private readonly HashSet<ushort> closeConnectionRequestMessageTypes;
     private readonly HashSet<ushort> truncateResponseMessageTypes;
+    private readonly bool useStrictStandardInventoryProfile;
     private int nextAsyncMessageId;
     private Task? acceptLoop;
 
@@ -56,6 +57,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         errorResponseMessageTypes = options.ErrorResponseForMessageTypes.ToDictionary();
         closeConnectionRequestMessageTypes = options.CloseConnectionAfterRequestMessageTypes.ToHashSet();
         truncateResponseMessageTypes = options.TruncateResponseForMessageTypes.ToHashSet();
+        useStrictStandardInventoryProfile = options.UseStrictStandardInventoryProfile;
         Llrp101StandardModule.Register(registry);
     }
 
@@ -165,11 +167,42 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         }
     }
 
-    private static V101Messages.GET_READER_CAPABILITIES_RESPONSE Capabilities(uint messageId) => new(
+    private V101Messages.GET_READER_CAPABILITIES_RESPONSE Capabilities(uint messageId) => new(
         messageId,
         new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
         new GeneralDeviceCapabilities(4, true, true, 0, 0, "virtual-reader", [new ReceiveSensitivityTableEntry(1, 0)], [], new GPIOCapabilities(0, 0), [new PerAntennaAirProtocol(1, [AirProtocols.Unspecified])]),
-        null, null, null, []);
+        null,
+        useStrictStandardInventoryProfile ? StrictRegulatoryCapabilities() : null,
+        useStrictStandardInventoryProfile ? new C1G2LLRPCapabilities(false, false, 0) : null,
+        []);
+
+    private static RegulatoryCapabilities StrictRegulatoryCapabilities() => new(
+        CountryCode: 840,
+        CommunicationsStandard: CommunicationsStandard.US_FCC_Part_15,
+        UHFBandCapabilities: new UHFBandCapabilities(
+            [new TransmitPowerLevelTableEntry(20, 2000)],
+            new FrequencyInformation(
+                Hopping: true,
+                [new FrequencyHopTable(1, [902_750])],
+                FixedFrequencyTable: null),
+            [
+                new C1G2UHFRFModeTable(
+                [
+                    new C1G2UHFRFModeTableEntry(
+                        ModeIdentifier: 20,
+                        DRValue: C1G2DRValue.DRV_64_3,
+                        EPCHAGTCConformance: true,
+                        MValue: C1G2MValue.MV_4,
+                        ForwardLinkModulation: C1G2ForwardLinkModulation.PR_ASK,
+                        SpectralMaskIndicator: C1G2SpectralMaskIndicator.DI,
+                        BDRValue: 64_000,
+                        PIEValue: 2_000,
+                        MinTariValue: 12_500,
+                        MaxTariValue: 23_000,
+                        StepTariValue: 2_100),
+                ]),
+            ]),
+        CustomItems: []);
 
     private GET_READER_CONFIG_RESPONSE GetReaderConfig(GET_READER_CONFIG request)
     {
@@ -236,6 +269,14 @@ public sealed class VirtualReaderHost : IAsyncDisposable
 
     private ADD_ROSPEC_RESPONSE AddRoSpec(ADD_ROSPEC request)
     {
+        if (useStrictStandardInventoryProfile
+            && ValidateStrictInventory(request.ROSpec) is string validationError)
+        {
+            return new ADD_ROSPEC_RESPONSE(
+                request.MessageId,
+                Status(StatusCode.M_ParameterError, validationError));
+        }
+
         lock (roSpecs)
         {
             if (!roSpecs.TryAdd(request.ROSpec.ROSpecID, request.ROSpec))
@@ -245,6 +286,52 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         }
 
         return new ADD_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+    }
+
+    private static string? ValidateStrictInventory(ROSpec roSpec)
+    {
+        AISpec[] aiSpecs = roSpec.SpecParameterItems.OfType<AISpec>().ToArray();
+        if (aiSpecs.Length == 0)
+        {
+            return "Strict inventory profile requires an AISpec.";
+        }
+
+        foreach (AISpec aiSpec in aiSpecs)
+        {
+            if (aiSpec.AntennaIDs.Count == 0 || aiSpec.AntennaIDs.Contains((ushort)0))
+            {
+                return "Strict inventory profile requires explicit, non-zero AISpec antenna IDs.";
+            }
+
+            foreach (AntennaConfiguration antenna in aiSpec.InventoryParameterSpecItems
+                .SelectMany(static inventory => inventory.AntennaConfigurationItems))
+            {
+                if (antenna.AntennaID == 0)
+                {
+                    return "Strict inventory profile requires explicit, non-zero antenna configuration IDs.";
+                }
+
+                foreach (C1G2InventoryCommand command in antenna.AirProtocolInventoryCommandSettingsItems
+                    .OfType<C1G2InventoryCommand>())
+                {
+                    if (command.C1G2RFControl is not { } rfControl)
+                    {
+                        continue;
+                    }
+
+                    bool validTari = rfControl.ModeIndex == 20
+                        && rfControl.Tari >= 12_500
+                        && rfControl.Tari <= 23_000
+                        && (rfControl.Tari - 12_500) % 2_100 == 0;
+                    if (!validTari)
+                    {
+                        return $"C1G2RFControl Tari {rfControl.Tari} is invalid for mode {rfControl.ModeIndex}.";
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private GET_ROSPECS_RESPONSE GetRoSpecs(GET_ROSPECS request)

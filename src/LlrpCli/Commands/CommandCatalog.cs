@@ -55,32 +55,32 @@ public static class CommandCatalog
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
         new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
         new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index tables.", RequiresConnection: true),
-        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, or save high-level ReaderSettings.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, or save ReaderSettings; Inventory applies can take over after raw access.", RequiresConnection: true)
         {
-            CompletionCandidates = ["show", "defaults", "default", "edit", "validate", "apply", "load", "save", "--json", "--yes", "--apply", "--from"],
+            CompletionCandidates = ["show", "defaults", "edit", "validate", "apply", "load", "save", "--json", "--yes", "--apply", "--from"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
             CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status", "Control the Reader-deployed high-level inventory.")
+        new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status", "Control the Reader-deployed high-level inventory after state sync or managed takeover.")
         {
             CompletionCandidates = ["start", "stop", "status", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60"],
         },
-        new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs.", RequiresConnection: true)
+        new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs after entering manual resource mode.", RequiresConnection: true)
         {
             CompletionCandidates = ["add", "list", "enable", "disable", "start", "stop", "delete", "--id", "--antennas", "--mode", "--tari", "--session", "--population", "all"],
         },
-        new("accessspec", LiveCommandRoute.AccessSpec, "accessspec list|enable|disable|delete [id]", "Manage AccessSpecs.", RequiresConnection: true)
+        new("accessspec", LiveCommandRoute.AccessSpec, "accessspec list|enable|disable|delete [id]", "Manage AccessSpecs after entering manual resource mode.", RequiresConnection: true)
         {
             CompletionCandidates = ["list", "enable", "disable", "delete"],
         },
-        new("resources", LiveCommandRoute.Resources, "resources manual enter|exit|status | resources clear", "Enter manual resource control or clear persisted SDK inventory resources.", RequiresConnection: true)
+        new("resources", LiveCommandRoute.Resources, "resources manual enter|exit|status | resources clear", "Sync after raw access, then enter manual control or clear SDK inventory resources.", RequiresConnection: true)
         {
             CompletionCandidates = ["manual", "enter", "exit", "status", "clear"],
         },
-        new("raw", LiveCommandRoute.Raw, "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame.", RequiresConnection: true),
-        new("sync", LiveCommandRoute.Synchronize, "sync", "Synchronize SDK-managed resource state after raw access.", RequiresConnection: true),
+        new("raw", LiveCommandRoute.Raw, "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame; managed state becomes unknown afterward.", RequiresConnection: true),
+        new("sync", LiveCommandRoute.Synchronize, "sync", "Inspect and adopt SDK-managed resource state after raw access.", RequiresConnection: true),
         new("frames", LiveCommandRoute.Frames, "frames [count]", "Show recent captured LLRP message frames.")
         {
             CompletionCandidates = ["10", "20", "50", "100"],

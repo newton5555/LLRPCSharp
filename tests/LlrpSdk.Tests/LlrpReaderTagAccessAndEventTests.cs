@@ -267,6 +267,35 @@ public sealed class LlrpReaderTagAccessAndEventTests
     }
 
     [Fact]
+    public async Task InventorySession_AcceptsReportsWithoutRoSpecId_WhenManagedInventoryIsRunning()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        ConfigureManagementSuccessResponses(transport);
+
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        InventorySession session = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+        await using var sessionLifetime = session;
+        await using IAsyncEnumerator<TagReport> reports = session.ReadReportsAsync(timeout.Token)
+            .GetAsyncEnumerator(timeout.Token);
+
+        // ROReportSpec may omit ROSpecID. This must still route to the only SDK-owned
+        // high-level session while the resource domain is exclusive.
+        transport.EnqueueFrame(Registry.EncodeMessage(
+            LlrpProtocolVersion.Version101,
+            new V101.RO_ACCESS_REPORT(
+                301,
+                TagReportDataItems: [CreateTagReportData(null)],
+                RFSurveyReportDataItems: [],
+                CustomItems: [])));
+
+        Assert.True(await reports.MoveNextAsync().AsTask().WaitAsync(timeout.Token));
+        Assert.Equal("E28011910000000000000001", Convert.ToHexString(reports.Current.ElectronicProductCode.Span));
+        Assert.Equal(14150U, session.RoSpecId);
+    }
+
+    [Fact]
     public async Task StartAsync_WithAttachedData_ManagesStandardReadAccessSpecLifecycle()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -543,6 +572,8 @@ public sealed class LlrpReaderTagAccessAndEventTests
         reader.TagReportsDropped += (_, args) => dropped.TrySetResult(args);
 
         await reader.ConnectAsync(timeout.Token);
+        await using IAsyncEnumerator<TagReport> reports = reader.ReadTagReportsAsync(timeout.Token)
+            .GetAsyncEnumerator(timeout.Token);
 
         for (int index = 0; index < 3; index++)
         {

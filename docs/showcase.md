@@ -41,13 +41,13 @@ coupling them to one application stack.
 
 - **Connection and version negotiation**: Supports automatic LLRP 1.1 negotiation, with policy-based forcing of 1.0.1 or 1.1.
 - **Limited automatic reconnect**: Provides `LlrpAutomaticReconnectOptions` and `WithAutomaticReconnect(...)` as a reconnect baseline after unexpected disconnects. After a successful reconnect the SDK queries the device's current ROSpec/AccessSpec state and realigns its internal state (observing reality rather than re-applying the previous desired configuration).
-- **Managed state synchronization**: Raw Protocol operations invalidate managed state; `SynchronizeStateAsync()` can restore a state where managed operations may continue.
+- **Managed state synchronization**: Raw Protocol operations invalidate managed state. Use `SynchronizeStateAsync()` to inspect and adopt existing resources, or pass the desired inventory settings to `StartInventoryAsync(settings)` / `ApplySettingsAsync(...)` to explicitly delete standard resources and rebuild SDK-managed state without a prior synchronization call.
 
 ### 2. Advanced Resource Control
 
 - **ROSpec lifecycle service**: `reader.RoSpecs` provides Add, Delete, Enable, Disable, Start, Stop, and GetAll operations.
 - **AccessSpec lifecycle service**: `reader.AccessSpecs` provides Add, Delete, Enable, Disable, and GetAll operations.
-- **Inventory entry points**: `StartInventoryAsync(settings)` deploys and starts inventory and returns an `InventorySession` with an isolated report stream; `StartInventoryAsync()` starts the previously deployed inventory. The session-less `StartAsync` overloads are internal (tag access and connection-level flows only). `ReadTagReportsAsync` and `TagsReported` observe the whole connection.
+- **Inventory entry points**: `StartInventoryAsync(settings)` deploys and starts inventory and returns an `InventorySession` with an isolated report stream; `StartInventoryAsync()` starts the previously deployed inventory. The session-less `StartAsync` overloads are internal (tag access and connection-level flows only). `ReadTagReportsAsync` and `TagsReported` observe the whole connection, and the first report outlet consumed for an inventory owns delivery; the other outlets fail fast until that inventory stops.
 
 ### 3. CLI Diagnostics and Interop
 

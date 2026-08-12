@@ -21,6 +21,79 @@ namespace LlrpSdk.Tests;
 public sealed class LlrpReaderConfigurationTests
 {
     [Fact]
+    public void InventorySettingsNormalizer_expands_all_antennas_and_projects_common_rf_values()
+    {
+        InventorySettings normalized = InventorySettingsNormalizer.ExpandAllAntennas(
+            new InventorySettings
+            {
+                AntennaIds = [0],
+                AntennaConfigurations =
+                [
+                    new InventoryAntennaConfiguration
+                    {
+                        AntennaId = 0,
+                        ReceiverSensitivityIndex = 0,
+                        TransmitPowerIndex = 192,
+                        HopTableId = 1,
+                        ChannelIndex = 1,
+                    },
+                ],
+            },
+            maxAntennas: 8);
+
+        Assert.Equal(new ushort[] { 1, 2, 3, 4, 5, 6, 7, 8 }, normalized.AntennaIds);
+        Assert.Equal(8, normalized.AntennaConfigurations.Count);
+        Assert.All(normalized.AntennaConfigurations, configuration =>
+        {
+            Assert.InRange(configuration.AntennaId, (ushort)1, (ushort)8);
+            Assert.Equal((ushort)0, configuration.ReceiverSensitivityIndex);
+            Assert.Equal((ushort)192, configuration.TransmitPowerIndex);
+            Assert.Equal((ushort)1, configuration.HopTableId);
+            Assert.Equal((ushort)1, configuration.ChannelIndex);
+        });
+    }
+
+    [Fact]
+    public void InventorySettingsNormalizer_projects_common_rf_values_for_explicit_antennas()
+    {
+        InventorySettings normalized = InventorySettingsNormalizer.ExpandAllAntennas(
+            new InventorySettings
+            {
+                AntennaIds = [1, 2],
+                AntennaConfigurations =
+                [
+                    new InventoryAntennaConfiguration
+                    {
+                        AntennaId = 0,
+                        TransmitPowerIndex = 20,
+                        HopTableId = 1,
+                        ChannelIndex = 1,
+                    },
+                ],
+            },
+            maxAntennas: 8);
+
+        Assert.Equal(new ushort[] { 1, 2 }, normalized.AntennaIds);
+        Assert.Equal(new ushort[] { 1, 2 }, normalized.AntennaConfigurations.Select(static configuration => configuration.AntennaId));
+        Assert.All(normalized.AntennaConfigurations, configuration => Assert.Equal((ushort)20, configuration.TransmitPowerIndex));
+    }
+
+    [Fact]
+    public async Task Managed_inventory_compiler_expands_all_antennas_using_connected_reader_capabilities()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+
+        await reader.ConnectAsync(timeout.Token);
+
+        ROSpec roSpec = Assert.IsType<ROSpec>(reader.CompileDefaultInventoryRoSpec(new InventorySettings { AntennaIds = [0] }));
+        var aiSpec = Assert.IsType<AISpec>(Assert.Single(roSpec.SpecParameterItems));
+
+        Assert.Equal(new ushort[] { 1, 2, 3, 4 }, aiSpec.AntennaIDs);
+    }
+
+    [Fact]
     public void SettingsBuilders_CreateAndEditCanonicalRecords()
     {
         ReaderSettings created = ReaderSettings.Create(settings => settings
@@ -68,6 +141,7 @@ public sealed class LlrpReaderConfigurationTests
             Configuration = new ReaderConfiguration
             {
                 Keepalive = new KeepaliveConfiguration { TriggerType = KeepaliveTriggerType.Periodic },
+                Antennas = [new AntennaConfigurationSettings { AntennaId = 0 }],
             },
             Inventory = new InventorySettings
             {
@@ -81,6 +155,7 @@ public sealed class LlrpReaderConfigurationTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Diagnostics, static item => item.Path == "configuration.keepalive.intervalMs");
+        Assert.Contains(result.Diagnostics, static item => item.Path == "configuration.antennas");
         Assert.Contains(result.Diagnostics, static item => item.Path == "inventory.antennaIds");
         Assert.Contains(result.Diagnostics, static item => item.Path == "inventory.session");
         Assert.Contains(result.Diagnostics, static item => item.Path == "inventory.tagPopulationEstimate");
@@ -310,6 +385,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             Session = 2,
             TagPopulationEstimate = 128,
             ModeIndex = 1,
@@ -407,9 +483,32 @@ public sealed class LlrpReaderConfigurationTests
     [Fact]
     public void ReaderSettings_DefaultStartTrigger_CompilesToNull()
     {
-        ROSpec roSpec = Llrp101InventoryCompiler.Compile(new InventorySettings(), []);
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(new InventorySettings { AntennaIds = [1] }, []);
 
         Assert.Equal(ROSpecStartTriggerType.Null, roSpec.ROBoundarySpec.ROSpecStartTrigger.ROSpecStartTriggerType);
+    }
+
+    [Fact]
+    public void ReaderSettings_inventory_command_is_attached_to_explicit_antennas()
+    {
+        ROSpec roSpec = Llrp101InventoryCompiler.Compile(
+            new InventorySettings
+            {
+                AntennaIds = [1, 2],
+                TagPopulationEstimate = 100,
+            },
+            []);
+
+        var aiSpec = Assert.IsType<AISpec>(Assert.Single(roSpec.SpecParameterItems));
+        InventoryParameterSpec inventory = Assert.Single(aiSpec.InventoryParameterSpecItems);
+        Assert.Equal(new ushort[] { 1, 2 }, inventory.AntennaConfigurationItems.Select(static antenna => antenna.AntennaID));
+        Assert.DoesNotContain(inventory.AntennaConfigurationItems, static antenna => antenna.AntennaID == 0);
+        Assert.All(inventory.AntennaConfigurationItems, antenna =>
+        {
+            var command = Assert.IsType<C1G2InventoryCommand>(Assert.Single(antenna.AirProtocolInventoryCommandSettingsItems));
+            Assert.Null(command.C1G2RFControl);
+            Assert.Equal((ushort)100, command.C1G2SingulationControl!.TagPopulation);
+        });
     }
 
     [Fact]
@@ -433,10 +532,10 @@ public sealed class LlrpReaderConfigurationTests
         InventoryParameterSpec inventory = Assert.Single(aiSpec.InventoryParameterSpecItems);
         Assert.Collection(
             inventory.AntennaConfigurationItems,
-            antenna => AssertExplicitLegacyDefaults(antenna, 1),
-            antenna => AssertExplicitLegacyDefaults(antenna, 2),
-            antenna => AssertExplicitLegacyDefaults(antenna, 3),
-            antenna => AssertExplicitLegacyDefaults(antenna, 4));
+            antenna => AssertExplicitRfConfiguration(antenna, 1),
+            antenna => AssertExplicitRfConfiguration(antenna, 2),
+            antenna => AssertExplicitRfConfiguration(antenna, 3),
+            antenna => AssertExplicitRfConfiguration(antenna, 4));
     }
 
     [Fact]
@@ -444,6 +543,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             StartTrigger = new InventoryStartTrigger
             {
                 Type = InventoryStartTriggerType.Periodic,
@@ -467,19 +567,14 @@ public sealed class LlrpReaderConfigurationTests
         Assert.Equal((uint)30_000, roSpec.ROBoundarySpec.ROSpecStopTrigger.DurationTriggerValue);
     }
 
-    private static void AssertExplicitLegacyDefaults(AntennaConfiguration antenna, ushort antennaId)
+    private static void AssertExplicitRfConfiguration(AntennaConfiguration antenna, ushort antennaId)
     {
         Assert.Equal(antennaId, antenna.AntennaID);
         Assert.Equal((ushort)1, antenna.RFReceiver!.ReceiverSensitivity);
         Assert.Equal((ushort)1, antenna.RFTransmitter!.HopTableID);
         Assert.Equal((ushort)1, antenna.RFTransmitter.ChannelIndex);
         Assert.Equal((ushort)8, antenna.RFTransmitter.TransmitPower);
-
-        var command = Assert.IsType<C1G2InventoryCommand>(Assert.Single(antenna.AirProtocolInventoryCommandSettingsItems));
-        Assert.Equal((ushort)0, command.C1G2RFControl!.ModeIndex);
-        Assert.Equal((ushort)0, command.C1G2RFControl.Tari);
-        Assert.Equal((byte)0, command.C1G2SingulationControl!.Session);
-        Assert.Equal((ushort)32, command.C1G2SingulationControl.TagPopulation);
+        Assert.Empty(antenna.AirProtocolInventoryCommandSettingsItems);
     }
 
     [Fact]
@@ -487,6 +582,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             StateAwareSingulation = new InventoryStateAwareSingulation
             {
                 Target = InventoryTarget.StateB,
@@ -511,6 +607,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             StateAwareSingulation = new InventoryStateAwareSingulation
             {
                 Target = InventoryTarget.StateB,
@@ -537,6 +634,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             ReportEveryNTags = 0,
             Report = new InventoryReportSettings
             {
@@ -655,6 +753,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             Filters =
             [
                 new InventorySelectFilter
@@ -696,6 +795,7 @@ public sealed class LlrpReaderConfigurationTests
     {
         var settings = new InventorySettings
         {
+            AntennaIds = [1],
             Filters =
             [
                 new InventorySelectFilter

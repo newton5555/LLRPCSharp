@@ -58,14 +58,14 @@ internal static class Llrp11InventoryCompiler
             throw new NotSupportedException(
                 "The connected reader does not advertise C1G2 tag inventory state-aware singulation support.");
         }
-        V11Parameters.C1G2SingulationControl? singulationControl = (settings.AntennaConfigurations.Count != 0 || settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
+        V11Parameters.C1G2SingulationControl? singulationControl = (settings.Session != 0 || settings.TagPopulationEstimate != 32 || stateAwareAction is not null)
             ? new V11Parameters.C1G2SingulationControl(settings.Session, settings.TagPopulationEstimate, 0, stateAwareAction)
             : null;
-        V11Parameters.C1G2RFControl? rfControl = (settings.AntennaConfigurations.Count != 0 || settings.ModeIndex != 0 || settings.Tari != 0)
+        V11Parameters.C1G2RFControl? rfControl = (settings.ModeIndex != 0 || settings.Tari != 0)
             ? new V11Parameters.C1G2RFControl(settings.ModeIndex, settings.Tari)
             : null;
 
-        bool needsInventoryCommand = settings.AntennaConfigurations.Count != 0 || singulationControl is not null || rfControl is not null || settings.Filters.Count != 0 || c1G2InventoryCommandCustomItems.Count != 0;
+        bool needsInventoryCommand = singulationControl is not null || rfControl is not null || settings.Filters.Count != 0 || c1G2InventoryCommandCustomItems.Count != 0;
         V11Parameters.C1G2InventoryCommand? invCmd = null;
         if (needsInventoryCommand)
         {
@@ -77,7 +77,9 @@ internal static class Llrp11InventoryCompiler
                 CustomItems: c1G2InventoryCommandCustomItems);
         }
         AntennaConfiguration[] antennaConfigs = settings.AntennaConfigurations.Count == 0
-            ? invCmd is null ? [] : [new AntennaConfiguration(0, null, null, [invCmd])]
+            ? invCmd is null
+                ? []
+                : antennaIds.Select(antennaId => new AntennaConfiguration(antennaId, null, null, [invCmd])).ToArray()
             : settings.AntennaConfigurations.Select(configuration => new AntennaConfiguration(
                 configuration.AntennaId,
                 configuration.ReceiverSensitivityIndex is ushort sensitivity ? new V11Parameters.RFReceiver(sensitivity) : null,
@@ -156,25 +158,18 @@ internal static class Llrp11InventoryCompiler
                 "A report interval of zero is valid only with UponNTagsOrEndOfRoSpec, where the reader reports when the ROSpec ends.");
         }
 
-        if (settings.AntennaIds.Count == 0)
+        if (settings.AntennaIds.Count == 0 || settings.AntennaIds.Contains((ushort)0))
         {
             throw new ArgumentException(
-                "At least one antenna identifier is required; use antenna identifier 0 to select all antennas.",
-                nameof(settings));
-        }
-
-        if (settings.AntennaIds.Count > 1 && settings.AntennaIds.Contains((ushort)0))
-        {
-            throw new ArgumentException(
-                "Antenna identifier 0 selects all antennas and cannot be combined with explicit antenna identifiers.",
+                "At least one explicit, non-zero antenna identifier is required.",
                 nameof(settings));
         }
 
         ushort[] configuredAntennaIds = settings.AntennaConfigurations.Select(static configuration => configuration.AntennaId).ToArray();
         if (configuredAntennaIds.Distinct().Count() != configuredAntennaIds.Length ||
-            (configuredAntennaIds.Contains((ushort)0) && configuredAntennaIds.Length != 1))
+            configuredAntennaIds.Contains((ushort)0))
         {
-            throw new ArgumentException("Inventory antenna configurations must have unique identifiers; antenna 0 cannot be combined with explicit identifiers.", nameof(settings));
+            throw new ArgumentException("Inventory antenna configurations must have unique, non-zero identifiers.", nameof(settings));
         }
         foreach (InventoryAntennaConfiguration configuration in settings.AntennaConfigurations)
         {
@@ -183,7 +178,7 @@ internal static class Llrp11InventoryCompiler
             {
                 throw new ArgumentException("An inventory RF transmitter requires transmit power, hop table, and channel index together.", nameof(settings));
             }
-            if (configuration.AntennaId != 0 && !settings.AntennaIds.Contains((ushort)0) && !settings.AntennaIds.Contains(configuration.AntennaId))
+            if (!settings.AntennaIds.Contains(configuration.AntennaId))
             {
                 throw new ArgumentException("Each inventory antenna configuration must target an antenna selected for inventory.", nameof(settings));
             }

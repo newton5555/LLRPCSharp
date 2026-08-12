@@ -50,23 +50,34 @@
 - Reader 级 `AntennaConfiguration` 查询和应用会完整保留 `RFTransmitter` 的
   `HopTableID`、`ChannelIndex` 与 `TransmitPower`，避免查询快照回写时把跳频表
   ID 降为零。
-- `StartInventoryAsync()` 返回独立的 `InventorySession`；
-  `TagsReported` 和 `ReadTagReportsAsync()` 可观察连接级报告。
+- `StartInventoryAsync()` 返回独立的 `InventorySession`。报告出口按一次盘点内的
+  首次消费者互斥选择：`InventorySession.ReadReportsAsync()` 只接收托管盘点报告，
+  或 `TagsReported` / `ReadTagReportsAsync()` 选择连接级观察；同一生命周期内混用会
+  立即抛出 `InvalidOperationException`。托管独占模式下，即使设备按报告选择器省略可选的
+  `ROSpecID`，Session 仍会接收没有冲突 `AccessSpecID` 的标签报告。Tag Access 使用 SDK
+  内部等待器，不会抢占公开回调。
 - SDK 管理保留的 ROSpec/AccessSpec 资源；应用设置后保持停止，显式启动后才
   开始盘点。
 - 部署契约：带 Inventory 意图的 `ApplySettingsAsync` 或
   `StartInventoryAsync(settings)` 会先删除设备上全部 ROSpec/AccessSpec
   （LLRP id=0 语义）再部署，即 SDK 完全接管设备资源配置；共享设备请用
-  两段式（先部署，后 `StartInventoryAsync()` 仅启动）。
+  两段式（先部署，后 `StartInventoryAsync()` 仅启动）。Raw Protocol 或手工资源
+  操作后，带配置的上述入口也是显式强制接管入口，无需先调用
+  `SynchronizeStateAsync()`；无参启动仍要求已有托管状态已同步。
 - 标签访问 API 复用同一资源生命周期，不要求应用手写 AccessSpec。
 
 ### CLI
 
 - Live Shell 提供 `connect`、`status`、`caps`、`settings`、`inventory` 和
   `tag` 等操作。
+- `inventory start` 在新连接尚未读取托管资源时会先查询 `14150` ROSpec；因此设备上
+  已保留的高层盘点资源可以直接启动，实际扫描范围仍以该 ROSpec 的 `AntennaIDs`
+  为准。
 - `settings show|defaults|edit|validate|apply|load|save` 提供简化的设置查看、编辑、
   校验和写入；`settings apply <file> --yes` 与 `settings defaults --yes` 是唯一的
-  显式批量应用入口，不维护 CLI 草稿状态。
+  显式批量应用入口，不维护 CLI 草稿状态。Raw/手工资源操作后的 CLI 链路为：
+  `sync` 查询并采用设备现状，或使用带 `Inventory` 的 `settings apply <file> --yes` /
+  `settings defaults --yes` 强制接管；`inventory start` 只在状态已同步或接管完成后执行。
 - 根级一次性 `inventory <host>` 与 Live Shell 共用 SDK 和 Settings 工作流，
   默认输出适合 Agent 使用的 JSON。
 - `inspect`、`decode`、`validate`、`encode` 为离线协议诊断命令。

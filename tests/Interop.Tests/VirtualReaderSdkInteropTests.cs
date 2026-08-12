@@ -9,6 +9,82 @@ namespace Interop.Tests;
 public sealed class VirtualReaderSdkInteropTests
 {
     [Fact]
+    public async Task InventorySessionAndEventObserver_AreMutuallyExclusive()
+    {
+        await using var host = new VirtualReaderHost();
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        await using InventorySession session = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+        await using IAsyncEnumerator<TagReport> sessionReports = session.ReadReportsAsync(timeout.Token)
+            .GetAsyncEnumerator(timeout.Token);
+        EventHandler<TagReportEventArgs> handler = (_, _) => { };
+        Assert.Throws<InvalidOperationException>(() => reader.TagsReported += handler);
+        await session.StopAsync(timeout.Token);
+    }
+
+    [Fact]
+    public async Task EventObserverSelectedBeforeInventory_RejectsSessionReader()
+    {
+        await using var host = new VirtualReaderHost();
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        EventHandler<TagReportEventArgs> handler = (_, _) => { };
+        reader.TagsReported += handler;
+        try
+        {
+            await reader.ConnectAsync(timeout.Token);
+            await using InventorySession session = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+            Assert.Throws<InvalidOperationException>(() => session.ReadReportsAsync(timeout.Token));
+            Assert.Throws<InvalidOperationException>(() => reader.ReadTagReportsAsync(timeout.Token));
+            await session.StopAsync(timeout.Token);
+        }
+        finally
+        {
+            reader.TagsReported -= handler;
+        }
+    }
+
+    [Fact]
+    public async Task ReaderAsyncObserverSelected_RejectsSessionReader()
+    {
+        await using var host = new VirtualReaderHost();
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        await using InventorySession session = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+        await using IAsyncEnumerator<TagReport> reports = reader.ReadTagReportsAsync(timeout.Token)
+            .GetAsyncEnumerator(timeout.Token);
+        Assert.Throws<InvalidOperationException>(() => session.ReadReportsAsync(timeout.Token));
+        Assert.Throws<InvalidOperationException>(() => reader.TagsReported += (_, _) => { });
+        await session.StopAsync(timeout.Token);
+    }
+
+    [Fact]
     public async Task DroppedAddRoSpecResponse_ProducesSdkRequestTimeout()
     {
         await using var host = new VirtualReaderHost(
@@ -207,6 +283,34 @@ public sealed class VirtualReaderSdkInteropTests
     }
 
     [Fact]
+    public async Task CliDefaultAndExpandedPlatformInventory_BothStartAndReportAgainstStrictReader()
+    {
+        InventoryRunEvidence cliDefault = await StartAndReceiveInventoryReportAsync(new InventorySettings());
+        InventoryRunEvidence expandedPlatform = await StartAndReceiveInventoryReportAsync(
+            new InventorySettings
+            {
+                AntennaIds = [1, 2, 3, 4],
+                ModeIndex = 20,
+                Tari = 12_500,
+                AntennaConfigurations =
+                [
+                    CreateAntennaConfiguration(1),
+                    CreateAntennaConfiguration(2),
+                    CreateAntennaConfiguration(3),
+                    CreateAntennaConfiguration(4),
+                ],
+            });
+
+        Assert.Equal(cliDefault.Epc, expandedPlatform.Epc);
+        Assert.Equal(new ushort[] { 1, 2, 3, 4 }, cliDefault.AntennaIds);
+        Assert.Empty(cliDefault.AntennaConfigurationIds);
+        Assert.Equal(new ushort[] { 1, 2, 3, 4 }, expandedPlatform.AntennaIds);
+        Assert.Equal(new ushort[] { 1, 2, 3, 4 }, expandedPlatform.AntennaConfigurationIds);
+        Assert.Equal((ushort)20, expandedPlatform.ModeIndex);
+        Assert.Equal((ushort)12_500, expandedPlatform.Tari);
+    }
+
+    [Fact]
     public async Task QuerySettings_RehydratesManaged101InventoryFiltersAttachedDataAndState()
     {
         await using var host = new VirtualReaderHost();
@@ -315,12 +419,98 @@ public sealed class VirtualReaderSdkInteropTests
         _ = await reader.Protocol.TransactAsync<GET_ROSPECS_RESPONSE>(
             new GET_ROSPECS(reader.Protocol.NextMessageId()), cancellationToken: timeout.Token);
         Assert.Equal(ReaderResourceMode.StateUnknown, reader.ResourceMode);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => reader.StartInventoryAsync(new InventorySettings(), timeout.Token));
+        await using InventorySession recovered = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+        Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
+        Assert.Equal(ReaderOperationState.Inventorying, reader.OperationState);
+        await recovered.StopAsync(timeout.Token);
 
         await reader.SynchronizeStateAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
         await reader.ClearManagedSettingsAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.Idle, reader.ResourceMode);
+    }
+
+    private static async Task<InventoryRunEvidence> StartAndReceiveInventoryReportAsync(
+        InventorySettings settings)
+    {
+        await using var host = new VirtualReaderHost(
+            options: new VirtualReaderOptions { UseStrictStandardInventoryProfile = true });
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        await using InventorySession session = await reader.StartInventoryAsync(settings, timeout.Token);
+        await using IAsyncEnumerator<TagReport> reports = session.ReadReportsAsync(timeout.Token)
+            .GetAsyncEnumerator(timeout.Token);
+        Assert.True(await reports.MoveNextAsync());
+
+        TagReport report = reports.Current;
+        ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync(timeout.Token);
+        ManagedRoSpecSnapshot managed = Assert.IsType<ManagedRoSpecSnapshot>(snapshot.ManagedRoSpec);
+        Assert.Equal(InventoryRuntimeState.Running, managed.State);
+        Assert.DoesNotContain((ushort)0, managed.Inventory.AntennaIds);
+        Assert.DoesNotContain(managed.Inventory.AntennaConfigurations, static antenna => antenna.AntennaId == 0);
+
+        var evidence = new InventoryRunEvidence(
+            Convert.ToHexString(report.ElectronicProductCode.Span),
+            managed.Inventory.AntennaIds.ToArray(),
+            managed.Inventory.AntennaConfigurations.Select(static antenna => antenna.AntennaId).ToArray(),
+            managed.Inventory.ModeIndex,
+            managed.Inventory.Tari);
+        await session.StopAsync(timeout.Token);
+        return evidence;
+    }
+
+    private static InventoryAntennaConfiguration CreateAntennaConfiguration(ushort antennaId) => new()
+    {
+        AntennaId = antennaId,
+        ReceiverSensitivityIndex = 1,
+        TransmitPowerIndex = 20,
+        HopTableId = 1,
+        ChannelIndex = 1,
+    };
+
+    private sealed record InventoryRunEvidence(
+        string Epc,
+        IReadOnlyList<ushort> AntennaIds,
+        IReadOnlyList<ushort> AntennaConfigurationIds,
+        ushort ModeIndex,
+        ushort Tari);
+
+    [Fact]
+    public async Task RawDeleteOfActiveManagedResource_EndsSessionAndSettingsEntryPointTakesOver()
+    {
+        await using var host = new VirtualReaderHost();
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        await using InventorySession previous = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+
+        _ = await reader.Protocol.TransactAsync<DELETE_ROSPEC_RESPONSE>(
+            new DELETE_ROSPEC(reader.Protocol.NextMessageId(), 14150),
+            cancellationToken: timeout.Token);
+
+        Assert.Equal(InventoryRuntimeState.Disabled, previous.State);
+        Assert.Equal(ReaderResourceMode.StateUnknown, reader.ResourceMode);
+
+        await using InventorySession recovered = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+        Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
+        await recovered.StopAsync(timeout.Token);
     }
 
     [Fact]

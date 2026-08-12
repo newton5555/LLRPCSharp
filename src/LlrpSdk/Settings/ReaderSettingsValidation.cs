@@ -96,6 +96,35 @@ internal static class ReaderSettingsValidator
             "SET-CONFIG-004",
             "GPO port numbers must be non-zero and unique.",
             diagnostics);
+
+        ValidateUniquePositiveIds(
+            configuration.Antennas,
+            static value => value.AntennaId,
+            "configuration.antennas",
+            "SET-CONFIG-005",
+            "Reader antenna configuration IDs must be non-zero and unique.",
+            diagnostics);
+        if (configuration.Antennas is not null)
+        {
+            for (int index = 0; index < configuration.Antennas.Count; index++)
+            {
+                AntennaConfigurationSettings antenna = configuration.Antennas[index];
+                bool hasAnyTransmitter = antenna.TransmitPowerIndex.HasValue
+                    || antenna.HopTableId.HasValue
+                    || antenna.ChannelIndex.HasValue;
+                if (hasAnyTransmitter
+                    && (!antenna.TransmitPowerIndex.HasValue
+                        || !antenna.HopTableId.HasValue
+                        || !antenna.ChannelIndex.HasValue))
+                {
+                    AddError(
+                        diagnostics,
+                        "SET-CONFIG-006",
+                        $"configuration.antennas[{index}]",
+                        "Transmit power, hop table, and channel index must be supplied together.");
+                }
+            }
+        }
     }
 
     private static void ValidateInventory(
@@ -123,6 +152,30 @@ internal static class ReaderSettingsValidator
         if (inventory.Session > 3)
         {
             AddError(diagnostics, "SET-INV-005", "inventory.session", "C1G2 session must be between 0 and 3.");
+        }
+
+        if ((inventory.ModeIndex != 0 || inventory.Tari != 0)
+            && capabilities?.RfModes is { Count: > 0 } rfModes)
+        {
+            C1G2RfModeEntry[] selectedModes = rfModes
+                .Where(mode => mode.ModeIdentifier == inventory.ModeIndex)
+                .ToArray();
+            if (selectedModes.Length == 0)
+            {
+                AddError(
+                    diagnostics,
+                    "SET-INV-033",
+                    "inventory.modeIndex",
+                    $"RF mode {inventory.ModeIndex} is not advertised by the reader.");
+            }
+            else if (!selectedModes.Any(mode => IsSupportedTari(mode, inventory.Tari)))
+            {
+                AddError(
+                    diagnostics,
+                    "SET-INV-034",
+                    "inventory.tari",
+                    $"Tari {inventory.Tari} is not valid for RF mode {inventory.ModeIndex}.");
+            }
         }
 
         IReadOnlyList<ushort>? antennaIds = inventory.AntennaIds;
@@ -307,4 +360,16 @@ internal static class ReaderSettingsValidator
 
     private static void AddError(List<SettingsDiagnostic> diagnostics, string code, string path, string message) =>
         diagnostics.Add(new SettingsDiagnostic(code, SettingsDiagnosticSeverity.Error, path, message));
+
+    private static bool IsSupportedTari(C1G2RfModeEntry mode, ushort tari)
+    {
+        if (tari < mode.MinTariValue || tari > mode.MaxTariValue)
+        {
+            return false;
+        }
+
+        return mode.StepTariValue == 0
+            ? mode.MinTariValue == mode.MaxTariValue && tari == mode.MinTariValue
+            : (tari - mode.MinTariValue) % mode.StepTariValue == 0;
+    }
 }

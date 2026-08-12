@@ -28,6 +28,8 @@ public sealed class LlrpReader : IAsyncDisposable
     internal const uint ManagedInventoryAttachedDataAccessSpecId = 14151;
     private readonly Channel<ILlrpMessage> _messages;
     private readonly Channel<TagReport> _tagReports;
+    private readonly object _tagReportDeliveryGate = new();
+    private readonly List<TagReportWaiter> _tagReportWaiters = [];
     private readonly object _automaticReconnectGate = new();
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private readonly SemaphoreSlim _operationLock = new(1, 1);
@@ -60,6 +62,22 @@ public sealed class LlrpReader : IAsyncDisposable
     private long _lastKeepaliveUtcTicks;
     private int _keepaliveTimeoutSignaled;
     private long _tagReportsDropped;
+    private EventHandler<TagReportEventArgs>? _tagsReported;
+    private TagReportDeliveryOwner _tagReportDeliveryOwner;
+    private bool _readerTagReportStreamActive;
+    private bool _sessionTagReportReaderActive;
+
+    private enum TagReportDeliveryOwner
+    {
+        None,
+        Session,
+        ReaderAsync,
+        Event,
+    }
+
+    private sealed record TagReportWaiter(
+        Func<TagReport, bool> Predicate,
+        Action<TagReport> OnMatch);
 
     /// <summary>
     /// Creates the application-facing fluent builder for one reader.
@@ -256,10 +274,15 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Occurs when an unsolicited access report produces a version-independent tag observation.
     /// </summary>
     /// <remarks>
-    /// This event and <see cref="ReadTagReportsAsync(CancellationToken)"/> share the same translated report.
-    /// An event subscriber failure is isolated and does not interrupt the reader message pump.
+    /// Registering a handler selects the connection-level observer report outlet for the current inventory
+    /// lifetime. It is mutually exclusive with <see cref="InventorySession.ReadReportsAsync"/> and
+    /// <see cref="ReadTagReportsAsync(CancellationToken)"/> while an inventory is active.
     /// </remarks>
-    public event EventHandler<TagReportEventArgs>? TagsReported;
+    public event EventHandler<TagReportEventArgs>? TagsReported
+    {
+        add => AddTagReportObserver(value);
+        remove => RemoveTagReportObserver(value);
+    }
 
     /// <summary>
     /// Occurs when a GPI pin state change is reported by the reader.
@@ -302,6 +325,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Occurs when the SDK's connection-level tag-report stream dropped reports because the bounded buffer was full
     /// (DropOldest policy). Distinct from <see cref="ReportBufferOverflow"/>, which is the reader's own buffer event.
     /// </summary>
+    /// <remarks>This event is raised only after <see cref="ReadTagReportsAsync(CancellationToken)"/> claims the outlet.</remarks>
     public event EventHandler<TagReportOverflowEventArgs>? TagReportsDropped;
 
     /// <summary>
@@ -398,8 +422,10 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <remarks>
     /// Deployment takes full control of reader resources: before adding the SDK ROSpec (and optional attached-data
     /// AccessSpec) it deletes <b>all</b> ROSpecs and AccessSpecs on the device (LLRP id=0 delete semantics), including
-    /// resources deployed by other applications. Do not use this on a reader shared with other managed ROSpecs; use
-    /// the parameterless <see cref="StartInventoryAsync(CancellationToken)"/> overload after a prior deployment.
+    /// resources deployed by other applications. This is also the explicit takeover boundary after raw or manual
+    /// resource operations; it does not require a preceding <see cref="SynchronizeStateAsync(CancellationToken)"/>.
+    /// Do not use this on a reader shared with other managed ROSpecs; use the parameterless
+    /// <see cref="StartInventoryAsync(CancellationToken)"/> overload after a prior deployment.
     /// </remarks>
     public async Task<InventorySession> StartInventoryAsync(InventorySettings settings, CancellationToken cancellationToken = default)
     {
@@ -418,17 +444,27 @@ public sealed class LlrpReader : IAsyncDisposable
                 : InventoryRuntimeState.Enabled;
             try
             {
-                // Deploy first so the session snapshots the actual managed ROSpec/AccessSpec ids (they are only
-                // assigned during deployment); otherwise report routing (RoSpecId match) would miss every report.
-                await StartManagedInventoryCoreAsync(active, resourcesAlreadyCleared: false, cancellationToken).ConfigureAwait(false);
-                var session = new InventorySession(this, active, ManagedInventoryRoSpecId,
-                    active.AttachedData.Enabled ? ManagedInventoryAttachedDataAccessSpecId : null, initialState);
+                PrepareForManagedTakeover();
+                // Managed identifiers are reserved and fixed, so install the session before START_ROSPEC. This
+                // prevents a reader from emitting its first report before the report outlet is attached.
+                var session = new InventorySession(
+                    this,
+                    active,
+                    ManagedInventoryRoSpecId,
+                    active.AttachedData.Enabled ? ManagedInventoryAttachedDataAccessSpecId : null,
+                    initialState,
+                    Options.IncomingMessageCapacity);
                 _inventorySession = session;
+                await StartManagedInventoryCoreAsync(
+                    active,
+                    resourcesAlreadyCleared: false,
+                    cancellationToken,
+                    forceTakeover: true).ConfigureAwait(false);
                 return session;
             }
             catch
             {
-                _inventorySession = null;
+                CompleteActiveInventorySession();
                 throw;
             }
         }
@@ -462,7 +498,8 @@ public sealed class LlrpReader : IAsyncDisposable
             }
 
             var session = new InventorySession(this, settings, roSpecId,
-                _managedInventoryAttachedDataAccessSpecId, InventoryRuntimeState.Enabled);
+                _managedInventoryAttachedDataAccessSpecId, InventoryRuntimeState.Enabled,
+                Options.IncomingMessageCapacity);
             _inventorySession = session;
             try
             {
@@ -519,6 +556,7 @@ public sealed class LlrpReader : IAsyncDisposable
             {
                 await StopPumpAsync().ConfigureAwait(false);
                 await _session.DisconnectAsync().ConfigureAwait(false);
+                CompleteActiveInventorySession();
                 ResetManagedInventoryState();
                 AddTransition(transitions, ReaderConnectionState.Disconnected);
             }
@@ -648,14 +686,227 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <param name="cancellationToken">Cancels this enumeration without disconnecting the reader.</param>
     /// <returns>A channel-backed asynchronous sequence that remains open across explicit reconnects.</returns>
     /// <remarks>
-    /// Multiple simultaneous enumerators compete for observations. Callers needing fan-out should distribute the
-    /// sequence in their application. Raw LLRP messages remain independently available through
+    /// The first consumer claims the connection-level observer outlet. It is mutually exclusive with
+    /// <see cref="InventorySession.ReadReportsAsync"/> and <see cref="TagsReported"/> while an inventory is active.
+    /// Multiple simultaneous enumerators are rejected; callers needing fan-out should distribute the sequence in
+    /// their application. Raw LLRP messages remain independently available through
     /// <see cref="ReadMessagesAsync(CancellationToken)"/>.
     /// </remarks>
     public IAsyncEnumerable<TagReport> ReadTagReportsAsync(
         CancellationToken cancellationToken = default)
     {
-        return _tagReports.Reader.ReadAllAsync(cancellationToken);
+        AcquireReaderTagReportStream();
+        return ReadReaderTagReportsAsync(cancellationToken);
+    }
+
+    private async IAsyncEnumerable<TagReport> ReadReaderTagReportsAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (TagReport report in _tagReports.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+            {
+                yield return report;
+            }
+        }
+        finally
+        {
+            ReleaseReaderTagReportStream();
+        }
+    }
+
+    internal IAsyncEnumerable<TagReport> ReadInventorySessionReports(
+        InventorySession session,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        AcquireSessionTagReportStream(session);
+        return session.ReadReportsCore(cancellationToken);
+    }
+
+    private void AddTagReportObserver(EventHandler<TagReportEventArgs>? handler)
+    {
+        if (handler is null)
+        {
+            return;
+        }
+        lock (_tagReportDeliveryGate)
+        {
+            if (_tagReportDeliveryOwner is TagReportDeliveryOwner.Session or TagReportDeliveryOwner.ReaderAsync)
+            {
+                throw CreateTagReportDeliveryConflictException(_tagReportDeliveryOwner, "TagsReported");
+            }
+
+            if (_tagReportDeliveryOwner == TagReportDeliveryOwner.None)
+            {
+                _tagReportDeliveryOwner = TagReportDeliveryOwner.Event;
+                _inventorySession?.DiscardPendingReports();
+            }
+
+            _tagsReported += handler;
+        }
+    }
+
+    private void RemoveTagReportObserver(EventHandler<TagReportEventArgs>? handler)
+    {
+        if (handler is null)
+        {
+            return;
+        }
+
+        lock (_tagReportDeliveryGate)
+        {
+            _tagsReported -= handler;
+            if (_tagsReported is null &&
+                _tagReportDeliveryOwner == TagReportDeliveryOwner.Event &&
+                _inventorySession is null)
+            {
+                _tagReportDeliveryOwner = TagReportDeliveryOwner.None;
+            }
+        }
+    }
+
+    private void AcquireReaderTagReportStream()
+    {
+        lock (_tagReportDeliveryGate)
+        {
+            if (_tagReportDeliveryOwner is TagReportDeliveryOwner.Session or TagReportDeliveryOwner.Event)
+            {
+                throw CreateTagReportDeliveryConflictException(_tagReportDeliveryOwner, "ReadTagReportsAsync");
+            }
+
+            if (_readerTagReportStreamActive)
+            {
+                throw new InvalidOperationException(
+                    "ReadTagReportsAsync already has an active consumer for this reader connection.");
+            }
+
+            _tagReportDeliveryOwner = TagReportDeliveryOwner.ReaderAsync;
+            _readerTagReportStreamActive = true;
+            _inventorySession?.DiscardPendingReports();
+        }
+    }
+
+    private void ReleaseReaderTagReportStream()
+    {
+        lock (_tagReportDeliveryGate)
+        {
+            _readerTagReportStreamActive = false;
+            if (_tagReportDeliveryOwner == TagReportDeliveryOwner.ReaderAsync && _inventorySession is null)
+            {
+                _tagReportDeliveryOwner = TagReportDeliveryOwner.None;
+            }
+        }
+    }
+
+    private void AcquireSessionTagReportStream(InventorySession session)
+    {
+        lock (_tagReportDeliveryGate)
+        {
+            if (!ReferenceEquals(_inventorySession, session))
+            {
+                if (session.IsCompleted)
+                {
+                    return;
+                }
+
+                throw new InvalidOperationException(
+                    "The inventory session is no longer the active session for this reader.");
+            }
+
+            if (_tagReportDeliveryOwner is TagReportDeliveryOwner.Event or TagReportDeliveryOwner.ReaderAsync)
+            {
+                throw CreateTagReportDeliveryConflictException(_tagReportDeliveryOwner, "InventorySession.ReadReportsAsync");
+            }
+
+            if (_sessionTagReportReaderActive)
+            {
+                throw new InvalidOperationException(
+                    "InventorySession.ReadReportsAsync already has an active consumer for this session.");
+            }
+
+            _tagReportDeliveryOwner = TagReportDeliveryOwner.Session;
+            _sessionTagReportReaderActive = true;
+        }
+    }
+
+    internal void ReleaseSessionTagReportOwnership(InventorySession? session)
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        lock (_tagReportDeliveryGate)
+        {
+            if (_tagReportDeliveryOwner == TagReportDeliveryOwner.Session &&
+                (ReferenceEquals(_inventorySession, session) || session.IsCompleted))
+            {
+                _sessionTagReportReaderActive = false;
+                if (session.IsCompleted || _inventorySession is null)
+                {
+                    _tagReportDeliveryOwner = TagReportDeliveryOwner.None;
+                }
+            }
+        }
+    }
+
+    private static InvalidOperationException CreateTagReportDeliveryConflictException(
+        TagReportDeliveryOwner owner,
+        string requestedOutlet) =>
+        new(
+            $"Tag reports are already owned by {DescribeTagReportDeliveryOwner(owner)}. " +
+            $"The requested {requestedOutlet} outlet is mutually exclusive; " +
+            "stop the current inventory before selecting another report consumer.");
+
+    private static string DescribeTagReportDeliveryOwner(TagReportDeliveryOwner owner) => owner switch
+    {
+        TagReportDeliveryOwner.Session => "InventorySession.ReadReportsAsync",
+        TagReportDeliveryOwner.ReaderAsync => "ReadTagReportsAsync",
+        TagReportDeliveryOwner.Event => "TagsReported",
+        _ => "another report consumer",
+    };
+
+    private IDisposable RegisterTagReportWaiter(Func<TagReport, bool> predicate, Action<TagReport> onMatch)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(onMatch);
+        var waiter = new TagReportWaiter(predicate, onMatch);
+        lock (_tagReportDeliveryGate)
+        {
+            _tagReportWaiters.Add(waiter);
+        }
+
+        return new TagReportWaiterLease(this, waiter);
+    }
+
+    private void RemoveTagReportWaiter(TagReportWaiter waiter)
+    {
+        lock (_tagReportDeliveryGate)
+        {
+            _tagReportWaiters.Remove(waiter);
+        }
+    }
+
+    private sealed class TagReportWaiterLease : IDisposable
+    {
+        private readonly LlrpReader reader;
+        private readonly TagReportWaiter waiter;
+        private int disposed;
+
+        public TagReportWaiterLease(LlrpReader reader, TagReportWaiter waiter)
+        {
+            this.reader = reader;
+            this.waiter = waiter;
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref disposed, 1) == 0)
+            {
+                reader.RemoveTagReportWaiter(waiter);
+            }
+        }
     }
 
     /// <summary>
@@ -845,6 +1096,7 @@ public sealed class LlrpReader : IAsyncDisposable
     internal ILlrpParameter CompileDefaultInventoryRoSpec(InventorySettings settings, uint roSpecId = ManagedInventoryRoSpecId)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        settings = NormalizeInventorySettings(settings);
         EnsureProtocolAvailable();
         if (settings.StartTrigger.StartAtUtc is not null && Capabilities?.HasUtcClockCapability != true)
         {
@@ -858,6 +1110,11 @@ public sealed class LlrpReader : IAsyncDisposable
             BuildInventoryCustomItems(settings),
             supportsStateAwareSingulation);
     }
+
+    private InventorySettings NormalizeInventorySettings(InventorySettings settings) =>
+        InventorySettingsNormalizer.ExpandAllAntennas(
+            settings,
+            Capabilities?.MaxNumberOfAntennas ?? 0);
 
     /// <summary>
     /// Deletes the SDK-managed inventory ROSpec and AttachedData AccessSpec, releasing the high-level resource domain.
@@ -1009,7 +1266,9 @@ public sealed class LlrpReader : IAsyncDisposable
     /// <remarks>
     /// When <paramref name="settings"/> carries Inventory intent, deployment takes full control of reader resources
     /// and first deletes <b>all</b> ROSpecs and AccessSpecs on the device (LLRP id=0 delete semantics), including
-    /// resources deployed by other applications.
+    /// resources deployed by other applications. This is the explicit takeover boundary after raw or manual resource
+    /// operations and does not require a preceding <see cref="SynchronizeStateAsync(CancellationToken)"/>. When
+    /// Inventory is <see langword="null"/>, only reader configuration is applied and synchronization remains required.
     /// </remarks>
     public async Task ApplySettingsAsync(ReaderSettings settings, CancellationToken cancellationToken = default)
     {
@@ -1018,7 +1277,11 @@ public sealed class LlrpReader : IAsyncDisposable
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            EnsureManagedStateSynchronized();
+            bool forceTakeover = settings.Inventory is not null;
+            if (!forceTakeover)
+            {
+                EnsureManagedStateSynchronized();
+            }
             ValidateSettingsCore(settings).ThrowIfInvalid();
             using IDisposable scope = BeginInternalResourceOperationScope();
             if (settings.Inventory is null)
@@ -1030,13 +1293,15 @@ public sealed class LlrpReader : IAsyncDisposable
 
             try
             {
+                PrepareForManagedTakeover();
                 await DeleteAllResourcesAsync(cancellationToken).ConfigureAwait(false);
                 await ApplyConfigurationCoreAsync(settings.Configuration, cancellationToken).ConfigureAwait(false);
                 await StartManagedInventoryCoreAsync(
                     settings.Inventory,
                     resourcesAlreadyCleared: true,
                     cancellationToken: cancellationToken,
-                    startAfterDeployment: false).ConfigureAwait(false);
+                    startAfterDeployment: false,
+                    forceTakeover: true).ConfigureAwait(false);
             }
             catch
             {
@@ -1106,10 +1371,14 @@ public sealed class LlrpReader : IAsyncDisposable
         InventorySettings settings,
         bool resourcesAlreadyCleared,
         CancellationToken cancellationToken,
-        bool startAfterDeployment = true)
+        bool startAfterDeployment = true,
+        bool forceTakeover = false)
     {
         EnsureProtocolAvailable();
-        EnsureManagedStateSynchronized();
+        if (!forceTakeover)
+        {
+            EnsureManagedStateSynchronized();
+        }
         if (OperationState != ReaderOperationState.Idle)
         {
             throw new InvalidOperationException(
@@ -1152,6 +1421,8 @@ public sealed class LlrpReader : IAsyncDisposable
                     await AccessSpecs.EnableAsync(attachedDataId, cancellationToken).ConfigureAwait(false);
                     attachedDataEnabled = true;
                 }
+                // LLRP's Null trigger has no autonomous start condition, so it must be started explicitly by the
+                // client. Immediate/Periodic/GPI triggers start from the enabled state when their trigger fires.
                 if (settings.StartTrigger.Type == InventoryStartTriggerType.None)
                 {
                     await RoSpecs.StartAsync(ManagedInventoryRoSpecId, cancellationToken).ConfigureAwait(false);
@@ -1167,6 +1438,7 @@ public sealed class LlrpReader : IAsyncDisposable
             Volatile.Write(ref _resourceMode, (int)(startAfterDeployment
                 ? ReaderResourceMode.HighLevelRunning
                 : ReaderResourceMode.HighLevelConfigured));
+            Volatile.Write(ref _managedStateIsSynchronized, 1);
         }
         catch
         {
@@ -1325,6 +1597,7 @@ public sealed class LlrpReader : IAsyncDisposable
             }
 
             ResetManagedInventoryState();
+            CompleteActiveInventorySession();
             AddTransition(transitions, ReaderConnectionState.Disconnected, failure);
             _messages.Writer.TryComplete(failure);
             _tagReports.Writer.TryComplete(failure);
@@ -1435,24 +1708,15 @@ public sealed class LlrpReader : IAsyncDisposable
                     Capabilities?.IsMultiwordBlockWriteAvailable == true;
                 ILlrpParameter accessSpec = GetProtocolAdapter().CompileTagAccess(accessSpecId, roSpecId, request, useBlockWrite);
                 var completion = new TaskCompletionSource<TagAccessResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-                EventHandler<TagReportEventArgs>? handler = null;
-                handler = (_, args) =>
+                using IDisposable waiter = RegisterTagReportWaiter(report => report.AccessSpecId == accessSpecId, report =>
                 {
-                    TagReport report = args.Report;
-                    if (report.AccessSpecId != accessSpecId)
-                    {
-                        return;
-                    }
-
                     TagAccessOperationResult? operation = report.AccessOperationResults?
                         .FirstOrDefault(static result => result.OpSpecID == 1);
                     if (operation is not null)
                     {
                         completion.TrySetResult(new TagAccessResult(report, operation));
                     }
-                };
-
-                TagsReported += handler;
+                });
                 bool added = false;
                 bool enabled = false;
                 try
@@ -1466,7 +1730,6 @@ public sealed class LlrpReader : IAsyncDisposable
                 }
                 finally
                 {
-                    TagsReported -= handler;
                     if (enabled)
                     {
                         try { await AccessSpecs.DisableAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
@@ -1551,10 +1814,8 @@ public sealed class LlrpReader : IAsyncDisposable
                     operations,
                     useBlockWrite);
                 var completion = new TaskCompletionSource<TagAccessSequenceResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-                EventHandler<TagReportEventArgs>? handler = null;
-                handler = (_, args) =>
+                using IDisposable waiter = RegisterTagReportWaiter(report => report.AccessSpecId == accessSpecId, report =>
                 {
-                    TagReport report = args.Report;
                     IReadOnlyList<TagAccessOperationResult>? results = report.AccessOperationResults;
                     if (report.AccessSpecId != accessSpecId || results is null ||
                         !Enumerable.Range(1, operations.Length).All(id => results.Any(result => result.OpSpecID == id)))
@@ -1565,9 +1826,7 @@ public sealed class LlrpReader : IAsyncDisposable
                     completion.TrySetResult(new TagAccessSequenceResult(
                         report,
                         results.OrderBy(static result => result.OpSpecID).ToArray()));
-                };
-
-                TagsReported += handler;
+                });
                 bool added = false;
                 bool enabled = false;
                 try
@@ -1581,7 +1840,6 @@ public sealed class LlrpReader : IAsyncDisposable
                 }
                 finally
                 {
-                    TagsReported -= handler;
                     if (enabled)
                     {
                         try { await AccessSpecs.DisableAsync(accessSpecId, CancellationToken.None).ConfigureAwait(false); } catch { }
@@ -1693,9 +1951,14 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken)
         where TResponse : class, ILlrpMessage
     {
-        TResponse response = await TransactAsync<TResponse>(request, timeout, cancellationToken).ConfigureAwait(false);
-        InvalidateManagedStateAfterRawProtocolAccess();
-        return response;
+        try
+        {
+            return await TransactAsync<TResponse>(request, timeout, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            InvalidateManagedStateAfterRawProtocolAccess();
+        }
     }
 
     private async Task<TResponse> TransactSessionAsync<TResponse>(
@@ -1783,8 +2046,14 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken)
         where TMessage : ILlrpMessage
     {
-        await SendAsync(message, cancellationToken).ConfigureAwait(false);
-        InvalidateManagedStateAfterRawProtocolAccess();
+        try
+        {
+            await SendAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            InvalidateManagedStateAfterRawProtocolAccess();
+        }
     }
 
     internal async Task<ReadOnlyMemory<byte>> TransactRawAsync(
@@ -1795,13 +2064,18 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(responseMatcher);
         EnsureProtocolAvailable();
-        ReadOnlyMemory<byte> response = await _session.TransactAsync(
-            requestFrame,
-            responseMatcher,
-            timeout,
-            cancellationToken).ConfigureAwait(false);
-        InvalidateManagedStateAfterRawProtocolAccess();
-        return response;
+        try
+        {
+            return await _session.TransactAsync(
+                requestFrame,
+                responseMatcher,
+                timeout,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            InvalidateManagedStateAfterRawProtocolAccess();
+        }
     }
 
     internal async Task SendRawAsync(
@@ -1809,8 +2083,14 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         EnsureProtocolAvailable();
-        await _session.SendFrameAsync(frame, cancellationToken).ConfigureAwait(false);
-        InvalidateManagedStateAfterRawProtocolAccess();
+        try
+        {
+            await _session.SendFrameAsync(frame, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            InvalidateManagedStateAfterRawProtocolAccess();
+        }
     }
 
     private void StartPump()
@@ -2021,27 +2301,6 @@ public sealed class LlrpReader : IAsyncDisposable
                     foreach (TranslatedTagReport translatedReport in GetProtocolAdapter().TranslateTagReports(message))
                     {
                         TagReport tagReport = ApplyTagReportContributors(translatedReport);
-                        if (_tagReports.Reader.Count >= Options.IncomingMessageCapacity)
-                        {
-                            // The bounded channel drops the oldest report on the next write; surface it so consumers
-                            // can detect silent data loss.
-                            long dropped = Interlocked.Increment(ref _tagReportsDropped);
-                            try
-                            {
-                                TagReportsDropped?.Invoke(
-                                    this,
-                                    new TagReportOverflowEventArgs(Options.IncomingMessageCapacity, dropped));
-                            }
-                            catch (Exception exception)
-                            {
-                                _logger.LogError(
-                                    exception,
-                                    "A tag-report overflow event subscriber failed for connection {ConnectionId}",
-                                    ConnectionId);
-                            }
-                        }
-
-                        _tagReports.Writer.TryWrite(tagReport);
                         PublishTagReport(tagReport);
                     }
 
@@ -2101,6 +2360,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
             _pumpCancellation = null;
             _pumpTask = null;
+            CompleteActiveInventorySession();
             ResetManagedInventoryState();
             InvalidateMetadata();
             AddTransition(
@@ -2476,6 +2736,15 @@ public sealed class LlrpReader : IAsyncDisposable
 
     private void InvalidateManagedStateAfterRawProtocolAccess()
     {
+        CompleteActiveInventorySession();
+        ResetManagedInventoryState();
+        Volatile.Write(ref _managedStateIsSynchronized, 0);
+        Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.StateUnknown);
+    }
+
+    private void PrepareForManagedTakeover()
+    {
+        CompleteActiveInventorySession();
         ResetManagedInventoryState();
         Volatile.Write(ref _managedStateIsSynchronized, 0);
         Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.StateUnknown);
@@ -2531,6 +2800,13 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
+    private void CompleteActiveInventorySession()
+    {
+        InventorySession? session = _inventorySession;
+        _inventorySession = null;
+        session?.Complete(InventoryRuntimeState.Disabled);
+    }
+
     private void ResetManagedInventoryState()
     {
         _managedInventoryRoSpecId = null;
@@ -2546,6 +2822,7 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         if (managedRoSpec is null)
         {
+            CompleteActiveInventorySession();
             ResetManagedInventoryState();
             Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
             return;
@@ -3281,22 +3558,84 @@ public sealed class LlrpReader : IAsyncDisposable
 
     private void PublishTagReport(TagReport report)
     {
-        InventorySession? session = _inventorySession;
-        if (session is not null && report.RoSpecId == session.RoSpecId &&
+        TagReportWaiter[] waiters;
+        TagReportDeliveryOwner owner;
+        EventHandler<TagReportEventArgs>? observer;
+        InventorySession? session;
+        lock (_tagReportDeliveryGate)
+        {
+            waiters = _tagReportWaiters.ToArray();
+            owner = _tagReportDeliveryOwner;
+            observer = _tagsReported;
+            session = _inventorySession;
+        }
+
+        foreach (TagReportWaiter waiter in waiters)
+        {
+            if (!waiter.Predicate(report))
+            {
+                continue;
+            }
+
+            try { waiter.OnMatch(report); }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "A tag-report waiter failed for connection {ConnectionId}", ConnectionId);
+            }
+        }
+
+        if (owner == TagReportDeliveryOwner.Event)
+        {
+            try
+            {
+                observer?.Invoke(this, new TagReportEventArgs(report));
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "A reader tag-report event subscriber failed for connection {ConnectionId}",
+                    ConnectionId);
+            }
+            return;
+        }
+
+        if (owner == TagReportDeliveryOwner.ReaderAsync)
+        {
+            if (_tagReports.Reader.Count >= Options.IncomingMessageCapacity)
+            {
+                long dropped = Interlocked.Increment(ref _tagReportsDropped);
+                try
+                {
+                    TagReportsDropped?.Invoke(
+                        this,
+                        new TagReportOverflowEventArgs(Options.IncomingMessageCapacity, dropped));
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(
+                        exception,
+                        "A tag-report overflow event subscriber failed for connection {ConnectionId}",
+                        ConnectionId);
+                }
+            }
+
+            _tagReports.Writer.TryWrite(report);
+            return;
+        }
+
+        // ROSpecID is optional in an RO_ACCESS_REPORT. A reader may legitimately omit it when
+        // ROReportSpec.EnableROSpecID is false. While the SDK owns the exclusive
+        // high-level resource domain, a report without an ID can only belong to the active managed
+        // ROSpec; keep strict matching whenever the reader does provide an ID.
+        bool matchesManagedRoSpec = report.RoSpecId == session?.RoSpecId ||
+            (report.RoSpecId is null && ResourceMode == ReaderResourceMode.HighLevelRunning);
+        if (session is not null &&
+            (owner == TagReportDeliveryOwner.Session || owner == TagReportDeliveryOwner.None) &&
+            matchesManagedRoSpec &&
             (report.AccessSpecId is null or 0 || report.AccessSpecId == session.AttachedDataAccessSpecId))
         {
             session.Publish(report);
-        }
-        try
-        {
-            TagsReported?.Invoke(this, new TagReportEventArgs(report));
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(
-                exception,
-                "A reader tag-report event subscriber failed for connection {ConnectionId}",
-                ConnectionId);
         }
     }
 

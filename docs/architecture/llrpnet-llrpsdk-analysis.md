@@ -441,9 +441,11 @@ await foreach (TagReport report in session.ReadReportsAsync(cts.Token))
 ```
 
 - `StartInventoryAsync` 返回**单实例**会话(已有会话再启动会抛异常)
-- 报告路由双流:
+- 报告出口互斥:
   - **会话级** `session.ReadReportsAsync`:只收本会话 RoSpecId 的报告
-  - **连接级** `reader.ReadTagReportsAsync`:所有报告(含丢弃检测)
+  - **连接级** `reader.ReadTagReportsAsync` 或 `TagsReported`:所有报告
+  - 同一盘点生命周期内首次消费的出口取得所有权，其他出口立即报错；Tag Access
+    使用内部等待器，不会通过公开回调抢占所有权。
 - 停止:session.DisposeAsync / reader.StopAsync / ClearManagedSettingsAsync
 
 ### 配置管理

@@ -191,5 +191,5 @@ ApplySettings(settings)
   │
   ├─► 3. 发送 ENABLE_ROSPEC (ID: 1)
   │
-  └─► 4. 发送 START_ROSPEC (ID: 1)  (若 AutoStartMode == None)
+  └─► 4. 发送 START_ROSPEC (ID: 1)  (仅 AutoStartMode == None；其他模式由 ROSpecStartTrigger 自主触发)
 ```

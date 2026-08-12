@@ -42,9 +42,20 @@ not send protocol messages. `ApplySettingsAsync()` deploys managed settings in
 a stopped state; `StartInventoryAsync()` starts the deployed inventory and
 returns an isolated report stream.
 
-For connection-wide observation, use `TagsReported` or
-`ReadTagReportsAsync()`. For direct LLRP messages, expert ROSpec/AccessSpec
-ownership, or protocol generation, use the lower-level `LlrpNet` projects.
+When raw or manual resource operations have invalidated local state, pass the
+desired inventory settings to `StartInventoryAsync(settings)` or include
+`Inventory` in `ApplySettingsAsync(...)` to explicitly delete standard reader
+resources and rebuild SDK-managed state. A parameterless `StartInventoryAsync()`
+still requires synchronized, previously deployed managed state.
+
+For connection-wide observation, use `TagsReported` or `ReadTagReportsAsync()`;
+these observer outlets are mutually exclusive with the session stream during an
+active inventory. When a reader omits the optional `ROSpecID`, the SDK-owned exclusive
+session still accepts non-conflicting inventory reports. Do not consume both
+`InventorySession.ReadReportsAsync()` and
+an observer outlet for the same inventory. For direct LLRP messages, expert
+ROSpec/AccessSpec ownership, or protocol generation, use the lower-level
+`LlrpNet` projects.
 
 ## License And Standard
 

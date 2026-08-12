@@ -25,7 +25,9 @@ public sealed record AttachedDataOptions
 public sealed record InventoryStartTrigger
 {
     /// <summary>
-    /// Gets the trigger kind. The default keeps the ROSpec inactive until the caller explicitly starts it.
+    /// Gets the trigger kind. The default compiles to the LLRP Null trigger, which keeps the ROSpec inactive until
+    /// the SDK sends START_ROSPEC. Other trigger kinds start from the enabled state when their configured
+    /// condition occurs.
     /// </summary>
     public InventoryStartTriggerType Type { get; init; } = InventoryStartTriggerType.None;
 
@@ -54,7 +56,7 @@ public sealed record InventoryStartTrigger
 /// <summary>Defines the supported standard ROSpec start trigger kinds.</summary>
 public enum InventoryStartTriggerType
 {
-    /// <summary>Do not start when the ROSpec is enabled; start it with START_ROSPEC.</summary>
+    /// <summary>Use the LLRP Null trigger; the SDK starts the ROSpec explicitly with START_ROSPEC.</summary>
     None,
 
     Immediate,
@@ -211,7 +213,11 @@ public enum InventoryReportTrigger
 /// </remarks>
 public sealed record InventoryAntennaConfiguration
 {
-    /// <summary>Gets the LLRP antenna identifier. Zero applies this configuration to all selected antennas.</summary>
+    /// <summary>Gets the LLRP antenna identifier.</summary>
+    /// <remarks>
+    /// Zero is accepted only as an application-side compatibility shorthand and is expanded to
+    /// explicit selected antenna identifiers before the managed ROSpec is compiled.
+    /// </remarks>
     public ushort AntennaId { get; init; }
     public ushort? ReceiverSensitivityIndex { get; init; }
     public ushort? TransmitPowerIndex { get; init; }
@@ -239,6 +245,11 @@ public sealed record InventorySettings
     /// <summary>
     /// Gets the reader antenna identifiers to use. The default value <c>0</c> selects all reader antennas.
     /// </summary>
+    /// <remarks>
+    /// The SDK retains this standard shorthand in the application settings. When the connected reader advertises
+    /// its maximum antenna count, managed ROSpec deployment expands a sole <c>0</c> to explicit identifiers because
+    /// some readers do not execute the otherwise-standard all-antennas value reliably.
+    /// </remarks>
     public IReadOnlyList<ushort> AntennaIds { get; init; } = [0];
 
     /// <summary>

@@ -29,6 +29,26 @@ internal sealed class LiveInventoryHandler(
                         return;
                     }
                     LlrpReader reader = session.Reader!;
+                    if (reader.ResourceMode == ReaderResourceMode.ManualResources)
+                    {
+                        throw new CliUsageException(
+                            "Manual resource mode is active. Run 'settings apply <file> --yes' with Inventory or 'settings defaults --yes' " +
+                            "to explicitly replace manual ROSpec/AccessSpec resources before 'inventory start'.");
+                    }
+                    if (!reader.IsManagedStateSynchronized)
+                    {
+                        throw new CliUsageException(
+                            "SDK-managed state is unknown after raw or manual resource access. Run 'sync' to inspect " +
+                            "existing resources, or run 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to " +
+                            "force a managed takeover, then run 'inventory start'.");
+                    }
+                    // A fresh SDK connection intentionally does not query ROSpec resources during the connection
+                    // handshake. Refresh the managed snapshot here so an already-deployed SDK ROSpec (14150) can
+                    // be started directly from the CLI without requiring a prior manual `settings show` command.
+                    if (reader.CurrentInventorySettings is null)
+                    {
+                        await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
+                    }
                     if (reader.OperationState == ReaderOperationState.Inventorying)
                     {
                         console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
@@ -36,7 +56,7 @@ internal sealed class LiveInventoryHandler(
                     }
                     if (reader.CurrentInventorySettings is null)
                     {
-                        throw new CliUsageException("The reader has no deployed Inventory. Run 'settings apply <file> --yes' or 'settings defaults --yes', then 'inventory start'.");
+                        throw new CliUsageException("The reader has no deployed Inventory. Run 'settings apply <file> --yes' with Inventory or 'settings defaults --yes', then 'inventory start'.");
                     }
 
                     LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
@@ -57,6 +77,7 @@ internal sealed class LiveInventoryHandler(
                 {
                     return;
                 }
+                EnsureInventoryStateSynchronized(session.Reader!);
                 await StopAsync(cancellationToken);
                 console.MarkupLine("[bold springgreen2]✔ SDK-managed inventory stopped.[/]");
                 break;
@@ -64,6 +85,13 @@ internal sealed class LiveInventoryHandler(
             case "status":
                 if (!EnsureConnected())
                 {
+                    return;
+                }
+                if (!session.Reader!.IsManagedStateSynchronized)
+                {
+                    console.MarkupLine(
+                        "[yellow]SDK-managed state is unknown after raw or manual resource access. Run 'sync' to inspect " +
+                        "the reader, or use 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to force a managed takeover.[/]");
                     return;
                 }
                 RenderStatus();
@@ -84,6 +112,16 @@ internal sealed class LiveInventoryHandler(
 
         console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
         return false;
+    }
+
+    private static void EnsureInventoryStateSynchronized(LlrpReader reader)
+    {
+        if (!reader.IsManagedStateSynchronized)
+        {
+            throw new CliUsageException(
+                "SDK-managed state is unknown after raw or manual resource access. Run 'sync' before 'inventory stop', " +
+                "or use 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to force a managed takeover.");
+        }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
@@ -167,11 +205,11 @@ internal sealed class LiveInventoryHandler(
                 console.MarkupLine($"  [dim]AttachedData:[/] Bank={settings.AttachedData.MemoryBank}, Ptr={settings.AttachedData.WordPointer}, Len={settings.AttachedData.WordCount}");
             }
 
-            console.MarkupLine("  [dim]Source:[/] Reader-deployed high-level settings. Use 'settings show reader' to inspect it.");
+            console.MarkupLine("  [dim]Source:[/] Reader-deployed high-level settings. Use 'settings show' to inspect it.");
         }
         else
         {
-            console.MarkupLine("  [yellow]No deployed high-level Inventory. Run 'settings apply <file> --yes' or 'settings defaults --yes', then 'inventory start'.[/]");
+            console.MarkupLine("  [yellow]No deployed high-level Inventory. Run 'settings apply <file> --yes' with Inventory or 'settings defaults --yes', then 'inventory start'.[/]");
         }
     }
 

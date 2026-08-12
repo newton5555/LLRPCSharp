@@ -145,32 +145,24 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
     {
         console.MarkupLine("[bold springgreen2]📊 Monitoring live tag statistics. Press Ctrl+C to return to the prompt; inventory keeps running.[/]");
         var tagStats = new ConcurrentDictionary<string, TagStat>();
+        InventorySession? inventorySession = session.InventorySession;
         EventHandler<TagReportEventArgs>? reportHandler = (_, args) =>
         {
-            TagReport report = args.Report;
-            string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
-            if (string.IsNullOrEmpty(epc))
-            {
-                return;
-            }
-
-            tagStats.AddOrUpdate(
-                epc,
-                key => new TagStat { Epc = key, AntennaId = report.AntennaId ?? 0, PeakRssi = report.PeakRssi ?? 0, ReadCount = 1, LastSeen = DateTime.Now },
-                (_, existing) =>
-                {
-                    existing.ReadCount++;
-                    existing.AntennaId = report.AntennaId ?? existing.AntennaId;
-                    existing.PeakRssi = report.PeakRssi ?? existing.PeakRssi;
-                    existing.LastSeen = DateTime.Now;
-                    return existing;
-                });
+            ObserveTagReport(tagStats, args.Report);
         };
 
         DateTime? lastKeepalive = null;
         EventHandler<EventArgs>? keepaliveHandler = (_, _) => lastKeepalive = DateTime.Now;
 
-        session.Reader!.TagsReported += reportHandler;
+        Task reportPump = Task.CompletedTask;
+        if (inventorySession is not null)
+        {
+            reportPump = PumpSessionReportsAsync(inventorySession, tagStats, cancellationToken);
+        }
+        else
+        {
+            session.Reader!.TagsReported += reportHandler;
+        }
         session.Reader!.KeepaliveReceived += keepaliveHandler;
         var table = new Table { Border = TableBorder.Rounded, BorderStyle = new Style(Color.DeepSkyBlue1) }.Expand();
         table.AddColumn("[bold deepskyblue1]🏷️ EPC (Hex)[/]");
@@ -202,10 +194,50 @@ internal sealed class LiveMonitorHandler(IAnsiConsole console, LiveSessionContex
         }
         finally
         {
-            session.Reader.TagsReported -= reportHandler;
+            if (inventorySession is not null)
+            {
+                try { await reportPump.ConfigureAwait(false); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+            }
+            else
+            {
+                session.Reader.TagsReported -= reportHandler;
+            }
             session.Reader.KeepaliveReceived -= keepaliveHandler;
             console.MarkupLine($"[bold cyan1]✔ Live tag monitor ended ({tagStats.Count} unique tags); inventory state was unchanged.[/]");
         }
+    }
+
+    private static async Task PumpSessionReportsAsync(
+        InventorySession inventorySession,
+        ConcurrentDictionary<string, TagStat> tagStats,
+        CancellationToken cancellationToken)
+    {
+        await foreach (TagReport report in inventorySession.ReadReportsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            ObserveTagReport(tagStats, report);
+        }
+    }
+
+    private static void ObserveTagReport(ConcurrentDictionary<string, TagStat> tagStats, TagReport report)
+    {
+        string epc = Convert.ToHexString(report.ElectronicProductCode.Span);
+        if (string.IsNullOrEmpty(epc))
+        {
+            return;
+        }
+
+        tagStats.AddOrUpdate(
+            epc,
+            key => new TagStat { Epc = key, AntennaId = report.AntennaId ?? 0, PeakRssi = report.PeakRssi ?? 0, ReadCount = 1, LastSeen = DateTime.Now },
+            (_, existing) =>
+            {
+                existing.ReadCount++;
+                existing.AntennaId = report.AntennaId ?? existing.AntennaId;
+                existing.PeakRssi = report.PeakRssi ?? existing.PeakRssi;
+                existing.LastSeen = DateTime.Now;
+                return existing;
+            });
     }
 
     private async Task MonitorKeepaliveTableAsync(CancellationToken cancellationToken)

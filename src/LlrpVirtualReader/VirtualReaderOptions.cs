@@ -5,6 +5,12 @@ using LlrpNet.Protocol.Enumerations.V1_0_1;
 /// <summary>Configures the deterministic tag exposed by <see cref="VirtualReaderHost"/>.</summary>
 public sealed record VirtualReaderOptions
 {
+    /// <summary>
+    /// Gets whether the virtual reader advertises and enforces the strict standard-reader
+    /// inventory profile used by ROSpec interoperability regression tests.
+    /// </summary>
+    public bool UseStrictStandardInventoryProfile { get; init; }
+
     /// <summary>Gets the 96-bit EPC reported by the virtual tag.</summary>
     public ReadOnlyMemory<byte> ElectronicProductCode { get; init; } =
         Convert.FromHexString("E28011710000020D056E9BEE");

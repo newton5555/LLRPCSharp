@@ -38,13 +38,13 @@ Registry、异步传输、版本 Adapter 和托管 Reader API。协议资产因�
 
 - **连接与版本协商**：支持 LLRP 1.1 自动协商，并可按策略强制 1.0.1 或 1.1。
 - **有限自动重连**：提供 `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`，用于意外断线后的重连基线。重连成功后 SDK 会自动查询设备当前 ROSpec/AccessSpec 状态并对齐内部状态（只对齐设备现状，不重放之前的期望配置）。
-- **托管状态同步**：Raw Protocol 操作后会使托管状态失效，可通过 `SynchronizeStateAsync()` 恢复到可继续 Managed 操作的状态。
+- **托管状态同步**：Raw Protocol 操作后会使托管状态失效。需要观察并接管设备现有资源时使用 `SynchronizeStateAsync()`；需要强制恢复 SDK 托管时，直接把目标盘点配置传给 `StartInventoryAsync(settings)` 或带 `Inventory` 的 `ApplySettingsAsync(...)`，SDK 会删除标准资源并重建托管状态，无需先同步。
 
 ### 2. 进阶资源控制
 
 - **ROSpec 生命周期服务**：`reader.RoSpecs` 提供 Add、Delete、Enable、Disable、Start、Stop、GetAll 等操作。
 - **AccessSpec 生命周期服务**：`reader.AccessSpecs` 提供 Add、Delete、Enable、Disable、GetAll 等操作。
-- **盘点入口**：`StartInventoryAsync(settings)` 部署并启动盘点，返回带独立报告流的 `InventorySession`；`StartInventoryAsync()` 启动之前已部署的盘点。无会话版的 `StartAsync` 重载已转为 internal（仅 Tag Access 与连接级流程使用）。`ReadTagReportsAsync` 与 `TagsReported` 则观察整个连接。
+- **盘点入口**：`StartInventoryAsync(settings)` 部署并启动盘点，返回带独立报告流的 `InventorySession`；`StartInventoryAsync()` 启动之前已部署的盘点。无会话版的 `StartAsync` 重载已转为 internal（仅 Tag Access 与连接级流程使用）。`ReadTagReportsAsync` 与 `TagsReported` 观察整个连接；同一次盘点首次消费的报告出口取得所有权，其他出口在盘点停止前立即报错。
 
 ### 3. CLI 诊断与互操作套件
 
