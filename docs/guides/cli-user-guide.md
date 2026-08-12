@@ -22,6 +22,10 @@ dotnet run --project src/LlrpCli
 > caps                      # 查询读写器天线数量、功率表与 RF 模式表
 ```
 
+`status` 每次都会读取完整的 `GET_READER_CONFIG(All)`、`GET_ROSPECS` 和
+`GET_ACCESSSPECS`，随后显示 Reader 配置摘要及 ROSpec/AccessSpec 参数树，便于分析设备实际状态。
+`caps` 每次都会重新发送 `GET_READER_CAPABILITIES(All)`，同时显示归一化能力表和完整能力响应参数树。
+
 ---
 
 ## 🔧 2. 配置编辑与下发 (Settings)
@@ -42,6 +46,10 @@ Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来�
   `Inventory` 才会执行强制接管；
 * `settings load <file.json>`：读取并校验文件，不会写入设备；需要交互编辑时使用
   `settings edit --from <file.json>`。
+
+`settings edit` 覆盖 Reader 级 HoldEventsAndReports、Keepalive、事件通知和天线 RF 索引，
+以及既有 Inventory 的基础盘点、报告常用字段、过滤器新增、启停触发器、AttachedData 和已启用的厂商扩展。
+Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周期 StartAtUtc 不开放交互编辑。
 
 Raw 或手工 ROSpec/AccessSpec 操作后，SDK 托管状态会变为未知：
 
