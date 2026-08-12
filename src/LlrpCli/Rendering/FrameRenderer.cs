@@ -109,6 +109,17 @@ public static class FrameRenderer
         console.WriteLine(Convert.ToHexString(rawFrame));
     }
 
+    public static void RenderObjectTree(object value, string title, IAnsiConsole console)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var tree = new Tree($"[bold green]{Markup.Escape(title)}[/]")
+            .Style(new Style(Color.Grey70))
+            .Guide(TreeGuide.Line);
+        BuildObjectTree(tree, value, 0);
+        console.Write(tree);
+        console.WriteLine();
+    }
+
     public static void RenderHexDumpPanel(byte[] bytes, IAnsiConsole console)
     {
         string hexDumpText = FormatHexDump(bytes);

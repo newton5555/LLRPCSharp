@@ -1,3 +1,5 @@
+using LlrpNet.Protocol.Parameters;
+
 namespace LlrpSdk;
 
 /// <summary>High-level reader intent spanning device configuration and optional managed inventory.</summary>
@@ -28,7 +30,14 @@ public sealed record ReaderSettings
 }
 
 /// <summary>Device facts returned by <see cref="LlrpReader.QuerySettingsAsync"/>.</summary>
-public sealed record ReaderSettingsSnapshot(ReaderSettings Settings, ManagedRoSpecSnapshot? ManagedRoSpec);
+public sealed record ReaderSettingsSnapshot(ReaderSettings Settings, ManagedRoSpecSnapshot? ManagedRoSpec)
+{
+    /// <summary>Gets every ROSpec returned by the reader's GET_ROSPECS response.</summary>
+    public IReadOnlyList<ILlrpParameter> RoSpecs { get; init; } = Array.Empty<ILlrpParameter>();
+
+    /// <summary>Gets every AccessSpec returned by the reader's GET_ACCESSSPECS response.</summary>
+    public IReadOnlyList<ILlrpParameter> AccessSpecs { get; init; } = Array.Empty<ILlrpParameter>();
+}
 
 /// <summary>Describes a reader-resident SDK inventory resource.</summary>
 public sealed record ManagedRoSpecSnapshot(InventorySettings Inventory, InventoryRuntimeState State);

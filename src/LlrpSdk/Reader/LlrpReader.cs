@@ -1168,7 +1168,11 @@ public sealed class LlrpReader : IAsyncDisposable
             ManagedRoSpecSnapshot? snapshot = managed is null ? null : ParseManagedInventory(managed, accessSpecs);
             AdoptManagedInventorySnapshot(managed, accessSpecs, snapshot);
             InventorySettings? inventory = snapshot?.Inventory;
-            return new ReaderSettingsSnapshot(new ReaderSettings { Configuration = configuration, Inventory = inventory }, snapshot);
+            return new ReaderSettingsSnapshot(new ReaderSettings { Configuration = configuration, Inventory = inventory }, snapshot)
+            {
+                RoSpecs = roSpecs,
+                AccessSpecs = accessSpecs,
+            };
         }
         finally
         {
@@ -2740,6 +2744,27 @@ public sealed class LlrpReader : IAsyncDisposable
         ResetManagedInventoryState();
         Volatile.Write(ref _managedStateIsSynchronized, 0);
         Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.StateUnknown);
+    }
+
+    /// <summary>Re-queries all reader capabilities and replaces the initialized capability snapshot.</summary>
+    public async Task<ReaderCapabilities> RefreshCapabilitiesAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ReaderCapabilities capabilities = await GetProtocolAdapter()
+                .FetchCapabilitiesAsync(this, _messageIds.Next(), cancellationToken)
+                .ConfigureAwait(false);
+            ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
+                "Reader metadata is unavailable. Connect the reader first.");
+            Volatile.Write(ref _metadata, new ReaderMetadataSnapshot(metadata.Identity, capabilities));
+            return capabilities;
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
     }
 
     private void PrepareForManagedTakeover()

@@ -145,6 +145,25 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
             antennaConfigurations = configured;
         }
 
+        ReaderConfiguration configuration = settings.Configuration;
+        if (console.Confirm("Edit reader-level antenna RF configuration?", configuration.Antennas.Count != 0))
+        {
+            var current = configuration.Antennas.ToDictionary(item => item.AntennaId);
+            configuration = configuration with
+            {
+                Antennas = antennas.Select(antennaId =>
+                {
+                    current.TryGetValue(antennaId, out AntennaConfigurationSettings? existing);
+                    existing ??= new AntennaConfigurationSettings { AntennaId = antennaId };
+                    ushort? rx = PromptOptionalIndex($"Reader antenna {antennaId} Rx sensitivity index (blank = unchanged):", existing.ReceiverSensitivityIndex);
+                    ushort? tx = PromptOptionalIndex($"Reader antenna {antennaId} Tx power index (blank = unchanged):", existing.TransmitPowerIndex);
+                    ushort? hop = PromptOptionalIndex($"Reader antenna {antennaId} hop table ID (blank = unchanged):", existing.HopTableId);
+                    ushort? channel = PromptOptionalIndex($"Reader antenna {antennaId} channel index (blank = unchanged):", existing.ChannelIndex);
+                    return existing with { ReceiverSensitivityIndex = rx, TransmitPowerIndex = tx, HopTableId = hop, ChannelIndex = channel };
+                }).ToArray(),
+            };
+        }
+
         return settings with
         {
             Inventory = inventory with
@@ -154,6 +173,7 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
                 ModeIndex = mode,
                 Tari = tari,
             },
+            Configuration = configuration,
         };
     }
 
@@ -317,6 +337,9 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
     private ReaderSettings EditReaderConfiguration(ReaderSettings settings)
     {
         ReaderConfiguration configuration = settings.Configuration;
+        bool holdEvents = console.Confirm(
+            "Hold events and reports upon reconnect?",
+            configuration.HoldEventsAndReportsUponReconnect);
         LlrpSdk.KeepaliveTriggerType type = console.Prompt(new SelectionPrompt<LlrpSdk.KeepaliveTriggerType>()
             .Title("[grey]Keepalive:[/]")
             .AddChoices(LlrpSdk.KeepaliveTriggerType.None, LlrpSdk.KeepaliveTriggerType.Periodic)
@@ -324,7 +347,39 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         uint interval = type == LlrpSdk.KeepaliveTriggerType.Periodic
             ? console.Prompt(new TextPrompt<uint>("[grey]Keepalive interval ms:[/]").DefaultValue(Math.Max(1U, configuration.Keepalive.IntervalMs)))
             : 0;
-        return settings with { Configuration = configuration with { Keepalive = new KeepaliveConfiguration { TriggerType = type, IntervalMs = interval } } };
+        EventNotificationConfiguration events = configuration.Events with
+        {
+            HoppingEventEnabled = console.Confirm("Enable hopping events?", configuration.Events.HoppingEventEnabled),
+            GpiEventEnabled = console.Confirm("Enable GPI events?", configuration.Events.GpiEventEnabled),
+            RoSpecEventEnabled = console.Confirm("Enable ROSpec events?", configuration.Events.RoSpecEventEnabled),
+            ReportBufferWarningEnabled = console.Confirm("Enable report buffer warning events?", configuration.Events.ReportBufferWarningEnabled),
+            ReaderExceptionEventEnabled = console.Confirm("Enable reader exception events?", configuration.Events.ReaderExceptionEventEnabled),
+            RfSurveyEventEnabled = console.Confirm("Enable RF survey events?", configuration.Events.RfSurveyEventEnabled),
+            AiSpecEventEnabled = console.Confirm("Enable AISpec events?", configuration.Events.AiSpecEventEnabled),
+            AntennaEventEnabled = console.Confirm("Enable antenna events?", configuration.Events.AntennaEventEnabled),
+            ConnectionAttemptEventEnabled = console.Confirm("Enable connection attempt events?", configuration.Events.ConnectionAttemptEventEnabled),
+            ConnectionCloseEventEnabled = console.Confirm("Enable connection close events?", configuration.Events.ConnectionCloseEventEnabled),
+        };
+        return settings with
+        {
+            Configuration = configuration with
+            {
+                HoldEventsAndReportsUponReconnect = holdEvents,
+                Keepalive = new KeepaliveConfiguration { TriggerType = type, IntervalMs = interval },
+                Events = events,
+            },
+        };
+    }
+
+    private ushort? PromptOptionalIndex(string title, ushort? current)
+    {
+        string value = console.Prompt(new TextPrompt<string>(title)
+            .DefaultValue(current?.ToString() ?? string.Empty));
+        return string.IsNullOrWhiteSpace(value)
+            ? current
+            : ushort.TryParse(value, out ushort parsed)
+                ? parsed
+                : throw new CliUsageException("Reader antenna indexes must be UInt16 values.");
     }
 
     private ReaderSettings EditVendorExtensions(ReaderSettings settings)

@@ -134,10 +134,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                             await _connectionHandler.DisconnectAsync(cancellationToken);
                             break;
                         case LiveCommandRoute.Status:
-                            HandleStatus();
+                            await HandleStatusAsync(cancellationToken);
                             break;
                         case LiveCommandRoute.Capabilities:
-                            HandleCaps();
+                            await HandleCapsAsync(cancellationToken);
                             break;
                         case LiveCommandRoute.Inventory:
                             await _inventoryHandler.HandleAsync(tokens, cancellationToken);
@@ -257,17 +257,19 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     {
         if (await _connectionHandler.ConnectAsync(options, cancellationToken))
         {
-            HandleStatus();
+            await HandleStatusAsync(cancellationToken);
         }
     }
 
-    private void HandleStatus()
+    private async Task HandleStatusAsync(CancellationToken cancellationToken)
     {
         if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Status:[/] [red]Disconnected[/]");
             return;
         }
+
+        ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
 
         var table = new Table();
         table.AddColumn("[bold grey70]Property[/]");
@@ -299,9 +301,12 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             .Border(BoxBorder.Rounded);
 
         _console.Write(panel);
+        SettingsRenderer.RenderSummary(_console, "FULL READER CONFIGURATION", snapshot.Settings, snapshot.ManagedRoSpec?.State);
+        RenderResourceParameters("ROSpec", snapshot.RoSpecs);
+        RenderResourceParameters("AccessSpec", snapshot.AccessSpecs);
     }
 
-    private void HandleCaps()
+    private async Task HandleCapsAsync(CancellationToken cancellationToken)
     {
         if (_session.Reader is null || !_session.Reader.IsConnected)
         {
@@ -309,7 +314,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             return;
         }
 
-        if (_session.Reader.Capabilities is { } capabilities)
+        ReaderCapabilities capabilities = await _session.Reader.RefreshCapabilitiesAsync(cancellationToken).ConfigureAwait(false);
+        if (capabilities is not null)
         {
             var table = new Table();
             table.AddColumn("[bold grey70]Capability[/]");
@@ -415,6 +421,17 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         else
         {
             _console.MarkupLine("[yellow]No capability metadata retrieved from reader.[/]");
+        }
+
+        FrameRenderer.RenderObjectTree(capabilities!.RawResponse!, "GET_READER_CAPABILITIES_RESPONSE (ALL)", _console);
+    }
+
+    private void RenderResourceParameters(string title, IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> parameters)
+    {
+        _console.MarkupLine($"[bold cyan1]{Markup.Escape(title)} response: {parameters.Count} item(s)[/]");
+        foreach (object parameter in parameters)
+        {
+            FrameRenderer.RenderObjectTree(parameter, parameter.GetType().Name, _console);
         }
     }
 
