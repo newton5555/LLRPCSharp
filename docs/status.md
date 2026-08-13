@@ -84,6 +84,7 @@
   RF 索引，以及既有 Inventory 的基础盘点、报告常用字段、过滤器新增、触发器、AttachedData
   和厂商扩展；Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周期
   StartAtUtc 不开放交互编辑。
+  天线 RF 索引采用单组交互，并同步写入 Reader 默认配置与托管 Inventory ROSpec。
   编辑菜单支持预览、连接设备能力校验及应用前影响提示和二次确认；`settings load` 仅
   读取并校验，批量写入仍统一通过 `settings apply <file> --yes`。
   `sync` 查询并采用设备现状，或使用带 `Inventory` 的 `settings apply <file> --yes` /

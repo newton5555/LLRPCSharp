@@ -56,6 +56,8 @@ Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来�
 `settings edit` 覆盖 Reader 级 HoldEventsAndReports、Keepalive、事件通知和天线 RF 索引，
 以及既有 Inventory 的基础盘点、报告常用字段、过滤器新增、启停触发器、AttachedData 和已启用的厂商扩展。
 Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周期 StartAtUtc 不开放交互编辑。
+每根天线的 Rx/Tx/Hop/Channel 只输入一次，CLI 会把相同值同时写入 Reader 级天线默认配置和
+托管 Inventory ROSpec；Inventory 的 RF 配置因此不会与 Reader 默认值产生意外差异。
 编辑菜单可随时预览或按已连接设备的能力校验当前内容；选择应用后还会显示影响范围并进行
 二次确认。`settings load` 只读取并校验文件，不接受 `--apply`；写入统一使用
 `settings apply <file> --yes`。

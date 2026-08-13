@@ -125,56 +125,59 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         ushort tari = console.Prompt(new TextPrompt<ushort>("[grey]Tari in ns (0 = reader default):[/]")
             .DefaultValue(inventory.Tari));
 
-        IReadOnlyList<InventoryAntennaConfiguration> antennaConfigurations = inventory.AntennaConfigurations;
-        if (console.Confirm("Configure per-antenna RF indexes?", antennaConfigurations.Count != 0))
-        {
-            var configured = new List<InventoryAntennaConfiguration>();
-            foreach (ushort antennaId in antennas)
-            {
-                InventoryAntennaConfiguration current = antennaConfigurations.FirstOrDefault(item => item.AntennaId == antennaId)
-                    ?? new InventoryAntennaConfiguration { AntennaId = antennaId };
-                ushort sensitivity = console.Prompt(new TextPrompt<ushort>($"[grey]Antenna {antennaId} Rx sensitivity index (0 = omit):[/]")
-                    .DefaultValue(current.ReceiverSensitivityIndex ?? 0));
-                ushort transmitPower = console.Prompt(new TextPrompt<ushort>($"[grey]Antenna {antennaId} Tx power index (0 = omit):[/]")
-                    .DefaultValue(current.TransmitPowerIndex ?? 0));
-                ushort? hopTable = null;
-                ushort? channel = null;
-                if (transmitPower != 0)
-                {
-                    hopTable = console.Prompt(new TextPrompt<ushort>($"[grey]Antenna {antennaId} hop table ID:[/]")
-                        .DefaultValue(current.HopTableId ?? 1));
-                    channel = console.Prompt(new TextPrompt<ushort>($"[grey]Antenna {antennaId} channel index:[/]")
-                        .DefaultValue(current.ChannelIndex ?? 1));
-                }
-                configured.Add(new InventoryAntennaConfiguration
-                {
-                    AntennaId = antennaId,
-                    ReceiverSensitivityIndex = sensitivity == 0 ? null : sensitivity,
-                    TransmitPowerIndex = transmitPower == 0 ? null : transmitPower,
-                    HopTableId = hopTable,
-                    ChannelIndex = channel,
-                });
-            }
-            antennaConfigurations = configured;
-        }
+        IReadOnlyList<ushort> configuredAntennaIds = ExpandReaderAntennaIds(antennas);
+        IReadOnlyDictionary<ushort, InventoryAntennaConfiguration> inventoryConfigurations = inventory.AntennaConfigurations
+            .Where(static item => item.AntennaId != 0)
+            .GroupBy(static item => item.AntennaId)
+            .ToDictionary(static group => group.Key, static group => group.First());
+        InventoryAntennaConfiguration? commonInventoryConfiguration = inventory.AntennaConfigurations
+            .FirstOrDefault(static item => item.AntennaId == 0);
+        IReadOnlyDictionary<ushort, AntennaConfigurationSettings> readerConfigurations = settings.Configuration.Antennas
+            .GroupBy(static item => item.AntennaId)
+            .ToDictionary(static group => group.Key, static group => group.First());
 
-        ReaderConfiguration configuration = settings.Configuration;
-        if (console.Confirm("Edit reader-level antenna RF configuration?", configuration.Antennas.Count != 0))
+        var sharedInventoryConfigurations = new List<InventoryAntennaConfiguration>();
+        var sharedReaderConfigurations = new List<AntennaConfigurationSettings>();
+        console.MarkupLine("[dim]The RF values below are written identically to reader defaults and the managed Inventory ROSpec.[/]");
+        foreach (ushort antennaId in configuredAntennaIds)
         {
-            var current = configuration.Antennas.ToDictionary(item => item.AntennaId);
-            configuration = configuration with
+            inventoryConfigurations.TryGetValue(antennaId, out InventoryAntennaConfiguration? inventoryCurrent);
+            inventoryCurrent ??= commonInventoryConfiguration;
+            readerConfigurations.TryGetValue(antennaId, out AntennaConfigurationSettings? readerCurrent);
+
+            ushort? rx = PromptOptionalIndex(
+                $"[grey]Antenna {antennaId} Rx sensitivity index (blank = current, none = omit):[/]",
+                readerCurrent?.ReceiverSensitivityIndex ?? inventoryCurrent?.ReceiverSensitivityIndex);
+            ushort? tx = PromptOptionalIndex(
+                $"[grey]Antenna {antennaId} Tx power index (blank = current, none = omit):[/]",
+                readerCurrent?.TransmitPowerIndex ?? inventoryCurrent?.TransmitPowerIndex);
+            ushort? hop = null;
+            ushort? channel = null;
+            if (tx.HasValue)
             {
-                Antennas = antennas.Select(antennaId =>
-                {
-                    current.TryGetValue(antennaId, out AntennaConfigurationSettings? existing);
-                    existing ??= new AntennaConfigurationSettings { AntennaId = antennaId };
-                    ushort? rx = PromptOptionalIndex($"Reader antenna {antennaId} Rx sensitivity index (blank = unchanged):", existing.ReceiverSensitivityIndex);
-                    ushort? tx = PromptOptionalIndex($"Reader antenna {antennaId} Tx power index (blank = unchanged):", existing.TransmitPowerIndex);
-                    ushort? hop = PromptOptionalIndex($"Reader antenna {antennaId} hop table ID (blank = unchanged):", existing.HopTableId);
-                    ushort? channel = PromptOptionalIndex($"Reader antenna {antennaId} channel index (blank = unchanged):", existing.ChannelIndex);
-                    return existing with { ReceiverSensitivityIndex = rx, TransmitPowerIndex = tx, HopTableId = hop, ChannelIndex = channel };
-                }).ToArray(),
-            };
+                hop = PromptOptionalIndex(
+                    $"[grey]Antenna {antennaId} hop table ID (blank = current):[/]",
+                    readerCurrent?.HopTableId ?? inventoryCurrent?.HopTableId ?? 1);
+                channel = PromptOptionalIndex(
+                    $"[grey]Antenna {antennaId} channel index (blank = current):[/]",
+                    readerCurrent?.ChannelIndex ?? inventoryCurrent?.ChannelIndex ?? 1);
+            }
+
+            sharedInventoryConfigurations.Add(new InventoryAntennaConfiguration
+            {
+                AntennaId = antennaId,
+                ReceiverSensitivityIndex = rx,
+                TransmitPowerIndex = tx,
+                HopTableId = hop,
+                ChannelIndex = channel,
+            });
+            sharedReaderConfigurations.Add((readerCurrent ?? new AntennaConfigurationSettings { AntennaId = antennaId }) with
+            {
+                ReceiverSensitivityIndex = rx,
+                TransmitPowerIndex = tx,
+                HopTableId = hop,
+                ChannelIndex = channel,
+            });
         }
 
         return settings with
@@ -182,12 +185,26 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
             Inventory = inventory with
             {
                 AntennaIds = antennas,
-                AntennaConfigurations = antennaConfigurations,
+                AntennaConfigurations = sharedInventoryConfigurations,
                 ModeIndex = mode,
                 Tari = tari,
             },
-            Configuration = configuration,
+            Configuration = settings.Configuration with { Antennas = sharedReaderConfigurations },
         };
+    }
+
+    private IReadOnlyList<ushort> ExpandReaderAntennaIds(IReadOnlyList<ushort> antennaIds)
+    {
+        if (antennaIds.Count != 1 || antennaIds[0] != 0)
+        {
+            return antennaIds;
+        }
+        ushort maxAntennas = reader.Capabilities?.MaxNumberOfAntennas ?? 0;
+        if (maxAntennas == 0)
+        {
+            throw new CliUsageException("The reader did not advertise an antenna count. Enter explicit antenna IDs instead of 'all'.");
+        }
+        return Enumerable.Range(1, maxAntennas).Select(static id => checked((ushort)id)).ToArray();
     }
 
     private ReaderSettings EditSingulation(ReaderSettings settings)
@@ -390,9 +407,11 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
             .DefaultValue(current?.ToString() ?? string.Empty));
         return string.IsNullOrWhiteSpace(value)
             ? current
+            : value.Equals("none", StringComparison.OrdinalIgnoreCase)
+                ? null
             : ushort.TryParse(value, out ushort parsed)
                 ? parsed
-                : throw new CliUsageException("Reader antenna indexes must be UInt16 values.");
+                : throw new CliUsageException("Antenna RF indexes must be UInt16 values or 'none'.");
     }
 
     private ReaderSettings EditVendorExtensions(ReaderSettings settings)
