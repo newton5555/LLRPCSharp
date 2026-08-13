@@ -254,7 +254,7 @@ TagAccessResult lockResult = await reader.LockTagMemoryAsync(new LockTagRequest
 TagAccessResult killResult = await reader.KillTagAsync(new KillTagRequest
 {
     Selection = selection,
-    KillPassword = 0x12345678,
+    KillPassword = "12345678",
 }, timeout: TimeSpan.FromSeconds(10));
 ```
 

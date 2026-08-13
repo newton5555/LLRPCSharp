@@ -45,8 +45,8 @@ public abstract record TagAccessRequest
     /// <summary>Gets the target antenna, or zero to use all antennas in the associated ROSpec.</summary>
     public ushort AntennaId { get; init; }
 
-    /// <summary>Gets the C1G2 access password.</summary>
-    public uint AccessPassword { get; init; }
+    /// <summary>Gets the C1G2 access password as exactly 8 hexadecimal digits (e.g. "00000000").</summary>
+    public string AccessPassword { get; init; } = "00000000";
 }
 
 /// <summary>Requests one standard C1G2 memory read.</summary>
@@ -107,8 +107,8 @@ public sealed record LockTagRequest : TagAccessRequest
 /// <summary>Requests one standard C1G2 kill operation.</summary>
 public sealed record KillTagRequest : TagAccessRequest
 {
-    /// <summary>Gets the 32-bit C1G2 Kill password required to kill the tag.</summary>
-    public required uint KillPassword { get; init; }
+    /// <summary>Gets the 32-bit C1G2 Kill password as exactly 8 hexadecimal digits (e.g. "12345678").</summary>
+    public required string KillPassword { get; init; }
 }
 
 /// <summary>Requests one standard C1G2 block erase operation.</summary>
@@ -154,3 +154,20 @@ public sealed record TagAccessResult(
 public sealed record TagAccessSequenceResult(
     TagReport Tag,
     IReadOnlyList<TagAccessOperationResult> Operations);
+
+/// <summary>Parses the SDK-facing hex password representation into the wire-level 32-bit value.</summary>
+internal static class TagAccessPassword
+{
+    public static uint ParseHex(string? value, string parameterName)
+    {
+        if (value is null || value.Length != 8 ||
+            !uint.TryParse(value, System.Globalization.NumberStyles.AllowHexSpecifier,
+                System.Globalization.CultureInfo.InvariantCulture, out uint parsed))
+        {
+            throw new ArgumentException(
+                $"{parameterName} must be exactly 8 hexadecimal digits (for example \"00000000\").", parameterName);
+        }
+
+        return parsed;
+    }
+}

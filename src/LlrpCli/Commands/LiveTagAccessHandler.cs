@@ -77,7 +77,7 @@ internal sealed class LiveTagAccessHandler(IAnsiConsole console, LiveSessionCont
             case "kill":
                 {
                     var options = ParseOptions(tokens, 3);
-                    uint killPassword = string.IsNullOrWhiteSpace(options.KillPassword) ? 0 : TagAccessCliRequest.ParseUInt32Hex(options.KillPassword, "--kill-pwd");
+                    string killPassword = TagAccessCliRequest.NormalizeHex32(options.KillPassword, "--kill-pwd");
                     byte[] epcBytes = TagAccessCliRequest.ParseHex(epc, "EPC");
 
                     KillTagRequest req = new()
@@ -184,7 +184,7 @@ internal sealed class LiveTagAccessHandler(IAnsiConsole console, LiveSessionCont
         string specification,
         TagSelection selection,
         ushort antenna,
-        uint accessPassword)
+        string accessPassword)
     {
         string[] parts = specification.Split(':', StringSplitOptions.TrimEntries);
         string kind = parts[0].ToLowerInvariant();
@@ -222,13 +222,13 @@ internal sealed class LiveTagAccessHandler(IAnsiConsole console, LiveSessionCont
             {
                 Selection = selection,
                 AntennaId = antenna,
-                KillPassword = TagAccessCliRequest.ParseUInt32Hex(parts[1], "kill password")
+                KillPassword = TagAccessCliRequest.NormalizeHex32(parts[1], "kill password")
             },
             _ => throw new CliUsageException($"Invalid tag sequence operation '{specification}'. Use read:bank:word:count, write:bank:word:hex, erase:bank:word:count, lock:target:privilege, or kill:password."),
         };
     }
 
-    private static LockTagRequest CreateSequenceLock(TagSelection selection, ushort antenna, uint accessPassword, string target, string privilege)
+    private static LockTagRequest CreateSequenceLock(TagSelection selection, ushort antenna, string accessPassword, string target, string privilege)
     {
         TagLockMode mode = ParseLockMode(privilege);
         string normalizedTarget = target.ToLowerInvariant();

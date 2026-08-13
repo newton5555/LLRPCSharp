@@ -10,7 +10,7 @@ internal sealed record TagAccessCliRequest(
     TagMemoryBank MemoryBank,
     ushort WordPointer,
     ushort AntennaId,
-    uint AccessPassword,
+    string AccessPassword,
     TimeSpan? Timeout)
 {
     public static TagAccessCliRequest Create(
@@ -29,9 +29,7 @@ internal sealed record TagAccessCliRequest(
 
         TagMemoryBank memoryBank = ParseBank(bank);
 
-        uint accessPassword = string.IsNullOrWhiteSpace(password)
-            ? 0
-            : ParseUInt32Hex(password, "--password");
+        string accessPassword = NormalizeHex32(password, "--password");
         TimeSpan? timeout = timeoutSeconds is null ? null : TimeSpan.FromSeconds(timeoutSeconds.Value);
         return new TagAccessCliRequest(epcBytes, memoryBank, wordPointer, antennaId, accessPassword, timeout);
     }
@@ -81,7 +79,7 @@ internal sealed record TagAccessCliRequest(
         };
     }
 
-    public KillTagRequest ToKillRequest(uint killPassword)
+    public KillTagRequest ToKillRequest(string killPassword)
     {
         return new KillTagRequest
         {
@@ -150,14 +148,23 @@ internal sealed record TagAccessCliRequest(
         }
     }
 
-    public static uint ParseUInt32Hex(string value, string name)
+    public static string NormalizeHex32(string? value, string name)
     {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "00000000";
+        }
+
         string normalized = value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value[2..] : value;
+        normalized = normalized
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace(":", string.Empty, StringComparison.Ordinal);
         if (!uint.TryParse(normalized, System.Globalization.NumberStyles.AllowHexSpecifier, null, out uint parsed))
         {
             throw new CliUsageException($"{name} must be a UInt32 hexadecimal value.");
         }
 
-        return parsed;
+        return parsed.ToString("X8");
     }
 }

@@ -3419,7 +3419,7 @@ public sealed class LlrpReader : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(options), "Attached-data word count must be positive.");
         }
         if (options.AccessPassword.Length != 8 ||
-            !uint.TryParse(options.AccessPassword, System.Globalization.NumberStyles.AllowHexSpecifier, System.Globalization.CultureInfo.InvariantCulture, out uint accessPassword))
+            !uint.TryParse(options.AccessPassword, System.Globalization.NumberStyles.AllowHexSpecifier, System.Globalization.CultureInfo.InvariantCulture, out _))
         {
             throw new ArgumentException("Attached-data access password must be an eight-digit hexadecimal value.", nameof(options));
         }
@@ -3434,7 +3434,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 Mask = new byte[] { 0 },
                 Data = new byte[] { 0 },
             },
-            AccessPassword = accessPassword,
+            AccessPassword = options.AccessPassword,
             MemoryBank = (TagMemoryBank)options.MemoryBank,
             WordPointer = options.WordPointer,
             WordCount = options.WordCount,

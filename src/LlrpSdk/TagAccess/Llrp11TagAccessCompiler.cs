@@ -50,14 +50,15 @@ internal static class Llrp11TagAccessCompiler
 
     private static ILlrpParameter CompileOperation(TagAccessRequest request, ushort opSpecId, bool useBlockWrite)
     {
+        uint accessPassword = TagAccessPassword.ParseHex(request.AccessPassword, nameof(request.AccessPassword));
         return request switch
         {
-            ReadTagRequest read => new C1G2Read(opSpecId, read.AccessPassword, (byte)read.MemoryBank, read.WordPointer, read.WordCount),
-            WriteTagRequest write when useBlockWrite && write.WriteData.Count > 1 => new C1G2BlockWrite(opSpecId, write.AccessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
-            WriteTagRequest write => new C1G2Write(opSpecId, write.AccessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
-            LockTagRequest lockReq => CompileLock(lockReq, opSpecId),
-            KillTagRequest killReq => new C1G2Kill(opSpecId, killReq.KillPassword),
-            BlockEraseTagRequest eraseReq => new C1G2BlockErase(opSpecId, eraseReq.AccessPassword, (byte)eraseReq.MemoryBank, eraseReq.WordPointer, eraseReq.WordCount),
+            ReadTagRequest read => new C1G2Read(opSpecId, accessPassword, (byte)read.MemoryBank, read.WordPointer, read.WordCount),
+            WriteTagRequest write when useBlockWrite && write.WriteData.Count > 1 => new C1G2BlockWrite(opSpecId, accessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
+            WriteTagRequest write => new C1G2Write(opSpecId, accessPassword, (byte)write.MemoryBank, write.WordPointer, write.WriteData),
+            LockTagRequest lockReq => CompileLock(lockReq, opSpecId, accessPassword),
+            KillTagRequest killReq => new C1G2Kill(opSpecId, TagAccessPassword.ParseHex(killReq.KillPassword, nameof(killReq.KillPassword))),
+            BlockEraseTagRequest eraseReq => new C1G2BlockErase(opSpecId, accessPassword, (byte)eraseReq.MemoryBank, eraseReq.WordPointer, eraseReq.WordCount),
             _ => throw new NotSupportedException($"Unsupported tag access request type {request.GetType().FullName}.")
         };
     }
@@ -91,7 +92,7 @@ internal static class Llrp11TagAccessCompiler
             left.BitLength == right.BitLength && left.Match == right.Match && left.Mask.Span.SequenceEqual(right.Mask.Span) && left.Data.Span.SequenceEqual(right.Data.Span);
     }
 
-    private static C1G2Lock CompileLock(LockTagRequest lockReq, ushort opSpecId)
+    private static C1G2Lock CompileLock(LockTagRequest lockReq, ushort opSpecId, uint accessPassword)
     {
         var payloads = new List<C1G2LockPayload>();
         AddPayloadIfSet(payloads, V11Enumerations.C1G2LockDataField.Kill_Password, lockReq.KillPasswordLockMode);
@@ -105,7 +106,7 @@ internal static class Llrp11TagAccessCompiler
             throw new ArgumentException("LockTagRequest must specify at least one lock mode change.", nameof(lockReq));
         }
 
-        return new C1G2Lock(opSpecId, lockReq.AccessPassword, payloads);
+        return new C1G2Lock(opSpecId, accessPassword, payloads);
     }
 
     private static void AddPayloadIfSet(List<C1G2LockPayload> payloads, V11Enumerations.C1G2LockDataField field, TagLockMode mode)
