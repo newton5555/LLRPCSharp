@@ -6,7 +6,7 @@ namespace LlrpCli.Commands;
 /// <summary>Implements the stable Live Shell settings command contract.</summary>
 internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionContext session)
 {
-    public const string Usage = "settings show [--json] | defaults [--json|--yes] | edit [--from defaults|<file>] | validate <file> | apply <file> --yes | load <file> [--apply] | save <file>";
+    public const string Usage = "settings show [--json|--raw] | defaults [--json|--yes] | edit [--from defaults|<file>] | validate <file> | apply <file> --yes | load <file> | save <file>";
 
     public async Task HandleAsync(string[] tokens, CancellationToken cancellationToken)
     {
@@ -61,9 +61,10 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         }
 
         bool json = tokens.Any(static token => token.Equals("--json", StringComparison.OrdinalIgnoreCase));
-        if (tokens.Length > 3 || (tokens.Length == 3 && !json))
+        bool raw = tokens.Any(static token => token.Equals("--raw", StringComparison.OrdinalIgnoreCase));
+        if (tokens.Length > 3 || (tokens.Length == 3 && !json && !raw) || (json && raw))
         {
-            throw new CliUsageException("Usage: settings show [--json]");
+            throw new CliUsageException("Usage: settings show [--json|--raw]");
         }
 
         ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
@@ -74,6 +75,10 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         else
         {
             SettingsRenderer.RenderSummary(console, "Reader settings", snapshot.Settings, snapshot.ManagedRoSpec?.State);
+            if (raw)
+            {
+                SettingsRenderer.RenderResources(console, snapshot);
+            }
         }
     }
 
@@ -129,7 +134,9 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
             throw new CliUsageException("Usage: settings edit [--from defaults|<file>]");
         }
 
-        EditorResult result = new SettingsEditor(console, reader).Edit(sourceSettings);
+        EditorResult result = await new SettingsEditor(console, reader)
+            .EditAsync(sourceSettings, cancellationToken)
+            .ConfigureAwait(false);
 
         if (result.Action == EditorResultAction.Discard)
         {
@@ -157,6 +164,11 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
 
             EnsureSettingsApplyCanProceed(reader, result.Settings);
             SettingsRenderer.RenderApplyImpact(console, result.Settings);
+            if (!console.Confirm("Apply these settings to the connected reader?", defaultValue: false))
+            {
+                console.MarkupLine("[yellow]Apply cancelled.[/]");
+                return;
+            }
             ReaderSettingsSnapshot deployed = await ManagedSettingsWorkflow.ApplyAsync(reader, result.Settings, cancellationToken).ConfigureAwait(false);
             SettingsRenderer.RenderSummary(console, "Deployed reader settings", deployed.Settings, deployed.ManagedRoSpec?.State);
             console.MarkupLine("[bold springgreen2]✔ Settings applied. Inventory remains Disabled until 'inventory start'.[/]");
@@ -165,41 +177,18 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
 
     private async Task LoadAsync(LlrpReader reader, string[] tokens, CancellationToken cancellationToken)
     {
-        bool apply = tokens.Any(static token => token.Equals("--apply", StringComparison.OrdinalIgnoreCase));
-        string[] positional = tokens.Skip(2).Where(static token => !token.Equals("--apply", StringComparison.OrdinalIgnoreCase)).ToArray();
-        
-        if (positional.Length != 1)
+        if (tokens.Length != 3)
         {
-            throw new CliUsageException("Usage: settings load <file> [--apply]");
+            throw new CliUsageException("Usage: settings load <file>");
         }
 
-        string path = positional[0];
+        string path = tokens[2];
         ReaderSettings settings = ManagedSettingsWorkflow.Load(reader, path);
-
-        if (apply)
+        SettingsValidationResult validation = await ManagedSettingsWorkflow.ValidateAsync(reader, settings, cancellationToken).ConfigureAwait(false);
+        SettingsRenderer.RenderValidation(console, validation);
+        if (validation.IsValid)
         {
-            SettingsValidationResult validation = await ManagedSettingsWorkflow.ValidateAsync(reader, settings, cancellationToken).ConfigureAwait(false);
-            SettingsRenderer.RenderValidation(console, validation);
-            if (!validation.IsValid)
-            {
-                console.MarkupLine("[bold red]Apply aborted due to validation errors.[/]");
-                return;
-            }
-
-            EnsureSettingsApplyCanProceed(reader, settings);
-            SettingsRenderer.RenderApplyImpact(console, settings);
-            ReaderSettingsSnapshot deployed = await ManagedSettingsWorkflow.ApplyAsync(reader, settings, cancellationToken).ConfigureAwait(false);
-            SettingsRenderer.RenderSummary(console, "Deployed reader settings", deployed.Settings, deployed.ManagedRoSpec?.State);
-            console.MarkupLine("[bold springgreen2]✔ Settings loaded and applied. Inventory remains Disabled until 'inventory start'.[/]");
-        }
-        else
-        {
-            SettingsValidationResult validation = await ManagedSettingsWorkflow.ValidateAsync(reader, settings, cancellationToken).ConfigureAwait(false);
-            SettingsRenderer.RenderValidation(console, validation);
-            if (validation.IsValid)
-            {
-                console.MarkupLine("[bold springgreen2]✔ File loaded and validated successfully. Use --apply to push to the reader.[/]");
-            }
+            console.MarkupLine($"[bold springgreen2]✔ File loaded and validated successfully.[/] Apply with [cyan1]settings apply {Markup.Escape(path)} --yes[/].");
         }
     }
 

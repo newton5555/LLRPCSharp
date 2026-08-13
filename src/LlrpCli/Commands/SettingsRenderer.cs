@@ -2,6 +2,7 @@ using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpSdk;
+using LlrpCli.Rendering;
 using Spectre.Console;
 
 namespace LlrpCli.Commands;
@@ -56,6 +57,21 @@ internal static class SettingsRenderer
         console.WriteLine(ReaderSettingsSerializer.SerializeToJson(
             settings,
             ManagedSettingsWorkflow.GetSerializationContributors(reader)));
+
+    public static void RenderResources(IAnsiConsole console, ReaderSettingsSnapshot snapshot)
+    {
+        RenderResourceParameters(console, "ROSpec", snapshot.RoSpecs);
+        RenderResourceParameters(console, "AccessSpec", snapshot.AccessSpecs);
+    }
+
+    private static void RenderResourceParameters(IAnsiConsole console, string title, IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> parameters)
+    {
+        console.MarkupLine($"[bold cyan1]{Markup.Escape(title)} response: {parameters.Count} item(s)[/]");
+        foreach (object parameter in parameters)
+        {
+            FrameRenderer.RenderObjectTree(parameter, parameter.GetType().Name, console);
+        }
+    }
 
     public static void RenderValidation(IAnsiConsole console, SettingsValidationResult result)
     {

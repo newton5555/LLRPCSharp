@@ -19,7 +19,7 @@ internal sealed record EditorResult(ReaderSettings Settings, EditorResultAction 
 /// <summary>Interactive editor for the canonical SDK settings records.</summary>
 internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
 {
-    public EditorResult Edit(ReaderSettings source)
+    public async Task<EditorResult> EditAsync(ReaderSettings source, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ReaderSettings working = source;
@@ -56,6 +56,15 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
                 case SettingsArea.VendorExtensions:
                     working = EditVendorExtensions(working);
                     break;
+                case SettingsArea.Review:
+                    SettingsRenderer.RenderSummary(console, "Current edit", working);
+                    break;
+                case SettingsArea.Validate:
+                    SettingsValidationResult validation = await ManagedSettingsWorkflow
+                        .ValidateAsync(reader, working, cancellationToken)
+                        .ConfigureAwait(false);
+                    SettingsRenderer.RenderValidation(console, validation);
+                    break;
                 case SettingsArea.ApplyToReader:
                     SettingsRenderer.RenderSummary(console, "Settings to apply", working);
                     return new EditorResult(working, EditorResultAction.Apply);
@@ -79,6 +88,8 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
             SettingsArea.AttachedData => "Attached data",
             SettingsArea.ReaderConfiguration => "Reader configuration",
             SettingsArea.VendorExtensions => "Vendor extensions",
+            SettingsArea.Review => "Review current edit",
+            SettingsArea.Validate => "Validate current edit",
             SettingsArea.ApplyToReader => "[bold green]Apply to reader[/]",
             SettingsArea.SaveToFile => "[bold blue]Save to file[/]",
             SettingsArea.Discard => "[bold red]Discard[/]",
@@ -96,6 +107,8 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         AttachedData,
         ReaderConfiguration,
         VendorExtensions,
+        Review,
+        Validate,
         ApplyToReader,
         SaveToFile,
         Discard,

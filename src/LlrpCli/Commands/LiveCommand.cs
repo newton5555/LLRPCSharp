@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using LlrpCli.Analysis;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
@@ -134,10 +135,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                             await _connectionHandler.DisconnectAsync(cancellationToken);
                             break;
                         case LiveCommandRoute.Status:
-                            await HandleStatusAsync(cancellationToken);
+                            await HandleStatusAsync(tokens, cancellationToken);
                             break;
                         case LiveCommandRoute.Capabilities:
-                            await HandleCapsAsync(cancellationToken);
+                            await HandleCapsAsync(tokens, cancellationToken);
                             break;
                         case LiveCommandRoute.Inventory:
                             await _inventoryHandler.HandleAsync(tokens, cancellationToken);
@@ -257,19 +258,23 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
     {
         if (await _connectionHandler.ConnectAsync(options, cancellationToken))
         {
-            await HandleStatusAsync(cancellationToken);
+            await HandleStatusAsync(["status"], cancellationToken);
         }
     }
 
-    private async Task HandleStatusAsync(CancellationToken cancellationToken)
+    private async Task HandleStatusAsync(string[] tokens, CancellationToken cancellationToken)
     {
+        bool full = tokens.Length == 2 && tokens[1].Equals("--full", StringComparison.OrdinalIgnoreCase);
+        if (tokens.Length > 2 || (tokens.Length == 2 && !full))
+        {
+            throw new CliUsageException("Usage: status [--full]");
+        }
+
         if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Status:[/] [red]Disconnected[/]");
             return;
         }
-
-        ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
 
         var table = new Table();
         table.AddColumn("[bold grey70]Property[/]");
@@ -278,6 +283,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("Host", $"[cyan1]{_session.Host}:{_session.Port}[/]");
         table.AddRow("Connection State", $"[springgreen2]{_session.Reader.ConnectionState}[/]");
         table.AddRow("Connection ID", $"[white]{_session.Reader.ConnectionId}[/]");
+        table.AddRow("LLRP Version", $"[white]{_session.Reader.NegotiatedVersion}[/]");
+        table.AddRow("Operation State", $"[white]{_session.Reader.OperationState}[/]");
+        table.AddRow("Resource Mode", $"[white]{_session.Reader.ResourceMode}[/]");
+        table.AddRow("Managed State", _session.Reader.IsManagedStateSynchronized ? "[green]Synchronized[/]" : "[yellow]Unknown[/]");
 
         if (_session.Reader.Identity is { } identity)
         {
@@ -301,13 +310,26 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             .Border(BoxBorder.Rounded);
 
         _console.Write(panel);
-        SettingsRenderer.RenderSummary(_console, "FULL READER CONFIGURATION", snapshot.Settings, snapshot.ManagedRoSpec?.State);
-        RenderResourceParameters("ROSpec", snapshot.RoSpecs);
-        RenderResourceParameters("AccessSpec", snapshot.AccessSpecs);
+        if (full)
+        {
+            if (_session.Reader.ResourceMode == ReaderResourceMode.ManualResources || !_session.Reader.IsManagedStateSynchronized)
+            {
+                throw new CliUsageException("Full managed status is unavailable in manual or unknown resource state. Exit manual mode and run 'sync' first.");
+            }
+            ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
+            SettingsRenderer.RenderSummary(_console, "FULL READER CONFIGURATION", snapshot.Settings, snapshot.ManagedRoSpec?.State);
+            SettingsRenderer.RenderResources(_console, snapshot);
+        }
     }
 
-    private async Task HandleCapsAsync(CancellationToken cancellationToken)
+    private async Task HandleCapsAsync(string[] tokens, CancellationToken cancellationToken)
     {
+        bool raw = tokens.Length == 2 && tokens[1].Equals("--raw", StringComparison.OrdinalIgnoreCase);
+        bool json = tokens.Length == 2 && tokens[1].Equals("--json", StringComparison.OrdinalIgnoreCase);
+        if (tokens.Length > 2 || (tokens.Length == 2 && !raw && !json))
+        {
+            throw new CliUsageException("Usage: caps [--raw|--json]");
+        }
         if (_session.Reader is null || !_session.Reader.IsConnected)
         {
             _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
@@ -315,6 +337,22 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         ReaderCapabilities capabilities = await _session.Reader.RefreshCapabilitiesAsync(cancellationToken).ConfigureAwait(false);
+        if (json && capabilities is not null)
+        {
+            _console.WriteLine(JsonSerializer.Serialize(new
+            {
+                capabilities.MaxNumberOfAntennas,
+                capabilities.CanSetAntennaProperties,
+                capabilities.HasUtcClockCapability,
+                capabilities.MaximumReceiveSensitivityDbm,
+                capabilities.TxPowers,
+                capabilities.RxSensitivities,
+                capabilities.TxFrequencies,
+                capabilities.RfModes,
+                AdditionalParameterCount = capabilities.AdditionalParameters.Count,
+            }, new JsonSerializerOptions { WriteIndented = true }));
+            return;
+        }
         if (capabilities is not null)
         {
             var table = new Table();
@@ -423,20 +461,18 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _console.MarkupLine("[yellow]No capability metadata retrieved from reader.[/]");
         }
 
-        FrameRenderer.RenderObjectTree(capabilities!.RawResponse!, "GET_READER_CAPABILITIES_RESPONSE (ALL)", _console);
-    }
-
-    private void RenderResourceParameters(string title, IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> parameters)
-    {
-        _console.MarkupLine($"[bold cyan1]{Markup.Escape(title)} response: {parameters.Count} item(s)[/]");
-        foreach (object parameter in parameters)
+        if (raw && capabilities?.RawResponse is not null)
         {
-            FrameRenderer.RenderObjectTree(parameter, parameter.GetType().Name, _console);
+            FrameRenderer.RenderObjectTree(capabilities.RawResponse, "GET_READER_CAPABILITIES_RESPONSE (ALL)", _console);
         }
     }
 
     private void HandleFrames(string[] tokens)
     {
+        if (tokens.Length > 2 || (tokens.Length == 2 && (!int.TryParse(tokens[1], out int requestedCount) || requestedCount <= 0)))
+        {
+            throw new CliUsageException("Usage: frames [positive-count]");
+        }
         if (_session.FrameObserver is null || _session.FrameObserver.CapturedFrames.Count == 0)
         {
             _console.MarkupLine("[yellow]No frames captured yet.[/]");
@@ -444,9 +480,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         int count = 10;
-        if (tokens.Length >= 2 && int.TryParse(tokens[1], out int parsedCount))
+        if (tokens.Length == 2)
         {
-            count = parsedCount;
+            count = int.Parse(tokens[1], System.Globalization.CultureInfo.InvariantCulture);
         }
 
         IReadOnlyList<CapturedFrame> frames = _session.FrameObserver.CapturedFrames;
@@ -733,6 +769,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         (!responseType.HasValue || (ushort)header.MessageType == responseType.Value),
                     cancellationToken: cancellationToken);
                 _console.MarkupLine("[bold springgreen2]✔ Raw transaction completed.[/]");
+                FrameRenderer.RenderFrameData(LlrpFrameDirection.Receive, DateTimeOffset.Now, response.ToArray(), _console, includeHexDump: true);
                 break;
 
             default:

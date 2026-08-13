@@ -18,13 +18,17 @@ dotnet run --project src/LlrpCli
 
 ```text
 > connect 192.168.1.100     # 连接到目标 RFID 读写器
-> status                    # 查看当前连接与设备生命周期状态
-> caps                      # 查询读写器天线数量、功率表与 RF 模式表
+> status                    # 轻量查看当前连接与托管状态
+> status --full             # 刷新配置、ROSpec 和 AccessSpec 并显示参数树
+> caps                      # 刷新并显示归一化能力和 RF 索引表
+> caps --raw                # 额外显示完整能力响应参数树
+> caps --json               # 输出归一化能力 JSON，便于脚本消费
 ```
 
-`status` 每次都会读取完整的 `GET_READER_CONFIG(All)`、`GET_ROSPECS` 和
-`GET_ACCESSSPECS`，随后显示 Reader 配置摘要及 ROSpec/AccessSpec 参数树，便于分析设备实际状态。
-`caps` 每次都会重新发送 `GET_READER_CAPABILITIES(All)`，同时显示归一化能力表和完整能力响应参数树。
+`status` 默认不产生额外设备查询，适合连接后快速确认状态；`status --full` 才读取完整
+Settings、ROSpec 和 AccessSpec 实况。`caps` 每次都会重新发送
+`GET_READER_CAPABILITIES(All)`；默认显示归一化能力表，`--raw` 展开协议响应，`--json`
+输出适合脚本消费的归一化数据。
 
 ---
 
@@ -37,6 +41,8 @@ Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来�
 > settings defaults --yes         # 应用默认值（保持 Inventory Disabled）
 > settings apply settings.json --yes  # 校验并应用指定文件
 > settings show                   # 重新读取设备实况
+> settings show --json            # 输出可保存并再次 apply 的高层 ReaderSettings JSON
+> settings show --raw             # 在摘要后展开 ROSpec/AccessSpec 参数树
 ```
 
 ### 配置来源选项
@@ -50,6 +56,9 @@ Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来�
 `settings edit` 覆盖 Reader 级 HoldEventsAndReports、Keepalive、事件通知和天线 RF 索引，
 以及既有 Inventory 的基础盘点、报告常用字段、过滤器新增、启停触发器、AttachedData 和已启用的厂商扩展。
 Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周期 StartAtUtc 不开放交互编辑。
+编辑菜单可随时预览或按已连接设备的能力校验当前内容；选择应用后还会显示影响范围并进行
+二次确认。`settings load` 只读取并校验文件，不接受 `--apply`；写入统一使用
+`settings apply <file> --yes`。
 
 Raw 或手工 ROSpec/AccessSpec 操作后，SDK 托管状态会变为未知：
 
@@ -69,6 +78,7 @@ Raw 或手工 ROSpec/AccessSpec 操作后，SDK 托管状态会变为未知：
 ```text
 > inventory start                 # 启动标签盘点，终端实时滚动显示刷卡数据
 > inventory status                # 查看当前盘点运行状态
+> inventory status --refresh      # 从设备重新读取托管 Settings/ROSpec 后显示
 > inventory stop                  # 停止盘点
 ```
 

@@ -24,6 +24,7 @@ internal sealed class LiveInventoryHandler(
         {
             case "start":
                 {
+                    ValidateStartOptions(tokens);
                     if (!EnsureConnected())
                     {
                         return;
@@ -73,6 +74,10 @@ internal sealed class LiveInventoryHandler(
                 }
 
             case "stop":
+                if (tokens.Length != 2)
+                {
+                    throw new CliUsageException("Usage: inventory stop");
+                }
                 if (!EnsureConnected())
                 {
                     return;
@@ -83,6 +88,11 @@ internal sealed class LiveInventoryHandler(
                 break;
 
             case "status":
+                bool refresh = tokens.Length == 3 && tokens[2].Equals("--refresh", StringComparison.OrdinalIgnoreCase);
+                if (tokens.Length > 3 || (tokens.Length == 3 && !refresh))
+                {
+                    throw new CliUsageException("Usage: inventory status [--refresh]");
+                }
                 if (!EnsureConnected())
                 {
                     return;
@@ -93,6 +103,14 @@ internal sealed class LiveInventoryHandler(
                         "[yellow]SDK-managed state is unknown after raw or manual resource access. Run 'sync' to inspect " +
                         "the reader, or use 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to force a managed takeover.[/]");
                     return;
+                }
+                if (refresh)
+                {
+                    if (session.Reader.ResourceMode == ReaderResourceMode.ManualResources)
+                    {
+                        throw new CliUsageException("Manual resource mode is active. Exit it before 'inventory status --refresh'.");
+                    }
+                    await session.Reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
                 }
                 RenderStatus();
                 break;
@@ -148,6 +166,25 @@ internal sealed class LiveInventoryHandler(
             }
         }
         return LiveMonitorMode.Live;
+    }
+
+    private static void ValidateStartOptions(string[] tokens)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int index = 2; index < tokens.Length; index += 2)
+        {
+            string option = tokens[index];
+            bool knownOption = option.Equals("--monitor", StringComparison.OrdinalIgnoreCase)
+                || option.Equals("--monitor-duration", StringComparison.OrdinalIgnoreCase);
+            if (!knownOption || index + 1 >= tokens.Length)
+            {
+                throw new CliUsageException("Usage: inventory start [--monitor live|frames|none] [--monitor-duration seconds]");
+            }
+            if (!seen.Add(option))
+            {
+                throw new CliUsageException($"{option} may only be specified once.");
+            }
+        }
     }
 
     private static int? ParseStartMonitorDurationSeconds(string[] tokens)
@@ -215,7 +252,7 @@ internal sealed class LiveInventoryHandler(
 
     private void RenderUsage()
     {
-        console.MarkupLine("[red]Usage:[/] inventory start [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status");
+        console.MarkupLine("[red]Usage:[/] inventory start [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status [[--refresh]]");
     }
 
 }

@@ -53,19 +53,25 @@ public static class CommandCatalog
             CompletionCandidates = ["--llrp", "--vendor", "auto", "1.0.1", "1.1", "impinj", "seuic", "none"],
         },
         new("disconnect", LiveCommandRoute.Disconnect, "disconnect", "Disconnect current Reader session.", RequiresConnection: true),
-        new("status", LiveCommandRoute.Status, "status", "Show current connection status and metadata."),
-        new("caps", LiveCommandRoute.Capabilities, "caps", "Show reader capabilities and RF index tables.", RequiresConnection: true),
+        new("status", LiveCommandRoute.Status, "status [--full]", "Show session status; --full refreshes managed settings and resources.")
+        {
+            CompletionCandidates = ["--full"],
+        },
+        new("caps", LiveCommandRoute.Capabilities, "caps [--raw|--json]", "Refresh reader capabilities; optionally show raw protocol data or JSON.", RequiresConnection: true)
+        {
+            CompletionCandidates = ["--raw", "--json"],
+        },
         new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, or save ReaderSettings; Inventory applies can take over after raw access.", RequiresConnection: true)
         {
-            CompletionCandidates = ["show", "defaults", "edit", "validate", "apply", "load", "save", "--json", "--yes", "--apply", "--from"],
+            CompletionCandidates = ["show", "defaults", "edit", "validate", "apply", "load", "save", "--json", "--raw", "--yes", "--from"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
             CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status", "Control the Reader-deployed high-level inventory after state sync or managed takeover.")
+        new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status [--refresh]", "Control the Reader-deployed high-level inventory after state sync or managed takeover.")
         {
-            CompletionCandidates = ["start", "stop", "status", "--monitor", "--monitor-duration", "live", "frames", "none", "30", "60"],
+            CompletionCandidates = ["start", "stop", "status", "--monitor", "--monitor-duration", "--refresh", "live", "frames", "none", "30", "60"],
         },
         new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs after entering manual resource mode.", RequiresConnection: true)
         {

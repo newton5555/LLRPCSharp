@@ -76,13 +76,16 @@
 - `settings show|defaults|edit|validate|apply|load|save` 提供简化的设置查看、编辑、
   校验和写入；`settings apply <file> --yes` 与 `settings defaults --yes` 是唯一的
   显式批量应用入口，不维护 CLI 草稿状态。Raw/手工资源操作后的 CLI 链路为：
-- Live Shell 的 `status` 会主动执行 `GET_READER_CONFIG(All)`、`GET_ROSPECS` 和
-  `GET_ACCESSSPECS`，并展示完整高层配置及 ROSpec/AccessSpec 参数树；`caps` 会重新
-  执行 `GET_READER_CAPABILITIES(All)`，展示归一化能力表和完整能力响应参数树。
+- Live Shell 的 `status` 默认只显示连接和托管生命周期状态；`status --full` 会刷新
+  Settings、ROSpec 和 AccessSpec 并展示参数树。`caps` 会重新执行
+  `GET_READER_CAPABILITIES(All)`，默认展示归一化能力表，`--raw` 展示完整响应参数树，
+  `--json` 输出脚本友好的归一化数据。
 - `settings edit` 可编辑 Reader 级 HoldEventsAndReports、Keepalive、事件通知、天线
   RF 索引，以及既有 Inventory 的基础盘点、报告常用字段、过滤器新增、触发器、AttachedData
   和厂商扩展；Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周期
   StartAtUtc 不开放交互编辑。
+  编辑菜单支持预览、连接设备能力校验及应用前影响提示和二次确认；`settings load` 仅
+  读取并校验，批量写入仍统一通过 `settings apply <file> --yes`。
   `sync` 查询并采用设备现状，或使用带 `Inventory` 的 `settings apply <file> --yes` /
   `settings defaults --yes` 强制接管；`inventory start` 只在状态已同步或接管完成后执行。
 - 根级一次性 `inventory <host>` 与 Live Shell 共用 SDK 和 Settings 工作流，

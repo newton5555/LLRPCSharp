@@ -299,6 +299,16 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
+    public void LiveCommandCatalog_ExposesExplicitInspectionOptions()
+    {
+        Assert.Equal("status [--full]", CommandCatalog.Require("status").Usage);
+        Assert.Equal("caps [--raw|--json]", CommandCatalog.Require("caps").Usage);
+        Assert.Contains("settings show [--json|--raw]", CommandCatalog.Require("settings").Usage, StringComparison.Ordinal);
+        Assert.DoesNotContain("--apply", CommandCatalog.Require("settings").CompletionCandidates);
+        Assert.Contains("--refresh", CommandCatalog.Require("inventory").CompletionCandidates);
+    }
+
+    [Fact]
     public void CommandCatalog_InventoryHasNoSecondTemporarySessionPath()
     {
         CommandSpec inv = CommandCatalog.Require("inventory");
