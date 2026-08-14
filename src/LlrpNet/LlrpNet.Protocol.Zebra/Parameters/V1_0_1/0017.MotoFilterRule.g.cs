@@ -5,14 +5,10 @@ namespace LlrpNet.Protocol.Zebra.Parameters.V1_0_1;
 
 /// <summary>Generated custom LLRP parameter 'MotoFilterRule'.</summary>
 /// <param name="RuleType">Wire field 'RuleType' (U8).</param>
-/// <param name="MotoFilterRSSIRange">LLRP parameter 'MotoFilterRSSIRange' with cardinality 0..1.</param>
-/// <param name="MotoFilterTimeRange">LLRP parameter 'MotoFilterTimeRange' with cardinality 0..1.</param>
-/// <param name="MotoFilterTagListItems">LLRP parameter 'MotoFilterTagList' with cardinality 0..N.</param>
+/// <param name="Data">Wire field 'Data' (BytesToEnd).</param>
 public sealed record MotoFilterRule(
     byte RuleType,
-    global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterRSSIRange? MotoFilterRSSIRange,
-    global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterTimeRange? MotoFilterTimeRange,
-    global::System.Collections.Generic.IReadOnlyList<global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterTagList> MotoFilterTagListItems
+    global::System.ReadOnlyMemory<byte> Data
 ) : global::LlrpNet.Protocol.Parameters.ILlrpParameter
 {
     public const ushort TypeNumber = 1023;

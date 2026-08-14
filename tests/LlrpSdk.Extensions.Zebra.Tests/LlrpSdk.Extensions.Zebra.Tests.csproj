@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Protocol.Zebra\LlrpNet.Protocol.Zebra.csproj" />
+    <ProjectReference Include="..\..\src\LlrpSdk\LlrpSdk.csproj" />
+    <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Zebra\LlrpSdk.Extensions.Zebra.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

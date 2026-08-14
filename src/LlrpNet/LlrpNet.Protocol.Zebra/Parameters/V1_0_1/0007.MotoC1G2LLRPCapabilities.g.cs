@@ -11,6 +11,7 @@ namespace LlrpNet.Protocol.Zebra.Parameters.V1_0_1;
 /// <param name="CanSupportNXPCuxtomCommands">Wire field 'CanSupportNXPCuxtomCommands' (U1).</param>
 /// <param name="CanSupportFujitsuCuxtomCommands">Wire field 'CanSupportFujitsuCuxtomCommands' (U1).</param>
 /// <param name="CanSupportG2V2Commands">Wire field 'CanSupportG2V2Commands' (U1).</param>
+/// <param name="DeviceSetCapabilityBit1">Wire field 'DeviceSetCapabilityBit1' (U1).</param>
 public sealed record MotoC1G2LLRPCapabilities(
     uint Version,
     bool CanSupportBlockPermalock,
@@ -18,7 +19,8 @@ public sealed record MotoC1G2LLRPCapabilities(
     bool CanWriteUMI,
     bool CanSupportNXPCuxtomCommands,
     bool CanSupportFujitsuCuxtomCommands,
-    bool CanSupportG2V2Commands
+    bool CanSupportG2V2Commands,
+    bool DeviceSetCapabilityBit1
 ) : global::LlrpNet.Protocol.Parameters.ILlrpParameter
 {
     public const ushort TypeNumber = 1023;

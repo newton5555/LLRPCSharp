@@ -21,7 +21,7 @@ internal sealed class MotoRadioPowerStateCodec : global::LlrpNet.Protocol.Codecs
         var reader = new GeneratedWireReader(data);
         int offset = 0;
         bool RadioPowerState = reader.ReadBoolean();
-        reader.ReadReservedBits(31);
+        reader.ReadReservedBits(7);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoRadioPowerState(
@@ -34,7 +34,7 @@ internal sealed class MotoRadioPowerStateCodec : global::LlrpNet.Protocol.Codecs
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 1;
         return length;
     }
 
@@ -49,7 +49,7 @@ internal sealed class MotoRadioPowerStateCodec : global::LlrpNet.Protocol.Codecs
         var wireWriter = new GeneratedWireWriter(destination);
         int offset = 0;
         wireWriter.WriteBoolean(parameter.RadioPowerState);
-        wireWriter.WriteReservedBits(31);
+        wireWriter.WriteReservedBits(7);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

@@ -9,6 +9,9 @@ using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
 using V11Messages = LlrpNet.Protocol.Messages.V1_1;
 using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
+using V20Enumerations = LlrpNet.Protocol.Enumerations.V2_0;
+using V20Messages = LlrpNet.Protocol.Messages.V2_0;
+using V20Parameters = LlrpNet.Protocol.Parameters.V2_0;
 
 namespace LlrpSdk.Tests;
 
@@ -401,7 +404,9 @@ public sealed class ManagedInventoryRoundTripTests
         IReadOnlyList<ILlrpParameter> accessSpecs) =>
         roSpec is V101Parameters.ROSpec
             ? new Llrp101ProtocolAdapter().ParseManagedRoSpec(reader, roSpec, accessSpecs)
-            : new Llrp11ProtocolAdapter().ParseManagedRoSpec(reader, roSpec, accessSpecs);
+            : roSpec is V11Parameters.ROSpec
+                ? new Llrp11ProtocolAdapter().ParseManagedRoSpec(reader, roSpec, accessSpecs)
+                : new Llrp20ProtocolAdapter().ParseManagedRoSpec(reader, roSpec, accessSpecs);
 
     private static V101Messages.RO_ACCESS_REPORT CreateAccessReport101()
     {
@@ -568,5 +573,213 @@ public sealed class ManagedInventoryRoundTripTests
             SpecLoopEvent: null,
             CustomItems: []);
         return new V11Messages.READER_EVENT_NOTIFICATION(1, data);
+    }
+
+    // ==================== LLRP 2.0 ====================
+
+    [Fact]
+    public async Task RoundTrip_20_CompileThenParse_ReproducesDomainIntent()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using LlrpReader reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        var settings = new InventorySettings
+        {
+            Priority = 7,
+            AntennaIds = [1, 2],
+            InventoryParameterSpecId = 9,
+            AntennaConfigurations =
+            [
+                new InventoryAntennaConfiguration
+                {
+                    AntennaId = 1,
+                    ReceiverSensitivityIndex = 2,
+                    TransmitPowerIndex = 3,
+                    HopTableId = 4,
+                    ChannelIndex = 5,
+                },
+                new InventoryAntennaConfiguration
+                {
+                    AntennaId = 2,
+                    ReceiverSensitivityIndex = 6,
+                    TransmitPowerIndex = 7,
+                    HopTableId = 8,
+                    ChannelIndex = 9,
+                },
+            ],
+            Session = 2,
+            TagPopulationEstimate = 64,
+            ModeIndex = 3,
+            Tari = 6250,
+            ReportEveryNTags = 6,
+            Report = new InventoryReportSettings
+            {
+                Trigger = InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
+                IncludeCrc = true,
+                IncludePcBits = true,
+            },
+            Filters =
+            [
+                new InventorySelectFilter
+                {
+                    MemoryBank = 1,
+                    BitPointer = 32,
+                    Mask = new byte[] { 0xE2, 0x80 },
+                    BitLength = 9,
+                    MatchAction = InventorySelectAction.Select,
+                    NonMatchAction = InventorySelectAction.Unselect,
+                },
+            ],
+            StateAwareSingulation = new InventoryStateAwareSingulation
+            {
+                Target = InventoryTarget.StateB,
+                SelectedFlag = InventorySelectedFlag.All,
+            },
+            StartTrigger = new InventoryStartTrigger
+            {
+                Type = InventoryStartTriggerType.Gpi,
+                GpiPortNumber = 2,
+                GpiState = true,
+                TimeoutMilliseconds = 300,
+            },
+            StopTrigger = new InventoryStopTrigger
+            {
+                Type = InventoryStopTriggerType.Duration,
+                DurationMilliseconds = 400,
+            },
+        };
+
+        V20Parameters.ROSpec roSpec = Llrp20InventoryCompiler.Compile(
+            settings, [], supportsStateAwareSingulation: true);
+
+        ManagedRoSpecSnapshot snapshot = ParseForVersion(reader, roSpec, []);
+
+        Assert.Equal(InventoryRuntimeState.Disabled, snapshot.State);
+        Assert.Equal((byte)7, snapshot.Inventory.Priority);
+        Assert.Equal(new ushort[] { 1, 2 }, snapshot.Inventory.AntennaIds);
+        Assert.Equal((ushort)9, snapshot.Inventory.InventoryParameterSpecId);
+        Assert.Equal((byte)2, snapshot.Inventory.Session);
+        Assert.Equal((ushort)64, snapshot.Inventory.TagPopulationEstimate);
+        Assert.Equal((ushort)3, snapshot.Inventory.ModeIndex);
+        Assert.Equal((ushort)6250, snapshot.Inventory.Tari);
+        Assert.Equal(settings.Report, snapshot.Inventory.Report);
+        Assert.Equal(settings.AntennaConfigurations, snapshot.Inventory.AntennaConfigurations);
+        Assert.Equal(settings.StartTrigger, snapshot.Inventory.StartTrigger);
+        Assert.Equal(settings.StopTrigger, snapshot.Inventory.StopTrigger);
+        Assert.Equal(InventoryTarget.StateB, snapshot.Inventory.StateAwareSingulation!.Target);
+        Assert.Equal(InventorySelectedFlag.All, snapshot.Inventory.StateAwareSingulation.SelectedFlag);
+
+        InventorySelectFilter filter = Assert.Single(snapshot.Inventory.Filters);
+        Assert.Equal(InventorySelectAction.Select, filter.MatchAction);
+        Assert.Equal(InventorySelectAction.Unselect, filter.NonMatchAction);
+        Assert.Equal((ushort)9, filter.BitLength);
+        Assert.Equal(new byte[] { 0xE2, 0x80 }, filter.Mask.ToArray());
+    }
+
+    [Fact]
+    public async Task RoundTrip_20_ParseProjectsAllRuntimeStates()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using LlrpReader reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        var settings = new InventorySettings { AntennaIds = [1] };
+        V20Parameters.ROSpec roSpec = Llrp20InventoryCompiler.Compile(settings, []);
+
+        Assert.Equal(InventoryRuntimeState.Disabled, ParseForVersion(reader, roSpec, []).State);
+        Assert.Equal(
+            InventoryRuntimeState.Enabled,
+            ParseForVersion(reader, roSpec with { CurrentState = V20Enumerations.ROSpecState.Inactive }, []).State);
+        Assert.Equal(
+            InventoryRuntimeState.Running,
+            ParseForVersion(reader, roSpec with { CurrentState = V20Enumerations.ROSpecState.Active }, []).State);
+    }
+
+    [Fact]
+    public void Translate_20And11_ProduceIdenticalNeutralReports()
+    {
+        TagReport report11 = Assert.Single(Llrp11TagReportTranslator.Translate(CreateAccessReport11())).Report;
+        TagReport report20 = Assert.Single(Llrp20TagReportTranslator.Translate(CreateAccessReport20())).Report;
+
+        string json11 = System.Text.Json.JsonSerializer.Serialize(report11);
+        string json20 = System.Text.Json.JsonSerializer.Serialize(report20);
+        Assert.Equal(json11, json20);
+    }
+
+    [Fact]
+    public void ProjectEvent_20And11_ProduceIdenticalNeutralProjections()
+    {
+        IReadOnlyList<ReaderEventProjection> p11 = ReaderEventProjector.Project(CreateEventNotification11(includeOverflow: false));
+        IReadOnlyList<ReaderEventProjection> p20 = ReaderEventProjector.Project(CreateEventNotification20(includeOverflow: false));
+        AssertProjectionEquality(p11, p20);
+    }
+
+    private static V20Messages.RO_ACCESS_REPORT CreateAccessReport20()
+    {
+        var data = new V20Parameters.TagReportData(
+            new V20Parameters.EPC_96(new byte[] { 0xE2, 0x80, 0x11, 0x91, 0, 0, 0, 0, 0, 0, 0, 1 }),
+            ROSpecID: new V20Parameters.ROSpecID(14150),
+            SpecIndex: new V20Parameters.SpecIndex(2),
+            InventoryParameterSpecID: new V20Parameters.InventoryParameterSpecID(9),
+            AntennaID: new V20Parameters.AntennaID(3),
+            PeakRSSI: new V20Parameters.PeakRSSI(-67),
+            ChannelIndex: new V20Parameters.ChannelIndex(4),
+            FirstSeenTimestampUTC: new V20Parameters.FirstSeenTimestampUTC(1_000_000),
+            FirstSeenTimestampUptime: new V20Parameters.FirstSeenTimestampUptime(2_000_000),
+            LastSeenTimestampUTC: new V20Parameters.LastSeenTimestampUTC(3_000_000),
+            LastSeenTimestampUptime: new V20Parameters.LastSeenTimestampUptime(4_000_000),
+            TagSeenCount: new V20Parameters.TagSeenCount(7),
+            AirProtocolTagDataItems: [new V20Parameters.C1G2_PC(0x3000)],
+            AccessSpecID: new V20Parameters.AccessSpecID(14151),
+            AccessCommandOpSpecResultItems:
+            [
+                new V20Parameters.C1G2ReadOpSpecResult(V20Enumerations.C1G2ReadResultType.Success, 1, [0x1234]),
+                new V20Parameters.C1G2WriteOpSpecResult(V20Enumerations.C1G2WriteResultType.Success, 2, 4),
+                new V20Parameters.C1G2BlockWriteOpSpecResult(V20Enumerations.C1G2BlockWriteResultType.Success, 3, 2),
+                new V20Parameters.C1G2LockOpSpecResult(V20Enumerations.C1G2LockResultType.Success, 4),
+                new V20Parameters.C1G2KillOpSpecResult(V20Enumerations.C1G2KillResultType.Success, 5),
+                new V20Parameters.C1G2BlockEraseOpSpecResult(V20Enumerations.C1G2BlockEraseResultType.Success, 6),
+            ],
+            CryptoResponse: null,
+            CustomItems: []);
+
+        return new V20Messages.RO_ACCESS_REPORT(
+            1,
+            TagReportDataItems: [data],
+            RFSurveyReportDataItems: [],
+            CustomItems: []);
+    }
+
+    private static V20Messages.READER_EVENT_NOTIFICATION CreateEventNotification20(bool includeOverflow)
+    {
+        var data = new V20Parameters.ReaderEventNotificationData(
+            new V20Parameters.UTCTimestamp(1_000_000),
+            HoppingEvent: null,
+            GPIEvent: new V20Parameters.GPIEvent(1, true),
+            ROSpecEvent: includeOverflow
+                ? new V20Parameters.ROSpecEvent(V20Enumerations.ROSpecEventType.Preemption_Of_ROSpec, 14150, 9)
+                : new V20Parameters.ROSpecEvent(V20Enumerations.ROSpecEventType.Start_Of_ROSpec, 14150, 0),
+            ReportBufferLevelWarningEvent: includeOverflow ? null : new V20Parameters.ReportBufferLevelWarningEvent(55),
+            ReportBufferOverflowErrorEvent: includeOverflow ? new V20Parameters.ReportBufferOverflowErrorEvent() : null,
+            ReaderExceptionEvent: includeOverflow ? null : new V20Parameters.ReaderExceptionEvent(
+                "boom",
+                new V20Parameters.ROSpecID(14150),
+                new V20Parameters.SpecIndex(2),
+                new V20Parameters.InventoryParameterSpecID(9),
+                new V20Parameters.AntennaID(3),
+                new V20Parameters.AccessSpecID(14151),
+                new V20Parameters.OpSpecID(1),
+                []),
+            RFSurveyEvent: null,
+            AISpecEvent: null,
+            AntennaEvent: new V20Parameters.AntennaEvent(V20Enumerations.AntennaEventType.Antenna_Connected, 2),
+            ConnectionAttemptEvent: null,
+            ConnectionCloseEvent: null,
+            SpecLoopEvent: null,
+            CustomItems: []);
+        return new V20Messages.READER_EVENT_NOTIFICATION(1, data);
     }
 }

@@ -21,33 +21,12 @@ internal sealed class MotoFilterRuleCodec : global::LlrpNet.Protocol.Codecs.Llrp
         var reader = new GeneratedWireReader(data);
         int offset = 0;
         byte RuleType = reader.ReadByte();
-        reader.ReadReservedBits(24);
+        global::System.ReadOnlyMemory<byte> Data = reader.ReadBytesToEnd();
         offset += reader.BytePosition;
-        global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterRSSIRange? MotoFilterRSSIRange = null;
-        if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 161U, 253U))
-        {
-            MotoFilterRSSIRange = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterRSSIRange>(registry, version, data, ref offset);
-        }
-        reader = new GeneratedWireReader(data[offset..]);
-        global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterTimeRange? MotoFilterTimeRange = null;
-        if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 161U, 252U))
-        {
-            MotoFilterTimeRange = GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterTimeRange>(registry, version, data, ref offset);
-        }
-        reader = new GeneratedWireReader(data[offset..]);
-        var MotoFilterTagListItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterTagList>();
-        while (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 1023, true, 161U, 258U))
-        {
-            MotoFilterTagListItems.Add(GeneratedCodecRuntime.DecodeParameter<global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterTagList>(registry, version, data, ref offset));
-        }
-        GeneratedCodecRuntime.ValidateRequiredCount(MotoFilterTagListItems.Count, 0, "MotoFilterTagListItems");
-        reader = new GeneratedWireReader(data[offset..]);
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterRule(
             RuleType,
-            MotoFilterRSSIRange,
-            MotoFilterTimeRange,
-            MotoFilterTagListItems);
+            Data);
     }
 
     public override int GetEncodedDataLength(
@@ -56,30 +35,8 @@ internal sealed class MotoFilterRuleCodec : global::LlrpNet.Protocol.Codecs.Llrp
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
-        if (parameter.MotoFilterRSSIRange is not null)
-        {
-            GeneratedCodecRuntime.ValidateParameterMatch(parameter.MotoFilterRSSIRange, "MotoFilterRSSIRange", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.MotoFilterRSSIRange, 1023, true, 161U, 253U));
-            length = checked(length + registry.GetEncodedParameterLength(version, parameter.MotoFilterRSSIRange));
-        }
-        if (parameter.MotoFilterTimeRange is not null)
-        {
-            GeneratedCodecRuntime.ValidateParameterMatch(parameter.MotoFilterTimeRange, "MotoFilterTimeRange", GeneratedCodecRuntime.IsParameterMatch(registry, version, parameter.MotoFilterTimeRange, 1023, true, 161U, 252U));
-            length = checked(length + registry.GetEncodedParameterLength(version, parameter.MotoFilterTimeRange));
-        }
-        if (parameter.MotoFilterTagListItems is null)
-        {
-            throw new global::System.ArgumentNullException("MotoFilterTagListItems");
-        }
-        if (parameter.MotoFilterTagListItems.Count < 0)
-        {
-            throw new global::System.ArgumentException("Member 'MotoFilterTagListItems' requires cardinality 0..N.", "MotoFilterTagListItems");
-        }
-        foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.MotoFilterTagListItems)
-        {
-            GeneratedCodecRuntime.ValidateParameterMatch(nested, "MotoFilterTagListItems", GeneratedCodecRuntime.IsParameterMatch(registry, version, nested, 1023, true, 161U, 258U));
-            length = checked(length + registry.GetEncodedParameterLength(version, nested));
-        }
+        int length = 1;
+        length = checked(length + parameter.Data.Length);
         return length;
     }
 
@@ -94,23 +51,8 @@ internal sealed class MotoFilterRuleCodec : global::LlrpNet.Protocol.Codecs.Llrp
         var wireWriter = new GeneratedWireWriter(destination);
         int offset = 0;
         wireWriter.WriteByte(parameter.RuleType);
-        wireWriter.WriteReservedBits(24);
+        wireWriter.WriteBytesToEnd(parameter.Data);
         offset += wireWriter.BytePosition;
-        if (parameter.MotoFilterRSSIRange is not null)
-        {
-            offset += registry.EncodeParameter(version, parameter.MotoFilterRSSIRange, destination[offset..]);
-        }
-        wireWriter = new GeneratedWireWriter(destination[offset..]);
-        if (parameter.MotoFilterTimeRange is not null)
-        {
-            offset += registry.EncodeParameter(version, parameter.MotoFilterTimeRange, destination[offset..]);
-        }
-        wireWriter = new GeneratedWireWriter(destination[offset..]);
-        foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.MotoFilterTagListItems)
-        {
-            offset += registry.EncodeParameter(version, nested, destination[offset..]);
-        }
-        wireWriter = new GeneratedWireWriter(destination[offset..]);
         if (offset != destination.Length)
         {
             throw new global::System.InvalidOperationException("Generated codec wrote an unexpected payload length.");

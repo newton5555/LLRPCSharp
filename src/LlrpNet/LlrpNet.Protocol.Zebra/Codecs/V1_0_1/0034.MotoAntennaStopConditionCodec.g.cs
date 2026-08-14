@@ -22,7 +22,6 @@ internal sealed class MotoAntennaStopConditionCodec : global::LlrpNet.Protocol.C
         int offset = 0;
         byte AntennaStopTrigger = reader.ReadByte();
         ushort AntennaStopConditionValue = reader.ReadUInt16();
-        reader.ReadReservedBits(8);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoAntennaStopCondition(
@@ -36,7 +35,7 @@ internal sealed class MotoAntennaStopConditionCodec : global::LlrpNet.Protocol.C
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 3;
         return length;
     }
 
@@ -52,7 +51,6 @@ internal sealed class MotoAntennaStopConditionCodec : global::LlrpNet.Protocol.C
         int offset = 0;
         wireWriter.WriteByte(parameter.AntennaStopTrigger);
         wireWriter.WriteUInt16(parameter.AntennaStopConditionValue);
-        wireWriter.WriteReservedBits(8);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

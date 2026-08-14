@@ -22,7 +22,7 @@ internal sealed class MotoAutonomousCapabilitiesCodec : global::LlrpNet.Protocol
         int offset = 0;
         uint Version = reader.ReadUInt32();
         bool CanSupportAutonomousMode = reader.ReadBoolean();
-        reader.ReadReservedBits(31);
+        reader.ReadReservedBits(7);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoAutonomousCapabilities(
@@ -36,7 +36,7 @@ internal sealed class MotoAutonomousCapabilitiesCodec : global::LlrpNet.Protocol
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 8;
+        int length = 5;
         return length;
     }
 
@@ -52,7 +52,7 @@ internal sealed class MotoAutonomousCapabilitiesCodec : global::LlrpNet.Protocol
         int offset = 0;
         wireWriter.WriteUInt32(parameter.Version);
         wireWriter.WriteBoolean(parameter.CanSupportAutonomousMode);
-        wireWriter.WriteReservedBits(31);
+        wireWriter.WriteReservedBits(7);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

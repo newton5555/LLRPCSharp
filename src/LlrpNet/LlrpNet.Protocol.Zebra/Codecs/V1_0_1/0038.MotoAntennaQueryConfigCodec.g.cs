@@ -22,7 +22,7 @@ internal sealed class MotoAntennaQueryConfigCodec : global::LlrpNet.Protocol.Cod
         int offset = 0;
         bool EnableSLAll = reader.ReadBoolean();
         bool EnableABFlip = reader.ReadBoolean();
-        reader.ReadReservedBits(30);
+        reader.ReadReservedBits(14);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoAntennaQueryConfig(
@@ -36,7 +36,7 @@ internal sealed class MotoAntennaQueryConfigCodec : global::LlrpNet.Protocol.Cod
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 2;
         return length;
     }
 
@@ -52,7 +52,7 @@ internal sealed class MotoAntennaQueryConfigCodec : global::LlrpNet.Protocol.Cod
         int offset = 0;
         wireWriter.WriteBoolean(parameter.EnableSLAll);
         wireWriter.WriteBoolean(parameter.EnableABFlip);
-        wireWriter.WriteReservedBits(30);
+        wireWriter.WriteReservedBits(14);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

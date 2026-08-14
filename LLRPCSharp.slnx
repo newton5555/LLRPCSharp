@@ -10,6 +10,7 @@
     <Project Path="src/LlrpSdk.Extensions.Abstractions/LlrpSdk.Extensions.Abstractions.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj" />
     <Project Path="src/LlrpSdk.Extensions.Seuic/LlrpSdk.Extensions.Seuic.csproj" />
+    <Project Path="src/LlrpSdk.Extensions.Zebra/LlrpSdk.Extensions.Zebra.csproj" />
     <Project Path="src/LlrpSdk/LlrpSdk.csproj" />
     <Project Path="src/LlrpVirtualReader/LlrpVirtualReader.csproj" />
   </Folder>
@@ -33,6 +34,7 @@
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj" />
+    <Project Path="tests/LlrpSdk.Extensions.Zebra.Tests/LlrpSdk.Extensions.Zebra.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Hardware.Tests/LlrpSdk.Hardware.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">

@@ -26,7 +26,6 @@ internal sealed class MotoTagEventSelectorCodec : global::LlrpNet.Protocol.Codec
         ushort TagInvisibleEventModeratedTimeout = reader.ReadUInt16();
         byte ReportTagVisibilityChangeEvent = reader.ReadByte();
         ushort TagVisibilityChangeEventModeratedTimeout = reader.ReadUInt16();
-        reader.ReadReservedBits(24);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoTagEventSelector(
@@ -44,7 +43,7 @@ internal sealed class MotoTagEventSelectorCodec : global::LlrpNet.Protocol.Codec
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 12;
+        int length = 9;
         return length;
     }
 
@@ -64,7 +63,6 @@ internal sealed class MotoTagEventSelectorCodec : global::LlrpNet.Protocol.Codec
         wireWriter.WriteUInt16(parameter.TagInvisibleEventModeratedTimeout);
         wireWriter.WriteByte(parameter.ReportTagVisibilityChangeEvent);
         wireWriter.WriteUInt16(parameter.TagVisibilityChangeEventModeratedTimeout);
-        wireWriter.WriteReservedBits(24);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

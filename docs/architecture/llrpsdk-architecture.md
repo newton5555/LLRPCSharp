@@ -123,6 +123,7 @@ LlrpSdk
 |---|---|---|---|---|
 | 1.0.1 | `...V1_0_1` | `Llrp101*` | `V101*` | `Llrp101InventoryCompiler` |
 | 1.1 | `...V1_1` | `Llrp11*` | `V11*` | `Llrp11InventoryCompiler` |
+| 2.0 | `...V2_0` | `Llrp20*` | `V20*` | `Llrp20InventoryCompiler` |
 | 3.0(仅示例,非规划) | `...V3_0` | `Llrp30*` | `V30*` | `Llrp30InventoryCompiler` |
 
 ## 3. LlrpReader 暴露给外面的接口
@@ -245,6 +246,9 @@ LlrpSdk.Extensions.Impinj     手写:两阶段入口 + 高层选项模型 + Conf
 
 写一个新厂商扩展 = 实现 Abstractions 的两个契约 → 有私有线协议时先做生成扩展包 → 手写选项模型与 contributor →
 加 `UseXxx()`。核心 SDK 与其它厂商扩展零改动。
+
+`LlrpSdk.Extensions.Zebra` 已按同一结构实现最小子集(UseZebra + 设置/报告选项/相位·GPS·XPC 投影,无能力目录,
+待真机证据)。
 
 ## 5. 增加一个新协议版本:项目结构树中的改动(以 3.0 为例;3.0 仅示例、非规划)
 

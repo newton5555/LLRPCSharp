@@ -27,7 +27,7 @@ internal sealed class MotoGeneralCapabilitiesCodec : global::LlrpNet.Protocol.Co
         bool CanSupportRadioPowerState = reader.ReadBoolean();
         bool CanSupportRadioTransmitDelay = reader.ReadBoolean();
         bool CanSupportZebraTrigger = reader.ReadBoolean();
-        reader.ReadReservedBits(26);
+        reader.ReadReservedBits(2);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoGeneralCapabilities(
@@ -46,7 +46,7 @@ internal sealed class MotoGeneralCapabilitiesCodec : global::LlrpNet.Protocol.Co
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 8;
+        int length = 5;
         return length;
     }
 
@@ -67,7 +67,7 @@ internal sealed class MotoGeneralCapabilitiesCodec : global::LlrpNet.Protocol.Co
         wireWriter.WriteBoolean(parameter.CanSupportRadioPowerState);
         wireWriter.WriteBoolean(parameter.CanSupportRadioTransmitDelay);
         wireWriter.WriteBoolean(parameter.CanSupportZebraTrigger);
-        wireWriter.WriteReservedBits(26);
+        wireWriter.WriteReservedBits(2);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

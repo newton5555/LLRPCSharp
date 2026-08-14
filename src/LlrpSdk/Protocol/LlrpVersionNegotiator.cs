@@ -6,8 +6,9 @@ using V11Messages = LlrpNet.Protocol.Messages.V1_1;
 namespace LlrpSdk;
 
 /// <summary>
-/// Bootstraps the protocol version before the adapter boundary exists: probes LLRP 1.1 support with
-/// GET_SUPPORTED_VERSION and switches the reader adapter with SET_PROTOCOL_VERSION when supported.
+/// Bootstraps the protocol version before the adapter boundary exists: probes the reader's highest supported
+/// LLRP version with GET_SUPPORTED_VERSION and switches the reader adapter with SET_PROTOCOL_VERSION.
+/// Auto selects the highest supported version (2.0 → 1.1 → 1.0.1); Force11/Force20 reject when unavailable.
 /// This is the single deliberate pre-adapter version-aware component; the facade stays version-independent.
 /// </summary>
 internal static class LlrpVersionNegotiator
@@ -24,7 +25,8 @@ internal static class LlrpVersionNegotiator
             return;
         }
 
-        bool requireVersion11 = options.ProtocolVersionPolicy == LlrpProtocolVersionPolicy.Force11;
+        bool requireVersion = options.ProtocolVersionPolicy is
+            LlrpProtocolVersionPolicy.Force11 or LlrpProtocolVersionPolicy.Force20;
         var getSupportedVersion = new V11Messages.GET_SUPPORTED_VERSION(reader.NextMessageId());
         V11Messages.GET_SUPPORTED_VERSION_RESPONSE supported;
         try
@@ -36,10 +38,10 @@ internal static class LlrpVersionNegotiator
                 MatchesGetSupportedVersionResponse,
                 LlrpProtocolVersion.Version11).ConfigureAwait(false);
         }
-        catch (LlrpReaderOperationException exception) when (exception.StatusCode == 110 && !requireVersion11)
+        catch (LlrpReaderOperationException exception) when (exception.StatusCode == 110 && !requireVersion)
         {
             reader.Logger.LogDebug(
-                "Reader {ConnectionId} rejected LLRP 1.1 negotiation; retaining LLRP 1.0.1.",
+                "Reader {ConnectionId} rejected LLRP version negotiation; retaining LLRP 1.0.1.",
                 reader.ConnectionId);
             return;
         }
@@ -54,12 +56,21 @@ internal static class LlrpVersionNegotiator
                 Enum.GetName(typeof(V11Enumerations.StatusCode), (long)supported.LLRPStatus.StatusCode));
         }
 
-        if (supported.SupportedVersion < (byte)LlrpProtocolVersion.Version11)
+        bool requireVersion20 = options.ProtocolVersionPolicy == LlrpProtocolVersionPolicy.Force20;
+        LlrpProtocolVersion target = supported.SupportedVersion >= (byte)LlrpProtocolVersion.Version20
+            ? LlrpProtocolVersion.Version20
+            : supported.SupportedVersion >= (byte)LlrpProtocolVersion.Version11
+                ? requireVersion20
+                    ? throw new NotSupportedException(
+                        $"Reader {reader.ConnectionId} supports LLRP through {supported.SupportedVersion}, but LLRP 2.0 was required.")
+                    : LlrpProtocolVersion.Version11
+                : LlrpProtocolVersion.Version101;
+        if (target == LlrpProtocolVersion.Version101)
         {
-            if (requireVersion11)
+            if (requireVersion)
             {
                 throw new NotSupportedException(
-                    $"Reader {reader.ConnectionId} supports LLRP through {supported.SupportedVersion}, but LLRP 1.1 was required.");
+                    $"Reader {reader.ConnectionId} supports LLRP through {supported.SupportedVersion}, but a newer version was required.");
             }
 
             reader.Logger.LogDebug(
@@ -71,7 +82,7 @@ internal static class LlrpVersionNegotiator
 
         var setProtocolVersion = new V11Messages.SET_PROTOCOL_VERSION(
             reader.NextMessageId(),
-            (byte)LlrpProtocolVersion.Version11);
+            (byte)target);
         V11Messages.SET_PROTOCOL_VERSION_RESPONSE setResponse =
             await reader.TransactSessionAsync<V11Messages.SET_PROTOCOL_VERSION_RESPONSE>(
                 setProtocolVersion,
@@ -89,8 +100,8 @@ internal static class LlrpVersionNegotiator
                 Enum.GetName(typeof(V11Enumerations.StatusCode), (long)setResponse.LLRPStatus.StatusCode));
         }
 
-        reader.SelectProtocolAdapter(LlrpProtocolVersion.Version11);
-        reader.Logger.LogDebug("Reader {ConnectionId} negotiated LLRP 1.1.", reader.ConnectionId);
+        reader.SelectProtocolAdapter(target);
+        reader.Logger.LogDebug("Reader {ConnectionId} negotiated {Version}.", reader.ConnectionId, target);
     }
 
     private static bool MatchesGetSupportedVersionResponse(

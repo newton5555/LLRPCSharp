@@ -114,6 +114,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             new Llrp101ProtocolAdapter(),
             new Llrp11ProtocolAdapter(),
+            new Llrp20ProtocolAdapter(),
         };
         _protocolAdapters = protocolAdapters.ToDictionary(adapter => adapter.Version);
         _protocolAdapter = _protocolAdapters[LlrpProtocolVersion.Version101];

@@ -225,6 +225,18 @@ internal static class LlrpTestFrames
                     null)));
     }
 
+    /// <summary>Builds a 1.1-encoded GET_SUPPORTED_VERSION_RESPONSE reporting the given highest supported version.</summary>
+    public static byte[] SupportedVersionResponse(uint messageId, byte supportedVersion)
+    {
+        return Registry.EncodeMessage(
+            LlrpProtocolVersion.Version11,
+            new V11Messages.GET_SUPPORTED_VERSION_RESPONSE(
+                messageId,
+                new V11Parameters.LLRPStatus(V11Enumerations.StatusCode.M_Success, string.Empty, null, null),
+                CurrentVersion: 2,
+                SupportedVersion: supportedVersion));
+    }
+
     private static LlrpCodecRegistry CreateRegistry()
     {
         var registry = new LlrpCodecRegistry();

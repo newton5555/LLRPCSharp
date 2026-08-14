@@ -21,7 +21,7 @@ internal sealed class MotoRadioTransmitDelayCodec : global::LlrpNet.Protocol.Cod
         var reader = new GeneratedWireReader(data);
         int offset = 0;
         byte RadioTransmitDelay = reader.ReadByte();
-        reader.ReadReservedBits(24);
+        reader.ReadReservedBits(8);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoRadioTransmitDelay(
@@ -34,7 +34,7 @@ internal sealed class MotoRadioTransmitDelayCodec : global::LlrpNet.Protocol.Cod
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 2;
         return length;
     }
 
@@ -49,7 +49,7 @@ internal sealed class MotoRadioTransmitDelayCodec : global::LlrpNet.Protocol.Cod
         var wireWriter = new GeneratedWireWriter(destination);
         int offset = 0;
         wireWriter.WriteByte(parameter.RadioTransmitDelay);
-        wireWriter.WriteReservedBits(24);
+        wireWriter.WriteReservedBits(8);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

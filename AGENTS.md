@@ -92,7 +92,7 @@ Version must always be explicit in SDK/CLI/tool code — never rely on a
 ## Current Boundaries
 
 - LLRP 1.0.1 and 1.1 have usable adapter baselines.
-- LLRP 2.0 generated protocol assets (`V2_0`) exist from `definitions/llrp-2.0-delta.yaml`, but there is no `Llrp20ProtocolAdapter` yet.
+- LLRP 2.0 has a generated protocol layer (`V2_0`) and an SDK adapter baseline (`Llrp20ProtocolAdapter` with `Auto`/`Force20` negotiation); real-device interoperability is unverified. Zebra has a wire package (`LlrpNet.Protocol.Zebra`) and a minimal SDK extension (`LlrpSdk.Extensions.Zebra` with `UseZebra()`); real-device acceptance is pending.
 - `InventorySettings` currently represents inventory intent, not a full reader
   configuration snapshot.
 - `QueryConfigurationAsync`, `ApplyConfigurationAsync`, dynamic YAML runtime

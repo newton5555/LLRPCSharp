@@ -24,7 +24,7 @@ internal sealed class MotoTagEventsGenerationCapabilitiesCodec : global::LlrpNet
         bool CanSelectTagEvents = reader.ReadBoolean();
         bool CanSelectTagReportingFormat = reader.ReadBoolean();
         bool CanSelectMovingEvent = reader.ReadBoolean();
-        reader.ReadReservedBits(29);
+        reader.ReadReservedBits(5);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoTagEventsGenerationCapabilities(
@@ -40,7 +40,7 @@ internal sealed class MotoTagEventsGenerationCapabilitiesCodec : global::LlrpNet
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 8;
+        int length = 5;
         return length;
     }
 
@@ -58,7 +58,7 @@ internal sealed class MotoTagEventsGenerationCapabilitiesCodec : global::LlrpNet
         wireWriter.WriteBoolean(parameter.CanSelectTagEvents);
         wireWriter.WriteBoolean(parameter.CanSelectTagReportingFormat);
         wireWriter.WriteBoolean(parameter.CanSelectMovingEvent);
-        wireWriter.WriteReservedBits(29);
+        wireWriter.WriteReservedBits(5);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

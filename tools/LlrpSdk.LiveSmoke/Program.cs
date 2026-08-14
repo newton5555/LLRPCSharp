@@ -1,6 +1,7 @@
 using LlrpNet.Core.Diagnostics;
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
+using LlrpSdk.Extensions.Zebra;
 using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
 using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
@@ -11,6 +12,7 @@ if (args.Length < 1)
 }
 
 string host = args[0];
+bool requestZebra = args.Contains("--zebra", StringComparer.Ordinal);
 bool requestImpinjSerializedTid = args.Contains("--impinj-serialized-tid", StringComparer.Ordinal);
 bool requestImpinjRfPhaseAngle = args.Contains("--impinj-rf-phase-angle", StringComparer.Ordinal);
 bool requestImpinjPeakRssi = args.Contains("--impinj-peak-rssi", StringComparer.Ordinal);
@@ -32,7 +34,7 @@ for (int index = 1; index < args.Length; index++)
         continue;
     }
 
-    if (argument is not "--inventory" and not "--impinj-serialized-tid" and not "--impinj-rf-phase-angle" and not "--impinj-peak-rssi" and not "--impinj-population-estimation" and not "--apply-current-impinj" and not "--clear-managed" and not "--yes")
+    if (argument is not "--inventory" and not "--zebra" and not "--impinj-serialized-tid" and not "--impinj-rf-phase-angle" and not "--impinj-peak-rssi" and not "--impinj-population-estimation" and not "--apply-current-impinj" and not "--clear-managed" and not "--yes")
     {
         throw new ArgumentException($"Unknown LiveSmoke option '{argument}'.");
     }
@@ -49,15 +51,72 @@ if (clearManaged && !confirmed)
 }
 var frameJournal = new LlrpFrameJournal();
 
-await using LlrpReader reader = LlrpReader.CreateBuilder(host)
-    .UseImpinj()
+LlrpReaderBuilder builder = LlrpReader.CreateBuilder(host);
+if (requestZebra)
+{
+    builder.UseZebra();
+}
+else
+{
+    builder.UseImpinj();
+}
+
+await using LlrpReader reader = builder
     .WithFrameObserver(frameJournal)
     .WithConnectTimeout(TimeSpan.FromSeconds(10))
     .WithRequestTimeout(TimeSpan.FromSeconds(10))
     .Build();
 
-await reader.ConnectAsync();
-ReaderSettingsSnapshot settingsSnapshot = await reader.QuerySettingsAsync();
+try
+{
+    await reader.ConnectAsync();
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"Connect failed: {exception.Message}");
+    foreach (LlrpNet.Core.Diagnostics.LlrpCapturedFrame frame in frameJournal.Snapshot())
+    {
+        Console.Error.WriteLine($"  {frame.Direction} {Convert.ToHexString(frame.FrameBytes)}");
+    }
+    DumpDecodeFailures(reader, frameJournal);
+    throw;
+}
+ReaderSettingsSnapshot settingsSnapshot;
+try
+{
+    settingsSnapshot = await reader.QuerySettingsAsync();
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"QuerySettings failed: {exception.Message}");
+    foreach (LlrpNet.Core.Diagnostics.LlrpCapturedFrame frame in frameJournal.Snapshot())
+    {
+        Console.Error.WriteLine($"  {frame.Direction} {Convert.ToHexString(frame.FrameBytes)}");
+    }
+    DumpDecodeFailures(reader, frameJournal);
+    throw;
+}
+
+static void DumpDecodeFailures(LlrpReader reader, LlrpNet.Core.Diagnostics.LlrpFrameJournal journal)
+{
+    foreach (LlrpNet.Core.Diagnostics.LlrpCapturedFrame frame in journal.Snapshot())
+    {
+        if (frame.Direction != LlrpNet.Core.Diagnostics.LlrpFrameDirection.Receive)
+        {
+            continue;
+        }
+
+        try
+        {
+            reader.Registry.DecodeMessage(frame.FrameBytes);
+        }
+        catch (Exception decodeException)
+        {
+            Console.Error.WriteLine($"  DECODE DIAGNOSTIC: {decodeException.Message}");
+            Console.Error.WriteLine(decodeException.StackTrace);
+        }
+    }
+}
 ReaderConfiguration configuration = settingsSnapshot.Settings.Configuration;
 IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> configuredRoSpecs =
     await reader.RoSpecs.GetAllAsync();
@@ -81,6 +140,20 @@ if (configuration.Extensions.TryGetValue(ImpinjReaderFacts.ExtensionKey, out obj
     factsValue is ImpinjReaderFacts facts)
 {
     Console.WriteLine($"Impinj facts: region={facts.RegulatoryRegion}, temperature={facts.TemperatureCelsius}");
+}
+if (requestZebra && reader.Capabilities is { } zebraCapabilities)
+{
+    Console.WriteLine($"Additional capability parameters: {string.Join(", ", zebraCapabilities.AdditionalParameters.Select(static parameter => parameter.GetType().Name))}");
+}
+if (configuration.Extensions.TryGetValue(ZebraReaderConfiguration.ExtensionKey, out object? zebraConfigurationValue) &&
+    zebraConfigurationValue is ZebraReaderConfiguration zebraConfiguration)
+{
+    Console.WriteLine(
+        $"Zebra configuration: radioPower={zebraConfiguration.RadioPowerState?.ToString() ?? "n/a"} " +
+        $"transmitDelay={zebraConfiguration.RadioTransmitDelay?.ToString() ?? "n/a"} " +
+        $"autonomous={zebraConfiguration.AutonomousModeState?.ToString() ?? "n/a"} " +
+        $"persistence={zebraConfiguration.SaveConfiguration?.ToString() ?? "n/a"}/{zebraConfiguration.SaveTagData?.ToString() ?? "n/a"}/{zebraConfiguration.SaveTagEventData?.ToString() ?? "n/a"} " +
+        $"nxpQuiet={zebraConfiguration.EnableNxpSetAndResetQuietCommands?.ToString() ?? "n/a"}");
 }
 
 if (clearManaged)

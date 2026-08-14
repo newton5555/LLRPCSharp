@@ -287,6 +287,48 @@ PDF 的语义章节没有明确写出 `ZebraROTriggerSpec` 应挂在哪一个标
 5. 生成 `V1_0_1` 协议资产后，补充 registry/module、编解码 round-trip 测试和 FX9600 真机证据；没有真机证据时，不要把 `docs/acceptance/reader-interoperability.md` 中的计划行当成已验证事实。
 6. 对 PDF 标为 `N` 的项目，即使协议层保留定义，也应在 FX9600 能力/配置层标记不可用，避免发送后得到 `M_UnsupportedParameter`。
 
+## 7.1 真机实测证据(FX9600,固件 3.32.37.0,2026-08-14)
+
+> 证据来源:`tools/LlrpSdk.LiveSmoke --zebra` 对 `192.168.40.88`(Manufacturer 161 / Model 96008)的
+> `GET_READER_CAPABILITIES(All)` 响应抓包。固件省略了 PDF 二进制页中能力参数尾部的 24 位 reserved,
+> 并将两个 PDF 标为 reserved 的位实际置 1;`zebra.yml` 已按实测修正(注释引用本节)。
+
+| 参数(subtype) | 实测字节(数据段) | 与 PDF 的差异 |
+|---|---|---|
+| `MotoGeneralCapabilities` (1) | `00000001 9C` | Version=1;标志字节 `0x9C` = 6 标志 + reserved **2**(PDF 写 26) |
+| `MotoAutonomousCapabilities` (100) | `00000001 80` | 标志字节 `0x80` + reserved **7**(PDF 写 31) |
+| `MotoTagEventsGenerationCapabilities` (120) | `00000001 E0` | 标志字节 `0xE0` + reserved **5**(PDF 写 29) |
+| `MotoFilterCapabilities` (200) | `00000001 F0` | 标志字节 `0xF0`:第 4 位被置 1,PDF 未文档化 → 落为 `DeviceSetCapabilityBit4` |
+| `MotoPersistenceCapabilities` (300) | `00000001 E0` | 标志字节 `0xE0` + reserved **5**(PDF 写 29) |
+| `MotoAdvancedCapabilities` (110) | `00000001 B2` | 标志字节 `0xB2` + reserved **1**(PDF 写 25) |
+| `MotoC1G2LLRPCapabilities` (400) | `00000001 96` | 标志字节 `0x96`:第 1 位被置 1,PDF 未文档化 → 落为 `DeviceSetCapabilityBit1` |
+| `MotoLocationCapabilities` (130) | `00000001 0000000000`(13 字节) | PDF 标 FX9600 N,但设备仍返回;当前定义未包含 → 解码为 `RawCustomParameter`,不阻塞 |
+
+规律:能力参数线格式 = `Version(u32)` + 单标志字节(标志 + 字节边界补齐的 reserved);
+PDF 二进制页的 reserved 计数全部多算 24 位。
+
+配置参数(`GET_READER_CONFIG_RESPONSE` 抓包,同设备同日):
+
+| 参数(subtype) | 实测 | 处理 |
+|---|---|---|
+| `MotoAutonomousState` (101) | 1 字节 | reserved 31 → 7 |
+| `MotoPersistenceSaveParams` (350) | 1 字节(`0x60`) | reserved 29 → 5 |
+| `MotoRadioPowerState` (500) | 1 字节(`0x80`) | reserved 31 → 7 |
+| `MotoRadioTransmitDelay` (511) | 2 字节 | reserved 24 → 8 |
+| `MotoDefaultSpec` (102) | 标志 1 字节 + 嵌套 ROSpec/AccessSpec | reserved 31 → 7 |
+| `MotoTagReportMode` (122) | 1 字节 | 删 reserved |
+| `MotoTagEventSelector` (121) | 9 字节(3 u8 + 3 u16) | 删 reserved |
+| `MotoAntennaStopCondition` (704) | 3 字节(u8 + u16) | 删 reserved |
+| `MotoAntennaQueryConfig` (710) | 2 字节 | reserved 30 → 14 |
+| `MotoFilterRule` (254) | RuleType 之后是内联裸 `PeakRSSI` TV,非嵌套自定义 TLV | 尾部降级为 `bytesToEnd`,待 PDF 二进制页复核 |
+| `MotoCustomCommandOptions` (466) | 4 字节全宽(`0x80000000`) | 保持 reserved 31 |
+| `MotoTagReportContentSelector` (708) | 4 字节全宽 | 保持 reserved 26 |
+
+配置查询闭环证据:`UseZebra()` 连接成功、7 个能力参数强类型解码、`zebra.configuration`
+设置 contributor 真机往返(radioPower=True / transmitDelay=0 / autonomous=False /
+persistence=False,True,True / nxpQuiet=True)。报告与盘点扩展参数(TagReportData 内的
+Phase/GPS/XPC 等)仍需带标签盘点抓包验证。
+
 ## 8. 来源页索引
 
 | 内容 | PDF 印刷页 |

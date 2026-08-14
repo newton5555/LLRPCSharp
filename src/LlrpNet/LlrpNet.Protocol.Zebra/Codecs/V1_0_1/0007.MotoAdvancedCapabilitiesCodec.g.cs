@@ -28,7 +28,7 @@ internal sealed class MotoAdvancedCapabilitiesCodec : global::LlrpNet.Protocol.C
         bool CanSupportSledBatteryStatus = reader.ReadBoolean();
         bool CanSupportLogicalAntenna = reader.ReadBoolean();
         bool CanReportGPS = reader.ReadBoolean();
-        reader.ReadReservedBits(25);
+        reader.ReadReservedBits(1);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoAdvancedCapabilities(
@@ -48,7 +48,7 @@ internal sealed class MotoAdvancedCapabilitiesCodec : global::LlrpNet.Protocol.C
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 8;
+        int length = 5;
         return length;
     }
 
@@ -70,7 +70,7 @@ internal sealed class MotoAdvancedCapabilitiesCodec : global::LlrpNet.Protocol.C
         wireWriter.WriteBoolean(parameter.CanSupportSledBatteryStatus);
         wireWriter.WriteBoolean(parameter.CanSupportLogicalAntenna);
         wireWriter.WriteBoolean(parameter.CanReportGPS);
-        wireWriter.WriteReservedBits(25);
+        wireWriter.WriteReservedBits(1);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

@@ -21,7 +21,7 @@ internal sealed class MotoDefaultSpecCodec : global::LlrpNet.Protocol.Codecs.Llr
         var reader = new GeneratedWireReader(data);
         int offset = 0;
         bool UseDefaultSpecForAutoMode = reader.ReadBoolean();
-        reader.ReadReservedBits(31);
+        reader.ReadReservedBits(7);
         offset += reader.BytePosition;
         global::LlrpNet.Protocol.Parameters.V1_0_1.ROSpec? ROSpec = null;
         if (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 177, false, 0U, 0U))
@@ -53,7 +53,7 @@ internal sealed class MotoDefaultSpecCodec : global::LlrpNet.Protocol.Codecs.Llr
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 1;
         if (parameter.ROSpec is null)
         {
             throw new global::System.ArgumentNullException("ROSpec");
@@ -87,7 +87,7 @@ internal sealed class MotoDefaultSpecCodec : global::LlrpNet.Protocol.Codecs.Llr
         var wireWriter = new GeneratedWireWriter(destination);
         int offset = 0;
         wireWriter.WriteBoolean(parameter.UseDefaultSpecForAutoMode);
-        wireWriter.WriteReservedBits(31);
+        wireWriter.WriteReservedBits(7);
         offset += wireWriter.BytePosition;
         offset += registry.EncodeParameter(version, parameter.ROSpec!, destination[offset..]);
         wireWriter = new GeneratedWireWriter(destination[offset..]);

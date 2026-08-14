@@ -23,8 +23,8 @@
 |---|---|---|
 | LLRP 1.0.1 | 可用 | SDK、CLI、Virtual Reader 和主要标准资源/标签操作已覆盖。 |
 | LLRP 1.1 | 可用基线 | SDK 支持自动协商、强制版本策略和对应 Adapter；真实 Reader 型号/固件覆盖仍需持续验证。 |
-| LLRP 2.0 | 协议层已生成 | `V2_0` 类型/Codec/`Llrp20StandardModule` 已从 delta 生成(433 文件,可复现);尚无 `Llrp20ProtocolAdapter`。 |
-| Zebra 扩展 | 协议层已生成 | `LlrpNet.Protocol.Zebra` 线协议包已从 `zebra.yml` 生成(4 消息/74 参数,可复现);SDK 高层扩展待。 |
+| LLRP 2.0 | 协议层+SDK 适配器基线 | `V2_0` 类型/Codec/`Llrp20StandardModule` 已生成(433 文件,可复现);`Llrp20ProtocolAdapter` 六个切片已实现,`Auto`/`Force20` 协商接入,往返/翻译/事件投影/协商测试通过;未实机验收。 |
+| Zebra 扩展 | 协议层+SDK 扩展基线 | `LlrpNet.Protocol.Zebra` 线协议包(159 文件,可复现)+ `LlrpSdk.Extensions.Zebra`(`UseZebra()`、设置/报告选项/相位·GPS·XPC 投影,最小子集)。FX9600(161/96008,固件 3.32.37.0)真机已验证:连接、7 个能力参数强类型解码、配置查询、`zebra.configuration` 设置 contributor 往返;定义按实测修正(见 references/zebra 证据节)。报告/盘点扩展参数待带标签盘点验证。 |
 | 托管 Reader SDK | 可用 | `ReaderSettings`、校验、应用、托管盘点和报告流已接入。 |
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
@@ -130,15 +130,16 @@
   仅提供 `SupportsClientRequestOpSpec` 门控）;`ReaderExceptionEvent` 已暴露为
   `ReaderExceptionOccurred`,`TagReport.PcBits` 已投影。详见
   [coverage/llrp101-sdk-coverage.md](coverage/llrp101-sdk-coverage.md)。
-- 2.0 协议层(V2_0 类型与 Codec)已生成并编译,但没有 `Llrp20ProtocolAdapter` 和完整互操作闭环。
-- Zebra 线协议包已生成,但没有 SDK 高层扩展(`LlrpSdk.Extensions.Zebra`)和实机验收。
+- 2.0 适配器已实现(编译/反解析/事件投影/协商),但没有实机互操作闭环。
+- Zebra SDK 扩展已实现(最小子集);FX9600 真机基本闭环(能力/配置/设置)已验证,报告与盘点扩展参数未验证。
+- CLI `--llrp`/`--vendor` 尚未支持 2.0/Zebra(CLI 命令系统待专项分析)。
 - 其他厂商/型号/固件的扩展能力目录仍需按实测证据补充。
 - Virtual Reader 不模拟真实射频、跨进程持久化或全部设备配置行为。
 - 实机验收范围仍小于自动化测试覆盖范围。
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 453 项。
+截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 464 项。
 生成管线经 `--verify` 逐字节复现验证:1.0.1 XML(364 文件)、1.1 YAML(395 文件)、
 Impinj XML(267 文件)、2.0 delta(433 文件)、Zebra YAML(159 文件)均与已提交产物一致。
 2026-08-14 适配器边界重构后真机复验:标准设备 `192.168.40.88` 6/6、

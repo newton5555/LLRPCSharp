@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Title>LLRPCSharp Zebra Extension Plugin</Title>
+    <Description>Zebra (Moto) RFID reader extension plugin for LlrpSdk, providing UseZebra(), reader configuration, inventory report options, and tag-report phase/GPS/XPC projections.</Description>
+    <PackageTags>rfid;llrp;zebra;moto;fx9600;sdk;plugin</PackageTags>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeReferencedProjectOutputs</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="artifacts\**" />
+    <EmbeddedResource Remove="artifacts\**" />
+    <None Remove="artifacts\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LlrpNet\LlrpNet.Protocol.Zebra\LlrpNet.Protocol.Zebra.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
+    <ProjectReference Include="..\LlrpSdk\LlrpSdk.csproj" />
+    <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
+  </ItemGroup>
+
+  <Target Name="IncludeReferencedProjectOutputs">
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.Zebra.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.Zebra.pdb" Condition="Exists('$(OutputPath)LlrpNet.Protocol.Zebra.pdb')" />
+    </ItemGroup>
+  </Target>
+</Project>

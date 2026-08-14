@@ -24,14 +24,16 @@ internal sealed class MotoFilterCapabilitiesCodec : global::LlrpNet.Protocol.Cod
         bool CanFilterTagsBasedOnRSSI = reader.ReadBoolean();
         bool CanFilterTagsBasedOnTimeOfDay = reader.ReadBoolean();
         bool CanFilterTagsBasedOnUTCTimeStamp = reader.ReadBoolean();
-        reader.ReadReservedBits(29);
+        bool DeviceSetCapabilityBit4 = reader.ReadBoolean();
+        reader.ReadReservedBits(4);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoFilterCapabilities(
             Version,
             CanFilterTagsBasedOnRSSI,
             CanFilterTagsBasedOnTimeOfDay,
-            CanFilterTagsBasedOnUTCTimeStamp);
+            CanFilterTagsBasedOnUTCTimeStamp,
+            DeviceSetCapabilityBit4);
     }
 
     public override int GetEncodedDataLength(
@@ -40,7 +42,7 @@ internal sealed class MotoFilterCapabilitiesCodec : global::LlrpNet.Protocol.Cod
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 8;
+        int length = 5;
         return length;
     }
 
@@ -58,7 +60,8 @@ internal sealed class MotoFilterCapabilitiesCodec : global::LlrpNet.Protocol.Cod
         wireWriter.WriteBoolean(parameter.CanFilterTagsBasedOnRSSI);
         wireWriter.WriteBoolean(parameter.CanFilterTagsBasedOnTimeOfDay);
         wireWriter.WriteBoolean(parameter.CanFilterTagsBasedOnUTCTimeStamp);
-        wireWriter.WriteReservedBits(29);
+        wireWriter.WriteBoolean(parameter.DeviceSetCapabilityBit4);
+        wireWriter.WriteReservedBits(4);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

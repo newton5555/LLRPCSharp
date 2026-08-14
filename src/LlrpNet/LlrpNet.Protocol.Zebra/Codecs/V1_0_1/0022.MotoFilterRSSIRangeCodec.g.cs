@@ -21,7 +21,7 @@ internal sealed class MotoFilterRSSIRangeCodec : global::LlrpNet.Protocol.Codecs
         var reader = new GeneratedWireReader(data);
         int offset = 0;
         byte Match = reader.ReadByte();
-        reader.ReadReservedBits(24);
+        reader.ReadReservedBits(8);
         offset += reader.BytePosition;
         var PeakRSSIItems = new global::System.Collections.Generic.List<global::LlrpNet.Protocol.Parameters.V1_0_1.PeakRSSI>();
         while (offset < data.Length && GeneratedCodecRuntime.IsNextParameter(data[offset..], 6, false, 0U, 0U))
@@ -42,7 +42,7 @@ internal sealed class MotoFilterRSSIRangeCodec : global::LlrpNet.Protocol.Codecs
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 2;
         if (parameter.PeakRSSIItems is null)
         {
             throw new global::System.ArgumentNullException("PeakRSSIItems");
@@ -70,7 +70,7 @@ internal sealed class MotoFilterRSSIRangeCodec : global::LlrpNet.Protocol.Codecs
         var wireWriter = new GeneratedWireWriter(destination);
         int offset = 0;
         wireWriter.WriteByte(parameter.Match);
-        wireWriter.WriteReservedBits(24);
+        wireWriter.WriteReservedBits(8);
         offset += wireWriter.BytePosition;
         foreach (global::LlrpNet.Protocol.Parameters.ILlrpParameter nested in parameter.PeakRSSIItems)
         {

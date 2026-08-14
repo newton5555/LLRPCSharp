@@ -8,11 +8,13 @@ namespace LlrpNet.Protocol.Zebra.Parameters.V1_0_1;
 /// <param name="CanFilterTagsBasedOnRSSI">Wire field 'CanFilterTagsBasedOnRSSI' (U1).</param>
 /// <param name="CanFilterTagsBasedOnTimeOfDay">Wire field 'CanFilterTagsBasedOnTimeOfDay' (U1).</param>
 /// <param name="CanFilterTagsBasedOnUTCTimeStamp">Wire field 'CanFilterTagsBasedOnUTCTimeStamp' (U1).</param>
+/// <param name="DeviceSetCapabilityBit4">Wire field 'DeviceSetCapabilityBit4' (U1).</param>
 public sealed record MotoFilterCapabilities(
     uint Version,
     bool CanFilterTagsBasedOnRSSI,
     bool CanFilterTagsBasedOnTimeOfDay,
-    bool CanFilterTagsBasedOnUTCTimeStamp
+    bool CanFilterTagsBasedOnUTCTimeStamp,
+    bool DeviceSetCapabilityBit4
 ) : global::LlrpNet.Protocol.Parameters.ILlrpParameter
 {
     public const ushort TypeNumber = 1023;

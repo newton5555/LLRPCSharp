@@ -27,7 +27,8 @@ internal sealed class MotoC1G2LLRPCapabilitiesCodec : global::LlrpNet.Protocol.C
         bool CanSupportNXPCuxtomCommands = reader.ReadBoolean();
         bool CanSupportFujitsuCuxtomCommands = reader.ReadBoolean();
         bool CanSupportG2V2Commands = reader.ReadBoolean();
-        reader.ReadReservedBits(26);
+        bool DeviceSetCapabilityBit1 = reader.ReadBoolean();
+        reader.ReadReservedBits(1);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoC1G2LLRPCapabilities(
@@ -37,7 +38,8 @@ internal sealed class MotoC1G2LLRPCapabilitiesCodec : global::LlrpNet.Protocol.C
             CanWriteUMI,
             CanSupportNXPCuxtomCommands,
             CanSupportFujitsuCuxtomCommands,
-            CanSupportG2V2Commands);
+            CanSupportG2V2Commands,
+            DeviceSetCapabilityBit1);
     }
 
     public override int GetEncodedDataLength(
@@ -46,7 +48,7 @@ internal sealed class MotoC1G2LLRPCapabilitiesCodec : global::LlrpNet.Protocol.C
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 8;
+        int length = 5;
         return length;
     }
 
@@ -67,7 +69,8 @@ internal sealed class MotoC1G2LLRPCapabilitiesCodec : global::LlrpNet.Protocol.C
         wireWriter.WriteBoolean(parameter.CanSupportNXPCuxtomCommands);
         wireWriter.WriteBoolean(parameter.CanSupportFujitsuCuxtomCommands);
         wireWriter.WriteBoolean(parameter.CanSupportG2V2Commands);
-        wireWriter.WriteReservedBits(26);
+        wireWriter.WriteBoolean(parameter.DeviceSetCapabilityBit1);
+        wireWriter.WriteReservedBits(1);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

@@ -23,7 +23,7 @@ internal sealed class MotoPersistenceSaveParamsCodec : global::LlrpNet.Protocol.
         bool SaveConfiguration = reader.ReadBoolean();
         bool SaveTagData = reader.ReadBoolean();
         bool SaveTagEventData = reader.ReadBoolean();
-        reader.ReadReservedBits(29);
+        reader.ReadReservedBits(5);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoPersistenceSaveParams(
@@ -38,7 +38,7 @@ internal sealed class MotoPersistenceSaveParamsCodec : global::LlrpNet.Protocol.
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 1;
         return length;
     }
 
@@ -55,7 +55,7 @@ internal sealed class MotoPersistenceSaveParamsCodec : global::LlrpNet.Protocol.
         wireWriter.WriteBoolean(parameter.SaveConfiguration);
         wireWriter.WriteBoolean(parameter.SaveTagData);
         wireWriter.WriteBoolean(parameter.SaveTagEventData);
-        wireWriter.WriteReservedBits(29);
+        wireWriter.WriteReservedBits(5);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {
