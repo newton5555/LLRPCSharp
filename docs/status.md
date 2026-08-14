@@ -115,6 +115,9 @@
 ### 协议与扩展
 
 - 协议定义通过 XML/YAML 导入、校验和生成器维护，生成的 `.g.cs` 不手工编辑。
+- `ILlrpProtocolAdapter` 是 SDK 的唯一版本边界:前向编译/翻译、反向反解析
+  (`ParseManagedRoSpec`)、事件投影、标准消息构造/分类与连接前版本协商全部
+  收敛在版本边界内;`LlrpReader` 门面零版本类型引用(机器强制)。
 - `UseImpinj()` 提供 Impinj 扩展入口；扩展值通过强类型 Contributor 接入托管
   Settings 和 TagReport。
 - `ILlrpFrameObserver`、日志和连接事件可用于诊断与监控。
@@ -133,6 +136,12 @@
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 399 项。
+截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 447 项。
+2026-08-14 适配器边界重构后真机复验:标准设备 `192.168.40.88` 6/6、
+Impinj R420 `192.168.40.87` 12/12 通过(证据见
+[acceptance/reader-interoperability.md](acceptance/reader-interoperability.md))。
+其中 `LlrpSdk.Tests` 含版本边界守护测试(`ArchitectureGuardTests`):`LlrpReader`
+源码零版本类型引用,以及 1.0.1/1.1 往返与等价测试(编译→反解析往返、报告翻译
+双版本等价、ROSpec 线字节等价、事件投影双版本等价)。
 发布前仍需按 [互操作验收标准](acceptance/reader-interoperability.md) 验证目标
 设备组合。

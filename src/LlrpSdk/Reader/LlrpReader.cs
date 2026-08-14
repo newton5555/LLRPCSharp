@@ -10,12 +10,6 @@ using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
-using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
-using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
-using V11Messages = LlrpNet.Protocol.Messages.V1_1;
-using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
 
 namespace LlrpSdk;
 
@@ -159,6 +153,9 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Gets the immutable options used by this reader.
     /// </summary>
     public LlrpReaderOptions Options { get; }
+
+    /// <summary>Gets the reader logger for version-boundary components that run outside the facade.</summary>
+    internal ILogger Logger => _logger;
 
     /// <summary>
     /// Gets the current connection state.
@@ -376,7 +373,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
                 StartPump();
                 AddTransition(transitions, ReaderConnectionState.Negotiating);
-                await NegotiateProtocolVersionAsync(cancellationToken).ConfigureAwait(false);
+                await LlrpVersionNegotiator.NegotiateAsync(this, cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Ready);
@@ -623,7 +620,7 @@ public sealed class LlrpReader : IAsyncDisposable
 
                 StartPump();
                 AddTransition(transitions, ReaderConnectionState.Negotiating);
-                await NegotiateProtocolVersionAsync(cancellationToken).ConfigureAwait(false);
+                await LlrpVersionNegotiator.NegotiateAsync(this, cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Initializing);
                 await InitializeReaderAsync(cancellationToken).ConfigureAwait(false);
                 AddTransition(transitions, ReaderConnectionState.Ready);
@@ -928,7 +925,7 @@ public sealed class LlrpReader : IAsyncDisposable
             EnsureProtocolAvailable();
             IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
-            AdoptManagedInventorySnapshot(roSpecs.SingleOrDefault(IsManagedRoSpec), accessSpecs);
+            AdoptManagedInventorySnapshot(roSpecs.SingleOrDefault(GetProtocolAdapter().IsManagedRoSpec), accessSpecs);
             Volatile.Write(ref _managedStateIsSynchronized, 1);
         }
         finally
@@ -953,7 +950,7 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
         IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
-        ILlrpParameter? managed = roSpecs.SingleOrDefault(IsManagedRoSpec);
+        ILlrpParameter? managed = roSpecs.SingleOrDefault(GetProtocolAdapter().IsManagedRoSpec);
         if (managed is null)
         {
             InventorySession? session = _inventorySession;
@@ -981,13 +978,9 @@ public sealed class LlrpReader : IAsyncDisposable
 
             // The reader is holding events and reports after this reconnect (the application configured
             // HoldEventsAndReportsUponReconnect=true); release them now that managed state is synchronized.
-            ILlrpMessage enableMessage = NegotiatedVersion switch
-            {
-                LlrpProtocolVersion.Version101 => new V101Messages.ENABLE_EVENTS_AND_REPORTS(_messageIds.Next()),
-                LlrpProtocolVersion.Version11 => new V11Messages.ENABLE_EVENTS_AND_REPORTS(_messageIds.Next()),
-                _ => throw new NotSupportedException(
-                    $"No ENABLE_EVENTS_AND_REPORTS encoder is available for LLRP {NegotiatedVersion}."),
-            };
+            ILlrpMessage enableMessage = LlrpProtocolMessageFactory.CreateEnableEventsAndReports(
+                NegotiatedVersion,
+                _messageIds.Next());
             byte[] enableFrame = _registry.EncodeMessage(NegotiatedVersion, enableMessage);
             await _session.SendFrameAsync(enableFrame, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation(
@@ -1164,8 +1157,10 @@ public sealed class LlrpReader : IAsyncDisposable
             ReaderConfiguration configuration = await QueryConfigurationCoreAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
-            ILlrpParameter? managed = roSpecs.SingleOrDefault(IsManagedRoSpec);
-            ManagedRoSpecSnapshot? snapshot = managed is null ? null : ParseManagedInventory(managed, accessSpecs);
+            ILlrpParameter? managed = roSpecs.SingleOrDefault(GetProtocolAdapter().IsManagedRoSpec);
+            ManagedRoSpecSnapshot? snapshot = managed is null
+                ? null
+                : GetProtocolAdapter().ParseManagedRoSpec(this, managed, accessSpecs);
             AdoptManagedInventorySnapshot(managed, accessSpecs, snapshot);
             InventorySettings? inventory = snapshot?.Inventory;
             return new ReaderSettingsSnapshot(new ReaderSettings { Configuration = configuration, Inventory = inventory }, snapshot)
@@ -1965,7 +1960,7 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private async Task<TResponse> TransactSessionAsync<TResponse>(
+    internal async Task<TResponse> TransactSessionAsync<TResponse>(
         ILlrpMessage request,
         TimeSpan? timeout,
         CancellationToken cancellationToken,
@@ -1984,7 +1979,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 cancellationToken)
             .ConfigureAwait(false);
         ILlrpMessage response = _registry.DecodeMessage(responseFrame.Span);
-        if (TryCreateOperationException(request.GetType().Name, response, out LlrpReaderOperationException? error))
+        if (LlrpProtocolMessageFactory.TryCreateOperationException(request.GetType().Name, response, out LlrpReaderOperationException? error))
         {
             throw error!;
         }
@@ -2264,16 +2259,12 @@ public sealed class LlrpReader : IAsyncDisposable
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     ILlrpMessage message = _registry.DecodeMessage(frame.Span);
-                    if (message is V101Messages.KEEPALIVE or V11Messages.KEEPALIVE)
+                    if (LlrpProtocolMessageFactory.IsKeepalive(message))
                     {
                         PublishKeepaliveReceived();
-                        ILlrpMessage acknowledgementMessage = NegotiatedVersion switch
-                        {
-                            LlrpProtocolVersion.Version101 => new V101Messages.KEEPALIVE_ACK(message.MessageId),
-                            LlrpProtocolVersion.Version11 => new V11Messages.KEEPALIVE_ACK(message.MessageId),
-                            _ => throw new NotSupportedException(
-                                $"No KEEPALIVE_ACK encoder is available for LLRP {NegotiatedVersion}."),
-                        };
+                        ILlrpMessage acknowledgementMessage = LlrpProtocolMessageFactory.CreateKeepaliveAck(
+                            NegotiatedVersion,
+                            message.MessageId);
                         byte[] acknowledgement = _registry.EncodeMessage(
                             NegotiatedVersion,
                             acknowledgementMessage);
@@ -2281,25 +2272,15 @@ public sealed class LlrpReader : IAsyncDisposable
                             .SendFrameAsync(acknowledgement, cancellationToken)
                             .ConfigureAwait(false);
                     }
-                    else if (message is V101Messages.CLOSE_CONNECTION v101Close)
+                    else if (LlrpProtocolMessageFactory.IsCloseConnection(message))
                     {
                         Volatile.Write(ref _deviceInitiatedClose, 1);
-                        await SendCloseConnectionAcknowledgmentAsync(v101Close.MessageId, cancellationToken)
+                        await SendCloseConnectionAcknowledgmentAsync(message.MessageId, cancellationToken)
                             .ConfigureAwait(false);
                     }
-                    else if (message is V11Messages.CLOSE_CONNECTION v11Close)
+                    foreach (ReaderEventProjection projection in ReaderEventProjector.Project(message))
                     {
-                        Volatile.Write(ref _deviceInitiatedClose, 1);
-                        await SendCloseConnectionAcknowledgmentAsync(v11Close.MessageId, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    else if (message is V101Messages.READER_EVENT_NOTIFICATION v101Notification)
-                    {
-                        ProcessReaderEventNotification(v101Notification);
-                    }
-                    else if (message is V11Messages.READER_EVENT_NOTIFICATION v11Notification)
-                    {
-                        ProcessReaderEventNotification(v11Notification);
+                        HandleEventProjection(projection);
                     }
 
                     foreach (TranslatedTagReport translatedReport in GetProtocolAdapter().TranslateTagReports(message))
@@ -2406,17 +2387,9 @@ public sealed class LlrpReader : IAsyncDisposable
         uint messageId,
         CancellationToken cancellationToken)
     {
-        ILlrpMessage responseMessage = NegotiatedVersion switch
-        {
-            LlrpProtocolVersion.Version101 => new V101Messages.CLOSE_CONNECTION_RESPONSE(
-                messageId,
-                new V101Parameters.LLRPStatus(V101Enumerations.StatusCode.M_Success, string.Empty, null, null)),
-            LlrpProtocolVersion.Version11 => new V11Messages.CLOSE_CONNECTION_RESPONSE(
-                messageId,
-                new V11Parameters.LLRPStatus(V11Enumerations.StatusCode.M_Success, string.Empty, null, null)),
-            _ => throw new NotSupportedException(
-                $"No CLOSE_CONNECTION_RESPONSE encoder is available for LLRP {NegotiatedVersion}."),
-        };
+        ILlrpMessage responseMessage = LlrpProtocolMessageFactory.CreateCloseConnectionResponse(
+            NegotiatedVersion,
+            messageId);
         try
         {
             byte[] responseFrame = _registry.EncodeMessage(NegotiatedVersion, responseMessage);
@@ -2535,86 +2508,9 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private async Task NegotiateProtocolVersionAsync(CancellationToken cancellationToken)
-    {
-        if (Options.ProtocolVersionPolicy == LlrpProtocolVersionPolicy.Force101)
-        {
-            _logger.LogDebug(
-                "Reader {ConnectionId} is configured to use LLRP 1.0.1 without version negotiation.",
-                ConnectionId);
-            return;
-        }
-
-        bool requireVersion11 = Options.ProtocolVersionPolicy == LlrpProtocolVersionPolicy.Force11;
-        var getSupportedVersion = new V11Messages.GET_SUPPORTED_VERSION(_messageIds.Next());
-        V11Messages.GET_SUPPORTED_VERSION_RESPONSE supported;
-        try
-        {
-            supported = await TransactSessionAsync<V11Messages.GET_SUPPORTED_VERSION_RESPONSE>(
-                getSupportedVersion,
-                Options.RequestTimeout,
-                cancellationToken,
-                MatchesGetSupportedVersionResponse,
-                LlrpProtocolVersion.Version11).ConfigureAwait(false);
-        }
-        catch (LlrpReaderOperationException exception) when (exception.StatusCode == 110 && !requireVersion11)
-        {
-            _logger.LogDebug(
-                "Reader {ConnectionId} rejected LLRP 1.1 negotiation; retaining LLRP 1.0.1.",
-                ConnectionId);
-            return;
-        }
-
-        if (supported.LLRPStatus.StatusCode != LlrpNet.Protocol.Enumerations.V1_1.StatusCode.M_Success)
-        {
-            throw new LlrpReaderOperationException(
-                "GET_SUPPORTED_VERSION",
-                checked((ushort)supported.LLRPStatus.StatusCode),
-                supported.LLRPStatus.ErrorDescription,
-                supported.LLRPStatus);
-        }
-
-        if (supported.SupportedVersion < (byte)LlrpProtocolVersion.Version11)
-        {
-            if (requireVersion11)
-            {
-                throw new NotSupportedException(
-                    $"Reader {ConnectionId} supports LLRP through {supported.SupportedVersion}, but LLRP 1.1 was required.");
-            }
-
-            _logger.LogDebug(
-                "Reader {ConnectionId} supports LLRP through {SupportedVersion}; retaining LLRP 1.0.1.",
-                ConnectionId,
-                supported.SupportedVersion);
-            return;
-        }
-
-        var setProtocolVersion = new V11Messages.SET_PROTOCOL_VERSION(
-            _messageIds.Next(),
-            (byte)LlrpProtocolVersion.Version11);
-        V11Messages.SET_PROTOCOL_VERSION_RESPONSE setResponse =
-            await TransactSessionAsync<V11Messages.SET_PROTOCOL_VERSION_RESPONSE>(
-                setProtocolVersion,
-                Options.RequestTimeout,
-                cancellationToken,
-                MatchesSetProtocolVersionResponse,
-                LlrpProtocolVersion.Version11).ConfigureAwait(false);
-        if (setResponse.LLRPStatus.StatusCode != LlrpNet.Protocol.Enumerations.V1_1.StatusCode.M_Success)
-        {
-            throw new LlrpReaderOperationException(
-                "SET_PROTOCOL_VERSION",
-                checked((ushort)setResponse.LLRPStatus.StatusCode),
-                setResponse.LLRPStatus.ErrorDescription,
-                setResponse.LLRPStatus);
-        }
-
-        SelectProtocolAdapter(LlrpProtocolVersion.Version11);
-        _logger.LogDebug("Reader {ConnectionId} negotiated LLRP 1.1.", ConnectionId);
-    }
-
     private ILlrpProtocolAdapter GetProtocolAdapter() => Volatile.Read(ref _protocolAdapter);
 
-    private void SelectProtocolAdapter(LlrpProtocolVersion version)
+    internal void SelectProtocolAdapter(LlrpProtocolVersion version)
     {
         if (!_protocolAdapters.TryGetValue(version, out ILlrpProtocolAdapter? adapter))
         {
@@ -2853,14 +2749,11 @@ public sealed class LlrpReader : IAsyncDisposable
             return;
         }
 
-        ManagedRoSpecSnapshot actual = snapshot ?? ParseManagedInventory(managedRoSpec, accessSpecs);
+        ManagedRoSpecSnapshot actual = snapshot ?? GetProtocolAdapter().ParseManagedRoSpec(this, managedRoSpec, accessSpecs);
         _managedInventoryRoSpecId = ManagedInventoryRoSpecId;
-        _managedInventoryAttachedDataAccessSpecId = accessSpecs.Any(item => item switch
-        {
-            V101Parameters.AccessSpec v101 => v101.AccessSpecID == ManagedInventoryAttachedDataAccessSpecId,
-            LlrpNet.Protocol.Parameters.V1_1.AccessSpec v11 => v11.AccessSpecID == ManagedInventoryAttachedDataAccessSpecId,
-            _ => false,
-        }) ? ManagedInventoryAttachedDataAccessSpecId : null;
+        _managedInventoryAttachedDataAccessSpecId = GetProtocolAdapter().HasAttachedDataAccessSpec(accessSpecs)
+            ? ManagedInventoryAttachedDataAccessSpecId
+            : null;
         Volatile.Write(ref _currentInventorySettings, actual.Inventory);
         bool running = actual.State == InventoryRuntimeState.Running;
         Volatile.Write(ref _operationState, (int)(running ? ReaderOperationState.Inventorying : ReaderOperationState.Idle));
@@ -2962,7 +2855,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             _logger.LogWarning(
                 exception,
-                "Failed to clean up SDK-managed inventory V101Parameters.ROSpec {RoSpecId} on reader {ConnectionId}",
+                "Failed to clean up SDK-managed inventory ROSpec {RoSpecId} on reader {ConnectionId}",
                 roSpecId,
                 ConnectionId);
         }
@@ -2972,441 +2865,6 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         return TryManagedInventoryCleanupAsync(roSpecId, stop: false, cancellationToken);
     }
-
-    private static bool IsManagedRoSpec(ILlrpParameter item) => item switch
-    {
-        V101Parameters.ROSpec v101 => v101.ROSpecID == ManagedInventoryRoSpecId,
-        LlrpNet.Protocol.Parameters.V1_1.ROSpec v11 => v11.ROSpecID == ManagedInventoryRoSpecId,
-        _ => false,
-    };
-
-    private ManagedRoSpecSnapshot ParseManagedInventory(ILlrpParameter item, IReadOnlyList<ILlrpParameter> accessSpecs)
-    {
-        return item switch
-        {
-            V101Parameters.ROSpec roSpec => ParseManagedInventory(roSpec, accessSpecs),
-            V11Parameters.ROSpec roSpec => ParseManagedInventory(roSpec, accessSpecs),
-            _ => throw new NotSupportedException("Reading a persisted SDK V101Parameters.ROSpec is not available for this negotiated protocol version."),
-        };
-    }
-
-    private ManagedRoSpecSnapshot ParseManagedInventory(V101Parameters.ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
-    {
-        ArgumentNullException.ThrowIfNull(roSpec);
-        ArgumentNullException.ThrowIfNull(accessSpecs);
-        if (roSpec.ROSpecID != ManagedInventoryRoSpecId)
-        {
-            throw new InvalidOperationException("The supplied V101Parameters.ROSpec is not the SDK-managed inventory V101Parameters.ROSpec.");
-        }
-        V101Parameters.AISpec aiSpec = roSpec.SpecParameterItems.OfType<V101Parameters.AISpec>().SingleOrDefault()
-            ?? throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec must contain exactly one V101Parameters.AISpec.");
-        V101Parameters.InventoryParameterSpec inventorySpec = aiSpec.InventoryParameterSpecItems.Single();
-        V101Parameters.C1G2InventoryCommand? command = inventorySpec.AntennaConfigurationItems
-            .SelectMany(configuration => configuration.AirProtocolInventoryCommandSettingsItems)
-            .OfType<V101Parameters.C1G2InventoryCommand>().FirstOrDefault();
-        V101Parameters.AccessSpec? attachedDataSpec = accessSpecs.OfType<V101Parameters.AccessSpec>()
-            .SingleOrDefault(spec => spec.AccessSpecID == ManagedInventoryAttachedDataAccessSpecId);
-        if (attachedDataSpec is not null && attachedDataSpec.ROSpecID != ManagedInventoryRoSpecId)
-        {
-            throw new InvalidOperationException("The reserved SDK AttachedData V101Parameters.AccessSpec is not associated with the reserved SDK V101Parameters.ROSpec.");
-        }
-        V101Parameters.C1G2Read? read = attachedDataSpec is null
-            ? null
-            : attachedDataSpec.AccessCommand.AccessCommandOpSpecItems.OfType<V101Parameters.C1G2Read>().FirstOrDefault();
-        if (attachedDataSpec is not null && read is null)
-        {
-            throw new InvalidOperationException("The reserved SDK AttachedData V101Parameters.AccessSpec must contain a V101Parameters.C1G2Read operation.");
-        }
-        InventoryStateAwareSingulation? stateAwareSingulation = ParseStateAwareSingulation(command?.C1G2SingulationControl?.C1G2TagInventoryStateAwareSingulationAction);
-        var settings = new InventorySettings
-        {
-            Priority = roSpec.Priority,
-            AntennaIds = aiSpec.AntennaIDs,
-            InventoryParameterSpecId = inventorySpec.InventoryParameterSpecID,
-            ReportEveryNTags = roSpec.ROReportSpec?.N ?? 1,
-            Report = ParseReportSettings(roSpec.ROReportSpec),
-            Session = command?.C1G2SingulationControl?.Session ?? 0,
-            TagPopulationEstimate = command?.C1G2SingulationControl?.TagPopulation ?? 32,
-            ModeIndex = command?.C1G2RFControl?.ModeIndex ?? 0,
-            Tari = command?.C1G2RFControl?.Tari ?? 0,
-            AntennaConfigurations = inventorySpec.AntennaConfigurationItems
-                .Where(configuration => configuration.RFReceiver is not null || configuration.RFTransmitter is not null)
-                .Select(configuration => new InventoryAntennaConfiguration
-                {
-                    AntennaId = configuration.AntennaID,
-                    ReceiverSensitivityIndex = configuration.RFReceiver?.ReceiverSensitivity,
-                    TransmitPowerIndex = configuration.RFTransmitter?.TransmitPower,
-                    HopTableId = configuration.RFTransmitter?.HopTableID,
-                    ChannelIndex = configuration.RFTransmitter?.ChannelIndex,
-                }).ToArray(),
-            Filters = command?.C1G2FilterItems.Select(ParseFilter).ToArray() ?? [],
-            StartTrigger = ParseStartTrigger(roSpec.ROBoundarySpec.ROSpecStartTrigger),
-            StopTrigger = ParseStopTrigger(roSpec.ROBoundarySpec.ROSpecStopTrigger),
-            StateAwareSingulation = stateAwareSingulation,
-            AttachedData = read is null ? new AttachedDataOptions() : new AttachedDataOptions
-            {
-                Enabled = true,
-                MemoryBank = read.MB,
-                WordPointer = read.WordPointer,
-                WordCount = read.WordCount,
-                AccessPassword = read.AccessPassword.ToString("X8")
-            }
-        };
-        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
-            "Inventory settings query requires initialized reader metadata.");
-        var extensionBuilder = new InventorySettingsExtensionBuilder();
-        var contributionContext = new InventorySettingsContributionContext(
-            metadata.Identity,
-            metadata.Capabilities,
-            NegotiatedVersion,
-            roSpec.ROReportSpec?.CustomItems ?? [],
-            command?.CustomItems ?? []);
-        foreach (IInventorySettingsContributor contributor in Extensions.OfType<IInventorySettingsContributor>())
-        {
-            contributor.ContributeQuery(contributionContext, extensionBuilder);
-        }
-        settings = settings with { Extensions = extensionBuilder.Build() };
-        InventoryRuntimeState state = roSpec.CurrentState switch
-        {
-            LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecState.Active => InventoryRuntimeState.Running,
-            LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecState.Inactive => InventoryRuntimeState.Enabled,
-            _ => InventoryRuntimeState.Disabled
-        };
-        return new ManagedRoSpecSnapshot(settings, state);
-    }
-
-    private ManagedRoSpecSnapshot ParseManagedInventory(V11Parameters.ROSpec roSpec, IReadOnlyList<ILlrpParameter> accessSpecs)
-    {
-        ArgumentNullException.ThrowIfNull(roSpec);
-        ArgumentNullException.ThrowIfNull(accessSpecs);
-        if (roSpec.ROSpecID != ManagedInventoryRoSpecId)
-        {
-            throw new InvalidOperationException("The supplied V101Parameters.ROSpec is not the SDK-managed inventory V101Parameters.ROSpec.");
-        }
-
-        V11Parameters.AISpec aiSpec = roSpec.SpecParameterItems.OfType<V11Parameters.AISpec>().SingleOrDefault()
-            ?? throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec must contain exactly one V101Parameters.AISpec.");
-        V11Parameters.InventoryParameterSpec inventorySpec = aiSpec.InventoryParameterSpecItems.Single();
-        V11Parameters.C1G2InventoryCommand? command = inventorySpec.AntennaConfigurationItems
-            .SelectMany(configuration => configuration.AirProtocolInventoryCommandSettingsItems)
-            .OfType<V11Parameters.C1G2InventoryCommand>().FirstOrDefault();
-        V11Parameters.AccessSpec? attachedDataSpec = accessSpecs.OfType<V11Parameters.AccessSpec>()
-            .SingleOrDefault(spec => spec.AccessSpecID == ManagedInventoryAttachedDataAccessSpecId);
-        if (attachedDataSpec is not null && attachedDataSpec.ROSpecID != ManagedInventoryRoSpecId)
-        {
-            throw new InvalidOperationException("The reserved SDK AttachedData V101Parameters.AccessSpec is not associated with the reserved SDK V101Parameters.ROSpec.");
-        }
-        V11Parameters.C1G2Read? read = attachedDataSpec is null
-            ? null
-            : attachedDataSpec.AccessCommand.AccessCommandOpSpecItems.OfType<V11Parameters.C1G2Read>().FirstOrDefault();
-        if (attachedDataSpec is not null && read is null)
-        {
-            throw new InvalidOperationException("The reserved SDK AttachedData V101Parameters.AccessSpec must contain a V101Parameters.C1G2Read operation.");
-        }
-
-        var settings = new InventorySettings
-        {
-            Priority = roSpec.Priority,
-            AntennaIds = aiSpec.AntennaIDs,
-            InventoryParameterSpecId = inventorySpec.InventoryParameterSpecID,
-            ReportEveryNTags = roSpec.ROReportSpec?.N ?? 1,
-            Report = ParseReportSettings(roSpec.ROReportSpec),
-            Session = command?.C1G2SingulationControl?.Session ?? 0,
-            TagPopulationEstimate = command?.C1G2SingulationControl?.TagPopulation ?? 32,
-            ModeIndex = command?.C1G2RFControl?.ModeIndex ?? 0,
-            Tari = command?.C1G2RFControl?.Tari ?? 0,
-            AntennaConfigurations = inventorySpec.AntennaConfigurationItems
-                .Where(configuration => configuration.RFReceiver is not null || configuration.RFTransmitter is not null)
-                .Select(configuration => new InventoryAntennaConfiguration
-                {
-                    AntennaId = configuration.AntennaID,
-                    ReceiverSensitivityIndex = configuration.RFReceiver?.ReceiverSensitivity,
-                    TransmitPowerIndex = configuration.RFTransmitter?.TransmitPower,
-                    HopTableId = configuration.RFTransmitter?.HopTableID,
-                    ChannelIndex = configuration.RFTransmitter?.ChannelIndex,
-                }).ToArray(),
-            Filters = command?.C1G2FilterItems.Select(ParseFilter).ToArray() ?? [],
-            StartTrigger = ParseStartTrigger(roSpec.ROBoundarySpec.ROSpecStartTrigger),
-            StopTrigger = ParseStopTrigger(roSpec.ROBoundarySpec.ROSpecStopTrigger),
-            StateAwareSingulation = ParseStateAwareSingulation(command?.C1G2SingulationControl?.C1G2TagInventoryStateAwareSingulationAction),
-            AttachedData = read is null ? new AttachedDataOptions() : new AttachedDataOptions
-            {
-                Enabled = true,
-                MemoryBank = read.MB,
-                WordPointer = read.WordPointer,
-                WordCount = read.WordCount,
-                AccessPassword = read.AccessPassword.ToString("X8")
-            }
-        };
-        ReaderMetadataSnapshot metadata = Volatile.Read(ref _metadata) ?? throw new InvalidOperationException(
-            "Inventory settings query requires initialized reader metadata.");
-        var extensionBuilder = new InventorySettingsExtensionBuilder();
-        var contributionContext = new InventorySettingsContributionContext(
-            metadata.Identity,
-            metadata.Capabilities,
-            NegotiatedVersion,
-            roSpec.ROReportSpec?.CustomItems ?? [],
-            command?.CustomItems ?? []);
-        foreach (IInventorySettingsContributor contributor in Extensions.OfType<IInventorySettingsContributor>())
-        {
-            contributor.ContributeQuery(contributionContext, extensionBuilder);
-        }
-        settings = settings with { Extensions = extensionBuilder.Build() };
-        InventoryRuntimeState state = roSpec.CurrentState switch
-        {
-            V11Enumerations.ROSpecState.Active => InventoryRuntimeState.Running,
-            V11Enumerations.ROSpecState.Inactive => InventoryRuntimeState.Enabled,
-            _ => InventoryRuntimeState.Disabled
-        };
-        return new ManagedRoSpecSnapshot(settings, state);
-    }
-
-    private static InventorySelectFilter ParseFilter(V101Parameters.C1G2Filter filter)
-    {
-        if (filter.C1G2TagInventoryStateAwareFilterAction is { } stateAware)
-        {
-            bool[] stateAwareBits = filter.C1G2TagInventoryMask.TagMask.ToArray();
-            return new InventorySelectFilter
-            {
-                MemoryBank = filter.C1G2TagInventoryMask.MB,
-                BitPointer = filter.C1G2TagInventoryMask.Pointer,
-                Mask = BitsToBytes(stateAwareBits),
-                BitLength = checked((ushort)stateAwareBits.Length),
-                StateAwareAction = new InventoryStateAwareFilterAction
-                {
-                    Target = stateAware.Target switch
-                    {
-                        LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateAwareTarget.SL => InventoryFilterTarget.SelectedFlag,
-                        LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateAwareTarget.Inventoried_State_For_Session_S0 => InventoryFilterTarget.Session0,
-                        LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateAwareTarget.Inventoried_State_For_Session_S1 => InventoryFilterTarget.Session1,
-                        LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateAwareTarget.Inventoried_State_For_Session_S2 => InventoryFilterTarget.Session2,
-                        LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateAwareTarget.Inventoried_State_For_Session_S3 => InventoryFilterTarget.Session3,
-                        _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec contains an unsupported state-aware filter target."),
-                    },
-                    Action = (InventoryFilterAction)(long)stateAware.Action,
-                }
-            };
-        }
-        V101Parameters.C1G2TagInventoryStateUnawareFilterAction action = filter.C1G2TagInventoryStateUnawareFilterAction
-            ?? throw new InvalidOperationException("A C1G2 filter must define exactly one Select action.");
-        (InventorySelectAction match, InventorySelectAction nonMatch) = action.Action switch
-        {
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateUnawareAction.Select_Unselect => (InventorySelectAction.Select, InventorySelectAction.Unselect),
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateUnawareAction.Select_DoNothing => (InventorySelectAction.Select, InventorySelectAction.DoNothing),
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateUnawareAction.DoNothing_Unselect => (InventorySelectAction.DoNothing, InventorySelectAction.Unselect),
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateUnawareAction.Unselect_DoNothing => (InventorySelectAction.Unselect, InventorySelectAction.DoNothing),
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2StateUnawareAction.Unselect_Select => (InventorySelectAction.Unselect, InventorySelectAction.Select),
-            _ => (InventorySelectAction.DoNothing, InventorySelectAction.Select)
-        };
-        bool[] bits = filter.C1G2TagInventoryMask.TagMask.ToArray();
-        return new InventorySelectFilter { MemoryBank = filter.C1G2TagInventoryMask.MB, BitPointer = filter.C1G2TagInventoryMask.Pointer, Mask = BitsToBytes(bits), BitLength = checked((ushort)bits.Length), MatchAction = match, NonMatchAction = nonMatch };
-    }
-
-    private static InventorySelectFilter ParseFilter(V11Parameters.C1G2Filter filter)
-    {
-        if (filter.C1G2TagInventoryStateAwareFilterAction is { } stateAware)
-        {
-            bool[] stateAwareBits = filter.C1G2TagInventoryMask.TagMask.ToArray();
-            return new InventorySelectFilter
-            {
-                MemoryBank = filter.C1G2TagInventoryMask.MB,
-                BitPointer = filter.C1G2TagInventoryMask.Pointer,
-                Mask = BitsToBytes(stateAwareBits),
-                BitLength = checked((ushort)stateAwareBits.Length),
-                StateAwareAction = new InventoryStateAwareFilterAction
-                {
-                    Target = stateAware.Target switch
-                    {
-                        V11Enumerations.C1G2StateAwareTarget.SL => InventoryFilterTarget.SelectedFlag,
-                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S0 => InventoryFilterTarget.Session0,
-                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S1 => InventoryFilterTarget.Session1,
-                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S2 => InventoryFilterTarget.Session2,
-                        V11Enumerations.C1G2StateAwareTarget.Inventoried_State_For_Session_S3 => InventoryFilterTarget.Session3,
-                        _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec contains an unsupported state-aware filter target."),
-                    },
-                    Action = (InventoryFilterAction)(long)stateAware.Action,
-                }
-            };
-        }
-        V11Parameters.C1G2TagInventoryStateUnawareFilterAction action = filter.C1G2TagInventoryStateUnawareFilterAction
-            ?? throw new InvalidOperationException("A C1G2 filter must define exactly one Select action.");
-        (InventorySelectAction match, InventorySelectAction nonMatch) = action.Action switch
-        {
-            V11Enumerations.C1G2StateUnawareAction.Select_Unselect => (InventorySelectAction.Select, InventorySelectAction.Unselect),
-            V11Enumerations.C1G2StateUnawareAction.Select_DoNothing => (InventorySelectAction.Select, InventorySelectAction.DoNothing),
-            V11Enumerations.C1G2StateUnawareAction.DoNothing_Unselect => (InventorySelectAction.DoNothing, InventorySelectAction.Unselect),
-            V11Enumerations.C1G2StateUnawareAction.Unselect_DoNothing => (InventorySelectAction.Unselect, InventorySelectAction.DoNothing),
-            V11Enumerations.C1G2StateUnawareAction.Unselect_Select => (InventorySelectAction.Unselect, InventorySelectAction.Select),
-            _ => (InventorySelectAction.DoNothing, InventorySelectAction.Select)
-        };
-        bool[] bits = filter.C1G2TagInventoryMask.TagMask.ToArray();
-        return new InventorySelectFilter { MemoryBank = filter.C1G2TagInventoryMask.MB, BitPointer = filter.C1G2TagInventoryMask.Pointer, Mask = BitsToBytes(bits), BitLength = checked((ushort)bits.Length), MatchAction = match, NonMatchAction = nonMatch };
-    }
-
-    private static byte[] BitsToBytes(IReadOnlyList<bool> bits) => bits.Chunk(8)
-        .Select(group => Convert.ToByte(group.Select((bit, index) => bit ? 1 << (7 - index) : 0).Sum())).ToArray();
-
-    private static InventoryStartTrigger ParseStartTrigger(V101Parameters.ROSpecStartTrigger trigger) => trigger.ROSpecStartTriggerType switch
-    {
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.Null => new() { Type = InventoryStartTriggerType.None },
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.Immediate => new() { Type = InventoryStartTriggerType.Immediate },
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.Periodic when trigger.PeriodicTriggerValue is { } periodic => new()
-        {
-            Type = InventoryStartTriggerType.Periodic,
-            OffsetMilliseconds = periodic.Offset,
-            PeriodMilliseconds = periodic.Period,
-            StartAtUtc = periodic.UTCTimestamp is { } utc ? FromUtcMicroseconds(utc.Microseconds) : null,
-        },
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStartTriggerType.GPI when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStartTriggerType.Gpi, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
-        _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported or malformed start trigger."),
-    };
-
-    private static InventoryStartTrigger ParseStartTrigger(V11Parameters.ROSpecStartTrigger trigger) => trigger.ROSpecStartTriggerType switch
-    {
-        V11Enumerations.ROSpecStartTriggerType.Null => new() { Type = InventoryStartTriggerType.None },
-        V11Enumerations.ROSpecStartTriggerType.Immediate => new() { Type = InventoryStartTriggerType.Immediate },
-        V11Enumerations.ROSpecStartTriggerType.Periodic when trigger.PeriodicTriggerValue is { } periodic => new()
-        {
-            Type = InventoryStartTriggerType.Periodic,
-            OffsetMilliseconds = periodic.Offset,
-            PeriodMilliseconds = periodic.Period,
-            StartAtUtc = periodic.UTCTimestamp is { } utc ? FromUtcMicroseconds(utc.Microseconds) : null,
-        },
-        V11Enumerations.ROSpecStartTriggerType.GPI when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStartTriggerType.Gpi, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
-        _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported or malformed start trigger."),
-    };
-
-    private static DateTimeOffset FromUtcMicroseconds(ulong microseconds)
-    {
-        try
-        {
-            return DateTimeOffset.UnixEpoch.AddTicks(checked((long)microseconds * TimeSpan.TicksPerMicrosecond));
-        }
-        catch (OverflowException exception)
-        {
-            throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec contains an out-of-range UTC start timestamp.", exception);
-        }
-    }
-
-    private static InventoryReportSettings ParseReportSettings(V101Parameters.ROReportSpec? reportSpec)
-    {
-        if (reportSpec is null)
-        {
-            throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec must contain an V101Parameters.ROReportSpec.");
-        }
-        V101Parameters.TagReportContentSelector selector = reportSpec.TagReportContentSelector;
-        V101Parameters.C1G2EPCMemorySelector? epc = selector.AirProtocolEPCMemorySelectorItems.OfType<V101Parameters.C1G2EPCMemorySelector>().SingleOrDefault();
-        if (selector.AirProtocolEPCMemorySelectorItems.Count != 0 && epc is null)
-        {
-            throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported EPC report selector.");
-        }
-        return new InventoryReportSettings
-        {
-            Trigger = reportSpec.ROReportTrigger switch
-            {
-                LlrpNet.Protocol.Enumerations.V1_0_1.ROReportTriggerType.None => InventoryReportTrigger.None,
-                LlrpNet.Protocol.Enumerations.V1_0_1.ROReportTriggerType.Upon_N_Tags_Or_End_Of_AISpec => InventoryReportTrigger.UponNTagsOrEndOfAiSpec,
-                LlrpNet.Protocol.Enumerations.V1_0_1.ROReportTriggerType.Upon_N_Tags_Or_End_Of_ROSpec => InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
-                _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported report trigger."),
-            },
-            IncludeRoSpecId = selector.EnableROSpecID,
-            IncludeSpecIndex = selector.EnableSpecIndex,
-            IncludeInventoryParameterSpecId = selector.EnableInventoryParameterSpecID,
-            IncludeAntennaId = selector.EnableAntennaID,
-            IncludeChannelIndex = selector.EnableChannelIndex,
-            IncludePeakRssi = selector.EnablePeakRSSI,
-            IncludeFirstSeenTimestamp = selector.EnableFirstSeenTimestamp,
-            IncludeLastSeenTimestamp = selector.EnableLastSeenTimestamp,
-            IncludeTagSeenCount = selector.EnableTagSeenCount,
-            IncludeAccessSpecId = selector.EnableAccessSpecID,
-            IncludeCrc = epc?.EnableCRC ?? false,
-            IncludePcBits = epc?.EnablePCBits ?? false,
-        };
-    }
-
-    private static InventoryReportSettings ParseReportSettings(V11Parameters.ROReportSpec? reportSpec)
-    {
-        if (reportSpec is null)
-        {
-            throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec must contain an V101Parameters.ROReportSpec.");
-        }
-        V11Parameters.TagReportContentSelector selector = reportSpec.TagReportContentSelector;
-        V11Parameters.C1G2EPCMemorySelector? epc = selector.AirProtocolEPCMemorySelectorItems.OfType<V11Parameters.C1G2EPCMemorySelector>().SingleOrDefault();
-        if (selector.AirProtocolEPCMemorySelectorItems.Count != 0 && epc is null)
-        {
-            throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported EPC report selector.");
-        }
-        return new InventoryReportSettings
-        {
-            Trigger = reportSpec.ROReportTrigger switch
-            {
-                V11Enumerations.ROReportTriggerType.None => InventoryReportTrigger.None,
-                V11Enumerations.ROReportTriggerType.Upon_N_Tags_Or_End_Of_AISpec => InventoryReportTrigger.UponNTagsOrEndOfAiSpec,
-                V11Enumerations.ROReportTriggerType.Upon_N_Tags_Or_End_Of_ROSpec => InventoryReportTrigger.UponNTagsOrEndOfRoSpec,
-                _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported report trigger."),
-            },
-            IncludeRoSpecId = selector.EnableROSpecID,
-            IncludeSpecIndex = selector.EnableSpecIndex,
-            IncludeInventoryParameterSpecId = selector.EnableInventoryParameterSpecID,
-            IncludeAntennaId = selector.EnableAntennaID,
-            IncludeChannelIndex = selector.EnableChannelIndex,
-            IncludePeakRssi = selector.EnablePeakRSSI,
-            IncludeFirstSeenTimestamp = selector.EnableFirstSeenTimestamp,
-            IncludeLastSeenTimestamp = selector.EnableLastSeenTimestamp,
-            IncludeTagSeenCount = selector.EnableTagSeenCount,
-            IncludeAccessSpecId = selector.EnableAccessSpecID,
-            IncludeCrc = epc?.EnableCRC ?? false,
-            IncludePcBits = epc?.EnablePCBits ?? false,
-        };
-    }
-
-    private static InventoryStopTrigger ParseStopTrigger(V101Parameters.ROSpecStopTrigger trigger) => trigger.ROSpecStopTriggerType switch
-    {
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStopTriggerType.Null => new() { Type = InventoryStopTriggerType.None },
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStopTriggerType.Duration => new() { Type = InventoryStopTriggerType.Duration, DurationMilliseconds = trigger.DurationTriggerValue },
-        LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecStopTriggerType.GPI_With_Timeout when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStopTriggerType.GpiWithTimeout, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
-        _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported or malformed stop trigger."),
-    };
-
-    private static InventoryStopTrigger ParseStopTrigger(V11Parameters.ROSpecStopTrigger trigger) => trigger.ROSpecStopTriggerType switch
-    {
-        V11Enumerations.ROSpecStopTriggerType.Null => new() { Type = InventoryStopTriggerType.None },
-        V11Enumerations.ROSpecStopTriggerType.Duration => new() { Type = InventoryStopTriggerType.Duration, DurationMilliseconds = trigger.DurationTriggerValue },
-        V11Enumerations.ROSpecStopTriggerType.GPI_With_Timeout when trigger.GPITriggerValue is { } gpi => new() { Type = InventoryStopTriggerType.GpiWithTimeout, GpiPortNumber = gpi.GPIPortNum, GpiState = gpi.GPIEvent, TimeoutMilliseconds = gpi.Timeout },
-        _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported or malformed stop trigger."),
-    };
-
-    private static InventoryStateAwareSingulation? ParseStateAwareSingulation(V101Parameters.C1G2TagInventoryStateAwareSingulationAction? action) => action is null ? null : new InventoryStateAwareSingulation
-    {
-        Target = action.I switch
-        {
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareI.State_A => InventoryTarget.StateA,
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareI.State_B => InventoryTarget.StateB,
-            _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported state-aware singulation target."),
-        },
-        SelectedFlag = action.S switch
-        {
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareS.SL => InventorySelectedFlag.Set,
-            LlrpNet.Protocol.Enumerations.V1_0_1.C1G2TagInventoryStateAwareS.Not_SL => InventorySelectedFlag.Clear,
-            _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported state-aware singulation flag."),
-        },
-    };
-
-    private static InventoryStateAwareSingulation? ParseStateAwareSingulation(V11Parameters.C1G2TagInventoryStateAwareSingulationAction? action) => action is null ? null : new InventoryStateAwareSingulation
-    {
-        Target = action.I switch
-        {
-            V11Enumerations.C1G2TagInventoryStateAwareI.State_A => InventoryTarget.StateA,
-            V11Enumerations.C1G2TagInventoryStateAwareI.State_B => InventoryTarget.StateB,
-            _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported state-aware singulation target."),
-        },
-        SelectedFlag = action.SAll ? InventorySelectedFlag.All : action.S switch
-        {
-            V11Enumerations.C1G2TagInventoryStateAwareS.SL => InventorySelectedFlag.Set,
-            V11Enumerations.C1G2TagInventoryStateAwareS.Not_SL => InventorySelectedFlag.Clear,
-            _ => throw new InvalidOperationException("The reserved SDK V101Parameters.ROSpec has an unsupported state-aware singulation flag."),
-        },
-    };
 
     private ILlrpParameter CompileAttachedDataAccessSpec(uint accessSpecId, uint roSpecId, AttachedDataOptions options)
     {
@@ -3481,49 +2939,6 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             return false;
         }
-    }
-
-    private static bool MatchesGetSupportedVersionResponse(
-        LlrpMessageHeader header,
-        ReadOnlyMemory<byte> frame)
-    {
-        return header.MessageType is V11Messages.GET_SUPPORTED_VERSION_RESPONSE.MessageType or 100;
-    }
-
-    private static bool MatchesSetProtocolVersionResponse(
-        LlrpMessageHeader header,
-        ReadOnlyMemory<byte> frame)
-    {
-        return header.MessageType is V11Messages.SET_PROTOCOL_VERSION_RESPONSE.MessageType or 100;
-    }
-
-    private static bool TryCreateOperationException(
-        string operation,
-        ILlrpMessage response,
-        out LlrpReaderOperationException? exception)
-    {
-        if (response is V101Messages.ERROR_MESSAGE v101Error)
-        {
-            exception = new LlrpReaderOperationException(
-                operation,
-                checked((ushort)v101Error.LLRPStatus.StatusCode),
-                v101Error.LLRPStatus.ErrorDescription,
-                v101Error.LLRPStatus);
-            return true;
-        }
-
-        if (response is V11Messages.ERROR_MESSAGE v11Error)
-        {
-            exception = new LlrpReaderOperationException(
-                operation,
-                checked((ushort)v11Error.LLRPStatus.StatusCode),
-                v11Error.LLRPStatus.ErrorDescription,
-                v11Error.LLRPStatus);
-            return true;
-        }
-
-        exception = null;
-        return false;
     }
 
     private void AddTransition(
@@ -3687,67 +3102,30 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private void ProcessReaderEventNotification(V101Messages.READER_EVENT_NOTIFICATION msg)
+    private void HandleEventProjection(ReaderEventProjection projection)
     {
-        var data = msg.ReaderEventNotificationData;
-        ProcessManagedRoSpecEvent(data.ROSpecEvent?.ROSpecID, data.ROSpecEvent?.EventType switch
+        switch (projection)
         {
-            LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecEventType.Start_Of_ROSpec => InventoryRuntimeState.Running,
-            LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecEventType.End_Of_ROSpec or LlrpNet.Protocol.Enumerations.V1_0_1.ROSpecEventType.Preemption_Of_ROSpec => InventoryRuntimeState.Disabled,
-            _ => null,
-        });
-        if (data.GPIEvent is { } gpi)
-        {
-            PublishGpiChanged(gpi.GPIPortNumber, gpi.GPIEvent_2);
-        }
-        if (data.AntennaEvent is { } antenna)
-        {
-            PublishAntennaChanged(antenna.AntennaID,
-                antenna.EventType == LlrpNet.Protocol.Enumerations.V1_0_1.AntennaEventType.Antenna_Connected);
-        }
-        if (data.ReportBufferOverflowErrorEvent is not null)
-        {
-            PublishReportBufferOverflow();
-        }
-        if (data.ReportBufferLevelWarningEvent is { } warning)
-        {
-            PublishReportBufferWarning(warning.ReportBufferPercentageFull);
-        }
-        if (data.ReaderExceptionEvent is { } readerException)
-        {
-            PublishReaderException(readerException);
-        }
-    }
-
-    private void ProcessReaderEventNotification(V11Messages.READER_EVENT_NOTIFICATION msg)
-    {
-        var data = msg.ReaderEventNotificationData;
-        ProcessManagedRoSpecEvent(data.ROSpecEvent?.ROSpecID, data.ROSpecEvent?.EventType switch
-        {
-            LlrpNet.Protocol.Enumerations.V1_1.ROSpecEventType.Start_Of_ROSpec => InventoryRuntimeState.Running,
-            LlrpNet.Protocol.Enumerations.V1_1.ROSpecEventType.End_Of_ROSpec or LlrpNet.Protocol.Enumerations.V1_1.ROSpecEventType.Preemption_Of_ROSpec => InventoryRuntimeState.Disabled,
-            _ => null,
-        });
-        if (data.GPIEvent is { } gpi)
-        {
-            PublishGpiChanged(gpi.GPIPortNumber, gpi.GPIEvent_2);
-        }
-        if (data.AntennaEvent is { } antenna)
-        {
-            PublishAntennaChanged(antenna.AntennaID,
-                antenna.EventType == LlrpNet.Protocol.Enumerations.V1_1.AntennaEventType.Antenna_Connected);
-        }
-        if (data.ReportBufferOverflowErrorEvent is not null)
-        {
-            PublishReportBufferOverflow();
-        }
-        if (data.ReportBufferLevelWarningEvent is { } warning)
-        {
-            PublishReportBufferWarning(warning.ReportBufferPercentageFull);
-        }
-        if (data.ReaderExceptionEvent is { } readerException)
-        {
-            PublishReaderException(readerException);
+            case ManagedRoSpecEventProjection roSpecEvent:
+                ProcessManagedRoSpecEvent(roSpecEvent.RoSpecId, roSpecEvent.State);
+                break;
+            case GpiChangedEventProjection gpi:
+                PublishGpiChanged(gpi.PortNumber, gpi.State);
+                break;
+            case AntennaChangedEventProjection antenna:
+                PublishAntennaChanged(antenna.AntennaId, antenna.IsConnected);
+                break;
+            case ReportBufferOverflowEventProjection:
+                PublishReportBufferOverflow();
+                break;
+            case ReportBufferWarningEventProjection warning:
+                PublishReportBufferWarning(warning.PercentageFull);
+                break;
+            case ReaderExceptionEventProjection readerException:
+                PublishReaderException(readerException);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported reader event projection '{projection.GetType().Name}'.");
         }
     }
 
@@ -3763,7 +3141,7 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private void PublishReaderException(V101Parameters.ReaderExceptionEvent exception)
+    private void PublishReaderException(ReaderExceptionEventProjection exception)
     {
         try
         {
@@ -3771,36 +3149,12 @@ public sealed class LlrpReader : IAsyncDisposable
                 this,
                 new ReaderExceptionEventArgs(
                     exception.Message,
-                    exception.ROSpecID?.ROSpecID_2,
-                    exception.SpecIndex?.SpecIndex_2,
-                    exception.InventoryParameterSpecID?.InventoryParameterSpecID_2,
-                    exception.AntennaID?.AntennaID_2,
-                    exception.AccessSpecID?.AccessSpecID_2,
-                    exception.OpSpecID?.OpSpecID_2));
-        }
-        catch (Exception subscriberFailure)
-        {
-            _logger.LogError(
-                subscriberFailure,
-                "A reader exception event subscriber failed for connection {ConnectionId}",
-                ConnectionId);
-        }
-    }
-
-    private void PublishReaderException(V11Parameters.ReaderExceptionEvent exception)
-    {
-        try
-        {
-            ReaderExceptionOccurred?.Invoke(
-                this,
-                new ReaderExceptionEventArgs(
-                    exception.Message,
-                    exception.ROSpecID?.ROSpecID_2,
-                    exception.SpecIndex?.SpecIndex_2,
-                    exception.InventoryParameterSpecID?.InventoryParameterSpecID_2,
-                    exception.AntennaID?.AntennaID_2,
-                    exception.AccessSpecID?.AccessSpecID_2,
-                    exception.OpSpecID?.OpSpecID_2));
+                    exception.RoSpecId,
+                    exception.SpecIndex,
+                    exception.InventoryParameterSpecId,
+                    exception.AntennaId,
+                    exception.AccessSpecId,
+                    exception.OpSpecId));
         }
         catch (Exception subscriberFailure)
         {

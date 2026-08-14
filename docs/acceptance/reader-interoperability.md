@@ -1,4 +1,4 @@
-﻿# 最终互操作验收标准
+# 最终互操作验收标准
 
 本文件定义发布前的最终设备验收门槛。构建和单元测试通过不能替代这些验收；每项都需要保存 SDK 帧日志、设备固件版本和测试结果。
 
@@ -43,6 +43,8 @@ dotnet run --project tools/LlrpSdk.LiveSmoke -- <reader-host>
 ## 已记录证据
 
 | 日期 | 设备 | 结果 |
+| 2026-08-14 | 标准 LLRP 设备 `192.168.40.88`，LLRP 1.0.1，Manufacturer `161`、Model `96008`、Firmware `3.32.37.0`，8 天线 | `LlrpSdk.Hardware.Tests` 真机执行 **6/6 通过**（`StandardReaderHardwareTests` 4 项 + `PhysicalReaderConformanceTests` 2 项，标准路径 Force101）：连接/能力初始化、默认配置与查询、天线配置原值回写不丢失 `RFTransmitter` 字段、盘点收到标签并完成 Stop/Clear 清理。本次运行验证适配器边界重构后的反向路径：`QuerySettingsAsync`/`SynchronizeStateAsync` 经 `ILlrpProtocolAdapter.ParseManagedRoSpec` 反解析真实设备 ROSpec。未写标签；配置仅原值回写。 |
+| 2026-08-14 | Impinj R420 `192.168.40.87`，LLRP 1.0.1，Manufacturer `25882`、Model `2001002`、Firmware `6.4.1.240`，4 天线，区域 China 920–925 MHz | `LlrpSdk.Hardware.Tests` 真机全量 **12/12 通过**（串行执行）：托管一段式/两段式盘点并收到标签、Tag Access 非破坏读 User Memory、`HoldEventsAndReportsUponReconnect` 重连后报告恢复、`ImpinjSerializedTid` 投影、`QuerySettingsAsync` 反解析托管 ROSpec、标准路径用例（强制 1.0.1 无扩展）、物理一致性用例（`UseImpinj()` 扩展激活）。未写标签或设备配置。 |
 |---|---|---|
 | 2026-08-11 | 标准 LLRP 设备 `192.168.40.88`，LLRP 1.0.1，Manufacturer `161`、Model `96008`、Firmware `3.32.37.0` | `tools/LlrpSdk.LiveSmoke --inventory` 真机执行通过：清理残留 SDK ROSpec 14150 后重新部署并启动托管盘点，收到标签 `010203040506070810203040`（天线 2、RSSI -54），工具完成 Stop/Clear 清理。未写标签。 |
 | 2026-08-11 | 标准 LLRP 设备 `192.168.40.88`，LLRP 1.0.1，Manufacturer `161`、Model `96008`、Firmware `3.32.37.0` | `StandardReader_QueriedConfigurationCanBeReappliedWithoutLosingRfTransmitterFields` 真机执行通过：强制 1.0.1 连接，读取当前 Reader 级天线配置，以相同值执行 `SET_READER_CONFIG`，再次查询后天线配置逐项一致。验证 SDK 不再丢失 `RFTransmitter.HopTableID` 或将其硬编码为 `0`。首次连接被设备中止，确认端口可达且无本机残留连接后仅重试一次并通过。未创建 ROSpec/AccessSpec、未写标签；设备配置仅原值回写。 |

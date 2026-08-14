@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using LlrpNet.Core.Protocol;
@@ -722,14 +721,7 @@ public sealed class LlrpReaderConfigurationTests
         {
             CurrentState = LlrpNet.Protocol.Enumerations.V1_1.ROSpecState.Active,
         };
-        MethodInfo parse = typeof(LlrpReader).GetMethod(
-            "ParseManagedInventory",
-            BindingFlags.Instance | BindingFlags.NonPublic,
-            binder: null,
-            types: [typeof(ILlrpParameter), typeof(IReadOnlyList<ILlrpParameter>)],
-            modifiers: null)!;
-
-        var snapshot = Assert.IsType<ManagedRoSpecSnapshot>(parse.Invoke(reader, [roSpec, Array.Empty<ILlrpParameter>()]));
+        var snapshot = new Llrp11ProtocolAdapter().ParseManagedRoSpec(reader, roSpec, Array.Empty<ILlrpParameter>());
 
         Assert.Equal(InventoryRuntimeState.Running, snapshot.State);
         Assert.Equal(InventorySelectedFlag.All, snapshot.Inventory.StateAwareSingulation!.SelectedFlag);

@@ -21,7 +21,7 @@ src/
 │   ├── Resources/               ROSpec/AccessSpec 专家资源服务
 │   ├── TagAccess/               标签访问编译与操作模型
 │   ├── Reports/                 报告模型、翻译器与时间戳
-│   ├── Protocol/                LLRP 版本适配器与协议访问
+│   ├── Protocol/                LLRP 版本适配器与版本切片组件(反解析/事件投影/消息工厂/版本协商),门面零版本引用
 │   └── Extensions/              SDK 扩展注册集合
 ├── LlrpSdk.Extensions.Impinj/  [手写扩展] Impinj 高层 SDK 映射、Settings/Inventory Contributor 与 UseImpinj()
 │   ├── Registration/            UseImpinj 与扩展注册
