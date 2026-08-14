@@ -1631,7 +1631,6 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             TagReport result = ApplyTagReportContributors(report);
             reports.Add(result);
-            PublishTagReport(result);
         }
 
         return reports;

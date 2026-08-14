@@ -151,11 +151,23 @@ LlrpSdk
 
 - **三个状态正交**:`ConnectionState`(Disconnected→Connecting→Negotiating→Initializing→Ready)管连接;
   `OperationState`(Idle/Starting/Inventorying/Stopping)管盘点;`ResourceMode`(Idle/HighLevelConfigured/HighLevelRunning/ManualResources/StateUnknown)管资源所有权。
-- **报告出口互斥**:`TagsReported` 事件、`ReadTagReportsAsync()`、`InventorySession.ReadReportsAsync()` 三选一;
-  同一盘点生命周期内先消费的出口取得所有权,其余立即抛 `InvalidOperationException`。
+- **报告出口:三个投递出口三选一,`GetTagReportsAsync` 不是第四个**。三个出口同一时刻只归一个,谁先消费谁认领,
+  其余立即抛 `InvalidOperationException`:
+
+  | 出口 | 作用域 | 隔离方式 | 适用场景 |
+  |---|---|---|---|
+  | `InventorySession.ReadReportsAsync()` | 会话级 | 会话私有有界 channel,按 RoSpecId/AccessSpecId 过滤 | 托管盘点(主流;平台/CLI 均用此) |
+  | `TagsReported` 事件 | 连接级 | 裸广播,不过滤 | 无会话时观察全连接报告(CLI 无会话 fallback) |
+  | `ReadTagReportsAsync()` | 连接级 | 连接级有界 channel,不过滤 | manual/raw 资源模式需要中性报表(专家面) |
+
+  `GetTagReportsAsync()` 是另一条轴(拉取):发 `GET_REPORT` 主动取设备缓冲,结果只经返回值交付,不进上述任一出口。
 - **托管资源独占**:高层盘点使用固定 ROSpec 14150 / AccessSpec 14151,部署前删除设备上全部 ROSpec/AccessSpec
   (LLRP id=0 语义)。raw 或手动资源操作后 `IsManagedStateSynchronized=false`,须 `SynchronizeStateAsync` 或带 Inventory 的
   `ApplySettingsAsync` 强制接管。
+- **盘点两段式入口是有意设计**:`StartInventoryAsync(settings)` = 部署+启动(一段式,独占接管);
+  `StartInventoryAsync()` = 仅启动"已部署未运行"的托管盘点(两段式第二段,配合 `ApplySettingsAsync`)。
+  两个重载共用动词 Start 是"激活"语义统一,不是过设计;参数类型不同故编译期消歧,无已部署配置时无参版抛
+  `InvalidOperationException`(不会静默做错)。场景选择见 `docs/guides/sdk-api-guide.md` 的盘点入口决策表。
 - **版本在连接时锁定**:`Auto`(默认)先探测 1.1(`GET_SUPPORTED_VERSION`),支持则 `SET_PROTOCOL_VERSION` 后切换 1.1 适配器;
   `Force101` 不探测;`Force11` 失败即连接失败不静默回退。
 
