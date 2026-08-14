@@ -1,16 +1,42 @@
 using LlrpNet.Core.Diagnostics;
+using LlrpNet.Core.Frames;
+using LlrpNet.Core.Protocol;
+using LlrpNet.Core.Transport;
 using LlrpNet.Protocol.Registry;
 using LlrpSdk.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LlrpSdk;
 
 /// <summary>
 /// Provides the application-facing fluent path for creating one configured <see cref="LlrpReader"/>.
 /// </summary>
+/// <remarks>
+/// This builder owns all connection-option state and validation. <see cref="BuildOptions"/> produces
+/// the immutable <see cref="LlrpReaderOptions"/>; <see cref="Build"/> additionally constructs the reader.
+/// </remarks>
 public sealed class LlrpReaderBuilder
 {
-    private readonly LlrpReaderOptionsBuilder _optionsBuilder;
+    private static readonly TimeSpan MaximumTimerTimeout =
+        TimeSpan.FromMilliseconds(uint.MaxValue - 1d);
+
+    private string _host;
+    private int _port = LlrpTcpTransportOptions.DefaultPort;
+    private TimeSpan _connectTimeout = TimeSpan.FromSeconds(10);
+    private TimeSpan _frameAssemblyTimeout = TimeSpan.FromSeconds(10);
+    private TimeSpan _requestTimeout = TimeSpan.FromSeconds(10);
+    private TimeSpan? _keepaliveTimeout;
+    private uint _maximumFrameLength = LlrpFrameDecoder.DefaultMaximumFrameLength;
+    private int _incomingMessageCapacity = LlrpReaderOptions.DefaultIncomingMessageCapacity;
+    private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
+    private ILlrpFrameObserver _frameObserver = NullLlrpFrameObserver.Instance;
+    private LlrpProtocolVersionPolicy _protocolVersionPolicy = LlrpProtocolVersionPolicy.Auto;
+    private LlrpAutomaticReconnectOptions? _automaticReconnect;
+    private LlrpTransportFactory? _transportFactory;
+    private readonly List<ILlrpProtocolModule> _protocolModules = [];
+    private readonly List<IReaderExtension> _readerExtensions = [];
+    private readonly List<Action<LlrpCodecRegistry>> _protocolConfigurations = [];
 
     /// <summary>
     /// Initializes a reader builder for a hostname or IP address.
@@ -18,7 +44,8 @@ public sealed class LlrpReaderBuilder
     /// <param name="host">The reader hostname or IP address.</param>
     public LlrpReaderBuilder(string host)
     {
-        _optionsBuilder = new LlrpReaderOptionsBuilder(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        _host = host.Trim();
     }
 
     /// <summary>
@@ -28,7 +55,8 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithHost(string host)
     {
-        _optionsBuilder.WithHost(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        _host = host.Trim();
         return this;
     }
 
@@ -39,7 +67,7 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithPort(int port)
     {
-        _optionsBuilder.WithPort(port);
+        _port = port;
         return this;
     }
 
@@ -50,7 +78,7 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithConnectTimeout(TimeSpan timeout)
     {
-        _optionsBuilder.WithConnectTimeout(timeout);
+        _connectTimeout = timeout;
         return this;
     }
 
@@ -61,7 +89,7 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithFrameAssemblyTimeout(TimeSpan timeout)
     {
-        _optionsBuilder.WithFrameAssemblyTimeout(timeout);
+        _frameAssemblyTimeout = timeout;
         return this;
     }
 
@@ -72,7 +100,7 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithRequestTimeout(TimeSpan timeout)
     {
-        _optionsBuilder.WithRequestTimeout(timeout);
+        _requestTimeout = timeout;
         return this;
     }
 
@@ -83,18 +111,18 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithMaximumFrameLength(uint maximumFrameLength)
     {
-        _optionsBuilder.WithMaximumFrameLength(maximumFrameLength);
+        _maximumFrameLength = maximumFrameLength;
         return this;
     }
 
     /// <summary>
-    /// Replaces the bounded capacity of decoded reader-initiated messages awaiting application consumption.
+    /// Replaces the bounded capacity of the decoded reader-initiated message stream.
     /// </summary>
     /// <param name="capacity">A positive number of complete decoded messages.</param>
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithIncomingMessageCapacity(int capacity)
     {
-        _optionsBuilder.WithIncomingMessageCapacity(capacity);
+        _incomingMessageCapacity = capacity;
         return this;
     }
 
@@ -105,7 +133,8 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithLoggerFactory(ILoggerFactory loggerFactory)
     {
-        _optionsBuilder.WithLoggerFactory(loggerFactory);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        _loggerFactory = loggerFactory;
         return this;
     }
 
@@ -116,7 +145,8 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithFrameObserver(ILlrpFrameObserver frameObserver)
     {
-        _optionsBuilder.WithFrameObserver(frameObserver);
+        ArgumentNullException.ThrowIfNull(frameObserver);
+        _frameObserver = frameObserver;
         return this;
     }
 
@@ -127,18 +157,24 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithTransportFactory(LlrpTransportFactory transportFactory)
     {
-        _optionsBuilder.WithTransportFactory(transportFactory);
+        ArgumentNullException.ThrowIfNull(transportFactory);
+        _transportFactory = transportFactory;
         return this;
     }
 
     /// <summary>
-    /// Adds a custom or vendor codec registration callback before the reader can connect.
+    /// Adds a protocol registry configuration that runs after the standard and module codecs and before transport creation.
     /// </summary>
-    /// <param name="configuration">A callback that configures the versioned codec registry.</param>
+    /// <param name="configuration">A registration callback for custom or vendor message and parameter codecs.</param>
     /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Callbacks run in the order added. Duplicate standard, custom wire, or CLR mappings fail immediately while the
+    /// reader is being built, before it can connect.
+    /// </remarks>
     public LlrpReaderBuilder ConfigureProtocol(Action<LlrpCodecRegistry> configuration)
     {
-        _optionsBuilder.ConfigureProtocol(configuration);
+        ArgumentNullException.ThrowIfNull(configuration);
+        _protocolConfigurations.Add(configuration);
         return this;
     }
 
@@ -147,7 +183,7 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithProtocolVersionPolicy(LlrpProtocolVersionPolicy policy)
     {
-        _optionsBuilder.WithProtocolVersionPolicy(policy);
+        _protocolVersionPolicy = policy;
         return this;
     }
 
@@ -156,25 +192,43 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithAutomaticReconnect(LlrpAutomaticReconnectOptions options)
     {
-        _optionsBuilder.WithAutomaticReconnect(options);
+        _automaticReconnect = options ?? throw new ArgumentNullException(nameof(options));
         return this;
     }
 
-    /// <summary>Registers a standard, vendor, or customer protocol module before connection.</summary>
-    /// <param name="module">The module that registers its codecs with the reader-owned registry.</param>
+    /// <summary>
+    /// Registers a cohesive protocol module before the reader can connect.
+    /// </summary>
+    /// <param name="module">The standard, vendor, or customer protocol module.</param>
     /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Modules run after the built-in standard module and before low-level <see cref="ConfigureProtocol"/> callbacks.
+    /// Duplicate module identifiers and conflicting codec registrations fail while the reader is being built.
+    /// </remarks>
     public LlrpReaderBuilder UseProtocolModule(ILlrpProtocolModule module)
     {
-        _optionsBuilder.UseProtocolModule(module);
+        ArgumentNullException.ThrowIfNull(module);
+        if (string.IsNullOrWhiteSpace(module.Id))
+        {
+            throw new ArgumentException("A protocol module must have a non-empty identifier.", nameof(module));
+        }
+
+        _protocolModules.Add(module);
         return this;
     }
 
-    /// <summary>Registers an extension for identity-based activation after the reader initializes.</summary>
+    /// <summary>Registers an extension for matching after standard reader initialization.</summary>
     /// <param name="extension">The extension eligible for this reader.</param>
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder UseReaderExtension(IReaderExtension extension)
     {
-        _optionsBuilder.UseReaderExtension(extension);
+        ArgumentNullException.ThrowIfNull(extension);
+        if (string.IsNullOrWhiteSpace(extension.Id))
+        {
+            throw new ArgumentException("A reader extension must have a non-empty identifier.", nameof(extension));
+        }
+
+        _readerExtensions.Add(extension);
         return this;
     }
 
@@ -186,18 +240,34 @@ public sealed class LlrpReaderBuilder
     /// <returns>This builder.</returns>
     public LlrpReaderBuilder WithKeepaliveTimeout(TimeSpan? timeout)
     {
-        _optionsBuilder.WithKeepaliveTimeout(timeout);
+        _keepaliveTimeout = timeout;
         return this;
     }
 
-
     /// <summary>
-    /// Builds the immutable options without constructing a reader.
+    /// Validates the accumulated values and creates immutable reader options.
     /// </summary>
-    /// <returns>The validated immutable options.</returns>
+    /// <returns>The immutable options.</returns>
     public LlrpReaderOptions BuildOptions()
     {
-        return _optionsBuilder.Build();
+        Validate();
+        return new LlrpReaderOptions(
+            _host,
+            _port,
+            _connectTimeout,
+            _frameAssemblyTimeout,
+            _requestTimeout,
+            _keepaliveTimeout,
+            _maximumFrameLength,
+            _incomingMessageCapacity,
+            _loggerFactory,
+            _frameObserver,
+            _protocolVersionPolicy,
+            _automaticReconnect,
+            _transportFactory,
+            _protocolModules,
+            _readerExtensions,
+            _protocolConfigurations);
     }
 
     /// <summary>
@@ -207,5 +277,97 @@ public sealed class LlrpReaderBuilder
     public LlrpReader Build()
     {
         return new LlrpReader(BuildOptions());
+    }
+
+    private void Validate()
+    {
+        if (_port is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_port),
+                _port,
+                "The TCP port must be from 1 through 65535.");
+        }
+
+        if ((_connectTimeout <= TimeSpan.Zero || _connectTimeout > MaximumTimerTimeout) &&
+            _connectTimeout != Timeout.InfiniteTimeSpan)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_connectTimeout),
+                _connectTimeout,
+                $"The connection timeout must be positive, no greater than {MaximumTimerTimeout}, or infinite.");
+        }
+
+        if ((_frameAssemblyTimeout <= TimeSpan.Zero ||
+             _frameAssemblyTimeout > MaximumTimerTimeout) &&
+            _frameAssemblyTimeout != Timeout.InfiniteTimeSpan)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_frameAssemblyTimeout),
+                _frameAssemblyTimeout,
+                $"The frame assembly timeout must be positive, no greater than {MaximumTimerTimeout}, or infinite.");
+        }
+
+        if ((_requestTimeout < TimeSpan.Zero || _requestTimeout > MaximumTimerTimeout) &&
+            _requestTimeout != Timeout.InfiniteTimeSpan)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_requestTimeout),
+                _requestTimeout,
+                $"The request timeout must be non-negative, no greater than {MaximumTimerTimeout}, or infinite.");
+        }
+
+        if (_keepaliveTimeout is { } keepaliveTimeout &&
+            (keepaliveTimeout <= TimeSpan.Zero || keepaliveTimeout > MaximumTimerTimeout))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_keepaliveTimeout),
+                keepaliveTimeout,
+                $"The keepalive timeout must be positive and no greater than {MaximumTimerTimeout}, or null to disable it.");
+        }
+
+        if (_maximumFrameLength is < LlrpMessageHeader.EncodedLength or > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_maximumFrameLength),
+                _maximumFrameLength,
+                $"The maximum frame length must be from {LlrpMessageHeader.EncodedLength} through {int.MaxValue} octets.");
+        }
+
+        if (_incomingMessageCapacity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_incomingMessageCapacity),
+                _incomingMessageCapacity,
+                "The incoming message capacity must be positive.");
+        }
+
+        if (!Enum.IsDefined(_protocolVersionPolicy))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(_protocolVersionPolicy),
+                _protocolVersionPolicy,
+                "The protocol version policy is not supported.");
+        }
+
+        string? duplicateModuleId = _protocolModules
+            .GroupBy(static module => module.Id, StringComparer.Ordinal)
+            .FirstOrDefault(static group => group.Count() > 1)
+            ?.Key;
+        if (duplicateModuleId is not null)
+        {
+            throw new InvalidOperationException(
+                $"Protocol module identifier '{duplicateModuleId}' was configured more than once.");
+        }
+
+        string? duplicateExtensionId = _readerExtensions
+            .GroupBy(static extension => extension.Id, StringComparer.Ordinal)
+            .FirstOrDefault(static group => group.Count() > 1)
+            ?.Key;
+        if (duplicateExtensionId is not null)
+        {
+            throw new InvalidOperationException(
+                $"Reader extension identifier '{duplicateExtensionId}' was configured more than once.");
+        }
     }
 }

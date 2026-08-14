@@ -246,7 +246,7 @@ public sealed class LlrpReader : IAsyncDisposable
     /// Gets a read-only view of the codec registry configured for this reader.
     /// </summary>
     /// <remarks>
-    /// Codec registration remains a configuration-time concern (<see cref="LlrpReaderOptionsBuilder.ConfigureProtocol"/>,
+    /// Codec registration remains a configuration-time concern (<see cref="LlrpReaderBuilder.ConfigureProtocol"/>,
     /// <c>UseProtocolModule</c>); the returned view only decodes and encodes against the configured codecs.
     /// </remarks>
     public ILlrpCodecRegistryReader Registry => _registry;

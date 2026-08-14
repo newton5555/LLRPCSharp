@@ -16,7 +16,7 @@ public sealed class LlrpReaderOptionsTests
     public void Build_CopiesValuesIntoImmutableOptions()
     {
         var transport = new ScriptedLlrpTransport();
-        var builder = new LlrpReaderOptionsBuilder(" reader.local ")
+        var builder = new LlrpReaderBuilder(" reader.local ")
             .WithPort(6000)
             .WithConnectTimeout(TimeSpan.FromSeconds(3))
             .WithFrameAssemblyTimeout(TimeSpan.FromSeconds(2))
@@ -27,7 +27,7 @@ public sealed class LlrpReaderOptionsTests
             .WithFrameObserver(NullLlrpFrameObserver.Instance)
             .WithTransportFactory(_ => transport);
 
-        LlrpReaderOptions options = builder.Build();
+        LlrpReaderOptions options = builder.BuildOptions();
         builder.WithHost("different.local").WithPort(7000);
 
         Assert.Equal("reader.local", options.Host);
@@ -47,15 +47,15 @@ public sealed class LlrpReaderOptionsTests
     [InlineData(65536)]
     public void Build_RejectsInvalidPort(int port)
     {
-        var builder = new LlrpReaderOptionsBuilder("reader.local").WithPort(port);
+        var builder = new LlrpReaderBuilder("reader.local").WithPort(port);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => builder.Build());
+        Assert.Throws<ArgumentOutOfRangeException>(() => builder.BuildOptions());
     }
 
     [Fact]
     public void Build_UsesStandardTcpDefaults()
     {
-        LlrpReaderOptions options = new LlrpReaderOptionsBuilder("reader.local").Build();
+        LlrpReaderOptions options = new LlrpReaderBuilder("reader.local").BuildOptions();
 
         Assert.Equal(LlrpTcpTransportOptions.DefaultPort, options.Port);
         Assert.Equal(TimeSpan.FromSeconds(10), options.ConnectTimeout);
@@ -69,19 +69,19 @@ public sealed class LlrpReaderOptionsTests
     [Fact]
     public void Build_RejectsNonPositiveIncomingMessageCapacity()
     {
-        var builder = new LlrpReaderOptionsBuilder("reader.local")
+        var builder = new LlrpReaderBuilder("reader.local")
             .WithIncomingMessageCapacity(0);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => builder.Build());
+        Assert.Throws<ArgumentOutOfRangeException>(() => builder.BuildOptions());
     }
 
     [Fact]
     public void Build_RejectsTimeoutBeyondRuntimeTimerRange()
     {
-        var builder = new LlrpReaderOptionsBuilder("reader.local")
+        var builder = new LlrpReaderBuilder("reader.local")
             .WithRequestTimeout(TimeSpan.FromDays(100));
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => builder.Build());
+        Assert.Throws<ArgumentOutOfRangeException>(() => builder.BuildOptions());
     }
 
     [Fact]
@@ -127,10 +127,10 @@ public sealed class LlrpReaderOptionsTests
     {
         var transport = new ScriptedLlrpTransport();
         var calls = new List<string>();
-        var builder = new LlrpReaderOptionsBuilder("scripted.local")
+        var builder = new LlrpReaderBuilder("scripted.local")
             .WithTransportFactory(_ => transport)
             .ConfigureProtocol(_ => calls.Add("frozen"));
-        LlrpReaderOptions options = builder.Build();
+        LlrpReaderOptions options = builder.BuildOptions();
         builder.ConfigureProtocol(_ => calls.Add("later"));
 
         var reader = new LlrpReader(options);

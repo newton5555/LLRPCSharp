@@ -562,10 +562,10 @@ public sealed class LlrpReaderTagAccessAndEventTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
-        var options = new LlrpReaderOptionsBuilder("scripted.local")
+        var options = new LlrpReaderBuilder("scripted.local")
             .WithTransportFactory(_ => transport)
             .WithIncomingMessageCapacity(2)
-            .Build();
+            .BuildOptions();
         await using var reader = new LlrpReader(options);
         var dropped = new TaskCompletionSource<TagReportOverflowEventArgs>(
             TaskCreationOptions.RunContinuationsAsynchronously);

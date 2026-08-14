@@ -14,10 +14,10 @@ public sealed class Llrp20NegotiationTests
         {
             SupportedVersionResponseFactory = id => LlrpTestFrames.SupportedVersionResponse(id, supportedVersion: 2),
         };
-        LlrpReaderOptions options = new LlrpReaderOptionsBuilder("scripted.local")
+        LlrpReaderOptions options = new LlrpReaderBuilder("scripted.local")
             .WithTransportFactory(_ => transport)
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force20)
-            .Build();
+            .BuildOptions();
         await using var reader = new LlrpReader(options);
 
         await Assert.ThrowsAsync<NotSupportedException>(() => reader.ConnectAsync(timeout.Token));
@@ -31,9 +31,9 @@ public sealed class Llrp20NegotiationTests
         {
             SupportedVersionResponseFactory = id => LlrpTestFrames.SupportedVersionResponse(id, supportedVersion: 3),
         };
-        LlrpReaderOptions options = new LlrpReaderOptionsBuilder("scripted.local")
+        LlrpReaderOptions options = new LlrpReaderBuilder("scripted.local")
             .WithTransportFactory(_ => transport)
-            .Build();
+            .BuildOptions();
         await using var reader = new LlrpReader(options);
 
         // 脚本化设备的后续能力响应仍是 1.0.1 帧,初始化会失败;本测试只验证协商核心:

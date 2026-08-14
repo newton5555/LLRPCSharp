@@ -11,9 +11,8 @@
 src/LlrpSdk/
 ├── Reader/                    ①中立 —— 门面与公共 API 宿主
 │   ├── LlrpReader.cs          门面:连接状态机/消息泵/事件发布/托管资源生命周期;零版本引用(ArchitectureGuardTests 强制)
-│   ├── LlrpReaderBuilder.cs   公共流式构建器(逐项透传 OptionsBuilder)
+│   ├── LlrpReaderBuilder.cs   公共流式构建器:选项状态+校验,`BuildOptions()` 产出不可变选项、`Build()` 产出 reader
 │   ├── LlrpReaderOptions.cs   不可变连接选项(record)
-│   ├── LlrpReaderOptionsBuilder.cs  选项构建器(真正实现)
 │   ├── LlrpReaderExceptions.cs 公共异常族;状态名由版本边界解析后传入(异常自身中立)
 │   ├── ReaderEvents.cs        全部公共事件参数类型(GpiChanged/AntennaChanged/ReaderException/... 各 EventArgs)
 │   ├── ReaderMetadata.cs      ReaderIdentity / ReaderCapabilities / ReaderMetadataSnapshot
