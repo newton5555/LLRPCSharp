@@ -14,6 +14,7 @@ src/
 │   ├── LlrpNet.ProtocolGenerator/ [手写] C# 源码生成引擎 (ProtocolSourceGenerator)
 │   ├── LlrpNet.Protocol/       [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
 │   └── LlrpNet.Protocol.Impinj/ [生成] Impinj 厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
+│   └── LlrpNet.Protocol.Zebra/  [生成] Zebra(Moto)厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
 ├── LlrpSdk/                    [手写] 应用层 SDK（按职责分文件夹）
 │   ├── Reader/                  Reader 会话门面、连接状态与元数据
 │   ├── Settings/                ReaderSettings、配置模型与序列化

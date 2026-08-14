@@ -15,6 +15,7 @@ This file records the exact protocol-definition and standards-reference versions
 | LLRP 1.1 Conformance (2010-10-13) | `references/standards/llrp-1.1/llrp_1_1-conformance-20101013.pdf` | `A2A09874FF0708C59B028D1E1DB2906A487D09D79209EAE0853F453B94E2B25D` | Conformance test design |
 | LLRP 2.0 Standard (2021-01-27) | `references/standards/llrp-2.0/LLRP_standard_i2_r_2021-01-27.pdf` | `C886D011086737EEAED3DBEFBCB472F5A7D6AE70B19BC26DE825D38761BBB7B1` | 2.0 delta, Gen2v2, and version-negotiation verification |
 | Zebra LLRP Interface Control Guide (English) | `references/zebra/interface-control-guide-en.pdf` | `345741D0612D80E271D37272DE5C5E51BD099DFFF20E5A11020BDA24CD3DCFA0` | Vendor-specific LLRP extensions and reader behavior reference; used when mapping Zebra custom parameters |
+| Zebra extension definition (hand-maintained YAML) | `definitions/extensions/zebra.yml` | — | FX9600-supported subset transcribed from the guide; generates `LlrpNet.Protocol.Zebra` (159 files) |
 
 ## Known Constraints
 

@@ -35,6 +35,20 @@ dotnet run --project src/LlrpNet/LlrpNet.ProtocolGenerator.Tool -- `
   --registry-module-name MyExtensionProtocolModule --codecs --verify
 ```
 
+## Zebra Generation
+
+The Zebra (Moto, vendor ID 161) FX9600 extension subset is hand-maintained YAML and generates the SDK-independent `LlrpNet.Protocol.Zebra` package:
+
+```powershell
+dotnet run --project src/LlrpNet/LlrpNet.ProtocolGenerator.Tool -- `
+  --input definitions/extensions/zebra.yml `
+  --dependency definitions/imports/xml/llrp-1.0.1/llrp-1x0-def.xml `
+  --dependency-root-namespace LlrpNet.Protocol `
+  --output src/LlrpNet/LlrpNet.Protocol.Zebra --root-namespace LlrpNet.Protocol.Zebra `
+  --version-namespace V1_0_1 --protocol-version 1 `
+  --registry-module-name ZebraProtocolModule --codecs
+```
+
 ## LLRP 2.0 Generation
 
 LLRP 2.0 is composed on top of the 1.0.1 XML model plus the 1.1 delta:

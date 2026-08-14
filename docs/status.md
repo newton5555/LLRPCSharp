@@ -23,7 +23,8 @@
 |---|---|---|
 | LLRP 1.0.1 | 可用 | SDK、CLI、Virtual Reader 和主要标准资源/标签操作已覆盖。 |
 | LLRP 1.1 | 可用基线 | SDK 支持自动协商、强制版本策略和对应 Adapter；真实 Reader 型号/固件覆盖仍需持续验证。 |
-| LLRP 2.0 | 预留 | 有定义 Delta，但尚无 `Llrp20ProtocolAdapter`。 |
+| LLRP 2.0 | 协议层已生成 | `V2_0` 类型/Codec/`Llrp20StandardModule` 已从 delta 生成(433 文件,可复现);尚无 `Llrp20ProtocolAdapter`。 |
+| Zebra 扩展 | 协议层已生成 | `LlrpNet.Protocol.Zebra` 线协议包已从 `zebra.yml` 生成(4 消息/74 参数,可复现);SDK 高层扩展待。 |
 | 托管 Reader SDK | 可用 | `ReaderSettings`、校验、应用、托管盘点和报告流已接入。 |
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
@@ -129,14 +130,17 @@
   仅提供 `SupportsClientRequestOpSpec` 门控）;`ReaderExceptionEvent` 已暴露为
   `ReaderExceptionOccurred`,`TagReport.PcBits` 已投影。详见
   [coverage/llrp101-sdk-coverage.md](coverage/llrp101-sdk-coverage.md)。
-- 没有 LLRP 2.0 Adapter 和完整互操作闭环。
+- 2.0 协议层(V2_0 类型与 Codec)已生成并编译,但没有 `Llrp20ProtocolAdapter` 和完整互操作闭环。
+- Zebra 线协议包已生成,但没有 SDK 高层扩展(`LlrpSdk.Extensions.Zebra`)和实机验收。
 - 其他厂商/型号/固件的扩展能力目录仍需按实测证据补充。
 - Virtual Reader 不模拟真实射频、跨进程持久化或全部设备配置行为。
 - 实机验收范围仍小于自动化测试覆盖范围。
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 447 项。
+截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 453 项。
+生成管线经 `--verify` 逐字节复现验证:1.0.1 XML(364 文件)、1.1 YAML(395 文件)、
+Impinj XML(267 文件)、2.0 delta(433 文件)、Zebra YAML(159 文件)均与已提交产物一致。
 2026-08-14 适配器边界重构后真机复验:标准设备 `192.168.40.88` 6/6、
 Impinj R420 `192.168.40.87` 12/12 通过(证据见
 [acceptance/reader-interoperability.md](acceptance/reader-interoperability.md))。
