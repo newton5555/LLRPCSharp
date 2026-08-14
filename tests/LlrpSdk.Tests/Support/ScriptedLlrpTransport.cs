@@ -38,6 +38,8 @@ internal sealed class ScriptedLlrpTransport : ILlrpTransport
 
     public Func<uint, byte[]?>? CapabilityResponseFactory { get; set; }
 
+    public Func<uint, byte[]?>? SupportedVersionResponseFactory { get; set; }
+
     public Func<uint, byte[]?>? ReaderConfigResponseFactory { get; set; }
 
     public IReadOnlyCollection<byte[]> SentFrames => _sentFrameSnapshot.ToArray();
@@ -85,7 +87,13 @@ internal sealed class ScriptedLlrpTransport : ILlrpTransport
         LlrpMessageHeader header = LlrpMessageHeader.Decode(copy);
         if (header.MessageType == V11Messages.GET_SUPPORTED_VERSION.MessageType)
         {
-            EnqueueFrame(LlrpTestFrames.UnsupportedVersionResponse(header.MessageId));
+            byte[]? supportedResponse = SupportedVersionResponseFactory is null
+                ? LlrpTestFrames.UnsupportedVersionResponse(header.MessageId)
+                : SupportedVersionResponseFactory(header.MessageId);
+            if (supportedResponse is not null)
+            {
+                EnqueueFrame(supportedResponse);
+            }
         }
         else if (AutoRespondToCapabilities && header.MessageType == V101Messages.GET_READER_CAPABILITIES.MessageType)
         {

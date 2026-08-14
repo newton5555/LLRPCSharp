@@ -266,8 +266,12 @@ else
 **为什么这么分层**:
 - 领域类型**零协议引用**(审计确认:公共属性/枚举全部是 SDK 自有类型)——设备
   版本差异不泄漏到业务代码
-- 适配器是**唯一的版本翻译点**:领域→协议(编译)与协议→领域(翻译)全部收敛于此
-- 加新版本(2.0)= 加一个新适配器 + 注册模块,公共 API 不变
+- 适配器是**唯一的版本翻译点**:领域→协议(编译)与协议→领域(翻译)全部收敛于此。
+  反向翻译(反解析 `ParseManagedRoSpec`)、事件投影(`Llrp101/11EventProjector`)、
+  标准消息构造与分类(`LlrpProtocolMessageFactory`)和连接前版本协商
+  (`LlrpVersionNegotiator`)都住在版本边界内;`LlrpReader` 源码零版本类型引用,
+  由 `ArchitectureGuardTests` 机器强制
+- 加新版本(2.0)= 加一个新适配器 + 配套反解析/投影组件 + 注册模块,门面零改动
 
 ### 2.1.1 领域模型演进:新属性从哪来
 
@@ -677,7 +681,19 @@ internal interface ILlrpProtocolAdapter
 - `Llrp101TagAccessCompiler` / `Llrp11TagAccessCompiler`:Tag Access → AccessSpec
 - `Llrp101TagReportTranslator` / `Llrp11TagReportTranslator`:
   `RO_ACCESS_REPORT` → `TranslatedTagReport`(两版逻辑逐行等价——1.1 在 SDK
-  关心的报告结构上无改动,已 diff 验证)
+  关心的报告结构上无改动,已 diff 验证,并新增双版本等价测试机器守护)
+
+反向侧(版本切片内的组件,同样经适配器/版本边界访问):
+
+- `Llrp101ManagedRoSpecParser` / `Llrp11ManagedRoSpecParser`:设备上的 SDK 托管
+  ROSpec → `ParsedManagedRoSpec`(反编译);`ManagedInventoryStateAssembler`
+  (中立,唯一一份)运行扩展 contributor 管道并产出 `ManagedRoSpecSnapshot`
+- `Llrp101EventProjector` / `Llrp11EventProjector` + `ReaderEventProjector`
+  (分派):`READER_EVENT_NOTIFICATION` → 中立事件投影记录,门面统一发布
+- `LlrpProtocolMessageFactory`:`KEEPALIVE_ACK` / `CLOSE_CONNECTION_RESPONSE` /
+  `ENABLE_EVENTS_AND_REPORTS` 按协商版本构造,`ERROR_MESSAGE` 响应分类
+- `LlrpVersionNegotiator`:连接前 1.1 探测(`GET_SUPPORTED_VERSION` /
+  `SET_PROTOCOL_VERSION`)——适配器边界建立前唯一的版本感知组件
 - 适配器按**协商版本**选择,`LlrpReader` 永远用当前版本的适配器翻译/编译
 
 ## 2.5 核心机制(读代码前先懂这些)

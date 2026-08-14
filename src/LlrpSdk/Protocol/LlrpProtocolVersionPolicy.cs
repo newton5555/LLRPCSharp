@@ -11,4 +11,7 @@ public enum LlrpProtocolVersionPolicy
 
     /// <summary>Require LLRP 1.1; reject connection when version negotiation cannot select it.</summary>
     Force11 = 2,
+
+    /// <summary>Require LLRP 2.0; reject connection when version negotiation cannot select it.</summary>
+    Force20 = 3,
 }

@@ -14,7 +14,7 @@ namespace LlrpNet.Protocol.Registry;
 /// replaces an existing registration. CUSTOM_MESSAGE and custom-parameter metadata are owned by this
 /// registry and cannot be claimed through the ordinary standard-type registration APIs.
 /// </remarks>
-public sealed class LlrpCodecRegistry
+public sealed class LlrpCodecRegistry : ILlrpCodecRegistryReader
 {
     private readonly Dictionary<MessageWireKey, MessageRegistration> _messageDecoders = [];
     private readonly Dictionary<ClrKey, MessageRegistration> _messageEncoders = [];

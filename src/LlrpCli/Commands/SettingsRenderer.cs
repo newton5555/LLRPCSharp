@@ -100,6 +100,12 @@ internal static class SettingsRenderer
         console.Write(table);
     }
 
+    public static void RenderApplyResultJson(IAnsiConsole console, SettingsValidationResult validation, bool isConfirmed)
+    {
+        string status = isConfirmed ? (validation.IsValid ? "accepted" : "rejected") : "requested";
+        console.MarkupLine($"[bold]apply.status=[/]{status} valid={validation.IsValid}");
+    }
+
     public static void RenderApplyImpact(IAnsiConsole console, ReaderSettings settings)
     {
         if (settings.Inventory is null)

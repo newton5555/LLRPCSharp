@@ -146,27 +146,53 @@ internal sealed class LiveTagAccessHandler(IAnsiConsole console, LiveSessionCont
         uint? timeoutSeconds = null;
         var operationSpecs = new List<string>();
 
-        for (int index = startIndex; index < tokens.Length; index += 2)
+        for (int index = startIndex; index < tokens.Length; index++)
         {
-            if (index + 1 >= tokens.Length)
+            string option = tokens[index].ToLowerInvariant();
+            switch (option)
             {
-                throw new CliUsageException($"Missing value for option '{tokens[index]}'.");
-            }
-
-            string value = tokens[index + 1];
-            switch (tokens[index].ToLowerInvariant())
-            {
-                case "--op": operationSpecs.Add(value); break;
-                case "--password": password = value; break;
-                case "--antenna" when ushort.TryParse(value, out ushort parsedAntenna): antenna = parsedAntenna; break;
-                case "--timeout" when uint.TryParse(value, out uint parsedTimeout): timeoutSeconds = parsedTimeout; break;
+                case "--read":
+                case "--write":
+                case "--erase":
+                case "--lock":
+                case "--kill":
+                    if (index + 1 >= tokens.Length)
+                    {
+                        throw new CliUsageException($"Missing value for option '{tokens[index]}'.");
+                    }
+                    operationSpecs.Add($"{option[2..]}:{tokens[index + 1]}");
+                    index++;
+                    break;
+                case "--op":
+                    if (index + 1 >= tokens.Length)
+                    {
+                        throw new CliUsageException("Missing value for option '--op'.");
+                    }
+                    operationSpecs.Add(tokens[index + 1]);
+                    index++;
+                    break;
+                case "--password":
+                    password = NextValue(tokens, index, "--password");
+                    index++;
+                    break;
+                case "--antenna" when index + 1 < tokens.Length && ushort.TryParse(tokens[index + 1], out ushort parsedAntenna):
+                    antenna = parsedAntenna;
+                    index++;
+                    break;
+                case "--timeout" when index + 1 < tokens.Length && uint.TryParse(tokens[index + 1], out uint parsedTimeout):
+                    timeoutSeconds = parsedTimeout;
+                    index++;
+                    break;
+                case "--yes":
+                case "--anticol":
+                    break;
                 default: throw new CliUsageException($"Invalid tag sequence option '{tokens[index]}'.");
             }
         }
 
         if (operationSpecs.Count == 0)
         {
-            throw new CliUsageException("tag sequence requires at least one --op <read:...|write:...|erase:...|lock:...|kill:...> value.");
+            throw new CliUsageException("tag sequence requires at least one --read/-write/--erase/--lock/--kill (or --op) operation.");
         }
 
         TagAccessCliRequest baseRequest = TagAccessCliRequest.Create(epc, "epc", 0, antenna, password, timeoutSeconds);
@@ -178,6 +204,15 @@ internal sealed class LiveTagAccessHandler(IAnsiConsole console, LiveSessionCont
         }
 
         return (new TagAccessSequenceRequest { Operations = operations }, baseRequest.Timeout);
+    }
+
+    private static string NextValue(string[] tokens, int index, string option)
+    {
+        if (index + 1 >= tokens.Length)
+        {
+            throw new CliUsageException($"Missing value for option '{option}'.");
+        }
+        return tokens[index + 1];
     }
 
     private static TagAccessRequest ParseSequenceOperation(

@@ -11,6 +11,7 @@ public enum LiveCommandRoute
     Frames,
     RoSpec,
     AccessSpec,
+    Manual,
     Resources,
     Settings,
     TagAccess,
@@ -61,13 +62,13 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["--raw", "--json"],
         },
-        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, edit, validate, apply, load, or save ReaderSettings; Inventory applies can take over after raw access.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, validate, apply, edit, or save ReaderSettings; apply --defaults absorbs the old defaults command; Inventory applies can take over after raw access.", RequiresConnection: true)
         {
-            CompletionCandidates = ["show", "defaults", "edit", "validate", "apply", "load", "save", "--json", "--raw", "--yes", "--from"],
+            CompletionCandidates = ["show", "edit", "validate", "apply", "save", "--json", "--raw", "--yes", "--from", "--defaults"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
-            CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
+            CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--read", "--write", "--erase", "--lock", "--kill", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
         new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status [--refresh]", "Control the Reader-deployed high-level inventory after state sync or managed takeover.")
         {
@@ -81,7 +82,7 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["list", "enable", "disable", "delete"],
         },
-        new("resources", LiveCommandRoute.Resources, "resources manual enter|exit|status | resources clear", "Sync after raw access, then enter manual control or clear SDK inventory resources.", RequiresConnection: true)
+        new("manual", LiveCommandRoute.Manual, "manual on|off|status", "Enter (on) or exit (off) manual resource mode, or query its status. Managed calls auto-exit manual mode.", RequiresConnection: true)
         {
             CompletionCandidates = ["manual", "enter", "exit", "status", "clear"],
         },

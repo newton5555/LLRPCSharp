@@ -1,6 +1,4 @@
 using System.ComponentModel;
-using LlrpCli.Rendering;
-using LlrpNet.Core.Protocol;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -26,9 +24,7 @@ public sealed class InspectCommand : Command<InspectSettings>
 
     protected override int Execute(CommandContext context, InspectSettings settings, CancellationToken cancellationToken)
     {
-        byte[] frame = Helpers.ParseHex(settings.Hex);
-        LlrpMessageHeader header = Helpers.DecodeExactHeader(frame);
-        FrameRenderer.RenderHeader(header, frame.Length, _console);
+        OfflineProtocolTool.InspectFrame(settings.Hex, _console);
         return 0;
     }
 }

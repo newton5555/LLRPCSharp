@@ -1,6 +1,6 @@
 # SDK 源码结构与生成边界说明 (`src/`)
 
-> 本文档用于说明 `src/` 目录下各 SDK 子项目的职责划分、**手写核心架构**与**基于协议定义自动生成的代码**之间的边界，以及标准与厂商扩展代码生成的命名空间与目录规范。当前实现状态以 [`../status.md`](../status.md) 为准。
+> 本文档用于说明 `src/` 目录下各 SDK 子项目的职责划分、**手写核心架构**与**基于协议定义自动生成的代码**之间的边界，以及标准与厂商扩展代码生成的命名空间与目录规范。当前实现状态以 [`../status.md`](../status.md) 为准。LlrpSdk 项目单独的架构梳理与新增协议版本指南见 [llrpsdk-architecture.md](llrpsdk-architecture.md)。
 
 ---
 
@@ -14,6 +14,7 @@ src/
 │   ├── LlrpNet.ProtocolGenerator/ [手写] C# 源码生成引擎 (ProtocolSourceGenerator)
 │   ├── LlrpNet.Protocol/       [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
 │   └── LlrpNet.Protocol.Impinj/ [生成] Impinj 厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
+│   └── LlrpNet.Protocol.Zebra/  [生成] Zebra(Moto)厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
 ├── LlrpSdk/                    [手写] 应用层 SDK（按职责分文件夹）
 │   ├── Reader/                  Reader 会话门面、连接状态与元数据
 │   ├── Settings/                ReaderSettings、配置模型与序列化
@@ -21,7 +22,7 @@ src/
 │   ├── Resources/               ROSpec/AccessSpec 专家资源服务
 │   ├── TagAccess/               标签访问编译与操作模型
 │   ├── Reports/                 报告模型、翻译器与时间戳
-│   ├── Protocol/                LLRP 版本适配器与协议访问
+│   ├── Protocol/                LLRP 版本适配器与版本切片组件(反解析/事件投影/消息工厂/版本协商),门面零版本引用
 │   └── Extensions/              SDK 扩展注册集合
 ├── LlrpSdk.Extensions.Impinj/  [手写扩展] Impinj 高层 SDK 映射、Settings/Inventory Contributor 与 UseImpinj()
 │   ├── Registration/            UseImpinj 与扩展注册

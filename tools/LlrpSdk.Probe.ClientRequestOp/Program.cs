@@ -22,7 +22,7 @@ if (args.Length < 1)
 }
 
 string host = args[0];
-var options = new LlrpReaderOptionsBuilder(host).Build();
+var options = new LlrpReaderBuilder(host).BuildOptions();
 await using var reader = new LlrpReader(options);
 await reader.ConnectAsync();
 Console.WriteLine($"Connected: protocol={reader.NegotiatedVersion}");

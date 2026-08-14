@@ -131,16 +131,9 @@ internal sealed record TagAccessCliRequest(
 
     public static byte[] ParseHex(string value, string name)
     {
-        string normalized = value.Replace(" ", string.Empty, StringComparison.Ordinal)
-            .Replace("-", string.Empty, StringComparison.Ordinal)
-            .Replace(":", string.Empty, StringComparison.Ordinal);
-        if (normalized.Length % 2 != 0)
-        {
-            throw new CliUsageException($"{name} must be an even-length hexadecimal value.");
-        }
         try
         {
-            return Convert.FromHexString(normalized);
+            return Helpers.ParseHex(value);
         }
         catch (FormatException)
         {

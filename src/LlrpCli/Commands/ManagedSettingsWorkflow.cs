@@ -45,6 +45,16 @@ internal static class ManagedSettingsWorkflow
     {
         SettingsValidationResult validation = await ValidateAsync(reader, settings, cancellationToken).ConfigureAwait(false);
         validation.ThrowIfInvalid();
+        return await DeployAsync(reader, settings, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Deploys settings that have already been validated, skipping the validation step to avoid double validation.</summary>
+    public static async Task<ReaderSettingsSnapshot> DeployAsync(
+        LlrpReader reader,
+        ReaderSettings settings,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
         await reader.ApplySettingsAsync(settings, cancellationToken).ConfigureAwait(false);
         return await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
     }

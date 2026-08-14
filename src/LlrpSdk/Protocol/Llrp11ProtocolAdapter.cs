@@ -7,6 +7,7 @@ using LlrpNet.Protocol.Messages.V1_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_1;
 using LlrpNet.Protocol.Registry;
+using LlrpSdk.Extensions;
 using LlrpNet.Protocol.Registry.V1_1;
 using V11Enumerations = LlrpNet.Protocol.Enumerations.V1_1;
 
@@ -170,6 +171,38 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
     public IReadOnlyList<TranslatedTagReport> TranslateTagReports(ILlrpMessage message) =>
         message is RO_ACCESS_REPORT report ? Llrp11TagReportTranslator.Translate(report) : [];
 
+    public ManagedRoSpecSnapshot ParseManagedRoSpec(
+        LlrpReader reader,
+        ILlrpParameter roSpec,
+        IReadOnlyList<ILlrpParameter> accessSpecs)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(roSpec);
+        ArgumentNullException.ThrowIfNull(accessSpecs);
+        ReaderIdentity identity = reader.Identity ??
+            throw new InvalidOperationException("Inventory settings query requires initialized reader metadata.");
+        ReaderCapabilities capabilities = reader.Capabilities ??
+            throw new InvalidOperationException("Inventory settings query requires initialized reader metadata.");
+        ParsedManagedRoSpec parsed = Llrp11ManagedRoSpecParser.Parse(
+            roSpec as ROSpec ?? throw new ArgumentException(
+                "The supplied ROSpec must be generated for LLRP 1.1 parameter type 177.",
+                nameof(roSpec)),
+            accessSpecs);
+        return ManagedInventoryStateAssembler.Assemble(
+            parsed,
+            identity,
+            capabilities,
+            reader.NegotiatedVersion,
+            reader.Extensions.OfType<IInventorySettingsContributor>());
+    }
+
+    public bool IsManagedRoSpec(ILlrpParameter item) =>
+        item is ROSpec roSpec && roSpec.ROSpecID == LlrpReader.ManagedInventoryRoSpecId;
+
+    public bool HasAttachedDataAccessSpec(IReadOnlyList<ILlrpParameter> accessSpecs) =>
+        accessSpecs.Any(item => item is AccessSpec spec &&
+            spec.AccessSpecID == LlrpReader.ManagedInventoryAttachedDataAccessSpecId);
+
     public async Task<IReadOnlyList<TranslatedTagReport>> FetchReportsAsync(
         LlrpReader reader,
         uint messageId,
@@ -290,7 +323,8 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
                 operation,
                 checked((ushort)status.StatusCode),
                 status.ErrorDescription,
-                status);
+                status,
+                Enum.GetName(typeof(StatusCode), (long)status.StatusCode));
         }
     }
 

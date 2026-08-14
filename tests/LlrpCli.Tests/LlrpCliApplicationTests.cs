@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text.Json;
 using LlrpCli.Commands;
+using LlrpNet.Core.Protocol;
+using LlrpSdk;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
@@ -40,13 +42,13 @@ public sealed class LlrpCliApplicationTests
 
         Assert.Equal(LiveSettingsHandler.Usage, config.Usage);
         Assert.Contains("show", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("defaults", assist.Candidates, StringComparer.Ordinal);
-        Assert.DoesNotContain("default", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("edit", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("validate", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("apply", assist.Candidates, StringComparer.Ordinal);
-        Assert.Contains("load", assist.Candidates, StringComparer.Ordinal);
         Assert.Contains("save", assist.Candidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("defaults", assist.Candidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("default", assist.Candidates, StringComparer.Ordinal);
+        Assert.DoesNotContain("load", assist.Candidates, StringComparer.Ordinal);
         Assert.DoesNotContain("draft", assist.Candidates, StringComparer.Ordinal);
         Assert.DoesNotContain("discard", assist.Candidates, StringComparer.Ordinal);
         Assert.DoesNotContain("get", config.CompletionCandidates, StringComparer.Ordinal);
@@ -374,6 +376,62 @@ public sealed class LlrpCliApplicationTests
         var registry = new LlrpCodecRegistry();
         Llrp101StandardModule.Register(registry);
         return registry;
+    }
+
+    [Fact]
+    public void ManualModeGuard_PromptsOnlyWhenNonManagedResourcesExist()
+    {
+        Assert.False(ManualModeGuard.ShouldPromptToDelete(0, 0)); // 无资源 -> 静默退出
+        Assert.True(ManualModeGuard.ShouldPromptToDelete(1, 0));   // 有 ROSpec -> 确认
+        Assert.True(ManualModeGuard.ShouldPromptToDelete(0, 1));   // 有 AccessSpec -> 确认
+        Assert.True(ManualModeGuard.ShouldPromptToDelete(2, 3));
+    }
+
+    [Fact]
+    public void ProtocolVersionParser_MapsTwoToForce20()
+    {
+        Assert.True(ProtocolVersionPolicyParser.TryParse("2", out LlrpProtocolVersionPolicy policy));
+        Assert.Equal(LlrpProtocolVersionPolicy.Force20, policy);
+    }
+
+    [Fact]
+    public void ProtocolVersionParser_AcceptsAliases()
+    {
+        Assert.Equal(LlrpProtocolVersionPolicy.Force101, ParseVersion("101"));
+        Assert.Equal(LlrpProtocolVersionPolicy.Force11, ParseVersion("11"));
+        Assert.Equal(LlrpProtocolVersionPolicy.Force20, ParseVersion("20"));
+        Assert.Equal(LlrpProtocolVersionPolicy.Force20, ParseVersion("2.0"));
+        Assert.Equal(LlrpProtocolVersionPolicy.Force101, ParseVersion("1.0.1"));
+        Assert.Equal(LlrpProtocolVersionPolicy.Force11, ParseVersion("1.1"));
+    }
+
+    [Fact]
+    public void VendorModeParser_AcceptsZebra()
+    {
+        Assert.True(VendorExtensionModeParser.TryParse("zebra", out VendorExtensionMode mode));
+        Assert.Equal(VendorExtensionMode.Zebra, mode);
+    }
+
+    [Fact]
+    public void LlrpVersionParser_MapsOfflineVersions()
+    {
+        Assert.True(Helpers.TryParseLlrpVersion("2.0", out LlrpProtocolVersion version));
+        Assert.Equal(LlrpProtocolVersion.Version20, version);
+        Assert.True(Helpers.TryParseLlrpVersion("auto", out _));
+        Assert.Equal(LlrpProtocolVersion.Version101, ParseOffline("101"));
+        Assert.Equal(LlrpProtocolVersion.Version11, ParseOffline("11"));
+    }
+
+    private static LlrpProtocolVersionPolicy ParseVersion(string value)
+    {
+        Assert.True(ProtocolVersionPolicyParser.TryParse(value, out LlrpProtocolVersionPolicy policy));
+        return policy;
+    }
+
+    private static LlrpProtocolVersion ParseOffline(string value)
+    {
+        Assert.True(Helpers.TryParseLlrpVersion(value, out LlrpProtocolVersion version));
+        return version;
     }
 
     private static (LiveInventoryHandler Handler, LiveSessionContext Session) CreateInventoryHandler()

@@ -37,9 +37,9 @@ Settings、ROSpec 和 AccessSpec 实况。`caps` 每次都会重新发送
 Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来源，写入动作必须显式确认：
 
 ```text
-> settings defaults               # 查看 SDK/厂商默认值
-> settings defaults --yes         # 应用默认值（保持 Inventory Disabled）
+> settings apply --defaults --yes  # 应用 SDK/厂商默认值（保持 Inventory Disabled）
 > settings apply settings.json --yes  # 校验并应用指定文件
+> settings validate settings.json # 载入并校验文件（不写入设备）
 > settings show                   # 重新读取设备实况
 > settings show --json            # 输出可保存并再次 apply 的高层 ReaderSettings JSON
 > settings show --raw             # 在摘要后展开 ROSpec/AccessSpec 参数树
@@ -47,11 +47,11 @@ Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来�
 
 ### 配置来源选项
 
-* `defaults`：连接设备的推荐配置；加 `--yes` 才会写入设备；
+* `settings apply --defaults --yes`：应用连接设备的推荐配置（SDK/厂商默认值）；
 * `settings apply <file.json> --yes`：校验并应用本地 JSON 文件；Raw/手工资源导致状态未知时，文件必须包含
   `Inventory` 才会执行强制接管；
-* `settings load <file.json>`：读取并校验文件，不会写入设备；需要交互编辑时使用
-  `settings edit --from <file.json>`。
+* `settings validate <file.json>`：载入并校验文件（零副作用，承担原 `load` 的"载入+校验"），不写入设备；
+  需要交互编辑时使用 `settings edit --from <file.json>`。
 
 `settings edit` 覆盖 Reader 级 HoldEventsAndReports、Keepalive、事件通知和天线 RF 索引，
 以及既有 Inventory 的基础盘点、报告常用字段、过滤器新增、启停触发器、AttachedData 和已启用的厂商扩展。
@@ -60,17 +60,17 @@ Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周
 托管 Inventory ROSpec；Inventory 的 RF 配置因此不会与 Reader 默认值产生意外差异。
 编辑菜单可随时预览或按已连接设备的能力校验当前内容；选择应用后还会显示影响范围并进行
 二次确认。`settings load` 只读取并校验文件，不接受 `--apply`；写入统一使用
-`settings apply <file> --yes`。
+`settings apply [--defaults|<file>] --yes`。
 
 Raw 或手工 ROSpec/AccessSpec 操作后，SDK 托管状态会变为未知：
 
 * 需要保留并检查设备现有资源时，先执行 `sync`，再使用 `settings show` 或
   `inventory start`；
 * 需要 SDK 覆盖设备现状时，直接执行带 `Inventory` 的 `settings apply <file.json> --yes` 或
-  `settings defaults --yes`，它会删除全部标准 ROSpec/AccessSpec 并重新部署托管资源，之后再执行
+  `settings apply --defaults --yes`，它会删除全部标准 ROSpec/AccessSpec 并重新部署托管资源，之后再执行
   `inventory start`。
 
-处于 `resources manual enter` 模式时，先退出手工模式或直接使用上述带 Inventory 的 Apply；不要在手工资源
+处于 `manual on` 模式时，先执行 `manual off` 或直接使用上述带 Inventory 的 Apply；不要在手工资源
 仍由应用控制时执行 `settings show` 或 `inventory start`。
 
 ---

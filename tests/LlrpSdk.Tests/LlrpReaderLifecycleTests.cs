@@ -207,9 +207,9 @@ public sealed class LlrpReaderLifecycleTests
 
     internal static LlrpReader CreateReader(ScriptedLlrpTransport transport)
     {
-        LlrpReaderOptions options = new LlrpReaderOptionsBuilder("scripted.local")
+        LlrpReaderOptions options = new LlrpReaderBuilder("scripted.local")
             .WithTransportFactory(_ => transport)
-            .Build();
+            .BuildOptions();
         return new LlrpReader(options);
     }
 

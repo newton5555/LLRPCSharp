@@ -12,13 +12,12 @@
 3. 体系化设计与扩充 `LlrpSdk.Hardware.Tests` 真机测试用例集（包含多天线配置、真实标签 Memory Bank 读写、高并发稳定性及厂商扩展字段校验）。
 4. 根据真实设备证据扩充 Impinj 型号/固件能力目录。
 5. 完善独立的 Reader Studio 项目，但不把 WPF 依赖带回 SDK 仓库。
-6. CLI 离线协议工具（`inspect` / `decode` / `validate` / `encode`）补齐 LLRP 1.1 支持：
-   在 `src/LlrpCli/Commands/Helpers.cs` 的 `CreateRegistry()` 注册
-   `Llrp11StandardModule`，并让 `encode` 支持 `--version 1.0.1|1.1` 参数选择
-   构造版本；`inspect` 继续作为版本无关的 Header 检查工具。实时命令（走
-   `LlrpReader`）已具备 1.0.1/1.1 自动协商基线，但仍需真实设备验收。
-7. `LlrpFrameAnalyzer`（死代码，未接线）的 `FrameAnalysisResult.Status` 目前
-   绑定 `V1_0_1.LLRPStatus`，1.1 消息无法匹配；接线前改为版本无关的反射取值。
+6. CLI 离线协议工具（`inspect` / `decode` / `validate` / `encode`）已补齐 LLRP 1.1/2.0
+   支持：`Helpers.CreateRegistry()` 已注册 1.0.1/1.1/2.0、Impinj、Zebra 模块；
+   `encode --llrp` 选择构造版本；`inspect` 仍作为版本无关的 Header 检查工具。
+   2.0 的真实设备互操作仍需实机验收。
+7. 离线工具消重：standalone 与 Live Shell 的 `inspect`/`decode`/`validate` 合并到 `OfflineProtocolTool` 共享核；
+   未接线的死代码 `LlrpFrameAnalyzer`（语义分析半成品）已删除。
 8. LLRP 1.0.1 收尾:`ENABLE_EVENTS_AND_REPORTS` 重连放行已实现并真机验证
    （R430）;`CLIENT_REQUEST_OP` 经实机实测（R430 固件 6.4.1.240）设备不支持,
    SDK 不接线、仅提供 `SupportsClientRequestOpSpec` 门控。事件子参数投影已完成

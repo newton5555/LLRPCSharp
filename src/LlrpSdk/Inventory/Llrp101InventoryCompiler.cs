@@ -226,16 +226,11 @@ internal static class Llrp101InventoryCompiler
     private static IReadOnlyList<C1G2Filter> CompileFilters(IReadOnlyList<InventorySelectFilter> filters) =>
         filters.Select(filter => new C1G2Filter(
             C1G2TruncateAction.Do_Not_Truncate,
-            new C1G2TagInventoryMask((byte)filter.MemoryBank, filter.BitPointer, ToBits(filter.Mask.Span, filter.BitLength)),
+            new C1G2TagInventoryMask((byte)filter.MemoryBank, filter.BitPointer, LlrpWireBits.ToBits(filter.Mask.Span, filter.BitLength)),
             filter.StateAwareAction is null ? null : new C1G2TagInventoryStateAwareFilterAction(
                 ToStateAwareTarget(filter.StateAwareAction.Target), ToStateAwareAction(filter.StateAwareAction.Action)),
             filter.StateAwareAction is null ? new C1G2TagInventoryStateUnawareFilterAction(ToAction(filter.MatchAction, filter.NonMatchAction)) : null)).ToArray();
 
-    private static IReadOnlyList<bool> ToBits(ReadOnlySpan<byte> bytes, ushort bitLength)
-    {
-        int length = bitLength == 0 ? checked(bytes.Length * 8) : bitLength;
-        return bytes.ToArray().SelectMany(value => Enumerable.Range(0, 8).Select(bit => (value & (1 << (7 - bit))) != 0)).Take(length).ToArray();
-    }
 
     private static C1G2StateAwareTarget ToStateAwareTarget(InventoryFilterTarget target) => target switch
     {

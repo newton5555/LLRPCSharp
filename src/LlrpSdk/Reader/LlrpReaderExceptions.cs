@@ -103,7 +103,21 @@ public sealed class LlrpReaderOperationException : Exception
         ushort statusCode,
         string errorDescription,
         ILlrpParameter rawStatus)
-        : base(CreateMessage(operation, statusCode, errorDescription))
+        : this(operation, statusCode, errorDescription, rawStatus, statusName: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a reader operation exception with an explicit LLRP status name. The name is resolved by the
+    /// version boundary (which owns the versioned StatusCode enum); the exception itself stays version-neutral.
+    /// </summary>
+    internal LlrpReaderOperationException(
+        string operation,
+        ushort statusCode,
+        string errorDescription,
+        ILlrpParameter rawStatus,
+        string? statusName)
+        : base(CreateMessage(operation, statusCode, errorDescription, statusName))
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
         ArgumentNullException.ThrowIfNull(rawStatus);
@@ -134,17 +148,20 @@ public sealed class LlrpReaderOperationException : Exception
     /// </summary>
     public string ErrorDescription { get; }
 
-    private static string CreateMessage(string operation, ushort statusCode, string errorDescription)
+    private static string CreateMessage(
+        string operation,
+        ushort statusCode,
+        string errorDescription,
+        string? statusName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
         string description = string.IsNullOrWhiteSpace(errorDescription)
             ? "No error description was supplied."
             : errorDescription;
-        string statusName = Enum.GetName(
-            typeof(LlrpNet.Protocol.Enumerations.V1_1.StatusCode),
-            (long)statusCode) ?? "Unknown";
-        return $"Reader operation {operation} failed with LLRP status " +
-            $"{statusName} ({statusCode}): {description}";
+        string status = statusName is null
+            ? $"({statusCode})"
+            : $"{statusName} ({statusCode})";
+        return $"Reader operation {operation} failed with LLRP status {status}: {description}";
     }
 }
 

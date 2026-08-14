@@ -90,7 +90,9 @@ customParameters:
       - field: { name: CanSupportRadioPowerState, type: u1 }
       - field: { name: CanSupportRadioTransmitDelay, type: u1 }
       - field: { name: CanSupportZebraTrigger, type: u1 }
-      - reserved: 26
+      # FX9600 fw 3.32.37.0 capture (2026-08-14): reader emits Version(u32)+one flags byte;
+      # ICG reserves 26 bits here (24 more than the device sends).
+      - reserved: 2
     allowedIn:
       - type: GET_READER_CAPABILITIES_RESPONSE
         cardinality: 0-1
@@ -102,7 +104,8 @@ customParameters:
     members:
       - field: { name: Version, type: u32 }
       - field: { name: CanSupportAutonomousMode, type: u1 }
-      - reserved: 31
+      # Device capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 7
     allowedIn:
       - type: GET_READER_CAPABILITIES_RESPONSE
         cardinality: 0-1
@@ -116,7 +119,8 @@ customParameters:
       - field: { name: CanSelectTagEvents, type: u1 }
       - field: { name: CanSelectTagReportingFormat, type: u1 }
       - field: { name: CanSelectMovingEvent, type: u1 }
-      - reserved: 29
+      # Device capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 5
     allowedIn:
       - type: GET_READER_CAPABILITIES_RESPONSE
         cardinality: 0-1
@@ -130,7 +134,10 @@ customParameters:
       - field: { name: CanFilterTagsBasedOnRSSI, type: u1 }
       - field: { name: CanFilterTagsBasedOnTimeOfDay, type: u1 }
       - field: { name: CanFilterTagsBasedOnUTCTimeStamp, type: u1 }
-      - reserved: 29
+      # Device capture (0xF0) sets this bit; the ICG documents only the three flags above.
+      - field: { name: DeviceSetCapabilityBit4, type: u1 }
+      # Device capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 4
     allowedIn:
       - type: GET_READER_CAPABILITIES_RESPONSE
         cardinality: 0-1
@@ -144,7 +151,8 @@ customParameters:
       - field: { name: CanSaveConfiguration, type: u1 }
       - field: { name: CanSaveTags, type: u1 }
       - field: { name: CanSaveEvents, type: u1 }
-      - reserved: 29
+      # Device capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 5
     allowedIn:
       - type: GET_READER_CAPABILITIES_RESPONSE
         cardinality: 0-1
@@ -162,7 +170,8 @@ customParameters:
       - field: { name: CanSupportSledBatteryStatus, type: u1 }
       - field: { name: CanSupportLogicalAntenna, type: u1 }
       - field: { name: CanReportGPS, type: u1 }
-      - reserved: 25
+      # Device capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 1
     allowedIn:
       - type: GET_READER_CAPABILITIES_RESPONSE
         cardinality: 0-1
@@ -179,7 +188,10 @@ customParameters:
       - field: { name: CanSupportNXPCuxtomCommands, type: u1 }
       - field: { name: CanSupportFujitsuCuxtomCommands, type: u1 }
       - field: { name: CanSupportG2V2Commands, type: u1 }
-      - reserved: 26
+      # Device capture (0x96) sets this bit; the ICG documents only the six flags above.
+      - field: { name: DeviceSetCapabilityBit1, type: u1 }
+      # Device capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 1
     allowedIn:
       - type: GET_READER_CAPABILITIES_RESPONSE
         cardinality: 0-1
@@ -220,7 +232,8 @@ customParameters:
     namespace: zebra
     members:
       - field: { name: AutonomousModeState, type: u1 }
-      - reserved: 31
+      # FX9600 capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 7
     allowedIn:
       - type: SET_READER_CONFIG
         cardinality: 0-1
@@ -236,7 +249,8 @@ customParameters:
     namespace: zebra
     members:
       - field: { name: RadioTransmitDelay, type: u8 }
-      - reserved: 24
+      # FX9600 capture: two bytes total; ICG overcounts by 16 bits.
+      - reserved: 8
     allowedIn:
       - type: SET_READER_CONFIG
         cardinality: 0-1
@@ -249,7 +263,8 @@ customParameters:
     namespace: zebra
     members:
       - field: { name: RadioPowerState, type: u1 }
-      - reserved: 31
+      # FX9600 capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 7
     allowedIn:
       - type: SET_READER_CONFIG
         cardinality: 0-1
@@ -264,7 +279,8 @@ customParameters:
       - field: { name: SaveConfiguration, type: u1 }
       - field: { name: SaveTagData, type: u1 }
       - field: { name: SaveTagEventData, type: u1 }
-      - reserved: 29
+      # FX9600 capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 5
     allowedIn:
       - type: SET_READER_CONFIG
         cardinality: 0-1
@@ -290,7 +306,8 @@ customParameters:
     namespace: zebra
     members:
       - field: { name: UseDefaultSpecForAutoMode, type: u1 }
-      - reserved: 31
+      # FX9600 capture: single flags byte; ICG overcounts by 24 bits.
+      - reserved: 7
       - parameter:
           type: ROSpec
           cardinality: "1"
@@ -310,16 +327,19 @@ customParameters:
     namespace: zebra
     members:
       - field: { name: RuleType, type: u8 }
-      - reserved: 24
-      - parameter:
-          type: MotoFilterRSSIRange
-          cardinality: 0-1
-      - parameter:
-          type: MotoFilterTimeRange
-          cardinality: 0-1
-      - parameter:
-          type: MotoFilterTagList
-          cardinality: 0-N
+      # FX9600 capture: the rule payload after RuleType does not match the ICG's nested
+      # MotoFilterRSSIRange/TimeRange model (device inlines raw PeakRSSI TV fields). Keep the
+      # tail as raw bytes until the PDF binary page is re-verified.
+      - field: { name: Data, type: bytesToEnd }
+      #- parameter:
+      #    type: MotoFilterRSSIRange
+      #    cardinality: 0-1
+      #- parameter:
+      #    type: MotoFilterTimeRange
+      #    cardinality: 0-1
+      #- parameter:
+      #    type: MotoFilterTagList
+      #    cardinality: 0-N
 
   - name: MotoFilterTimeOfDay
     vendor: Zebra
@@ -353,7 +373,8 @@ customParameters:
     namespace: zebra
     members:
       - field: { name: Match, type: u8 }
-      - reserved: 24
+      # FX9600 capture: single pad byte after Match; ICG overcounts by 16 bits.
+      - reserved: 8
       - parameter:
           type: PeakRSSI
           cardinality: 1-N
@@ -397,7 +418,7 @@ customParameters:
       - field: { name: TagInvisibleEventModeratedTimeout, type: u16 }
       - field: { name: ReportTagVisibilityChangeEvent, type: u8 }
       - field: { name: TagVisibilityChangeEventModeratedTimeout, type: u16 }
-      - reserved: 24
+      # FX9600 capture: nine bytes total (3 u8 + 3 u16), no trailing reserved.
     allowedIn:
       - type: ROReportSpec
         cardinality: 0-1
@@ -408,7 +429,7 @@ customParameters:
     namespace: zebra
     members:
       - field: { name: ReportFormat, type: u8 }
-      - reserved: 24
+      # FX9600 capture: exactly one byte, no trailing reserved.
     allowedIn:
       - type: ROReportSpec
         cardinality: 0-1
@@ -508,7 +529,7 @@ customParameters:
     members:
       - field: { name: AntennaStopTrigger, type: u8 }
       - field: { name: AntennaStopConditionValue, type: u16 }
-      - reserved: 8
+      # FX9600 capture: three bytes total, no trailing reserved.
 
   - name: MotoAntennaPhysicalPortConfig
     vendor: Zebra
@@ -539,8 +560,8 @@ customParameters:
     subtype: 709
     namespace: zebra
     members:
+      # FX9600 fw 3.32.37.0 capture (2026-08-14): single s16 (2 bytes), no trailing reserved.
       - field: { name: Phase, type: s16 }
-      - reserved: 16
     allowedIn:
       - type: TagReportData
         cardinality: 0-1
@@ -552,7 +573,8 @@ customParameters:
     members:
       - field: { name: EnableSLAll, type: u1 }
       - field: { name: EnableABFlip, type: u1 }
-      - reserved: 30
+      # FX9600 capture: two bytes total; ICG overcounts by 16 bits.
+      - reserved: 14
 
   - name: NXPBrandIDCheckConfig
     vendor: Zebra
@@ -570,8 +592,8 @@ customParameters:
     subtype: 712
     namespace: zebra
     members:
+      # FX9600 fw 3.32.37.0 capture (2026-08-14): single u8 (1 byte), no trailing reserved.
       - field: { name: BrandID, type: u8 }
-      - reserved: 24
     allowedIn:
       - type: TagReportData
         cardinality: 0-1

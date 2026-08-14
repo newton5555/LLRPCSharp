@@ -43,6 +43,18 @@ internal interface ILlrpProtocolAdapter
 
     public IReadOnlyList<TranslatedTagReport> TranslateTagReports(ILlrpMessage message);
 
+    /// <summary>Reverse-compiles one SDK-managed ROSpec into its version-independent inventory snapshot.</summary>
+    public ManagedRoSpecSnapshot ParseManagedRoSpec(
+        LlrpReader reader,
+        ILlrpParameter roSpec,
+        IReadOnlyList<ILlrpParameter> accessSpecs);
+
+    /// <summary>Returns whether the supplied ROSpec parameter is the SDK-managed inventory ROSpec.</summary>
+    public bool IsManagedRoSpec(ILlrpParameter item);
+
+    /// <summary>Returns whether the supplied AccessSpec list contains the SDK-managed attached-data AccessSpec.</summary>
+    public bool HasAttachedDataAccessSpec(IReadOnlyList<ILlrpParameter> accessSpecs);
+
     public Task AddRoSpecAsync(
         LlrpReader reader,
         uint messageId,

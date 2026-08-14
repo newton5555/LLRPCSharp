@@ -1,11 +1,7 @@
 using System.ComponentModel;
 using LlrpCli.Rendering;
 using LlrpNet.Core.Protocol;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages;
-using LlrpNet.Protocol.Messages.V1_0_1;
-using LlrpNet.Protocol.Parameters;
-using LlrpNet.Protocol.Parameters.V1_0_1;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -14,8 +10,13 @@ namespace LlrpCli.Commands;
 public sealed class EncodeSettings : CommandSettings
 {
     [CommandArgument(0, "<MESSAGE>")]
-    [Description("Name of the standard LLRP message to encode.")]
+    [Description("Name of a standard LLRP message to encode.")]
     public string MessageName { get; init; } = string.Empty;
+
+    [CommandOption("--llrp <VERSION>")]
+    [Description("Protocol version to encode: auto, 1.0.1, 1.1, or 2.0.")]
+    [DefaultValue("auto")]
+    public string LlrpVersion { get; init; } = "auto";
 
     [CommandOption("--message-id <UINT32>")]
     [Description("Message ID (decimal or 0x hex).")]
@@ -45,45 +46,19 @@ public sealed class EncodeCommand : Command<EncodeSettings>
 
     protected override int Execute(CommandContext context, EncodeSettings settings, CancellationToken cancellationToken)
     {
-        uint messageId = Helpers.ParseUInt32(settings.MessageIdRaw, "--message-id");
-        uint? roSpecId = settings.RoSpecIdRaw is not null ? Helpers.ParseUInt32(settings.RoSpecIdRaw, "--rospec-id") : null;
-
-        if (!Enum.TryParse(settings.RequestedDataRaw, ignoreCase: true, out GetReaderCapabilitiesRequestedData requestedData)
-            || !Enum.IsDefined(requestedData))
+        if (!Helpers.TryParseLlrpVersion(settings.LlrpVersion, out LlrpProtocolVersion version))
         {
-            throw new CliUsageException($"'{settings.RequestedDataRaw}' is not a valid GET_READER_CAPABILITIES requested-data value.");
+            throw new CliUsageException("LLRP version must be auto, 1.0.1, 1.1, or 2.0.");
         }
 
-        ILlrpMessage message = CreateMessage(settings.MessageName, messageId, roSpecId, requestedData);
-        byte[] frame = Helpers.CreateRegistry().EncodeMessage(LlrpProtocolVersion.Version101, message);
+        uint messageId = Helpers.ParseUInt32(settings.MessageIdRaw, "--message-id");
+        uint? roSpecId = settings.RoSpecIdRaw is not null ? Helpers.ParseUInt32(settings.RoSpecIdRaw, "--rospec-id") : null;
+        string requestedData = Helpers.ParseRequestedData(version, settings.RequestedDataRaw);
+
+        ILlrpMessage message = Helpers.CreateEncodeMessage(settings.MessageName, version, messageId, roSpecId, requestedData);
+        byte[] frame = Helpers.CreateRegistry().EncodeMessage(version, message);
 
         FrameRenderer.RenderEncodedHex(settings.MessageName, messageId, frame, _console);
         return 0;
-    }
-
-    private static ILlrpMessage CreateMessage(
-        string messageName,
-        uint messageId,
-        uint? roSpecId,
-        GetReaderCapabilitiesRequestedData requestedData)
-    {
-        return messageName.ToLowerInvariant() switch
-        {
-            "keepalive" => new KEEPALIVE(messageId),
-            "keepalive-ack" => new KEEPALIVE_ACK(messageId),
-            "get-reader-capabilities" => new GET_READER_CAPABILITIES(messageId, requestedData, Array.Empty<ILlrpParameter>()),
-            "get-rospecs" => new GET_ROSPECS(messageId),
-            "delete-rospec" => new DELETE_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "start-rospec" => new START_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "stop-rospec" => new STOP_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "enable-rospec" => new ENABLE_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
-            "disable-rospec" => new DISABLE_ROSPEC(messageId, RequireRoSpecId(roSpecId, messageName)),
-            _ => throw new CliUsageException($"The encode message '{messageName}' is not supported."),
-        };
-    }
-
-    private static uint RequireRoSpecId(uint? roSpecId, string messageName)
-    {
-        return roSpecId ?? throw new CliUsageException($"The encode message '{messageName}' requires --rospec-id <UInt32>.");
     }
 }

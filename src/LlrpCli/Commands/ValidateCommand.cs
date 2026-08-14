@@ -1,6 +1,4 @@
 using System.ComponentModel;
-using LlrpCli.Rendering;
-using LlrpNet.Protocol.Messages;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -26,11 +24,7 @@ public sealed class ValidateCommand : Command<ValidateSettings>
 
     protected override int Execute(CommandContext context, ValidateSettings settings, CancellationToken cancellationToken)
     {
-        byte[] frame = Helpers.ParseHex(settings.Hex);
-        Helpers.DecodeExactHeader(frame);
-        ILlrpMessage message = Helpers.CreateRegistry().DecodeMessage(frame);
-
-        FrameRenderer.RenderValidationResult(isValid: true, message.GetType().Name, frame.Length, _console);
+        OfflineProtocolTool.ValidateFrame(settings.Hex, _console);
         return 0;
     }
 }

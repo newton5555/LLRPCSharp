@@ -9,5 +9,6 @@
     <ProjectReference Include="..\..\src\LlrpSdk\LlrpSdk.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Impinj\LlrpSdk.Extensions.Impinj.csproj" />
+    <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Zebra\LlrpSdk.Extensions.Zebra.csproj" />
   </ItemGroup>
 </Project>

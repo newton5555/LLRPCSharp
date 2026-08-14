@@ -17,6 +17,7 @@
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Impinj\LlrpSdk.Extensions.Impinj.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Seuic\LlrpSdk.Extensions.Seuic.csproj" />
+    <ProjectReference Include="..\LlrpSdk.Extensions.Zebra\LlrpSdk.Extensions.Zebra.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -9,9 +9,7 @@
 ## 1. 基础建立与盘点
 
 ```csharp
-using LlrpSdk.Reader;
-using LlrpSdk.Settings;
-using LlrpSdk.Model;
+using LlrpSdk;
 
 // 1. 创建并连接读写器
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100").Build();
@@ -66,7 +64,7 @@ foreach (var pwr in caps.TransmitPowerTable)
 `ReaderSettings` 提供了强类型配置管理，支持配置天线列表、RF 模式索引、Gen2 Session 与标签上报策略。
 
 ```csharp
-using LlrpSdk.Settings;
+using LlrpSdk;
 
 ReaderSettings defaultSettings = (await reader.GetDefaultSettingsAsync()).Settings;
 
@@ -266,7 +264,6 @@ TagAccessResult killResult = await reader.KillTagAsync(new KillTagRequest
 
 ```csharp
 using LlrpSdk;
-using LlrpSdk.Reader;
 using LlrpSdk.Extensions.Impinj;
 
 await using LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
