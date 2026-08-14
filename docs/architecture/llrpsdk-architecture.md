@@ -109,7 +109,7 @@ LlrpSdk
 | 协议层资产 | 谁在用 | 怎么用/约束 |
 |---|---|---|
 | 生成的版本类型(`LlrpNet.Protocol.{Messages,Parameters,Enumerations,Choices}.V1_0_1/V1_1`) | 仅 ②切片 与 ③边界组件 | ①中立文件一律禁止(守护测试扫 LlrpReader.cs) |
-| `LlrpCodecRegistry` | 门面持有;连接时各适配器 `RegisterStandardCodecs` 注册本版本 Codec;厂商模块经 `UseProtocolModule` 注册 | 解码按帧头 Version 自动分派;编码必须显式传版本 |
+| `LlrpCodecRegistry` | 门面持有;对外仅暴露只读视图 `ILlrpCodecRegistryReader`;连接时各适配器 `RegisterStandardCodecs` 注册本版本 Codec;厂商模块经 `UseProtocolModule` 注册 | 解码按帧头 Version 自动分派;编码必须显式传版本 |
 | `LlrpSession` / `ILlrpTransport` / 帧解码 / `LlrpMessageIdGenerator` | 门面(收发、事务、未请求帧泵) | 中立,无版本概念 |
 | `LlrpProtocolVersion` 枚举 | ①中立核心唯一允许的版本概念 | 加版本先在此加成员(协议层项目) |
 | `ILlrpFrameObserver`(诊断) | 门面连接选项挂接 | 旁路观察,不影响数据通路 |
@@ -140,7 +140,7 @@ LlrpSdk
 
 **标签访问** `ReadTagMemoryAsync` / `WriteTagMemoryAsync` / `LockTagMemoryAsync` / `KillTagAsync` / `BlockEraseTagMemoryAsync` / `ExecuteTagAccessAsync` / `ExecuteTagAccessSequenceAsync` / `GetTagReportsAsync`
 
-**专家资源与 raw** `RoSpecs` / `AccessSpecs` / `EnterManualResourceModeAsync` / `ExitManualResourceModeAsync` / `Protocol`(raw 收发)/ `TranslateTagReports` / `ReadMessagesAsync` / `ReadTagReportsAsync` / `Registry` / `RefreshCapabilitiesAsync`
+**专家资源与 raw** `RoSpecs` / `AccessSpecs` / `EnterManualResourceModeAsync` / `ExitManualResourceModeAsync` / `Protocol`(raw 收发)/ `ReadMessagesAsync` / `ReadTagReportsAsync` / `Registry`(只读视图 `ILlrpCodecRegistryReader`)/ `RefreshCapabilitiesAsync`
 
 **元数据** `Identity` / `Capabilities` / `Extensions`
 

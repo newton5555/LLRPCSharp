@@ -243,20 +243,13 @@ public sealed class LlrpReader : IAsyncDisposable
     public string ConnectionId => _session.ConnectionId;
 
     /// <summary>
-    /// Gets the codec registry configured for this reader.
+    /// Gets a read-only view of the codec registry configured for this reader.
     /// </summary>
-    public LlrpCodecRegistry Registry => _registry;
-
-    /// <summary>
-    /// Translates an incoming LLRP message into SDK tag reports using the active protocol adapter.
-    /// </summary>
-    public IReadOnlyList<TagReport> TranslateTagReports(ILlrpMessage message)
-    {
-        ArgumentNullException.ThrowIfNull(message);
-        return GetProtocolAdapter().TranslateTagReports(message)
-            .Select(ApplyTagReportContributors)
-            .ToArray();
-    }
+    /// <remarks>
+    /// Codec registration remains a configuration-time concern (<see cref="LlrpReaderOptionsBuilder.ConfigureProtocol"/>,
+    /// <c>UseProtocolModule</c>); the returned view only decodes and encodes against the configured codecs.
+    /// </remarks>
+    public ILlrpCodecRegistryReader Registry => _registry;
 
     /// <summary>
     /// Occurs after a connection-state transition has been recorded.
