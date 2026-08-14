@@ -13,6 +13,8 @@ if (args.Length < 1)
 
 string host = args[0];
 bool requestZebra = args.Contains("--zebra", StringComparer.Ordinal);
+bool requestZebraIncludeZone = args.Contains("--zebra-include-zone", StringComparer.Ordinal);
+bool requestZebraIncludePhase = args.Contains("--zebra-include-phase", StringComparer.Ordinal);
 bool requestImpinjSerializedTid = args.Contains("--impinj-serialized-tid", StringComparer.Ordinal);
 bool requestImpinjRfPhaseAngle = args.Contains("--impinj-rf-phase-angle", StringComparer.Ordinal);
 bool requestImpinjPeakRssi = args.Contains("--impinj-peak-rssi", StringComparer.Ordinal);
@@ -20,6 +22,7 @@ bool requestImpinjPopulationEstimation = args.Contains("--impinj-population-esti
 bool applyCurrentImpinj = args.Contains("--apply-current-impinj", StringComparer.Ordinal);
 bool clearManaged = args.Contains("--clear-managed", StringComparer.Ordinal);
 bool confirmed = args.Contains("--yes", StringComparer.Ordinal);
+bool dumpFrames = args.Contains("--dump-frames", StringComparer.Ordinal);
 int readOptionIndex = Array.IndexOf(args, "--read");
 for (int index = 1; index < args.Length; index++)
 {
@@ -34,7 +37,7 @@ for (int index = 1; index < args.Length; index++)
         continue;
     }
 
-    if (argument is not "--inventory" and not "--zebra" and not "--impinj-serialized-tid" and not "--impinj-rf-phase-angle" and not "--impinj-peak-rssi" and not "--impinj-population-estimation" and not "--apply-current-impinj" and not "--clear-managed" and not "--yes")
+    if (argument is not "--inventory" and not "--zebra" and not "--impinj-serialized-tid" and not "--impinj-rf-phase-angle" and not "--impinj-peak-rssi" and not "--impinj-population-estimation" and not "--apply-current-impinj" and not "--clear-managed" and not "--yes" and not "--dump-frames" and not "--zebra-include-zone" and not "--zebra-include-phase")
     {
         throw new ArgumentException($"Unknown LiveSmoke option '{argument}'.");
     }
@@ -211,6 +214,14 @@ if (args.Contains("--inventory", StringComparer.Ordinal) || requestImpinjReportF
             EnableTagPopulationEstimation = true,
         };
     }
+    if (requestZebraIncludeZone || requestZebraIncludePhase)
+    {
+        inventoryExtensions[ZebraInventoryReportOptions.ExtensionKey] = new ZebraInventoryReportOptions
+        {
+            IncludeZoneId = requestZebraIncludeZone,
+            IncludePhase = requestZebraIncludePhase,
+        };
+    }
     var inventorySettings = new InventorySettings { Extensions = inventoryExtensions };
     InventorySession inventorySession;
     try
@@ -233,6 +244,10 @@ if (args.Contains("--inventory", StringComparer.Ordinal) || requestImpinjReportF
             {
                 observedTag = true;
                 Console.WriteLine($"Tag: {Convert.ToHexString(report.ElectronicProductCode.Span)} antenna={report.AntennaId} rssi={report.PeakRssi}");
+                if (requestZebra)
+                {
+                    Console.WriteLine($"Zebra report: {DescribeZebraReportExtensions(report)}");
+                }
                 if (requestImpinjReportFields)
                 {
                     Console.WriteLine($"Impinj report: {DescribeImpinjReportExtensions(report)}");
@@ -244,6 +259,15 @@ if (args.Contains("--inventory", StringComparer.Ordinal) || requestImpinjReportF
         {
             Console.Error.WriteLine("No tag report was received within 10 seconds; tag access was skipped.");
             Environment.ExitCode = 1;
+        }
+
+        if (dumpFrames)
+        {
+            foreach (LlrpCapturedFrame frame in frameJournal.Snapshot())
+            {
+                Console.Error.WriteLine(
+                    $"{frame.Direction} ver={GetVersionByte(frame.FrameBytes)} type={GetMessageType(frame.FrameBytes)} ({frame.FrameBytes.Length} bytes): {Convert.ToHexString(frame.FrameBytes)}");
+            }
         }
 
         if (readOptionIndex >= 0 && observedTag)
@@ -294,6 +318,13 @@ static ushort GetMessageType(byte[] frameBytes)
         : ushort.MaxValue;
 }
 
+static byte GetVersionByte(byte[] frameBytes)
+{
+    return frameBytes.Length >= 2
+        ? (byte)((frameBytes[0] >> 2) & 0x07)
+        : (byte)0;
+}
+
 static string DescribeRoSpec(LlrpNet.Protocol.Parameters.ILlrpParameter roSpec)
 {
     return roSpec switch
@@ -302,6 +333,20 @@ static string DescribeRoSpec(LlrpNet.Protocol.Parameters.ILlrpParameter roSpec)
         V11Parameters.ROSpec v11 => $"{v11.ROSpecID}/{v11.CurrentState}",
         _ => roSpec.GetType().Name,
     };
+}
+
+static string DescribeZebraReportExtensions(TagReport report)
+{
+    if (report.Extensions is null)
+    {
+        return "(none)";
+    }
+
+    string[] values = report.Extensions
+        .Where(static pair => pair.Key.StartsWith("zebra.", StringComparison.Ordinal))
+        .Select(static pair => $"{pair.Key}={FormatExtensionValue(pair.Value)}")
+        .ToArray();
+    return values.Length == 0 ? "(none)" : string.Join(", ", values);
 }
 
 static string DescribeImpinjReportExtensions(TagReport report)

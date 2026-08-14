@@ -18,9 +18,7 @@ internal static class LiveProtocolDiagnostics
             return;
         }
 
-        byte[] frame = Helpers.ParseHex(tokens[1]);
-        LlrpMessageHeader header = Helpers.DecodeExactHeader(frame);
-        FrameRenderer.RenderHeader(header, frame.Length, console);
+        OfflineProtocolTool.InspectFrame(tokens[1], console);
     }
 
     public static void Decode(string[] tokens, IAnsiConsole console)
@@ -31,10 +29,7 @@ internal static class LiveProtocolDiagnostics
             return;
         }
 
-        byte[] frame = Helpers.ParseHex(tokens[1]);
-        Helpers.DecodeExactHeader(frame);
-        ILlrpMessage message = Helpers.CreateRegistry().DecodeMessage(frame);
-        FrameRenderer.RenderDecodedMessage(message, frame, console);
+        OfflineProtocolTool.DecodeFrame(tokens[1], console);
     }
 
     public static void Validate(string[] tokens, IAnsiConsole console)
@@ -45,23 +40,22 @@ internal static class LiveProtocolDiagnostics
             return;
         }
 
-        byte[] frame = Helpers.ParseHex(tokens[1]);
-        Helpers.DecodeExactHeader(frame);
-        ILlrpMessage message = Helpers.CreateRegistry().DecodeMessage(frame);
-        FrameRenderer.RenderValidationResult(isValid: true, message.GetType().Name, frame.Length, console);
+        OfflineProtocolTool.ValidateFrame(tokens[1], console);
     }
 
     public static void Encode(string[] tokens, IAnsiConsole console)
     {
         if (tokens.Length < 2)
         {
-            console.MarkupLine("[red]Usage:[/] encode <message-name> [[--message-id ID]] [[--rospec-id ID]]");
+            console.MarkupLine("[red]Usage:[/] encode <message-name> [[--llrp VERSION]] [[--message-id ID]] [[--rospec-id ID]] [[--requested-data DATA]]");
             return;
         }
 
         string messageName = tokens[1];
+        LlrpProtocolVersion version = LlrpProtocolVersion.Version101;
         uint messageId = 1;
         uint? roSpecId = null;
+        string requestedData = "All";
 
         for (int index = 2; index < tokens.Length; index += 2)
         {
@@ -70,7 +64,14 @@ internal static class LiveProtocolDiagnostics
                 break;
             }
 
-            if (tokens[index].Equals("--message-id", StringComparison.OrdinalIgnoreCase))
+            if (tokens[index].Equals("--llrp", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Helpers.TryParseLlrpVersion(tokens[index + 1], out version))
+                {
+                    throw new CliUsageException("LLRP version must be auto, 1.0.1, 1.1, or 2.0.");
+                }
+            }
+            else if (tokens[index].Equals("--message-id", StringComparison.OrdinalIgnoreCase))
             {
                 messageId = Helpers.ParseUInt32(tokens[index + 1], "--message-id");
             }
@@ -78,26 +79,15 @@ internal static class LiveProtocolDiagnostics
             {
                 roSpecId = Helpers.ParseUInt32(tokens[index + 1], "--rospec-id");
             }
+            else if (tokens[index].Equals("--requested-data", StringComparison.OrdinalIgnoreCase))
+            {
+                requestedData = tokens[index + 1];
+            }
         }
 
-        ILlrpMessage message = messageName.ToLowerInvariant() switch
-        {
-            "keepalive" => new LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE(messageId),
-            "keepalive-ack" => new LlrpNet.Protocol.Messages.V1_0_1.KEEPALIVE_ACK(messageId),
-            "get-reader-capabilities" => new LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CAPABILITIES(
-                messageId,
-                LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderCapabilitiesRequestedData.All,
-                Array.Empty<LlrpNet.Protocol.Parameters.ILlrpParameter>()),
-            "get-rospecs" => new LlrpNet.Protocol.Messages.V1_0_1.GET_ROSPECS(messageId),
-            "delete-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DELETE_ROSPEC(messageId, roSpecId ?? 1),
-            "start-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.START_ROSPEC(messageId, roSpecId ?? 1),
-            "stop-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.STOP_ROSPEC(messageId, roSpecId ?? 1),
-            "enable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.ENABLE_ROSPEC(messageId, roSpecId ?? 1),
-            "disable-rospec" => new LlrpNet.Protocol.Messages.V1_0_1.DISABLE_ROSPEC(messageId, roSpecId ?? 1),
-            _ => throw new CliUsageException($"Encode message '{messageName}' is not supported."),
-        };
-
-        byte[] frame = Helpers.CreateRegistry().EncodeMessage(LlrpProtocolVersion.Version101, message);
+        string normalizedRequestedData = Helpers.ParseRequestedData(version, requestedData);
+        ILlrpMessage message = Helpers.CreateEncodeMessage(messageName, version, messageId, roSpecId, normalizedRequestedData);
+        byte[] frame = Helpers.CreateRegistry().EncodeMessage(version, message);
         FrameRenderer.RenderEncodedHex(messageName, messageId, frame, console);
     }
 }

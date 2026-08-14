@@ -21,7 +21,6 @@ internal sealed class MotoTagPhaseCodec : global::LlrpNet.Protocol.Codecs.LlrpCu
         var reader = new GeneratedWireReader(data);
         int offset = 0;
         short Phase = reader.ReadInt16();
-        reader.ReadReservedBits(16);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.MotoTagPhase(
@@ -34,7 +33,7 @@ internal sealed class MotoTagPhaseCodec : global::LlrpNet.Protocol.Codecs.LlrpCu
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 2;
         return length;
     }
 
@@ -49,7 +48,6 @@ internal sealed class MotoTagPhaseCodec : global::LlrpNet.Protocol.Codecs.LlrpCu
         var wireWriter = new GeneratedWireWriter(destination);
         int offset = 0;
         wireWriter.WriteInt16(parameter.Phase);
-        wireWriter.WriteReservedBits(16);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

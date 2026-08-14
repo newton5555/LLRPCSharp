@@ -21,7 +21,6 @@ internal sealed class BrandIDCheckStatusCodec : global::LlrpNet.Protocol.Codecs.
         var reader = new GeneratedWireReader(data);
         int offset = 0;
         byte BrandID = reader.ReadByte();
-        reader.ReadReservedBits(24);
         offset += reader.BytePosition;
         GeneratedCodecRuntime.ValidateDecodedEnd(offset, data.Length);
         return new global::LlrpNet.Protocol.Zebra.Parameters.V1_0_1.BrandIDCheckStatus(
@@ -34,7 +33,7 @@ internal sealed class BrandIDCheckStatusCodec : global::LlrpNet.Protocol.Codecs.
     {
         GeneratedCodecRuntime.ValidateVersion(version, 1);
         global::System.ArgumentNullException.ThrowIfNull(parameter);
-        int length = 4;
+        int length = 1;
         return length;
     }
 
@@ -49,7 +48,6 @@ internal sealed class BrandIDCheckStatusCodec : global::LlrpNet.Protocol.Codecs.
         var wireWriter = new GeneratedWireWriter(destination);
         int offset = 0;
         wireWriter.WriteByte(parameter.BrandID);
-        wireWriter.WriteReservedBits(24);
         offset += wireWriter.BytePosition;
         if (offset != destination.Length)
         {

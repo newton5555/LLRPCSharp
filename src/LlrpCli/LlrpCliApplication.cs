@@ -59,6 +59,12 @@ public sealed class LlrpCliApplication
             config.AddCommand<InventoryCommand>("inventory")
                 .WithDescription("Connect, apply ReaderSettings, inventory tags, and clean managed resources.");
 
+            config.AddCommand<StatusCommand>("status")
+                .WithDescription("Connect, report negotiated identity/version/extension status, and disconnect.");
+
+            config.AddCommand<CapsCommand>("caps")
+                .WithDescription("Connect, fetch GET_READER_CAPABILITIES, and disconnect.");
+
         });
 
         try

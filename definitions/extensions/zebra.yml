@@ -560,8 +560,8 @@ customParameters:
     subtype: 709
     namespace: zebra
     members:
+      # FX9600 fw 3.32.37.0 capture (2026-08-14): single s16 (2 bytes), no trailing reserved.
       - field: { name: Phase, type: s16 }
-      - reserved: 16
     allowedIn:
       - type: TagReportData
         cardinality: 0-1
@@ -592,8 +592,8 @@ customParameters:
     subtype: 712
     namespace: zebra
     members:
+      # FX9600 fw 3.32.37.0 capture (2026-08-14): single u8 (1 byte), no trailing reserved.
       - field: { name: BrandID, type: u8 }
-      - reserved: 24
     allowedIn:
       - type: TagReportData
         cardinality: 0-1

@@ -33,14 +33,14 @@ internal sealed class LiveInventoryHandler(
                     if (reader.ResourceMode == ReaderResourceMode.ManualResources)
                     {
                         throw new CliUsageException(
-                            "Manual resource mode is active. Run 'settings apply <file> --yes' with Inventory or 'settings defaults --yes' " +
+                            "Manual resource mode is active. Run 'settings apply <file> --yes' with Inventory or 'settings apply --defaults --yes' " +
                             "to explicitly replace manual ROSpec/AccessSpec resources before 'inventory start'.");
                     }
                     if (!reader.IsManagedStateSynchronized)
                     {
                         throw new CliUsageException(
                             "SDK-managed state is unknown after raw or manual resource access. Run 'sync' to inspect " +
-                            "existing resources, or run 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to " +
+                            "existing resources, or run 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to " +
                             "force a managed takeover, then run 'inventory start'.");
                     }
                     // A fresh SDK connection intentionally does not query ROSpec resources during the connection
@@ -55,9 +55,33 @@ internal sealed class LiveInventoryHandler(
                         console.MarkupLine("[yellow]SDK-managed inventory is already running.[/]");
                         return;
                     }
-                    if (reader.CurrentInventorySettings is null)
+
+                    bool oneShot = tokens.Any(static token => token.Equals("--defaults", StringComparison.OrdinalIgnoreCase))
+                        || tokens.Any(static token => token.Equals("--settings", StringComparison.OrdinalIgnoreCase));
+                    if (oneShot)
                     {
-                        throw new CliUsageException("The reader has no deployed Inventory. Run 'settings apply <file> --yes' with Inventory or 'settings defaults --yes', then 'inventory start'.");
+                        ReaderSettings requested = await OneShotInventorySourceAsync(reader, tokens, cancellationToken).ConfigureAwait(false);
+                        SettingsValidationResult validation = await ManagedSettingsWorkflow.ValidateAsync(
+                            reader, requested, cancellationToken).ConfigureAwait(false);
+                        if (!validation.IsValid)
+                        {
+                            SettingsRenderer.RenderValidation(console, validation);
+                            console.MarkupLine("[bold red]inventory start aborted due to validation errors.[/]");
+                            return;
+                        }
+                        EnsureSettingsApplyCanProceed(reader, requested);
+                        if (!await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
+                        {
+                            return;
+                        }
+                        SettingsRenderer.RenderApplyImpact(console, requested);
+                        // Deploy remains Disabled (StartTrigger not wired here) exactly like settings apply;
+                        // the explicit StartInventoryAsync below activates it.
+                        await ManagedSettingsWorkflow.DeployAsync(reader, requested, cancellationToken).ConfigureAwait(false);
+                    }
+                    else if (reader.CurrentInventorySettings is null)
+                    {
+                        throw new CliUsageException("The reader has no deployed Inventory. Run 'settings apply <file> --yes' with Inventory or 'settings apply --defaults --yes', then 'inventory start'.");
                     }
 
                     LiveMonitorMode monitorMode = ParseStartMonitorMode(tokens);
@@ -101,7 +125,7 @@ internal sealed class LiveInventoryHandler(
                 {
                     console.MarkupLine(
                         "[yellow]SDK-managed state is unknown after raw or manual resource access. Run 'sync' to inspect " +
-                        "the reader, or use 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to force a managed takeover.[/]");
+                        "the reader, or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.[/]");
                     return;
                 }
                 if (refresh)
@@ -132,13 +156,41 @@ internal sealed class LiveInventoryHandler(
         return false;
     }
 
+    private static async Task<ReaderSettings> OneShotInventorySourceAsync(
+        LlrpReader reader,
+        string[] tokens,
+        CancellationToken cancellationToken)
+    {
+        for (int index = 2; index < tokens.Length; index += 2)
+        {
+            if (tokens[index].Equals("--settings", StringComparison.OrdinalIgnoreCase)
+                && index + 1 < tokens.Length)
+            {
+                return ManagedSettingsWorkflow.Load(reader, tokens[index + 1]);
+            }
+        }
+
+        ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync(cancellationToken).ConfigureAwait(false);
+        return defaults.Settings;
+    }
+
     private static void EnsureInventoryStateSynchronized(LlrpReader reader)
     {
         if (!reader.IsManagedStateSynchronized)
         {
             throw new CliUsageException(
                 "SDK-managed state is unknown after raw or manual resource access. Run 'sync' before 'inventory stop', " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to force a managed takeover.");
+                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.");
+        }
+    }
+
+    private static void EnsureSettingsApplyCanProceed(LlrpReader reader, ReaderSettings settings)
+    {
+        if (!reader.IsManagedStateSynchronized && settings.Inventory is null)
+        {
+            throw new CliUsageException(
+                "SDK-managed state is unknown. The settings source must include Inventory to force a takeover; " +
+                "otherwise run 'sync' first.");
         }
     }
 
@@ -171,19 +223,37 @@ internal sealed class LiveInventoryHandler(
     private static void ValidateStartOptions(string[] tokens)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool useDefaults = false;
+        bool useSettings = false;
         for (int index = 2; index < tokens.Length; index += 2)
         {
             string option = tokens[index];
             bool knownOption = option.Equals("--monitor", StringComparison.OrdinalIgnoreCase)
-                || option.Equals("--monitor-duration", StringComparison.OrdinalIgnoreCase);
+                || option.Equals("--monitor-duration", StringComparison.OrdinalIgnoreCase)
+                || option.Equals("--defaults", StringComparison.OrdinalIgnoreCase)
+                || option.Equals("--settings", StringComparison.OrdinalIgnoreCase);
             if (!knownOption || index + 1 >= tokens.Length)
             {
-                throw new CliUsageException("Usage: inventory start [--monitor live|frames|none] [--monitor-duration seconds]");
+                throw new CliUsageException("Usage: inventory start [--defaults|--settings <file>] [--monitor live|frames|none] [--monitor-duration seconds]");
             }
             if (!seen.Add(option))
             {
                 throw new CliUsageException($"{option} may only be specified once.");
             }
+
+            if (option.Equals("--defaults", StringComparison.OrdinalIgnoreCase))
+            {
+                useDefaults = true;
+            }
+            else if (option.Equals("--settings", StringComparison.OrdinalIgnoreCase))
+            {
+                useSettings = true;
+            }
+        }
+
+        if (useDefaults && useSettings)
+        {
+            throw new CliUsageException("inventory start accepts either --defaults or --settings, not both.");
         }
     }
 
@@ -246,7 +316,7 @@ internal sealed class LiveInventoryHandler(
         }
         else
         {
-            console.MarkupLine("  [yellow]No deployed high-level Inventory. Run 'settings apply <file> --yes' with Inventory or 'settings defaults --yes', then 'inventory start'.[/]");
+            console.MarkupLine("  [yellow]No deployed high-level Inventory. Run 'settings apply <file> --yes' with Inventory or 'settings apply --defaults --yes', then 'inventory start'.[/]");
         }
     }
 

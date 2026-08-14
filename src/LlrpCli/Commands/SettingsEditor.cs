@@ -3,6 +3,7 @@ using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
+using LlrpSdk.Extensions.Zebra;
 using Spectre.Console;
 
 namespace LlrpCli.Commands;
@@ -23,12 +24,23 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
     {
         ArgumentNullException.ThrowIfNull(source);
         ReaderSettings working = source;
+        SettingsArea? previous = null;
         while (true)
         {
             SettingsArea area = console.Prompt(new SelectionPrompt<SettingsArea>()
                 .Title("[bold yellow]Settings area[/]")
                 .AddChoices(Enum.GetValues<SettingsArea>())
                 .UseConverter(FormatSettingsArea));
+
+            if (area == SettingsArea.Back)
+            {
+                continue; // Back: return to the area selector; numbered areas above are always reachable
+            }
+
+            if (area != SettingsArea.ImportJson && area != SettingsArea.Review)
+            {
+                previous = area;
+            }
 
             switch (area)
             {
@@ -58,6 +70,7 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
                     break;
                 case SettingsArea.Review:
                     SettingsRenderer.RenderSummary(console, "Current edit", working);
+                    RenderReviewDiff(source, working);
                     break;
                 case SettingsArea.Validate:
                     SettingsValidationResult validation = await ManagedSettingsWorkflow
@@ -65,33 +78,65 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
                         .ConfigureAwait(false);
                     SettingsRenderer.RenderValidation(console, validation);
                     break;
+                case SettingsArea.ImportJson:
+                    working = ImportJson(working);
+                    break;
                 case SettingsArea.ApplyToReader:
                     SettingsRenderer.RenderSummary(console, "Settings to apply", working);
                     return new EditorResult(working, EditorResultAction.Apply);
                 case SettingsArea.SaveToFile:
                     return new EditorResult(working, EditorResultAction.SaveToFile);
                 case SettingsArea.Discard:
+                    if (HasChanges(source, working) && !console.Confirm("Discard unsaved changes?", defaultValue: false))
+                    {
+                        break;
+                    }
                     return new EditorResult(source, EditorResultAction.Discard);
             }
         }
     }
 
+    private ReaderSettings ImportJson(ReaderSettings working)
+    {
+        string path = console.Prompt(new TextPrompt<string>("[grey]JSON settings file path:[/]"));
+        ReaderSettings imported;
+        try
+        {
+            imported = ManagedSettingsWorkflow.Load(reader, path);
+        }
+        catch (Exception exception)
+        {
+            console.MarkupLine($"[red]Import failed: {Markup.Escape(exception.Message)}[/]");
+            return working;
+        }
+        console.MarkupLine($"[bold springgreen2]✔ Imported {Markup.Escape(path)}.[/]");
+        return imported;
+    }
+
+    private static bool HasChanges(ReaderSettings source, ReaderSettings working) =>
+        !ReferenceEquals(source, working)
+        && (source.Inventory is null) != (working.Inventory is null)
+        || (source.Inventory is not null && working.Inventory is not null && !source.Inventory.Equals(working.Inventory))
+        || (source.Configuration is not null && !source.Configuration.Equals(working.Configuration));
+
     private static string FormatSettingsArea(SettingsArea area)
     {
         return area switch
         {
-            SettingsArea.AntennasAndRf => "Antennas and RF",
-            SettingsArea.Singulation => "Singulation",
-            SettingsArea.Reports => "Reports",
-            SettingsArea.Filters => "Filters",
-            SettingsArea.StartAndStopTriggers => "Start and stop triggers",
-            SettingsArea.AttachedData => "Attached data",
-            SettingsArea.ReaderConfiguration => "Reader configuration",
-            SettingsArea.VendorExtensions => "Vendor extensions",
-            SettingsArea.Review => "Review current edit",
-            SettingsArea.Validate => "Validate current edit",
+            SettingsArea.AntennasAndRf => "1) Antennas and RF",
+            SettingsArea.Singulation => "2) Singulation",
+            SettingsArea.Reports => "3) Reports",
+            SettingsArea.Filters => "4) Filters",
+            SettingsArea.StartAndStopTriggers => "5) Start and stop triggers",
+            SettingsArea.AttachedData => "6) Attached data",
+            SettingsArea.ReaderConfiguration => "7) Reader configuration",
+            SettingsArea.VendorExtensions => "8) Vendor extensions",
+            SettingsArea.Review => "9) Review current edit",
+            SettingsArea.Validate => "10) Validate current edit",
+            SettingsArea.ImportJson => "Import settings from JSON file",
             SettingsArea.ApplyToReader => "[bold green]Apply to reader[/]",
-            SettingsArea.SaveToFile => "[bold blue]Save to file[/]",
+            SettingsArea.SaveToFile => "[bold blue]Save to file (export JSON)[/]",
+            SettingsArea.Back => "[grey]⬅ Back to previous area[/]",
             SettingsArea.Discard => "[bold red]Discard[/]",
             _ => throw new ArgumentOutOfRangeException(nameof(area), area, null),
         };
@@ -109,8 +154,10 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         VendorExtensions,
         Review,
         Validate,
+        ImportJson,
         ApplyToReader,
         SaveToFile,
+        Back,
         Discard,
     }
 
@@ -120,6 +167,7 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         string antennaText = console.Prompt(new TextPrompt<string>("[grey]Antenna IDs (all or comma-separated):[/]")
             .DefaultValue(FormatAntennaIds(inventory.AntennaIds)));
         IReadOnlyList<ushort> antennas = ParseAntennaIds(antennaText);
+        RenderRfModeHint();
         ushort mode = console.Prompt(new TextPrompt<ushort>("[grey]RF ModeIndex (0 = reader default):[/]")
             .DefaultValue(inventory.ModeIndex));
         ushort tari = console.Prompt(new TextPrompt<ushort>("[grey]Tari in ns (0 = reader default):[/]")
@@ -141,6 +189,7 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         console.MarkupLine("[dim]The RF values below are written identically to reader defaults and the managed Inventory ROSpec.[/]");
         foreach (ushort antennaId in configuredAntennaIds)
         {
+            RenderTxRxHint(antennaId);
             inventoryConfigurations.TryGetValue(antennaId, out InventoryAntennaConfiguration? inventoryCurrent);
             inventoryCurrent ??= commonInventoryConfiguration;
             readerConfigurations.TryGetValue(antennaId, out AntennaConfigurationSettings? readerCurrent);
@@ -193,6 +242,96 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         };
     }
 
+    private void RenderRfModeHint()
+    {
+        ReaderCapabilities? capabilities = reader.Capabilities;
+        if (capabilities is null || capabilities.RfModes.Count == 0)
+        {
+            return;
+        }
+
+        int shown = Math.Min(capabilities.RfModes.Count, 6);
+        console.MarkupLine("[dim]RfModes: (Capabilities)[/]");
+        for (int i = 0; i < shown; i++)
+        {
+            C1G2RfModeEntry m = capabilities.RfModes[i];
+            console.MarkupLine($"[dim]  Mode {m.ModeIdentifier}: DR={m.DrValue} M={m.MValue} Tari {m.MinTariValue}-{m.MaxTariValue} step {m.StepTariValue}[/]");
+        }
+        if (capabilities.RfModes.Count > shown)
+        {
+            console.MarkupLine($"[dim]  … and {capabilities.RfModes.Count - shown} more[/]");
+        }
+    }
+
+    private void RenderTxRxHint(ushort antennaId)
+    {
+        ReaderCapabilities? capabilities = reader.Capabilities;
+        if (capabilities is null)
+        {
+            return;
+        }
+
+        if (capabilities.TxPowers.Count > 0)
+        {
+            console.MarkupLine($"[dim]Antenna {antennaId} Tx powers:[/] " +
+                string.Join(", ", capabilities.TxPowers.Select(static t => $"{t.Index}={t.TransmitPowerDbm:F1}dBm")));
+        }
+        if (capabilities.RxSensitivities.Count > 0)
+        {
+            console.MarkupLine($"[dim]Rx sensitivities:[/] " +
+                string.Join(", ", capabilities.RxSensitivities.Select(static r => $"{r.Index}={r.ReceiveSensitivityDb}dB")));
+        }
+        if (capabilities.HopTables.Count > 0)
+        {
+            console.MarkupLine($"[dim]Hop tables:[/] " +
+                string.Join(", ", capabilities.HopTables.Select(static h => $"#{h.HopTableId}({h.Frequencies.Count})")));
+        }
+    }
+
+    private void RenderReviewDiff(ReaderSettings source, ReaderSettings working)
+    {
+        var changes = new List<string>();
+        if ((source.Inventory is null) != (working.Inventory is null))
+        {
+            changes.Add("Inventory: " + (working.Inventory is null ? "removed" : "added"));
+        }
+        else if (working.Inventory is not null && source.Inventory is not null)
+        {
+            if (source.Inventory.AntennaIds.Count != working.Inventory.AntennaIds.Count
+                || !source.Inventory.AntennaIds.SequenceEqual(working.Inventory.AntennaIds))
+            {
+                changes.Add($"Inventory antennas: {FormatAntennaIds(source.Inventory.AntennaIds)} -> {FormatAntennaIds(working.Inventory.AntennaIds)}");
+            }
+            if (source.Inventory.ModeIndex != working.Inventory.ModeIndex)
+            {
+                changes.Add($"RF ModeIndex: {source.Inventory.ModeIndex} -> {working.Inventory.ModeIndex}");
+            }
+            if (source.Inventory.Tari != working.Inventory.Tari)
+            {
+                changes.Add($"Tari: {source.Inventory.Tari} -> {working.Inventory.Tari}");
+            }
+            if (source.Inventory.AttachedData.Enabled != working.Inventory.AttachedData.Enabled)
+            {
+                changes.Add($"AttachedData: {(source.Inventory.AttachedData.Enabled ? "on" : "off")} -> {(working.Inventory.AttachedData.Enabled ? "on" : "off")}");
+            }
+        }
+        if (source.Configuration.Keepalive.TriggerType != working.Configuration.Keepalive.TriggerType)
+        {
+            changes.Add($"Keepalive trigger: {source.Configuration.Keepalive.TriggerType} -> {working.Configuration.Keepalive.TriggerType}");
+        }
+
+        if (changes.Count == 0)
+        {
+            console.MarkupLine("[dim]No changes yet.[/]");
+            return;
+        }
+        console.MarkupLine("[springgreen2]Changed fields:[/]");
+        foreach (string change in changes)
+        {
+            console.MarkupLine($"  [yellow]- {Markup.Escape(change)}[/]");
+        }
+    }
+
     private IReadOnlyList<ushort> ExpandReaderAntennaIds(IReadOnlyList<ushort> antennaIds)
     {
         if (antennaIds.Count != 1 || antennaIds[0] != 0)
@@ -215,7 +354,8 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
             .AddChoices((byte)0, (byte)1, (byte)2, (byte)3)
             .DefaultValue(inventory.Session));
         ushort population = console.Prompt(new TextPrompt<ushort>("[grey]Tag population estimate:[/]")
-            .DefaultValue(inventory.TagPopulationEstimate));
+            .DefaultValue(inventory.TagPopulationEstimate)
+            .Validate(static value => value > 0 ? ValidationResult.Success() : ValidationResult.Error("Population must be at least 1.")));
         InventoryStateAwareSingulation? stateAware = null;
         if (console.Confirm("Enable state-aware singulation?", inventory.StateAwareSingulation is not null))
         {
@@ -243,7 +383,9 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
             .DefaultValue(inventory.Report.Trigger));
         ushort count = trigger == InventoryReportTrigger.UponNTagsOrEndOfRoSpec && console.Confirm("Report only after the ROSpec stops?", inventory.ReportEveryNTags == 0)
             ? (ushort)0
-            : console.Prompt(new TextPrompt<ushort>("[grey]Report every N observed tags:[/]").DefaultValue(Math.Max((ushort)1, inventory.ReportEveryNTags)));
+            : console.Prompt(new TextPrompt<ushort>("[grey]Report every N observed tags:[/]")
+                .DefaultValue(Math.Max((ushort)1, inventory.ReportEveryNTags))
+                .Validate(static value => value > 0 ? ValidationResult.Success() : ValidationResult.Error("N must be at least 1.")));
         InventoryReportSettings report = inventory.Report with
         {
             Trigger = trigger,
@@ -377,19 +519,7 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         uint interval = type == LlrpSdk.KeepaliveTriggerType.Periodic
             ? console.Prompt(new TextPrompt<uint>("[grey]Keepalive interval ms:[/]").DefaultValue(Math.Max(1U, configuration.Keepalive.IntervalMs)))
             : 0;
-        EventNotificationConfiguration events = configuration.Events with
-        {
-            HoppingEventEnabled = console.Confirm("Enable hopping events?", configuration.Events.HoppingEventEnabled),
-            GpiEventEnabled = console.Confirm("Enable GPI events?", configuration.Events.GpiEventEnabled),
-            RoSpecEventEnabled = console.Confirm("Enable ROSpec events?", configuration.Events.RoSpecEventEnabled),
-            ReportBufferWarningEnabled = console.Confirm("Enable report buffer warning events?", configuration.Events.ReportBufferWarningEnabled),
-            ReaderExceptionEventEnabled = console.Confirm("Enable reader exception events?", configuration.Events.ReaderExceptionEventEnabled),
-            RfSurveyEventEnabled = console.Confirm("Enable RF survey events?", configuration.Events.RfSurveyEventEnabled),
-            AiSpecEventEnabled = console.Confirm("Enable AISpec events?", configuration.Events.AiSpecEventEnabled),
-            AntennaEventEnabled = console.Confirm("Enable antenna events?", configuration.Events.AntennaEventEnabled),
-            ConnectionAttemptEventEnabled = console.Confirm("Enable connection attempt events?", configuration.Events.ConnectionAttemptEventEnabled),
-            ConnectionCloseEventEnabled = console.Confirm("Enable connection close events?", configuration.Events.ConnectionCloseEventEnabled),
-        };
+        EventNotificationConfiguration events = EditEventsMultiSelect(configuration.Events);
         return settings with
         {
             Configuration = configuration with
@@ -399,6 +529,38 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
                 Events = events,
             },
         };
+    }
+
+    private EventNotificationConfiguration EditEventsMultiSelect(EventNotificationConfiguration current)
+    {
+        var all = new (string Label, Func<EventNotificationConfiguration, bool> Get, Func<EventNotificationConfiguration, bool, EventNotificationConfiguration> Set)[]
+        {
+            ("Hopping events", e => e.HoppingEventEnabled, (e, v) => e with { HoppingEventEnabled = v }),
+            ("GPI events", e => e.GpiEventEnabled, (e, v) => e with { GpiEventEnabled = v }),
+            ("ROSpec events", e => e.RoSpecEventEnabled, (e, v) => e with { RoSpecEventEnabled = v }),
+            ("Report buffer warning", e => e.ReportBufferWarningEnabled, (e, v) => e with { ReportBufferWarningEnabled = v }),
+            ("Reader exception", e => e.ReaderExceptionEventEnabled, (e, v) => e with { ReaderExceptionEventEnabled = v }),
+            ("RF survey events", e => e.RfSurveyEventEnabled, (e, v) => e with { RfSurveyEventEnabled = v }),
+            ("AISpec events", e => e.AiSpecEventEnabled, (e, v) => e with { AiSpecEventEnabled = v }),
+            ("Antenna events", e => e.AntennaEventEnabled, (e, v) => e with { AntennaEventEnabled = v }),
+            ("Connection attempt", e => e.ConnectionAttemptEventEnabled, (e, v) => e with { ConnectionAttemptEventEnabled = v }),
+            ("Connection close", e => e.ConnectionCloseEventEnabled, (e, v) => e with { ConnectionCloseEventEnabled = v }),
+        };
+
+        List<string> selected = console.Prompt(new MultiSelectionPrompt<string>()
+            .Title("[bold yellow]Enable events[/]")
+            .NotRequired()
+            .InstructionsText("[grey]Toggle with Space, confirm with Enter.[/]")
+            .AddChoices(all.Select(static item => item.Item1))
+            .UseConverter(static label => label));
+
+        var selectedSet = new HashSet<string>(selected, StringComparer.Ordinal);
+        EventNotificationConfiguration result = current;
+        foreach ((string label, Func<EventNotificationConfiguration, bool> get, Func<EventNotificationConfiguration, bool, EventNotificationConfiguration> set) in all)
+        {
+            result = set(result, selectedSet.Contains(label));
+        }
+        return result;
     }
 
     private ushort? PromptOptionalIndex(string title, ushort? current)
@@ -417,12 +579,29 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
     private ReaderSettings EditVendorExtensions(ReaderSettings settings)
     {
         InventorySettings inventory = EnsureInventory(settings);
-        if (!reader.Extensions.Any(static extension => extension is ImpinjReaderExtension))
+        bool showImpinj = reader.Extensions.Any(static extension => extension is ImpinjReaderExtension);
+        bool showZebra = reader.Extensions.Any(static extension => extension is ZebraReaderExtension);
+
+        if (!showImpinj && !showZebra)
         {
             console.MarkupLine("[yellow]No editable vendor inventory extension is active for this reader.[/]");
             return settings;
         }
 
+        if (showImpinj)
+        {
+            inventory = EditImpinjExtensions(inventory);
+        }
+        if (showZebra)
+        {
+            inventory = EditZebraExtensions(inventory);
+        }
+
+        return settings with { Inventory = inventory };
+    }
+
+    private InventorySettings EditImpinjExtensions(InventorySettings inventory)
+    {
         inventory.Extensions.TryGetValue(ImpinjInventoryReportOptions.ExtensionKey, out object? reportValue);
         inventory.Extensions.TryGetValue(ImpinjInventoryControlOptions.ExtensionKey, out object? controlValue);
         var report = reportValue as ImpinjInventoryReportOptions ?? new ImpinjInventoryReportOptions();
@@ -431,7 +610,7 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
         bool phase = console.Confirm("Include Impinj RF phase angle?", report.IncludeRfPhaseAngle);
         bool peakRssi = console.Confirm("Include Impinj peak RSSI?", report.IncludePeakRssi);
         bool population = console.Confirm("Enable Impinj tag population estimation?", control.EnableTagPopulationEstimation == true);
-        inventory = inventory.Edit(builder => builder.Impinj(impinj =>
+        return inventory.Edit(builder => builder.Impinj(impinj =>
         {
             impinj
                 .IncludeSerializedTid(serializedTid)
@@ -446,7 +625,22 @@ internal sealed class SettingsEditor(IAnsiConsole console, LlrpReader reader)
                 impinj.DisableTagPopulationEstimation();
             }
         }));
-        return settings with { Inventory = inventory };
+    }
+
+    private InventorySettings EditZebraExtensions(InventorySettings inventory)
+    {
+        var extensions = new Dictionary<string, object?>(inventory.Extensions, StringComparer.Ordinal);
+        extensions.TryGetValue(ZebraInventoryReportOptions.ExtensionKey, out object? reportValue);
+        var options = reportValue as ZebraInventoryReportOptions ?? new ZebraInventoryReportOptions();
+        options = options with
+        {
+            IncludeZoneId = console.Confirm("Include Zebra zone ID?", options.IncludeZoneId),
+            IncludeZoneName = console.Confirm("Include Zebra zone name?", options.IncludeZoneName),
+            IncludePhase = console.Confirm("Include Zebra RF phase?", options.IncludePhase),
+            IncludeGps = console.Confirm("Include Zebra GPS?", options.IncludeGps),
+        };
+        extensions[ZebraInventoryReportOptions.ExtensionKey] = options;
+        return inventory with { Extensions = extensions };
     }
 
     private static InventorySettings EnsureInventory(ReaderSettings settings) => settings.Inventory ?? new InventorySettings();

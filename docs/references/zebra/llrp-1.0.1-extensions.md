@@ -1,6 +1,7 @@
 # Zebra FX9600 LLRP 1.0.1 厂商扩展清单
 
 > 用途：为后续 `definitions/extensions/zebra.yml` 建模提供经过 PDF 核对的输入。
+> **偏差与验证状态**见 [llrp-1.0.1-definition-drift.md](llrp-1.0.1-definition-drift.md)：官方 ICG `reserved` 位数与固件字节系统性偏移，仅部分参数经实机字节级标定。
 > 本文不是生成后的协议定义，也不表示当前 SDK 已经实现 Zebra 扩展。
 >
 > 资料：`docs/references/zebra/interface-control-guide-en.pdf`，Zebra *RFID Reader Software Interface Control Guide*，Part 72E-131718-13EN，Revision A，2025-03。

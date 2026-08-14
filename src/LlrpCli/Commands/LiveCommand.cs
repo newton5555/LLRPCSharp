@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Text.Json;
-using LlrpCli.Analysis;
 using LlrpCli.Rendering;
 using LlrpCli.Terminal;
 using LlrpNet.Core.Diagnostics;
@@ -27,12 +26,12 @@ public sealed class LiveSettings : CommandSettings
     public int Port { get; init; } = 5084;
 
     [CommandOption("--llrp <VERSION>")]
-    [Description("Protocol version policy for automatic connection: auto, 1.0.1, or 1.1.")]
+    [Description("Protocol version policy for automatic connection: auto, 1.0.1, 1.1, or 2.0.")]
     [DefaultValue("auto")]
     public string LlrpVersion { get; init; } = "auto";
 
     [CommandOption("--vendor <VENDOR>")]
-    [Description("Vendor extensions mode for automatic connection: auto, impinj, seuic, or none.")]
+    [Description("Vendor extensions mode for automatic connection: auto, impinj, seuic, zebra, or none.")]
     [DefaultValue("auto")]
     public string Vendor { get; init; } = "auto";
 }
@@ -156,6 +155,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                             await HandleAccessSpecAsync(tokens, cancellationToken);
                             break;
                         case LiveCommandRoute.Resources:
+                        case LiveCommandRoute.Manual:
                             await HandleResourcesAsync(tokens, cancellationToken);
                             break;
                         case LiveCommandRoute.Settings:
@@ -634,33 +634,32 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             return;
         }
 
-        string action = tokens.Length >= 3 && tokens[1].Equals("manual", StringComparison.OrdinalIgnoreCase)
-            ? tokens[2].ToLowerInvariant()
-            : tokens.Length >= 2 ? tokens[1].ToLowerInvariant() : "status";
-        if (action is "enter" or "exit" or "clear")
+        string action = (tokens.Length >= 2 ? tokens[1] : "status").ToLowerInvariant();
+        if (action is "on" or "off")
         {
-            EnsureManagedStateSynchronized(_session.Reader, $"resources {action}");
+            EnsureManagedStateSynchronized(_session.Reader, $"manual {action}");
         }
 
         switch (action)
         {
-            case "enter":
+            case "on":
+                if (!_session.Reader.IsManagedStateSynchronized)
+                {
+                    await _session.Reader.SynchronizeStateAsync(cancellationToken);
+                    _console.MarkupLine("[grey]State synchronized before entering manual mode.[/]");
+                }
                 await _session.Reader.EnterManualResourceModeAsync(cancellationToken);
-                _console.MarkupLine("[green]Manual resource mode entered. ROSpec and AccessSpec writes are now enabled.[/]");
+                _console.MarkupLine("[green]Manual resource mode on. ROSpec and AccessSpec writes are now enabled.[/]");
                 break;
-            case "exit":
+            case "off":
                 await _session.Reader.ExitManualResourceModeAsync(cancellationToken);
                 _console.MarkupLine("[green]Manual resources deleted; reader returned to idle mode.[/]");
-                break;
-            case "clear":
-                await _session.Reader.ClearManagedSettingsAsync(cancellationToken);
-                _console.MarkupLine("[green]SDK-managed inventory configuration deleted; reader returned to idle mode.[/]");
                 break;
             case "status":
                 _console.MarkupLine($"Resource mode: [cyan]{_session.Reader.ResourceMode}[/]");
                 break;
             default:
-                _console.MarkupLine("[red]Usage:[/] resources manual enter|exit|status | resources clear");
+                _console.MarkupLine("[red]Usage:[/] manual on|off|status");
                 break;
         }
     }
@@ -781,7 +780,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             _console.MarkupLine(
                 "[yellow]SDK-managed state is now unknown. Run [cyan1]sync[/] to inspect existing resources, " +
                 "or use a settings file with [cyan1]Inventory[/] via [cyan1]settings apply <file> --yes[/] / " +
-                "[cyan1]settings defaults --yes[/] to force a managed takeover.[/]");
+                "[cyan1]settings apply --defaults --yes[/] to force a managed takeover.[/]");
         }
     }
 
@@ -804,8 +803,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         if (reader.ResourceMode != ReaderResourceMode.ManualResources)
         {
             throw new CliUsageException(
-                $"'{command}' changes ROSpec/AccessSpec resources. Run 'resources manual enter' first, " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' for a managed takeover.");
+                $"'{command}' changes ROSpec/AccessSpec resources. Run 'manual on' first, " +
+                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' for a managed takeover.");
         }
     }
 
@@ -815,7 +814,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         {
             throw new CliUsageException(
                 $"SDK-managed state is unknown after raw or manual resource access. Run 'sync' before '{command}', " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings defaults --yes' to force a managed takeover.");
+                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.");
         }
     }
 
@@ -880,7 +879,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             "[grey][cyan1]rospec list[/] / [cyan1]start[/] / [cyan1]stop[/] / [cyan1]caps[/] / [cyan1]status[/][/]");
         grid.AddRow(
             "[bold yellow1]🏷️ 托管盘点流[/]",
-            "[grey]带 [cyan1]Inventory[/] 的 [cyan1]settings apply <file> --yes[/] 或 [cyan1]settings defaults --yes[/] 部署意图；[cyan1]inventory start|stop[/] 控制托管盘点[/]");
+            "[grey]带 [cyan1]Inventory[/] 的 [cyan1]settings apply <file> --yes[/] 或 [cyan1]settings apply --defaults --yes[/] 部署意图；[cyan1]inventory start|stop[/] 控制托管盘点[/]");
         grid.AddRow(
             "[bold cyan1]📡 被动推流监听[/]",
             "[grey][cyan1]monitor 10[/] 纯被动接收打印 10 秒 TCP 回调帧[/]");
@@ -890,7 +889,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         var panel = new Panel(grid)
         {
-            Header = new PanelHeader("[bold white on deepskyblue1] 📡 LLRP C# SDK Terminal Studio [/] [grey70]v1.0.1[/]", Justify.Center),
+            Header = new PanelHeader($"[bold white on deepskyblue1] 📡 LLRP C# SDK Terminal Studio [/] [grey70]v{GetAssemblyVersion()}[/]", Justify.Center),
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(Color.DeepSkyBlue1),
             Padding = new Padding(1, 0, 1, 0)
@@ -898,6 +897,12 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         _console.Write(panel);
         _console.WriteLine();
+    }
+
+    private static string GetAssemblyVersion()
+    {
+        System.Reflection.AssemblyName assembly = typeof(LiveCommand).Assembly.GetName();
+        return assembly.Version?.ToString(3) ?? "0.0.0";
     }
 
     private void RenderHelp()
@@ -912,11 +917,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 1: 连接与会话状态
         table.AddRow("[bold yellow1]─── 🌐 连接与会话状态 (Connection & Status) ───[/]", "");
-        table.AddRow("  [cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1]] [[--vendor auto|impinj|seuic|none]][/]", "连接读写器并完成版本协商/厂商扩展选择");
+        table.AddRow("  [cyan1]connect <host> [[port]] [[--llrp auto|1.0.1|1.1|2.0]] [[--vendor auto|impinj|seuic|zebra|none]][/]", "连接读写器并完成版本协商/厂商扩展选择");
         table.AddRow("  [cyan1]disconnect[/]", "断开当前读写器 TCP 会话");
         table.AddRow("  [cyan1]status[/]", "显示当前连接状态、协商版本与读写器元数据");
         table.AddRow("  [cyan1]caps[/]", "显示读写器硬件能力参数 (Capabilities)");
-        table.AddRow("  [cyan1]settings show|defaults|edit|validate|apply|load|save[/]", "查看、编辑、校验和应用 ReaderSettings；应用必须显式确认");
+        table.AddRow("  [cyan1]settings show|edit|validate|apply|save[/]", "查看、编辑、校验和应用 ReaderSettings；应用必须显式确认");
 
         // 分组 2: 高层托管盘点 (Managed Inventory)
         table.AddRow("[bold yellow1]─── 🚀 高层托管盘点 (Managed Inventory API) ───[/]", "");
@@ -929,9 +934,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 4: 进阶底层资源操控 (Advanced Resource API)
         table.AddRow("[bold yellow1]─── ⚙️ 进阶底层资源操控 (Advanced Resource API) ───[/]", "");
-        table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "先 sync，再 resources manual enter 后管理设备 ROSpec 资源");
-        table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "先 sync，再 resources manual enter 后管理 AccessSpec 资源");
-        table.AddRow("  [cyan1]resources manual enter|exit|status | resources clear[/]", "raw 后先 sync；显式进入专家资源模式，或清除 SDK 保留资源");
+        table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "先 sync，再 manual on 后管理设备 ROSpec 资源");
+        table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "先 sync，再 manual on 后管理 AccessSpec 资源");
+        table.AddRow("  [cyan1]manual on|off|status[/]", "raw 后先 sync；显式进入/退出专家资源模式");
         table.AddRow("  [cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "精准发送或收发原始二进制 Hex 报文");
         table.AddRow("  [cyan1]sync[/]", "同步并采用设备现有 ROSpec/AccessSpec；需要覆盖时改用带 Inventory 的 settings apply 或 defaults --yes");
 
@@ -979,12 +984,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             optionsTable.AddColumn("[bold grey70]Type / Format[/]");
             optionsTable.AddColumn("[bold grey70]Description[/]");
 
-            optionsTable.AddRow(Markup.Escape("show [--json]"), "Command", "Read the connected reader settings");
-            optionsTable.AddRow(Markup.Escape("defaults [--json|--yes]"), "Command", "Show or explicitly apply SDK/vendor defaults; --yes can take over after raw access");
-            optionsTable.AddRow(Markup.Escape("edit [--from defaults|<file>]"), "Command", "Interactively edit and optionally apply settings");
+            optionsTable.AddRow(Markup.Escape("show [--json|--raw]"), "Command", "Read the connected reader settings");
+            optionsTable.AddRow(Markup.Escape("edit [--from reader|defaults|<file>]"), "Command", "Interactively edit and optionally apply settings");
             optionsTable.AddRow(Markup.Escape("validate <file>"), "Command", "Validate a settings file against the connected reader");
-            optionsTable.AddRow(Markup.Escape("apply <file> --yes"), "Command", "Validate, apply, and query a settings file; Inventory enables takeover after raw access");
-            optionsTable.AddRow("load/save", "Command", "Load or save a settings JSON file");
+            optionsTable.AddRow(Markup.Escape("apply --defaults --yes | <file> --yes [--json]"), "Command", "Validate and apply reader settings or SDK defaults; --yes confirms deployment");
+            optionsTable.AddRow(Markup.Escape("save <file>"), "Command", "Save the current reader settings to a JSON file");
 
             _console.Write(new Panel(optionsTable)
                 .Header("[bold yellow] settings [/]")
