@@ -52,8 +52,4 @@ internal static class ManagedInventoryStateAssembler
                 exception);
         }
     }
-
-    /// <summary>Packs an LLRP bit list into big-endian bytes; the first bit becomes the MSB of the first byte.</summary>
-    internal static byte[] BitsToBytes(IReadOnlyList<bool> bits) => bits.Chunk(8)
-        .Select(group => Convert.ToByte(group.Select((bit, index) => bit ? 1 << (7 - index) : 0).Sum())).ToArray();
 }

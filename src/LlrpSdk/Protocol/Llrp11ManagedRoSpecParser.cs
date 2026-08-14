@@ -96,7 +96,7 @@ internal static class Llrp11ManagedRoSpecParser
             {
                 MemoryBank = filter.C1G2TagInventoryMask.MB,
                 BitPointer = filter.C1G2TagInventoryMask.Pointer,
-                Mask = ManagedInventoryStateAssembler.BitsToBytes(stateAwareBits),
+                Mask = LlrpWireBits.BitsToBytes(stateAwareBits),
                 BitLength = checked((ushort)stateAwareBits.Length),
                 StateAwareAction = new InventoryStateAwareFilterAction
                 {
@@ -129,7 +129,7 @@ internal static class Llrp11ManagedRoSpecParser
         {
             MemoryBank = filter.C1G2TagInventoryMask.MB,
             BitPointer = filter.C1G2TagInventoryMask.Pointer,
-            Mask = ManagedInventoryStateAssembler.BitsToBytes(bits),
+            Mask = LlrpWireBits.BitsToBytes(bits),
             BitLength = checked((ushort)bits.Length),
             MatchAction = match,
             NonMatchAction = nonMatch
