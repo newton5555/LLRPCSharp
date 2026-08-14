@@ -62,7 +62,8 @@ internal static class LlrpProtocolMessageFactory
                 operation,
                 checked((ushort)v101Error.LLRPStatus.StatusCode),
                 v101Error.LLRPStatus.ErrorDescription,
-                v101Error.LLRPStatus);
+                v101Error.LLRPStatus,
+                Enum.GetName(typeof(V101Enumerations.StatusCode), (long)v101Error.LLRPStatus.StatusCode));
             return true;
         }
 
@@ -72,7 +73,8 @@ internal static class LlrpProtocolMessageFactory
                 operation,
                 checked((ushort)v11Error.LLRPStatus.StatusCode),
                 v11Error.LLRPStatus.ErrorDescription,
-                v11Error.LLRPStatus);
+                v11Error.LLRPStatus,
+                Enum.GetName(typeof(V11Enumerations.StatusCode), (long)v11Error.LLRPStatus.StatusCode));
             return true;
         }
 

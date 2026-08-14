@@ -44,8 +44,8 @@ internal static class Llrp101TagAccessCompiler
             (byte)selection.MemoryBank,
             selection.Match,
             selection.BitPointer,
-            ToBits(selection.Mask.Span, selection.BitLength),
-            ToBits(selection.Data.Span, selection.BitLength));
+            LlrpWireBits.ToBits(selection.Mask.Span, selection.BitLength),
+            LlrpWireBits.ToBits(selection.Data.Span, selection.BitLength));
         var command = new AccessCommand(new C1G2TagSpec([target]), opSpecs, []);
         return new AccessSpec(
             accessSpecId,
@@ -142,15 +142,4 @@ internal static class Llrp101TagAccessCompiler
         payloads.Add(new C1G2LockPayload(privilege, field));
     }
 
-    private static IReadOnlyList<bool> ToBits(ReadOnlySpan<byte> bytes, ushort bitLength)
-    {
-        // LLRP masks are bit vectors; a zero bit length uses every packed bit (standard semantics: array length == bit count).
-        int length = bitLength == 0 ? checked(bytes.Length * 8) : bitLength;
-        var bits = new bool[length];
-        for (int i = 0; i < length; i++)
-        {
-            bits[i] = (bytes[i / 8] & (1 << (7 - (i % 8)))) != 0;
-        }
-        return bits;
-    }
 }

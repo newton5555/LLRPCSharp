@@ -50,7 +50,8 @@ internal static class LlrpVersionNegotiator
                 "GET_SUPPORTED_VERSION",
                 checked((ushort)supported.LLRPStatus.StatusCode),
                 supported.LLRPStatus.ErrorDescription,
-                supported.LLRPStatus);
+                supported.LLRPStatus,
+                Enum.GetName(typeof(V11Enumerations.StatusCode), (long)supported.LLRPStatus.StatusCode));
         }
 
         if (supported.SupportedVersion < (byte)LlrpProtocolVersion.Version11)
@@ -84,7 +85,8 @@ internal static class LlrpVersionNegotiator
                 "SET_PROTOCOL_VERSION",
                 checked((ushort)setResponse.LLRPStatus.StatusCode),
                 setResponse.LLRPStatus.ErrorDescription,
-                setResponse.LLRPStatus);
+                setResponse.LLRPStatus,
+                Enum.GetName(typeof(V11Enumerations.StatusCode), (long)setResponse.LLRPStatus.StatusCode));
         }
 
         reader.SelectProtocolAdapter(LlrpProtocolVersion.Version11);

@@ -323,7 +323,8 @@ internal sealed class Llrp11ProtocolAdapter : ILlrpProtocolAdapter
                 operation,
                 checked((ushort)status.StatusCode),
                 status.ErrorDescription,
-                status);
+                status,
+                Enum.GetName(typeof(StatusCode), (long)status.StatusCode));
         }
     }
 
