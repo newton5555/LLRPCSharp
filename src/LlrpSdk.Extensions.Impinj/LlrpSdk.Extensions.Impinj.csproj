@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <Title>LLRPCSharp Impinj Extension Plugin</Title>
@@ -6,6 +6,11 @@
     <PackageTags>rfid;llrp;impinj;speedway;revolution;r420;r700;sdk;plugin</PackageTags>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeReferencedProjectOutputs</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="artifacts\**" />
+    <EmbeddedResource Remove="artifacts\**" />
+    <None Remove="artifacts\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\LlrpNet\LlrpNet.Protocol.Impinj\LlrpNet.Protocol.Impinj.csproj" PrivateAssets="all" IncludeAssets="compile;runtime" />
