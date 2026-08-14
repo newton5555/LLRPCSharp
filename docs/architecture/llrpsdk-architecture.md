@@ -159,6 +159,26 @@ LlrpSdk
 - **版本在连接时锁定**:`Auto`(默认)先探测 1.1(`GET_SUPPORTED_VERSION`),支持则 `SET_PROTOCOL_VERSION` 后切换 1.1 适配器;
   `Force101` 不探测;`Force11` 失败即连接失败不静默回退。
 
+### 3.3 公开属性分类(常量 / 快照 / 派生)
+
+Reader 的只读属性按"是否会变、变了由谁刷"分三档,避免把不同生命周期的值混为一谈:
+
+**连接期常量** —— 连上后锁定,断线/重连才重新确定,不存在"刷新"需求:
+- `Identity`(厂商/型号/固件/序列号,设备固定身份,连接时取一次)
+- `NegotiatedVersion`(协商结果,连接期锁定)
+- `Options`(构造期传入的不可变选项,永不变化;对外仅暴露运行期常量,`TransportFactory`/`FrameObserver`/`ProtocolModules`/`ReaderExtensions` 等构造期实现细节为 internal)
+- `ConnectionId`(当前连接的诊断标识)
+
+**快照** —— 可能变,各有唯一刷新入口,不跨职责隐性刷新:
+- `Capabilities` → 刷新口 `RefreshCapabilitiesAsync`(设备能力热变更才需重查;连接初始化那次即默认值)
+- `CurrentInventorySettings` 与托管资源状态 → 刷新口 `QuerySettingsAsync` / `SynchronizeStateAsync` / 盘点生命周期
+- 原则:每个"拉取"操作只刷新它自己负责的快照。查配置(`QuerySettingsAsync`)不重拉能力,重拉能力(`RefreshCapabilitiesAsync`)不碰配置。
+
+**派生/实时** —— 直接由底层状态机或标志驱动,不缓存:
+- `IsConnected` / `ConnectionState`(连接状态机)
+- `OperationState` / `ResourceMode`(盘点与资源状态机;也会被 `QuerySettingsAsync`/`SynchronizeStateAsync` 对齐)
+- `IsManagedStateSynchronized`(raw 或手动资源操作后为 `false`,`SynchronizeStateAsync` 置回)
+
 ## 4. Impinj 扩展 SDK 项目(LlrpSdk.Extensions.Impinj)的内部技术结构
 
 ### 4.1 文件树与各文件职责
@@ -233,6 +253,11 @@ TagFilterVerification 改变标准 Select 的应用方式等:标准参数仍在�
 判定理由:核心零感知原则禁止 SDK 内做厂商语义决策;厂商策略无法跨厂商复用;设备固件才是最终裁判,
 SDK 能诚实做的是显式冲突报错而非静默消解。可选地,将来可在扩展层提供 Impinj 协调 facade
 (一条意图 → 标准+扩展一致性组合),但不进核心。
+
+GPO 是同一原则的具体例:标准 LLRP 的 `SET_READER_CONFIG` 只承载整张 GPO 列表、没有单路写,所以门面
+`SetGpoAsync` 是"查询→改→回写"复合(非原子,回写会覆盖 SDK 之外的改动)。Impinj 的
+`ImpinjAdvancedGPOConfiguration` 已提供厂商级单路 GPO(挂 `ImpinjReaderSettings.AdvancedGpos`,走设置下发)。
+将来单路 GPO 的厂商实现走扩展设置面、不回填门面 —— 与上表"语义路线选择在应用层"一致。
 
 ### 4.5 程序集边界与依赖方向
 

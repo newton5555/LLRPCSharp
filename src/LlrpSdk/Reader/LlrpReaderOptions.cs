@@ -109,7 +109,7 @@ public sealed class LlrpReaderOptions
     /// <summary>
     /// Gets the exact-frame observer used by the default TCP transport.
     /// </summary>
-    public ILlrpFrameObserver FrameObserver { get; }
+    internal ILlrpFrameObserver FrameObserver { get; }
 
     /// <summary>Gets the policy used to negotiate or force the LLRP protocol version.</summary>
     public LlrpProtocolVersionPolicy ProtocolVersionPolicy { get; }
@@ -120,13 +120,13 @@ public sealed class LlrpReaderOptions
     /// <summary>
     /// Gets the transport factory. A custom factory is useful for alternate transports and deterministic tests.
     /// </summary>
-    public LlrpTransportFactory TransportFactory { get; }
+    internal LlrpTransportFactory TransportFactory { get; }
 
     /// <summary>Gets protocol modules registered before the reader connects.</summary>
-    public IReadOnlyList<ILlrpProtocolModule> ProtocolModules { get; }
+    internal IReadOnlyList<ILlrpProtocolModule> ProtocolModules { get; }
 
     /// <summary>Gets extensions eligible for identity-based activation after standard initialization.</summary>
-    public IReadOnlyList<IReaderExtension> ReaderExtensions { get; }
+    internal IReadOnlyList<IReaderExtension> ReaderExtensions { get; }
 
     internal IReadOnlyList<Action<LlrpCodecRegistry>> ProtocolConfigurations { get; }
 
