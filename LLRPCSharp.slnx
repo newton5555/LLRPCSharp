@@ -17,6 +17,7 @@
     <Project Path="src/LlrpNet/LlrpNet.Core/LlrpNet.Core.csproj" />
     <Project Path="src/LlrpNet/LlrpNet.Protocol/LlrpNet.Protocol.csproj" />
     <Project Path="src/LlrpNet/LlrpNet.Protocol.Impinj/LlrpNet.Protocol.Impinj.csproj" />
+    <Project Path="src/LlrpNet/LlrpNet.Protocol.Zebra/LlrpNet.Protocol.Zebra.csproj" />
     <Project Path="src/LlrpNet/LlrpNet.ProtocolModel/LlrpNet.ProtocolModel.csproj" />
     <Project Path="src/LlrpNet/LlrpNet.ProtocolGenerator/LlrpNet.ProtocolGenerator.csproj" />
     <Project Path="src/LlrpNet/LlrpNet.ProtocolGenerator.Tool/LlrpNet.ProtocolGenerator.Tool.csproj" />
@@ -26,6 +27,7 @@
     <Project Path="tests/LlrpCli.Tests/LlrpCli.Tests.csproj" />
     <Project Path="tests/LlrpNet.Core.Tests/LlrpNet.Core.Tests.csproj" />
     <Project Path="tests/LlrpNet.Protocol.Impinj.Tests/LlrpNet.Protocol.Impinj.Tests.csproj" />
+    <Project Path="tests/LlrpNet.Protocol.Zebra.Tests/LlrpNet.Protocol.Zebra.Tests.csproj" />
     <Project Path="tests/LlrpNet.Protocol.Tests/LlrpNet.Protocol.Tests.csproj" />
     <Project Path="tests/LlrpNet.ProtocolGenerator.Tests/LlrpNet.ProtocolGenerator.Tests.csproj" />
     <Project Path="tests/LlrpNet.ProtocolModel.Tests/LlrpNet.ProtocolModel.Tests.csproj" />
@@ -43,6 +45,7 @@
   </Folder>
   <Folder Name="/definitions/extensions/">
     <File Path="definitions/extensions/.gitkeep" />
+    <File Path="definitions/extensions/zebra.yml" />
   </Folder>
   <Folder Name="/definitions/imports/xml/">
     <File Path="definitions/imports/xml/.gitkeep" />
@@ -93,6 +96,9 @@
   </Folder>
   <Folder Name="/docs/references/">
     <File Path="docs/references/README.md" />
+  </Folder>
+  <Folder Name="/docs/references/zebra/">
+    <File Path="docs/references/zebra/llrp-1.0.1-extensions.md" />
   </Folder>
   <Folder Name="/docs/references/impinj/">
     <File Path="docs/references/impinj/llrp-extension-alignment.md" />
