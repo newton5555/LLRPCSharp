@@ -18,6 +18,10 @@ public sealed class DecodeSettings : CommandSettings
     [Description("Output format: json, text, or summary.")]
     [DefaultValue("json")]
     public string Output { get; init; } = "json";
+
+    [CommandOption("--message-type <UINT16>")]
+    [Description("Only decode captured LLRP messages whose message type (command code) equals this number.")]
+    public string? MessageTypeRaw { get; init; }
 }
 
 public sealed class DecodeCommand : Command<DecodeSettings>
@@ -38,7 +42,10 @@ public sealed class DecodeCommand : Command<DecodeSettings>
         byte[]? captureBytes = OfflineProtocolTool.TryReadPcapNg(settings.Hex);
         if (captureBytes is not null)
         {
-            OfflineProtocolTool.DecodePcap(settings.Hex, captureBytes, settings.Output, _console, _output);
+            ushort? messageTypeFilter = settings.MessageTypeRaw is null
+                ? null
+                : Helpers.ParseUInt16(settings.MessageTypeRaw, "--message-type");
+            OfflineProtocolTool.DecodePcap(settings.Hex, captureBytes, settings.Output, _console, _output, messageTypeFilter);
             return 0;
         }
 

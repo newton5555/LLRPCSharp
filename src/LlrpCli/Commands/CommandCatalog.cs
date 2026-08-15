@@ -93,7 +93,7 @@ public static class CommandCatalog
             CompletionCandidates = ["10", "20", "50", "100"],
         },
         new("inspect", LiveCommandRoute.Inspect, "inspect <hex>", "Inspect basic header of an LLRP hexadecimal payload."),
-        new("decode", LiveCommandRoute.Decode, "decode <hex-or-pcapng> [--output text|summary|json]", "Decode an LLRP hex frame or a .pcapng capture file into a parameter tree."),
+        new("decode", LiveCommandRoute.Decode, "decode <hex-or-pcapng> [--output text|summary|json] [--message-type NUMBER]", "Decode an LLRP hex frame or a .pcapng capture file into a parameter tree; --message-type filters by command code."),
         new("validate", LiveCommandRoute.Validate, "validate <hex>", "Validate structural integrity of an LLRP payload."),
         new("encode", LiveCommandRoute.Encode, "encode <message-type-or-json>", "Encode message template to hex."),
         new("monitor", LiveCommandRoute.Monitor, "monitor [live|frames] [duration-sec] [--type MessageName]", "Foreground monitor for tags or raw LLRP frames; Ctrl+C returns to the prompt.", RequiresConnection: true)

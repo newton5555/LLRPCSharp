@@ -25,12 +25,13 @@ internal static class LiveProtocolDiagnostics
     {
         if (tokens.Length < 2)
         {
-            console.MarkupLine("[red]Usage:[/] decode <hex-frame|pcapng-file> [--output text|summary|json]");
+            console.MarkupLine("[red]Usage:[/] decode <hex-frame|pcapng-file> [--output text|summary|json] [--message-type NUMBER]");
             return;
         }
 
         string target = tokens[1];
         string outputFormat = "text";
+        ushort? messageTypeFilter = null;
         for (int index = 2; index < tokens.Length; index++)
         {
             if (index + 1 < tokens.Length && tokens[index].Equals("--output", StringComparison.OrdinalIgnoreCase))
@@ -39,14 +40,20 @@ internal static class LiveProtocolDiagnostics
                 continue;
             }
 
-            console.MarkupLine("[red]Usage:[/] decode <hex-frame|pcapng-file> [--output text|summary|json]");
+            if (index + 1 < tokens.Length && tokens[index].Equals("--message-type", StringComparison.OrdinalIgnoreCase))
+            {
+                messageTypeFilter = Helpers.ParseUInt16(tokens[++index], "--message-type");
+                continue;
+            }
+
+            console.MarkupLine("[red]Usage:[/] decode <hex-frame|pcapng-file> [--output text|summary|json] [--message-type NUMBER]");
             return;
         }
 
         byte[]? capture = OfflineProtocolTool.TryReadPcapNg(target);
         if (capture is not null)
         {
-            OfflineProtocolTool.DecodePcap(target, capture, outputFormat, console);
+            OfflineProtocolTool.DecodePcap(target, capture, outputFormat, console, null, messageTypeFilter);
             return;
         }
 

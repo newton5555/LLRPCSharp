@@ -489,6 +489,36 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
+    public void DecodePcap_MessageTypeFilterReducesMatchedMessages()
+    {
+        // A capture with two messages: KEEPALIVE (type 62) and GET_READER_CAPABILITIES (type 21).
+        // Single TCP packet carrying two back-to-back LLRP frames in its payload:
+        // KEEPALIVE (type 62) then CLOSE_CONNECTION (type 14).
+        byte[] bothFrames = Convert.FromHexString(
+            "30D0423F4A6E00162513E6ED0800" +
+            "4500003C0000000040060000C0A82832C0A82857" +
+            "F4E913DC00000000000000005002000000000000" +
+            "043E0000000A01020304" +
+            "040E0000000A01020305");
+        byte[] pcapng = BuildPcapNg(bothFrames);
+        string path = Path.Combine(Path.GetTempPath(), "filter-" + Guid.NewGuid().ToString("N") + ".pcapng");
+        File.WriteAllBytes(path, pcapng);
+        try
+        {
+            InvocationResult result = Invoke("decode", path, "--output", "summary", "--message-type", "14");
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Contains("1/2 LLRP message", result.Output, StringComparison.Ordinal);
+            Assert.Contains("CLOSE_CONNECTION", result.Output, StringComparison.Ordinal);
+            Assert.DoesNotContain("KEEPALIVE", result.Output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void LiveDecode_RouteDecodesPcapNgFile()
     {
         byte[] ethernetPacket = Convert.FromHexString(

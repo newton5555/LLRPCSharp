@@ -66,6 +66,25 @@ public static class Helpers
         return result;
     }
 
+    public static ushort ParseUInt16(string value, string option)
+    {
+        NumberStyles styles = NumberStyles.None;
+        ReadOnlySpan<char> digits = value.AsSpan();
+        if (digits.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            styles = NumberStyles.AllowHexSpecifier;
+            digits = digits[2..];
+        }
+
+        if (digits.IsEmpty
+            || !ushort.TryParse(digits, styles, CultureInfo.InvariantCulture, out ushort result))
+        {
+            throw new CliUsageException($"Option '{option}' requires a UInt16 value.");
+        }
+
+        return result;
+    }
+
     public static LlrpMessageHeader DecodeExactHeader(ReadOnlySpan<byte> frame)
     {
         LlrpMessageHeader header = LlrpMessageHeader.Decode(frame);

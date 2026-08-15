@@ -4,6 +4,7 @@ using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using Spectre.Console;
 using System.Text.Json;
+using LlrpCli.Pcap;
 
 namespace LlrpCli.Commands;
 
@@ -63,13 +64,18 @@ internal static class OfflineProtocolTool
     /// (plus the full parameter tree unless <paramref name="outputFormat"/> is "summary").
     /// When <paramref name="outputFormat"/> is "json" the structured capture is written to
     /// <paramref name="output"/> when non-null, else to the console.
+    /// If <paramref name="messageTypeFilter"/> is set, only messages whose message type (command code)
+    /// equals it are decoded and rendered.
     /// </summary>
-    public static void DecodePcap(string filePath, byte[] capture, string outputFormat, IAnsiConsole console, TextWriter? output = null)
+    public static void DecodePcap(string filePath, byte[] capture, string outputFormat, IAnsiConsole console, TextWriter? output = null, ushort? messageTypeFilter = null)
     {
-        IReadOnlyList<LlrpCli.Pcap.PcapTcpSegment> segments = LlrpCli.Pcap.PcapNgReader.ReadTcpSegments(capture);
-        IReadOnlyList<LlrpCli.Pcap.LlrpCapturedMessage> messages = LlrpCli.Pcap.LlrpStreamReassembler.Reassemble(segments);
+        IReadOnlyList<PcapTcpSegment> segments = PcapNgReader.ReadTcpSegments(capture);
+        IReadOnlyList<LlrpCapturedMessage> messages = LlrpStreamReassembler.Reassemble(segments);
         var registry = Helpers.CreateRegistry();
         string fileName = Path.GetFileName(filePath);
+        LlrpCapturedMessage[] matching = messages
+            .Where(m => MessageTypeOf(m) is ushort t && (!messageTypeFilter.HasValue || t == messageTypeFilter.Value))
+            .ToArray();
 
         if (string.Equals(outputFormat, "json", StringComparison.OrdinalIgnoreCase))
         {
@@ -78,7 +84,9 @@ internal static class OfflineProtocolTool
                 capture = fileName,
                 segmentCount = segments.Count,
                 messageCount = messages.Count,
-                messages = messages.Select(static m => new
+                matchingCount = matching.Length,
+                filterMessageType = messageTypeFilter,
+                messages = matching.Select(static m => new
                 {
                     direction = m.Direction.ToString(),
                     source = $"{m.SrcIp}:{m.SrcPort}",
@@ -99,8 +107,10 @@ internal static class OfflineProtocolTool
             return;
         }
 
-        console.MarkupLine($"[grey]Decoded [bold]{messages.Count}[/] LLRP message(s) from [bold]{Markup.Escape(fileName)}[/] ([bold]{segments.Count}[/] TCP segments)[/]");
-        foreach (LlrpCli.Pcap.LlrpCapturedMessage message in messages)
+        console.MarkupLine(matching.Length == messages.Count
+            ? $"[grey]Decoded [bold]{matching.Length}[/] LLRP message(s) from [bold]{Markup.Escape(fileName)}[/] ([bold]{segments.Count}[/] TCP segments)[/]"
+            : $"[grey]Decoded [bold]{matching.Length}[/]/{messages.Count} LLRP message(s) from [bold]{Markup.Escape(fileName)}[/] ([bold]{segments.Count}[/] TCP segments, filter message type {messageTypeFilter})[/]");
+        foreach (LlrpCapturedMessage message in matching)
         {
             string dirBadge = message.Direction == LlrpFrameDirection.Receive
                 ? "[springgreen2 bold]RX[/]"
@@ -119,6 +129,18 @@ internal static class OfflineProtocolTool
             {
                 console.MarkupLine($"{dirBadge}  [red]{Markup.Escape(exception.Message)}[/]  [grey]{message.Frame.Length} bytes[/]");
             }
+        }
+    }
+
+    private static ushort? MessageTypeOf(LlrpCapturedMessage message)
+    {
+        try
+        {
+            return LlrpMessageHeader.Decode(message.Frame).MessageType;
+        }
+        catch
+        {
+            return null;
         }
     }
 }

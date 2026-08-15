@@ -194,9 +194,15 @@ dotnet run --project src/LlrpCli -- decode F:\\123.pcapng --output json
   字节数 + 源 → 目的 `IP:端口`。单条解码失败以单行红色提示,不中断整体。
 - `--output text`:先打单行摘要,再渲染完整参数树。
 - `--output json`:整体 JSON,含 `capture`/`segmentCount`/`messageCount`/
-  `messages[]`(每项 `direction`/`source`/`destination`/`hex`)。
+  `matchingCount`/`filterMessageType`/ `messages[]`(每项 `direction`/`source`/
+  `destination`/`hex`)。
 
 方向语义(RX=设备→客户端,源端口 5084;TX=客户端→设备,按源端口判定)。
+
+**按消息类型过滤**: `--message-type <数字>` 只解码命令码(MessageType)等于该数字的报文,
+数字可直接查 LLRP 命令码(如 `RO_ACCESS_REPORT=61`、`KEEPALIVE=62`、
+`CLOSE_CONNECTION=14`)。适用 `--output` 各形态;JSON 输出还会给出 `matchingCount`
+与 `filterMessageType`。
 
 ### 6.4 validate — 校验结构完整性
 
