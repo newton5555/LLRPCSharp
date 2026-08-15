@@ -4,14 +4,14 @@
 
 ![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
 ![C# 14](https://img.shields.io/badge/C%23-14.0-239120?style=flat-square&logo=c-sharp)
-![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-399%20Passed-10b981?style=flat-square)
-![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1-3b82f6?style=flat-square)
+![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-473%20Passed-10b981?style=flat-square)
+![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-3b82f6?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
 **LLRPCSharp** 是基于 **.NET 10.0 / C# 14** 构建的 RFID 超高频 (UHF) 读写器 LLRP 协议开发包与命令行工具。
 
 项目分为两层核心定位：
-* **`LlrpNet`**：传统 **LTK.NET** 的现代化改造，负责 LLRP 1.0.1 / 1.1 协议编解码、类型定义与 TCP 异步传输。
+* **`LlrpNet`**：传统 **LTK.NET** 的现代化改造，负责 LLRP 1.0.1 / 1.1 / 2.0 协议编解码、类型定义与 TCP 异步传输。
 * **`LlrpSdk`**：参考 **Impinj Octane SDK** 理念重新实现的托管 API，屏蔽底层 `ROSpec` 与 `AccessSpec` 复杂细节，面向业务应用提供连接、配置管理与标签上报流。
 
 ---
@@ -27,9 +27,7 @@
 ### 1. 基础盘点示例 (获取并打印推荐默认配置)
 
 ```csharp
-using LlrpSdk.Reader;
-using LlrpSdk.Settings;
-using LlrpSdk.Model;
+using LlrpSdk;
 
 // 1. 创建并连接读写器
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100").Build();
@@ -53,9 +51,7 @@ await foreach (TagReport tag in session.ReadReportsAsync())
 ### 2. 自定义配置 (参数 Mode / 功率索引由 `reader.Capabilities` 查询)
 
 ```csharp
-using LlrpSdk.Reader;
-using LlrpSdk.Settings;
-using LlrpSdk.Model;
+using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
 
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
@@ -117,10 +113,11 @@ dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 
 | 协议 / 厂商 | 支持状态 | 说明 |
 | :--- | :--- | :--- |
-| **LLRP 1.0.1** | 完全支持 | 覆盖完整 SDK、CLI 及标准 ROSpec / AccessSpec 操作 |
-| **LLRP 1.1** | 支持基线 | 支持协议版本自动协商与适配器构建 |
-| **LLRP 2.0** | 规划中（未来支持） | 已储备定义模型，未来版本提供 `Llrp20ProtocolAdapter` |
-| **Impinj 扩展** | 主线支持 | 提供强类型 `UseImpinj()` 管道，支持 TID、相位、RSSI 及自定义模式 |
+| **LLRP 1.0.1** | 可用（实机验证） | 覆盖完整 SDK、CLI、虚拟读写器及标准 ROSpec / AccessSpec 操作 |
+| **LLRP 1.1** | 可用基线 | 支持协议版本自动协商与 `Llrp11ProtocolAdapter` 适配器基线 |
+| **LLRP 2.0** | 协议+适配器基线 | 已生成 `V2_0` 协议资产与 `Llrp20ProtocolAdapter`，支持协商接入；待实机验收 |
+| **Impinj 扩展** | 主线可用 | 提供强类型 `UseImpinj()` 管道与 Contributor 模型（TID、相位、RSSI），R420/R430 实测通过 |
+| **Zebra 扩展** | 扩展基线 | 提供线协议包与 `UseZebra()` 扩展，FX9600 实测通过能力参数与相位/Brand-ID 投影 |
 
 ---
 

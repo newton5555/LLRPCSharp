@@ -27,19 +27,19 @@ coupling them to one application stack.
 
 ### 3. Clean Adapter Boundary
 
-- **Version isolation**: LLRP 1.0.1 and 1.1 are isolated behind `ILlrpProtocolAdapter`; LLRP 2.0 definitions are present, while the adapter is still planned.
+- **Version isolation**: LLRP 1.0.1, 1.1, and 2.0 are isolated behind `ILlrpProtocolAdapter`; LLRP 2.0 protocol assets and SDK adapter baseline are implemented, with real-device acceptance pending.
 - **Version-neutral application entry points**: Application code works primarily with managed APIs such as `LlrpReader`, `InventorySettings`, ROSpec services, and AccessSpec services instead of hand-assembling versioned protocol messages.
 
 ### 4. Pluggable Reader Extensions
 
-- **Vendor extension registration**: Impinj support can be enabled through `UseImpinj()`, which registers generated strongly typed codec assets and extension modules.
+- **Vendor extension registration**: Impinj support can be enabled through `UseImpinj()`, and Zebra support through `UseZebra()`, which register generated strongly typed codec assets and extension modules.
 - **Low-intrusion extension model**: Standard LLRP behavior remains layered away from vendor extensions, so the generic LLRP path remains available when extensions are not enabled.
 
 ## Project Capabilities
 
 ### 1. Session Lifecycle Management
 
-- **Connection and version negotiation**: Supports automatic LLRP 1.1 negotiation, with policy-based forcing of 1.0.1 or 1.1.
+- **Connection and version negotiation**: Supports automatic protocol version negotiation (1.0.1 / 1.1 / 2.0), with policy-based forcing of 1.0.1, 1.1, or 2.0.
 - **Limited automatic reconnect**: Provides `LlrpAutomaticReconnectOptions` and `WithAutomaticReconnect(...)` as a reconnect baseline after unexpected disconnects. After a successful reconnect the SDK queries the device's current ROSpec/AccessSpec state and realigns its internal state (observing reality rather than re-applying the previous desired configuration).
 - **Managed state synchronization**: Raw Protocol operations invalidate managed state. Use `SynchronizeStateAsync()` to inspect and adopt existing resources, or pass the desired inventory settings to `StartInventoryAsync(settings)` / `ApplySettingsAsync(...)` to explicitly delete standard resources and rebuild SDK-managed state without a prior synchronization call.
 
@@ -52,5 +52,5 @@ coupling them to one application stack.
 ### 3. CLI Diagnostics and Interop
 
 - **Online diagnostics**: `LlrpCli` supports connect, monitor, and live shell workflows for observing reader interactions.
-- **Offline protocol tools**: `inspect`, `decode`, and `encode` inspect LLRP messages without a connected reader.
+- **Offline protocol tools**: `inspect`, `decode`, `validate`, and `encode` inspect, decode (supporting single frames and `.pcapng` capture analysis), validate, and construct LLRP messages without a connected reader (supporting 1.0.1, 1.1, 2.0, Impinj, and Zebra).
 - **Raw frame observation**: `ILlrpFrameObserver` and `LlrpFrameJournal` can capture complete TX/RX frames at the Transport/Session boundary for hex diagnostics, auditing, and interoperability analysis.

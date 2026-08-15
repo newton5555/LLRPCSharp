@@ -24,19 +24,19 @@ Registry、异步传输、版本 Adapter 和托管 Reader API。协议资产因�
 
 ### 3. 干净的适配器边界
 
-- **协议版本隔离**：LLRP 1.0.1 与 LLRP 1.1 通过 `ILlrpProtocolAdapter` 实现隔离；LLRP 2.0 定义已入库，Adapter 仍在规划中。
+- **协议版本隔离**：LLRP 1.0.1、1.1 与 2.0 均通过 `ILlrpProtocolAdapter` 实现隔离；LLRP 2.0 协议资产与 SDK 适配器基线已就绪，待实机验收。
 - **版本无关的上层入口**：应用层优先面对 `LlrpReader`、`InventorySettings`、ROSpec 和 AccessSpec 服务等托管 API，减少业务代码直接拼装协议报文的需要。
 
 ### 4. 可插拔的厂商扩展系统
 
-- **厂商扩展注册**：例如 Impinj 扩展可通过 `UseImpinj()` 接入生成的强类型 Codec 资产和扩展模块。
+- **厂商扩展注册**：例如 Impinj 扩展可通过 `UseImpinj()`、Zebra 扩展可通过 `UseZebra()` 接入生成的强类型 Codec 资产和扩展模块。
 - **低侵入性扩展模型**：标准 LLRP 能力与厂商扩展保持分层，未启用厂商扩展时可继续使用通用 LLRP 驱动路径。
 
 ## 核心项目能力
 
 ### 1. 会话生命周期管理
 
-- **连接与版本协商**：支持 LLRP 1.1 自动协商，并可按策略强制 1.0.1 或 1.1。
+- **连接与版本协商**：支持协议版本自动协商（1.0.1 / 1.1 / 2.0），并可按策略强制指定版本（1.0.1、1.1 或 2.0）。
 - **有限自动重连**：提供 `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`，用于意外断线后的重连基线。重连成功后 SDK 会自动查询设备当前 ROSpec/AccessSpec 状态并对齐内部状态（只对齐设备现状，不重放之前的期望配置）。
 - **托管状态同步**：Raw Protocol 操作后会使托管状态失效。需要观察并接管设备现有资源时使用 `SynchronizeStateAsync()`；需要强制恢复 SDK 托管时，直接把目标盘点配置传给 `StartInventoryAsync(settings)` 或带 `Inventory` 的 `ApplySettingsAsync(...)`，SDK 会删除标准资源并重建托管状态，无需先同步。
 
@@ -49,5 +49,5 @@ Registry、异步传输、版本 Adapter 和托管 Reader API。协议资产因�
 ### 3. CLI 诊断与互操作套件
 
 - **在线诊断**：`LlrpCli` 支持连接、监控和 Live Shell，用于快速观察设备交互。
-- **离线协议工具**：支持 `inspect`、`decode`、`encode`，可在不连接设备的情况下检查 LLRP 报文。
+- **离线协议工具**：支持 `inspect`、`decode`、`validate` 和 `encode`，可在不连接设备的情况下检查、解码（支持单帧与 `.pcapng` 抓包分析）、校验与构造 LLRP 报文（支持 1.0.1、1.1、2.0 及 Impinj、Zebra 扩展）。
 - **原始帧观测**：`ILlrpFrameObserver` 和 `LlrpFrameJournal` 可在 Transport/Session 边界记录完整 TX/RX 帧，便于 Hex 诊断、审计和互操作分析。

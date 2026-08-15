@@ -4,14 +4,14 @@
 
 ![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
 ![C# 14](https://img.shields.io/badge/C%23-14.0-239120?style=flat-square&logo=c-sharp)
-![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-399%20Passed-10b981?style=flat-square)
-![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1-3b82f6?style=flat-square)
+![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-473%20Passed-10b981?style=flat-square)
+![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-3b82f6?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
 **LLRPCSharp** is a modern RFID (UHF) Reader LLRP protocol development kit and command-line tool built on **.NET 10.0 / C# 14**.
 
 The project is structured around two core design pillars:
-* **`LlrpNet`**: A modern replacement for traditional **LTK.NET**, handling LLRP 1.0.1 / 1.1 binary encoding/decoding, protocol type definitions, and async TCP transport.
+* **`LlrpNet`**: A modern replacement for traditional **LTK.NET**, handling LLRP 1.0.1 / 1.1 / 2.0 binary encoding/decoding, protocol type definitions, and async TCP transport.
 * **`LlrpSdk`**: A managed high-level API inspired by the **Impinj Octane SDK**, abstracting low-level `ROSpec` and `AccessSpec` details into intuitive connection, configuration, and tag reporting workflows.
 
 ---
@@ -27,9 +27,7 @@ The project is structured around two core design pillars:
 ### 1. Basic Inventory Example (Print & Apply Default Settings)
 
 ```csharp
-using LlrpSdk.Reader;
-using LlrpSdk.Settings;
-using LlrpSdk.Model;
+using LlrpSdk;
 
 // 1. Create and connect to reader
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100").Build();
@@ -53,9 +51,7 @@ await foreach (TagReport tag in session.ReadReportsAsync())
 ### 2. Configure Antennas & Impinj Extensions (Mode/Power Index mapped in `reader.Capabilities`)
 
 ```csharp
-using LlrpSdk.Reader;
-using LlrpSdk.Settings;
-using LlrpSdk.Model;
+using LlrpSdk;
 using LlrpSdk.Extensions.Impinj;
 
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
@@ -117,10 +113,11 @@ dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 
 | Capability / Vendor | Support | Details |
 | :--- | :--- | :--- |
-| **LLRP 1.0.1** | Supported | Full SDK, CLI, and standard ROSpec / AccessSpec operations |
-| **LLRP 1.1** | Supported | Protocol version negotiation and adapter baseline |
-| **LLRP 2.0** | Planned (Future support) | Definition models reserved; `Llrp20ProtocolAdapter` planned for future release |
-| **Impinj Extensions** | Supported | Strongly typed `UseImpinj()` pipeline (TID, Phase, RSSI, RF Mode) |
+| **LLRP 1.0.1** | Available (Verified) | Full SDK, CLI, Virtual Reader, and standard ROSpec / AccessSpec operations |
+| **LLRP 1.1** | Available Baseline | Protocol version auto-negotiation and `Llrp11ProtocolAdapter` baseline |
+| **LLRP 2.0** | Protocol & Adapter Baseline | Generated `V2_0` assets and `Llrp20ProtocolAdapter` implemented; real-device verification pending |
+| **Impinj Extensions** | Available (Mainline) | Strongly typed `UseImpinj()` pipeline, Contributor model (TID, Phase, RSSI) verified on R420/R430 |
+| **Zebra Extensions** | Extension Baseline | Wire package and `UseZebra()` pipeline; FX9600 verified for capabilities and Phase/Brand-ID |
 
 ---
 
