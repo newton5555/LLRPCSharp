@@ -37,7 +37,9 @@ jobs:
         dotnet test tests/LlrpNet.Core.Tests/LlrpNet.Core.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpNet.Protocol.Tests/LlrpNet.Protocol.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpNet.Protocol.Impinj.Tests/LlrpNet.Protocol.Impinj.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpNet.Protocol.Zebra.Tests/LlrpNet.Protocol.Zebra.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpSdk.Extensions.Zebra.Tests/LlrpSdk.Extensions.Zebra.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpCli.Tests/LlrpCli.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/Interop.Tests/Interop.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true

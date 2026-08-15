@@ -82,8 +82,10 @@ jobs:
         dotnet test tests/LlrpNet.Core.Tests/LlrpNet.Core.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpNet.Protocol.Tests/LlrpNet.Protocol.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpNet.Protocol.Impinj.Tests/LlrpNet.Protocol.Impinj.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpNet.Protocol.Zebra.Tests/LlrpNet.Protocol.Zebra.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpSdk.Tests/LlrpSdk.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
+        dotnet test tests/LlrpSdk.Extensions.Zebra.Tests/LlrpSdk.Extensions.Zebra.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/LlrpCli.Tests/LlrpCli.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
         dotnet test tests/Interop.Tests/Interop.Tests.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true
 
@@ -94,6 +96,7 @@ jobs:
       run: |
         dotnet pack src/LlrpSdk/LlrpSdk.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
         dotnet pack src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
+        dotnet pack src/LlrpSdk.Extensions.Zebra/LlrpSdk.Extensions.Zebra.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
 
     - name: Publish LlrpCli (win-x64)
       run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime win-x64 --self-contained true --output ./artifacts/cli-win-x64
@@ -132,5 +135,6 @@ jobs:
         prerelease: false
         body_path: ${{ steps.release.outputs.release_doc }}
         generate_release_notes: true
+        allowUpdates: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
