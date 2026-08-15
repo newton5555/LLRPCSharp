@@ -445,6 +445,88 @@ public sealed class LlrpCliApplicationTests
         return (new LiveInventoryHandler(console, session, new LiveMonitorHandler(console, session)), session);
     }
 
+    [Fact]
+    public void PcapNgReader_ExtractsTcpSegmentsFromEnhancedPacketBlocks()
+    {
+        // One Ethernet/IPv4/TCP packet carrying a KEEPALIVE frame on port 5084,
+        // wrapped in a minimal pcapng (SHB + IDB + EPB).
+        byte[] ethernetPacket = Convert.FromHexString(
+            // dst MAC    src MAC     type IPv4
+            "30D0423F4A6E00162513E6ED0800" +
+            // IPv4 header (20 bytes): v4/ihl5, proto TCP(6), src 192.168.40.50, dst 192.168.40.87
+            "4500003C0000000040060000C0A82832C0A82857" +
+            // TCP header (20 bytes): src 62697, dst 5084, data offset 5
+            "F4E913DC00000000000000005002000000000000" +
+            // LLRP KEEPALIVE frame: type 62, length 10, id 0x01020304
+            "043E0000000A01020304");
+
+        byte[] pcapng = BuildPcapNg(ethernetPacket);
+
+        IReadOnlyList<LlrpCli.Pcap.PcapTcpSegment> segments = LlrpCli.Pcap.PcapNgReader.ReadTcpSegments(pcapng);
+        Assert.Single(segments);
+        Assert.Equal(5084u, segments[0].DstPort);
+        Assert.Equal("192.168.40.50", segments[0].SrcIp);
+        Assert.Equal("192.168.40.87", segments[0].DstIp);
+        Assert.Equal("043E0000000A01020304", Convert.ToHexString(segments[0].Payload));
+    }
+
+    [Fact]
+    public void PcapNgReader_ReassemblesCompleteLlrpFrameAndMarksDirection()
+    {
+        byte[] ethernetPacket = Convert.FromHexString(
+            "30D0423F4A6E00162513E6ED0800" +
+            "4500003C0000000040060000C0A82832C0A82857" +
+            "F4E913DC00000000000000005002000000000000" +
+            "043E0000000A01020304");
+        byte[] pcapng = BuildPcapNg(ethernetPacket);
+
+        IReadOnlyList<LlrpCli.Pcap.PcapTcpSegment> segments = LlrpCli.Pcap.PcapNgReader.ReadTcpSegments(pcapng);
+        IReadOnlyList<LlrpCli.Pcap.LlrpCapturedMessage> messages = LlrpCli.Pcap.LlrpStreamReassembler.Reassemble(segments);
+
+        Assert.Single(messages);
+        Assert.Equal(LlrpNet.Core.Diagnostics.LlrpFrameDirection.Transmit, messages[0].Direction);
+        Assert.Equal("043E0000000A01020304", Convert.ToHexString(messages[0].Frame));
+    }
+
+    private static byte[] BuildPcapNg(byte[] packet)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        WriteU32(writer, 0x0A0D0D0A); // SHB type
+        WriteU32(writer, 28);          // SHB length
+        WriteU32(writer, 0x1A2B3C4D);  // byte-order magic
+        WriteU16(writer, 1);           // major
+        WriteU16(writer, 0);           // minor
+        WriteI64(writer, -1);          // section length
+        WriteU32(writer, 0x0A0D0D0A);  // SHB trailer
+
+        WriteU32(writer, 1);           // IDB type
+        WriteU32(writer, 20);          // IDB length
+        WriteU16(writer, 1);           // linktype Ethernet
+        WriteU16(writer, 0);           // reserved
+        WriteU32(writer, 0);           // snaplen
+        WriteU32(writer, 1);           // IDB trailer
+
+        int epbLength = 28 + packet.Length + ((4 - (packet.Length % 4)) % 4);
+        WriteU32(writer, 6);           // EPB type
+        WriteU32(writer, (uint)epbLength);
+        WriteU32(writer, 0);           // interface id
+        WriteU32(writer, 0);           // timestamp high
+        WriteU32(writer, 0);           // timestamp low
+        WriteU32(writer, (uint)packet.Length);
+        WriteU32(writer, (uint)packet.Length);
+        writer.Write(packet);
+        int pad = (4 - (packet.Length % 4)) % 4;
+        for (int i = 0; i < pad; i++) { writer.Write((byte)0); }
+        WriteU32(writer, (uint)epbLength);
+
+        return stream.ToArray();
+    }
+
+    private static void WriteU32(BinaryWriter writer, uint value) => writer.Write(value);
+    private static void WriteU16(BinaryWriter writer, ushort value) => writer.Write(value);
+    private static void WriteI64(BinaryWriter writer, long value) => writer.Write(value);
+
     private sealed record InvocationResult(
         int ExitCode,
         string Output,
