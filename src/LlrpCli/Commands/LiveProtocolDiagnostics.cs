@@ -25,11 +25,32 @@ internal static class LiveProtocolDiagnostics
     {
         if (tokens.Length < 2)
         {
-            console.MarkupLine("[red]Usage:[/] decode <hex-frame>");
+            console.MarkupLine("[red]Usage:[/] decode <hex-frame|pcapng-file> [--output text|summary|json]");
             return;
         }
 
-        OfflineProtocolTool.DecodeFrame(tokens[1], console);
+        string target = tokens[1];
+        string outputFormat = "text";
+        for (int index = 2; index < tokens.Length; index++)
+        {
+            if (index + 1 < tokens.Length && tokens[index].Equals("--output", StringComparison.OrdinalIgnoreCase))
+            {
+                outputFormat = tokens[++index];
+                continue;
+            }
+
+            console.MarkupLine("[red]Usage:[/] decode <hex-frame|pcapng-file> [--output text|summary|json]");
+            return;
+        }
+
+        byte[]? capture = OfflineProtocolTool.TryReadPcapNg(target);
+        if (capture is not null)
+        {
+            OfflineProtocolTool.DecodePcap(target, capture, outputFormat, console);
+            return;
+        }
+
+        OfflineProtocolTool.DecodeFrame(target, console);
     }
 
     public static void Validate(string[] tokens, IAnsiConsole console)

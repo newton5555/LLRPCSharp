@@ -488,6 +488,36 @@ public sealed class LlrpCliApplicationTests
         Assert.Equal("043E0000000A01020304", Convert.ToHexString(messages[0].Frame));
     }
 
+    [Fact]
+    public void LiveDecode_RouteDecodesPcapNgFile()
+    {
+        byte[] ethernetPacket = Convert.FromHexString(
+            "30D0423F4A6E00162513E6ED0800" +
+            "4500003C0000000040060000C0A82832C0A82857" +
+            "F4E913DC00000000000000005002000000000000" +
+            "043E0000000A01020304");
+        byte[] pcapng = BuildPcapNg(ethernetPacket);
+        string path = Path.Combine(Path.GetTempPath(), "live-decode-" + Guid.NewGuid().ToString("N") + ".pcapng");
+        File.WriteAllBytes(path, pcapng);
+        try
+        {
+            using var output = new StringWriter();
+            IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Out = new AnsiConsoleOutput(output)
+            });
+
+            LiveProtocolDiagnostics.Decode(["decode", path, "--output", "summary"], console);
+
+            Assert.Contains("1 LLRP message", output.ToString(), StringComparison.Ordinal);
+            Assert.Contains("KEEPALIVE", output.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static byte[] BuildPcapNg(byte[] packet)
     {
         using var stream = new MemoryStream();

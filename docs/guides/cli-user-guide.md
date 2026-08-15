@@ -137,24 +137,88 @@ dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --settings config.js
 
 ---
 
-## 🔍 6. 离线协议诊断工具
+## 🔍 6. 离线协议诊断工具 (Inspect / Decode / Validate / Encode)
 
-不连接真实读写器，直接分析或构造 LLRP 二进制十六进制数据帧：
+离线工具**不连接真实读写器**,直接分析或构造 LLRP 二进制字节。四个命令在
+standalone 与 Live Shell 中**共享同一实现核**(`OfflineProtocolTool`),两个入口只做
+参数适配——所以 live shell 里也能直接敲同样的命令,行为一致。
+
+### 6.1 命令总览
+
+| 命令 | 作用 | 输入 | 输出 |
+|---|---|---|---|
+| `inspect <HEX>` | 只读 LLRP 帧 Header | hex | Header 字段表 |
+| `decode <HEX_OR_PCAP>` | 解码帧 / pcapng 抓包 | hex 或 `.pcapng` 路径 | 参数树 / JSON / summary |
+| `validate <HEX>` | 校验帧长度与结构完整性 | hex | 校验结果 |
+| `encode <MESSAGE>` | 构造标准 LLRP 消息为 hex | 消息名 + 选项 | hex 帧 |
+
+> 四命令都支持 LLRP **1.0.1 / 1.1 / 2.0** 与厂商扩展 **Impinj / Zebra**(注册于
+> `Helpers.CreateRegistry()`)。hex 可带空格或连续无空格。hex 与 pcapng **自动判别**:
+> 若参数是存在的文件且前 4 字节为 pcapng magic(`0A 0D 0D 0A`)则按抓包处理,否则按 hex 帧。
+
+### 6.2 inspect — 只读帧头
+
+不展开消息体,仅读 LLRP Header(协议版本、消息类型、消息 ID、长度),用于快速辨帧:
 
 ```powershell
-# 解析十六进制 LLRP 字节帧结构
 dotnet run --project src/LlrpCli -- inspect "043E0000000A01020304"
-
-# 解码二进制帧为 JSON 文本
-dotnet run --project src/LlrpCli -- decode "043E0000000A01020304"
-
-# 构造 GET_ROSPECS 消息的十六进制字节串
-dotnet run --project src/LlrpCli -- encode get-rospecs --message-id 1
 ```
 
-> 注：离线工具当前只注册 LLRP 1.0.1 标准编解码模块；`inspect` 仍可检查 1.1
-> 帧的 Header，但 `decode`/`validate` 无法展开 1.1 消息字段，1.1 `encode` 暂不支持。
+### 6.3 decode — 解码单帧或 pcapng 抓包
 
+**输入自动判别**:hex → 解码单帧并渲染参数树;`.pcapng` 路径 → 解析整个抓包中的
+所有 LLRP 报文(提取 TCP 段、重组完整报文、判定方向)。
+
+#### 单帧 hex
+
+```powershell
+# 默认 JSON 输出
+dotnet run --project src/LlrpCli -- decode 043E0000000A --output json
+# 渲染完整参数树
+dotnet run --project src/LlrpCli -- decode 043E0000000A --output text
+```
+
+- `--output json`:一条 JSON,含 `protocolVersion`/`messageType`/`messageId`/
+  `messageLength`/`model`/`rawHex`。
+- `--output text`:渲染完整参数树。
+
+#### pcapng 抓包
+
+```powershell
+dotnet run --project src/LlrpCli -- decode F:\\123.pcapng --output summary
+dotnet run --project src/LlrpCli -- decode F:\\123.pcapng --output text
+dotnet run --project src/LlrpCli -- decode F:\\123.pcapng --output json
+```
+
+- `--output summary`(推荐):每条消息一行——`RX`/`TX` 方向徽标 + 消息名 + ID +
+  字节数 + 源 → 目的 `IP:端口`。单条解码失败以单行红色提示,不中断整体。
+- `--output text`:先打单行摘要,再渲染完整参数树。
+- `--output json`:整体 JSON,含 `capture`/`segmentCount`/`messageCount`/
+  `messages[]`(每项 `direction`/`source`/`destination`/`hex`)。
+
+方向语义(RX=设备→客户端,源端口 5084;TX=客户端→设备,按源端口判定)。
+
+### 6.4 validate — 校验结构完整性
+
+只校验长度与结构,零副作用不写设备:
+
+```powershell
+dotnet run --project src/LlrpCli -- validate 043E000000000043
+```
+
+### 6.5 encode — 构造标准消息为 hex
+
+```powershell
+dotnet run --project src/LlrpCli -- encode get-rospecs --message-id 1 --llrp 1.0.1
+dotnet run --project src/LlrpCli -- encode get-reader-capabilities --requested-data All --llrp 2.0
+```
+
+| 参数 | 说明 | 默认值 |
+|---|---|---|
+| `--llrp <VERSION>` | `auto`/`1.0.1`/`1.1`/`2.0` | `auto` |
+| `--message-id <UINT32>` | 消息 ID,十进制或 `0x` 十六进制 | `1` |
+| `--rospec-id <UINT32>` | ROSpec 消息所需的 ROSpec ID | 无 |
+| `--requested-data <DATA>` | GetReaderCapabilities 请求的数据类型(随版本校验) | `All` |
 ---
 
 ## 🌐 7. 协议版本支持 (LLRP 1.0.1 / 1.1)
@@ -187,21 +251,18 @@ CLI 的协议版本能力取决于命令的实现层。实时 Reader 命令走 `
 但 1.1 目前属于可用基线，真实 Reader 型号/固件的互操作仍需单独验证；厂商扩展也
 可能存在版本边界（例如当前 Impinj 扩展只在 1.0.1 下激活）。
 
-### 7.2 离线协议工具 (Inspect/Decode/Validate/Encode):标准 Codec 当前仅 1.0.1
+### 7.2 离线协议工具 (Inspect/Decode/Validate/Encode):标准 Codec 已注册 1.0.1/1.1/2.0 + Impinj/Zebra
 
-`inspect` / `decode` / `validate` / `encode` 直接操作 LLRP 报文（不连接设备），
-走协议层（`LlrpNet.Protocol`）。CLI 当前注册了标准 1.0.1 编解码模块，另外注册了
-1.0.1 的 Impinj 扩展模块：
+`inspect` / `decode` / `validate` / `encode` 直接操作 LLRP 报文（不连接设备），走协议层
+（`LlrpNet.Protocol`）。CLI 在 `Helpers.CreateRegistry()` 中注册了标准 **1.0.1 / 1.1 / 2.0**
+编解码模块与厂商扩展 **Impinj / Zebra**（Seuic 无 wire 包不注册）。
 
-* `inspect` 只读取 Header，因此 1.1 帧仍可显示协议版本、消息类型、消息 ID 和长度；
-* `decode` / `validate` 可以校验帧结构，但未注册的 1.1 消息主体会得到
-  `UnknownMessage`，无法展开字段；
-* `encode` 当前没有 `--version` 参数，消息模板和编码版本固定为 1.0.1，构造 1.1
-  消息暂不支持。
+* `inspect` 只读 Header，任意版本帧都可显示协议版本、消息类型、消息 ID 和长度；
+* `decode` / `validate` 按所选版本解码消息主体，未注册类型会得到 `UnknownMessage`；
+* `encode` 支持 `--llrp 1.0.1|1.1|2.0`，按所选版本构造对应的消息、参数和枚举类型。
 
-这是已记录的待办(`docs/roadmap.md`),补齐方式是在 `Helpers.CreateRegistry()`
-中注册 `Llrp11StandardModule`，并让 `encode` 支持 `--version 1.0.1|1.1` 参数，
-同时按所选版本构造对应的消息、参数和枚举类型。
+`decode` 额外支持 `.pcapng` 抓包解析（见 §6.3）。官方 ICG 与 `zebra.yml` 的参数级偏差
+见 `docs/references/zebra/llrp-1.0.1-definition-drift.md`。
 
 ### 7.3 为什么两层能力不同
 
