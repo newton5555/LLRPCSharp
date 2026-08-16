@@ -1,6 +1,23 @@
+using System.Net;
+using LlrpNet.Protocol.Enumerations.V1_0_1;
+
 namespace LlrpVirtualReader;
 
-using LlrpNet.Protocol.Enumerations.V1_0_1;
+/// <summary>Configures the TCP endpoint and device behavior of a virtual reader host.</summary>
+public sealed record VirtualReaderHostOptions
+{
+    /// <summary>Gets the local address on which the host listens.</summary>
+    public IPAddress ListenAddress { get; init; } = IPAddress.Loopback;
+
+    /// <summary>
+    /// Gets the TCP port. Port zero is reserved for in-process tests; user-facing hosts must use a
+    /// concrete port.
+    /// </summary>
+    public int Port { get; init; }
+
+    /// <summary>Gets the deterministic device behavior options.</summary>
+    public VirtualReaderOptions ReaderOptions { get; init; } = new();
+}
 
 /// <summary>Configures the deterministic tag exposed by <see cref="VirtualReaderHost"/>.</summary>
 public sealed record VirtualReaderOptions

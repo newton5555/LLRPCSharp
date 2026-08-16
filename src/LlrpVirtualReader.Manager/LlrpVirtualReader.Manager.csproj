@@ -8,4 +8,3 @@
     <ProjectReference Include="..\LlrpVirtualReader.Core\LlrpVirtualReader.Core.csproj" />
   </ItemGroup>
 </Project>
-

@@ -1,6 +1,6 @@
 # 路线图
 
-> 基准日期：2026-08-03
+> 基准日期：2026-08-16
 
 本文档只保留未完成事项；当前实现事实见 [status.md](status.md)。
 
@@ -43,24 +43,27 @@
 2. 增加 LLRP 2.0 Virtual Reader 和真实设备互操作测试。
 3. 继续完善多厂商协议定义、生成和能力验证工具链。
 
-## 长期专项：Virtual Reader Core 与独立 Manager（未排期）
+## 长期专项：Virtual Reader Core 与独立 Manager（已启动，分阶段实施）
 
 > 决策来源：[ADR 0006](adr/0006-preset-driven-virtual-reader-manager.md)。本工作包只负责
 > 报文级 TCP/LLRP 虚拟设备。`LlrpReaderPlatform` 的进程内 Session 替身由平台仓库自己管理，
-> 两者不共享运行时依赖。本专项不属于近期或中期默认执行顺序；当前继续维护现有最小单 Host，
-> 只有用户重新明确启动后才按 VR1～VR8 实施。
+> 两者不共享运行时依赖。2026-08-16 已按用户明确要求启动本专项；当前完成 VR1/VR2 基线，
+> VR3～VR8 仍按依赖顺序实施。完整的多 Host、Preset 和 Handler 能力尚未交付。
 
 ### 产品边界
 
 ```text
 LlrpVirtualReader.Manager
-  └─ 用户选择内置预设 + 名称 + 本机监听地址/端口
-      └─ LlrpVirtualReader.Core 启动一个 TCP Host
-          └─ SDK CLI、Reader Studio 或第三方客户端按普通 Reader 连接
+  ├─ create/new：保存目标配置（名称、预设、监听地址、端口）
+  ├─ start/stop/restart/delete/list/status：管理实例生命周期
+  └─ 为每个实例创建一个 LlrpVirtualReader.Core TCP Host
+      └─ SDK CLI、Reader Studio 或第三方客户端按普通 Reader 连接
 ```
 
 用户不编辑完整配方，不配置能力、标签、故障或厂商参数。预设是随软件发布并经过测试的
 开发资产。端口只表示监听位置，不表示设备类型；指定端点无法绑定时明确失败且不自动换端口。
+Core 只负责一个虚拟 Reader 的设备状态、报文处理和 TCP 生命周期；实例注册、创建/删除、
+多 Host 编排和目标配置归 Manager 负责。
 
 ### VR1：现有行为冻结与 Core 拆分
 
@@ -86,14 +89,32 @@ LlrpVirtualReader.Manager
 - 每个 Host 独立维护 Listener、连接、资源和 Tag Memory 状态；
 - 定义单控制客户端默认语义，额外连接的处理必须有确定测试。
 
-出口：精确端点绑定、占用失败、停止释放端口和多 Host 不串状态测试通过。
+出口：精确端点绑定、占用失败和停止释放端口测试通过；多 Host 不串状态由 VR3 验证。
 
-### VR3：内置 Preset Catalog
+当前进度：`LlrpVirtualReader.Core` 已提供 `VirtualReaderHostOptions` 的显式监听地址/端口；
+`LlrpVirtualReader.Manager` 已提供独立单 Host CLI，端口占用不回退；Core 专项测试已覆盖
+精确回环端口绑定和占用失败。Manager 的多 Host 实例生命周期与结构化启动结果进入 VR3。
+
+### VR3：Manager 实例模型与生命周期
+
+- 定义 Manager 持有的实例记录：`InstanceId`、名称、目标配置/预设、监听地址、端口、
+  启用意图和运行状态；
+- `create/new` 创建一个未启动实例，并由 Manager 为它构造一个独立的 `VirtualReaderHost`；
+- `start`、`stop`、`restart`、`delete`、`list`、`status` 全部由 Manager 提供；
+- 每个实例拥有独立的 Host、Listener、设备状态和端点；一个实例失败不能影响其他实例；
+- 端口冲突、地址不可绑定和配置错误返回结构化失败，不自动换端口；
+- 第一版先在同一个 Manager 进程内管理多个 Host，不拆分子进程；
+- 先用最小 Standard LLRP 1.0.1 目标配置跑通生命周期，不开放任意 JSON 报文配方。
+
+出口：一个 Manager 进程可创建、启动、停止、重启和删除多个独立的 LLRP TCP 服务，
+并有 Manager 专项测试覆盖状态隔离、端口冲突和退出清理。
+
+### VR4：内置 Preset Catalog 与目标配置
 
 - 定义稳定的 `PresetId`、`PresetVersion`、DisplayName、Category、Description、
   ProtocolProfileId 和 RequiredModules；
 - 定义 `IVirtualReaderPresetContributor`，标准预设也通过 Contributor 注册；
-- Manager 不包含厂商枚举或预设 `switch`；
+- Manager 的 `create/new` 只选择经过测试的预设和 TCP 参数，不包含厂商枚举或预设 `switch`；
 - 普通用户界面不提供配方 JSON 导入、编辑、复制或能力参数修改；
 - 缺失预设或所需模块时保留实例记录并显示不可启动原因，不静默替换。
 
@@ -105,9 +126,10 @@ LlrpVirtualReader.Manager
 4. `llrp.fault.request-timeout`；
 5. `llrp.fault.device-disconnect`。
 
-出口：每个用户可见预设都有独立自动化验收，升级后稳定 ID 可恢复。
+出口：每个用户可见预设都有独立自动化验收，升级后稳定 ID 可恢复；Manager 能把预设
+解析为 Core 可运行的目标配置。
 
-### VR4：报文 Handler 与版本 Profile 管道
+### VR5：报文 Handler 与版本 Profile 管道
 
 - 把 `VirtualReaderHost` 中集中的请求 `switch` 拆为注册式 Handler；
 - 定义 `IVirtualReaderProtocolModule`，负责 Codec 注册、请求 Handler、设备扩展状态和预设贡献；
@@ -116,19 +138,6 @@ LlrpVirtualReader.Manager
 - Profile 决定协议和行为，TCP 端口不参与分发。
 
 出口：标准 1.0.1 功能与现有 SDK 编译/反解析器完成端到端往返，原始帧可观测。
-
-### VR5：独立 Manager
-
-- 新增 `LlrpVirtualReader.Manager`，持久化实例名称、PresetId/Version、监听地址、端口和启用意图；
-- 支持列出、添加、启动、停止、重启和删除多个实例；
-- 展示 Listener、客户端连接、协议 Profile、收发帧、报告计数和最后错误；
-- 应用退出时有界停止所有 Host，释放端口；
-- 绑定非回环地址时显示网络暴露/防火墙提示；
-- 第一阶段沿用控制台/命令行宿主，桌面 UI 只有在管理服务和预设模型稳定后另行立项。
-
-用户创建实例时仅填写：设备名称、预设、监听地址和监听端口。
-
-出口：一个 Manager 进程可稳定管理多个不同预设和端点，异常实例不影响其他 Host。
 
 ### VR6：帧观察、日志和故障场景
 
@@ -175,7 +184,7 @@ LlrpVirtualReader.Extensions.Zebra
 
 ```text
 VR1 → VR2 → VR3 → VR4 → VR5 → VR6 → VR8
-                    └────────→ VR7（接口先落地，厂商实现可后置）
+                              └──────→ VR7（接口先落地，厂商实现可后置）
 ```
 
 ## 约束
@@ -185,5 +194,6 @@ VR1 → VR2 → VR3 → VR4 → VR5 → VR6 → VR8
 - 新增公开能力必须同步更新 [status.md](status.md) 和对应用户指南。
 - 生成协议代码只能通过 `definitions/`、生成器或生成脚本修改。
 - Virtual Reader Manager 只暴露受测内置预设；新增用户可见预设必须附自动化验收。
+- 多 Host 实例的创建、启停、重启、删除和状态编排只属于 Manager；Core 不维护实例目录。
 - 报文虚拟设备必须严格绑定实例保存的本机 TCP 端点，绑定失败不得静默改端口。
 - 报文设备端 Core 不依赖客户端 `LlrpSdk`；厂商虚拟模块不依赖客户端厂商扩展包。

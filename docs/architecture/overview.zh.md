@@ -10,6 +10,50 @@
 
 ![LLRPCSharp 架构总览](../images/architecture.svg)
 
+## 报文级 Virtual Reader 架构
+
+![LLRPCSharp 报文级 Virtual Reader 架构](../images/llrpcsharp-virtual-reader-architecture.png)
+
+这张补充图展示报文级 Virtual Reader 的边界。`NEW` 表示新增的 Core/Manager 实现，
+`FUTURE` 表示未来的厂商虚拟设备扩展点；`LlrpReaderPlatform` 仍属于平台层，
+不在本 TCP/LLRP 专项范围内。可编辑的 Mermaid 源码见
+[`virtual-reader-architecture.mmd`](virtual-reader-architecture.mmd)。
+
+## 最终项目结构 Tree
+
+下面是最终仓库与解决方案分组。`LlrpCli` 仍然直接位于 `src` 下；SDK 和 Virtual
+Reader 是两个并列的解决方案文件夹，共同复用 `LlrpNet` 通信与协议层。
+
+```text
+LLRPCSharp/
+├── LLRPCSharp.slnx                     [解决方案]
+├── /src/
+│   ├── LlrpCli/                         [项目直接位于 src 下]
+│   ├── LlrpNet/                         [解决方案文件夹：通信层 + 协议层]
+│   │   ├── LlrpNet.Core/
+│   │   ├── LlrpNet.Protocol/
+│   │   ├── LlrpNet.Protocol.Impinj/
+│   │   ├── LlrpNet.Protocol.Zebra/
+│   │   ├── LlrpNet.ProtocolModel/
+│   │   ├── LlrpNet.ProtocolGenerator/
+│   │   └── LlrpNet.ProtocolGenerator.Tool/
+│   ├── LlrpSdk/                          [解决方案文件夹：SDK 层]
+│   │   ├── LlrpSdk/                      [LlrpReader 与高级 SDK]
+│   │   ├── LlrpSdk.Extensions.Abstractions/
+│   │   ├── LlrpSdk.Extensions.Impinj/
+│   │   ├── LlrpSdk.Extensions.Seuic/
+│   │   └── LlrpSdk.Extensions.Zebra/
+│   └── LlrpVirtualReader/                [解决方案文件夹：报文级虚拟设备]
+│       ├── LlrpVirtualReader.Core/       [新增：单个虚拟设备 Host]
+│       ├── LlrpVirtualReader.Manager/     [新增：多 Host 生命周期]
+│       └── LlrpVirtualReader/             [兼容启动入口]
+├── /tests/                               [单元、互操作、硬件和虚拟设备测试]
+└── /tools/                               [Smoke 与协议探针工具]
+```
+
+完整的源码生成边界和测试项目清单维护在
+[`source-structure.md`](source-structure.md) 中。
+
 <details>
 <summary><b>查看原生 Mermaid 架构图</b></summary>
 

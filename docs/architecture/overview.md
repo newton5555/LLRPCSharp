@@ -10,6 +10,51 @@ This project is a modern .NET LLRP development kit, not just a binary codec libr
 
 ![LLRPCSharp Architecture Overview](../images/architecture.svg)
 
+## Message-Level Virtual Reader Architecture
+
+![LLRPCSharp message-level Virtual Reader architecture](../images/llrpcsharp-virtual-reader-architecture.png)
+
+This companion diagram shows the message-level Virtual Reader boundary. `NEW` marks the
+new Core/Manager implementation, `FUTURE` marks vendor-specific virtual-reader extension
+points, and `LlrpReaderPlatform` remains outside this TCP/LLRP scope. The editable Mermaid
+source is [`virtual-reader-architecture.mmd`](virtual-reader-architecture.mmd).
+
+## Final Project Tree
+
+The final repository and solution grouping is shown below. `LlrpCli` remains directly
+under `src`; the SDK and Virtual Reader are separate solution folders that share the
+same `LlrpNet` communication and protocol layer.
+
+```text
+LLRPCSharp/
+├── LLRPCSharp.slnx                     [solution]
+├── /src/
+│   ├── LlrpCli/                         [project directly under src]
+│   ├── LlrpNet/                         [solution folder: transport + protocol]
+│   │   ├── LlrpNet.Core/
+│   │   ├── LlrpNet.Protocol/
+│   │   ├── LlrpNet.Protocol.Impinj/
+│   │   ├── LlrpNet.Protocol.Zebra/
+│   │   ├── LlrpNet.ProtocolModel/
+│   │   ├── LlrpNet.ProtocolGenerator/
+│   │   └── LlrpNet.ProtocolGenerator.Tool/
+│   ├── LlrpSdk/                          [solution folder: SDK layer]
+│   │   ├── LlrpSdk/                      [LlrpReader and high-level SDK]
+│   │   ├── LlrpSdk.Extensions.Abstractions/
+│   │   ├── LlrpSdk.Extensions.Impinj/
+│   │   ├── LlrpSdk.Extensions.Seuic/
+│   │   └── LlrpSdk.Extensions.Zebra/
+│   └── LlrpVirtualReader/                [solution folder: message-level device]
+│       ├── LlrpVirtualReader.Core/       [NEW: one virtual reader host]
+│       ├── LlrpVirtualReader.Manager/     [NEW: multi-host lifecycle]
+│       └── LlrpVirtualReader/             [compatibility launcher]
+├── /tests/                               [unit, interop, hardware, and virtual tests]
+└── /tools/                               [smoke and protocol probe tools]
+```
+
+The detailed source-generation boundaries and the complete test-project list are
+maintained in [`source-structure.md`](source-structure.md).
+
 <details>
 <summary><b>View Native Mermaid Architecture Diagram</b></summary>
 

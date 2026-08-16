@@ -1,5 +1,6 @@
 namespace LlrpVirtualReader;
 
+/// <summary>Compatibility launcher retained for the original single-host command.</summary>
 internal static class Program
 {
     public static async Task Main(string[] args)

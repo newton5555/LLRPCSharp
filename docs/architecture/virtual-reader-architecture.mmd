@@ -1,0 +1,43 @@
+flowchart TB
+    subgraph APP["应用与客户端层"]
+        CLI["LlrpCli<br/>现有"]
+        SDK["LlrpSdk<br/>LlrpReader / Client Adapter<br/>现有"]
+        SDK_EXT["LlrpSdk.Extensions.*<br/>客户端厂商能力投影<br/>现有"]
+    end
+
+    subgraph NET["LlrpNet：共享通信与协议层"]
+        CLIENT_TCP["LlrpNet.Core<br/>Client TCP Transport<br/>现有"]
+        SERVER_TCP["LlrpNet.Core<br/>Server Listener / Connection<br/>NEXT：待抽取"]
+        FRAME["LlrpNet.Core<br/>Frame / Header / Observer<br/>现有"]
+        REGISTRY["LlrpNet.Protocol<br/>LlrpCodecRegistry<br/>统一 Decode / Encode<br/>现有"]
+        WIRE["LlrpNet.Protocol.Impinj / Zebra<br/>厂商 Wire Codec<br/>现有"]
+    end
+
+    subgraph VR["报文级 Virtual Reader"]
+        MANAGER["NEW：LlrpVirtualReader.Manager<br/>create / new / start / stop / restart / delete"]
+        HOST["NEW：LlrpVirtualReader.Core<br/>单个 VirtualReaderHost"]
+        STATE["设备状态与报文 Handler<br/>ROSpec / AccessSpec / TagMemory / TagReport"]
+        VREXT["FUTURE：LlrpVirtualReader.Extensions.*<br/>Impinj / Zebra 设备端行为"]
+    end
+
+    PLATFORM["LlrpReaderPlatform<br/>Platform session substitute<br/>OUT OF SCOPE"]
+
+    CLI --> SDK
+    SDK_EXT --> SDK
+    SDK --> CLIENT_TCP
+    CLIENT_TCP --> FRAME
+    FRAME --> CLIENT_TCP
+
+    MANAGER -->|"目标配置：new Host"| HOST
+    HOST --> SERVER_TCP
+    SERVER_TCP --> FRAME
+    FRAME --> SERVER_TCP
+
+    FRAME -->|"DecodeMessage"| REGISTRY
+    REGISTRY -->|"Typed Message"| STATE
+    STATE -->|"Response / TagReport"| REGISTRY
+    REGISTRY -->|"EncodeMessage"| FRAME
+
+    WIRE -.->|"注册同一套 Codec"| REGISTRY
+    VREXT -.->|"复用 Wire Codec"| REGISTRY
+    VREXT -.->|"设备端 Handler"| STATE

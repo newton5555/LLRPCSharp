@@ -4,34 +4,48 @@
 
 ---
 
-## 1. 架构总览与分层关系 (`src/`)
+## 1. 最终仓库结构与解决方案分组 (`LLRPCSharp.slnx` / `src/`)
 
 ```text
-src/
-├── LlrpNet/                    [底层协议栈]
-│   ├── LlrpNet.Core/           [手写] 协议网络与传输层 (IO、TCP 流式帧切分、LlrpSession、FrameObserver)
-│   ├── LlrpNet.ProtocolModel/  [手写] 协议定义模型与 LTK XML 导入器 (LtkXmlDefinitionImporter)
-│   ├── LlrpNet.ProtocolGenerator/ [手写] C# 源码生成引擎 (ProtocolSourceGenerator)
-│   ├── LlrpNet.Protocol/       [生成] LLRP 标准消息/参数强类型类与 Codec 编解码器 (由 LTK XML 自动生成)
-│   └── LlrpNet.Protocol.Impinj/ [生成] Impinj 厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
-│   └── LlrpNet.Protocol.Zebra/  [生成] Zebra(Moto)厂商私有报文/参数/Codec 与协议注册模块（不依赖 LlrpSdk）
-├── LlrpSdk/                    [手写] 应用层 SDK（按职责分文件夹）
-│   ├── Reader/                  Reader 会话门面、连接状态与元数据
-│   ├── Settings/                ReaderSettings、配置模型与序列化
-│   ├── Inventory/               InventorySettings、编译器与盘点会话
-│   ├── Resources/               ROSpec/AccessSpec 专家资源服务
-│   ├── TagAccess/               标签访问编译与操作模型
-│   ├── Reports/                 报告模型、翻译器与时间戳
-│   ├── Protocol/                LLRP 版本适配器与版本切片组件(反解析/事件投影/消息工厂/版本协商),门面零版本引用
-│   └── Extensions/              SDK 扩展注册集合
-├── LlrpSdk.Extensions.Impinj/  [手写扩展] Impinj 高层 SDK 映射、Settings/Inventory Contributor 与 UseImpinj()
-│   ├── Registration/            UseImpinj 与扩展注册
-│   ├── Settings/                Impinj 高层设置映射
-│   ├── Inventory/               Impinj 盘点扩展模型
-│   └── Reports/                 Impinj 报告扩展
-├── LlrpCli/                    [手写] 交互式终端 Shell、智能提示链与 LLRP 报文树状分析器
-└── LlrpVirtualReader/          [手写] 最小 1.0.1 虚拟读写器，用于本地互操作和回归测试
+LLRPCSharp/
+├── LLRPCSharp.slnx             [解决方案]
+├── /src/                       [源代码根目录]
+│   ├── LlrpCli/                [手写] CLI 直接位于 src 根下
+│   │
+│   ├── LlrpNet/                [解决方案文件夹：通信层 + 协议层]
+│   │   ├── LlrpNet.Core/       [手写] Client TCP、IO、流式帧切分、LlrpSession、FrameObserver；Server Listener 为下一步抽取项
+│   │   ├── LlrpNet.Protocol/   [生成 + 注册] LLRP 标准 Message/Parameter/Codec/Registry
+│   │   ├── LlrpNet.Protocol.Impinj/ [生成] Impinj 线协议扩展与 Codec（不依赖 LlrpSdk）
+│   │   ├── LlrpNet.Protocol.Zebra/  [生成] Zebra 线协议扩展与 Codec（不依赖 LlrpSdk）
+│   │   ├── LlrpNet.ProtocolModel/   [手写] 协议定义模型与 LTK XML 导入器
+│   │   ├── LlrpNet.ProtocolGenerator/ [手写] C# 协议源码生成引擎
+│   │   └── LlrpNet.ProtocolGenerator.Tool/ [手写] 生成器命令行工具
+│   │
+│   ├── LlrpSdk/                [解决方案文件夹：SDK 层]
+│   │   ├── LlrpSdk/            [手写] LlrpReader、Reader 会话、Inventory、Resources、TagAccess、Reports、Protocol
+│   │   ├── LlrpSdk.Extensions.Abstractions/ [手写] SDK 扩展抽象
+│   │   ├── LlrpSdk.Extensions.Impinj/ [手写] Impinj 高层 SDK 映射与 Contributor
+│   │   ├── LlrpSdk.Extensions.Seuic/  [手写] Seuic SDK 扩展入口
+│   │   └── LlrpSdk.Extensions.Zebra/  [手写] Zebra 高层 SDK 映射与 Contributor
+│   │
+│   └── LlrpVirtualReader/      [解决方案文件夹：报文级虚拟设备]
+│       ├── LlrpVirtualReader.Core/ [新增] 单个 VirtualReaderHost、TCP 会话、设备状态与报文 Handler
+│       ├── LlrpVirtualReader.Manager/ [新增] 多 Host 配置与 create/new/start/stop/restart/delete 生命周期
+│       └── LlrpVirtualReader/  [兼容入口] 旧版启动器，转发到 Core/Manager
+│
+├── /tests/                     [测试项目根目录]
+│   ├── LlrpNet.*.Tests/        [通信层、协议层、生成器与厂商 Wire Codec 测试]
+│   ├── LlrpSdk.*.Tests/        [SDK、扩展与硬件验收测试]
+│   ├── LlrpVirtualReader.Core.Tests/ [虚拟设备 Core 测试]
+│   ├── LlrpCli.Tests/          [CLI 测试]
+│   └── Interop.Tests/          [互操作测试]
+│
+└── /tools/                     [开发辅助工具；LiveSmoke 纳入解决方案]
+    ├── LlrpSdk.LiveSmoke/      [真实读写器 Smoke 工具]
+    └── LlrpSdk.Probe.ClientRequestOp/ [协议客户端探针]
 ```
+
+这里的 `LlrpSdk` 与 `LlrpVirtualReader` 是同一解决方案下的两个并列能力域：虚拟设备不嵌套在 `src/LlrpSdk/` 物理目录中，而是通过 `LlrpNet.Core` 和 `LlrpNet.Protocol` 复用 SDK 使用的通信与报文解析/编码能力。`LlrpVirtualReader.Manager` 负责多 Host 的配置和生命周期，`LlrpVirtualReader.Core` 负责单个报文级设备实例。
 
 ---
 

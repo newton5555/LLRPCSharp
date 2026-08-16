@@ -1,6 +1,6 @@
 # 当前状态
 
-> 基准日期：2026-08-03
+> 基准日期：2026-08-16
 
 本文档只记录当前实现事实。开发计划见 [roadmap.md](roadmap.md)，用户入口见
 根目录 [README](../README.zh.md)。
@@ -29,7 +29,7 @@
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
 | CLI | 可用 | Live Shell、一次性 `inventory`、简化 Settings 应用流程和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
-| Virtual Reader | 测试基线 | 当前是单 Host 的最小 1.0.1 TCP Server，覆盖核心生命周期、报告、部分 AccessSpec 和故障场景；预设式 Core/独立 Manager 是未排期的长期规划，见 ADR 0006 与 roadmap。 |
+| Virtual Reader | VR1/VR2 基线已实现 | `LlrpVirtualReader.Core` 已承载现有 1.0.1 TCP Host，`LlrpVirtualReader.Manager` 提供独立单 Host CLI 和明确监听地址/端口；旧启动入口保留。当前 Manager 还没有 `create/new`、多实例启停和删除生命周期；Preset Catalog、注册式 Handler 和厂商设备端 Profile 仍未交付，见 ADR 0006 与 roadmap。 |
 
 ## 已实现的应用能力
 
@@ -150,14 +150,17 @@
   (PDF/SDK/yml)当权威——需逐参数抓包验证 `reserved`/字段宽度后才能在 `zebra.yml` 标定,并补 round-trip 测试。
 - LLRP 2.0 与 Zebra 的 CLI 离线/实时命令已接线，但 2.0 的真实设备互操作仍需实机验收。
 - 其他厂商/型号/固件的扩展能力目录仍需按实测证据补充。
-- Virtual Reader 当前不模拟真实射频、跨进程持久化或全部设备配置行为；没有用户预设目录、
-  多 Host Manager 和厂商设备端 Profile。规划边界见
+- Virtual Reader 当前不模拟真实射频、跨进程持久化或全部设备配置行为；Core/Manager 已完成
+  VR1/VR2 基线，但 Manager 仍是单 Host CLI，没有 `create/new` 实例目录、多 Host 生命周期、
+  注册式 Handler、帧日志管道和厂商设备端 Profile。下一步先在 Manager 中实现实例创建和
+  `start/stop/restart/delete/list/status`，后续规划边界见
   [ADR 0006](adr/0006-preset-driven-virtual-reader-manager.md)。
 - 实机验收范围仍小于自动化测试覆盖范围。
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 473 项。
+截至基准日期，解决方案构建为零警告、零错误，测试项目全部通过，共 475 项；其中
+`LlrpVirtualReader.Core.Tests` 的 2 项测试覆盖显式端点绑定和端口占用失败。
 生成管线经 `--verify` 逐字节复现验证:1.0.1 XML(364 文件)、1.1 YAML(395 文件)、
 Impinj XML(267 文件)、2.0 delta(433 文件)、Zebra YAML(159 文件)均与已提交产物一致。
 2026-08-14 适配器边界重构后真机复验:标准设备 `192.168.40.88` 6/6、

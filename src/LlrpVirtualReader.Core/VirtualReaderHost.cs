@@ -37,9 +37,28 @@ public sealed class VirtualReaderHost : IAsyncDisposable
     private int nextAsyncMessageId;
     private Task? acceptLoop;
 
+    /// <summary>Creates a loopback host using the legacy test-friendly constructor.</summary>
     public VirtualReaderHost(int port = 0, VirtualReaderOptions? options = null)
+        : this(new VirtualReaderHostOptions
+        {
+            Port = port,
+            ReaderOptions = options ?? new VirtualReaderOptions(),
+        })
     {
-        options ??= new VirtualReaderOptions();
+    }
+
+    /// <summary>Creates a host bound to the exact endpoint in <paramref name="hostOptions"/>.</summary>
+    public VirtualReaderHost(VirtualReaderHostOptions hostOptions)
+    {
+        ArgumentNullException.ThrowIfNull(hostOptions);
+        ArgumentNullException.ThrowIfNull(hostOptions.ListenAddress);
+        ArgumentNullException.ThrowIfNull(hostOptions.ReaderOptions);
+        if (hostOptions.Port is < 0 or > ushort.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(hostOptions), "The virtual reader port must be between 0 and 65535.");
+        }
+
+        VirtualReaderOptions options = hostOptions.ReaderOptions;
         if (options.ElectronicProductCode.Length != 12)
         {
             throw new ArgumentException("The virtual tag EPC must be exactly 96 bits.", nameof(options));
@@ -50,7 +69,7 @@ public sealed class VirtualReaderHost : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.CloseConnectionAfterRequestMessageTypes);
         ArgumentNullException.ThrowIfNull(options.TruncateResponseForMessageTypes);
 
-        listener = new TcpListener(IPAddress.Loopback, port);
+        listener = new TcpListener(hostOptions.ListenAddress, hostOptions.Port);
         tagEpc = options.ElectronicProductCode.ToArray();
         tagUserMemory = options.UserMemory.ToArray();
         droppedResponseMessageTypes = options.DropResponseForMessageTypes.ToHashSet();
@@ -62,6 +81,9 @@ public sealed class VirtualReaderHost : IAsyncDisposable
     }
 
     public int Port => ((IPEndPoint)listener.LocalEndpoint).Port;
+
+    /// <summary>Gets the exact local address configured for this host.</summary>
+    public IPAddress ListenAddress => ((IPEndPoint)listener.LocalEndpoint).Address;
 
     public void Start()
     {

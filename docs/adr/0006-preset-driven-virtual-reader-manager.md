@@ -1,12 +1,13 @@
 # ADR 0006：预设驱动的报文级 Virtual Reader Core 与独立 Manager
 
-- 状态：Accepted（长期规划，未排期）
+- 状态：Accepted（实施中：VR1/VR2 基线已完成）
 - 日期：2026-08-16
 
 ## 背景
 
-本决策只固定长期架构边界，不进入当前 SDK 发布或近期开发顺序。现有最小单 Host
-`LlrpVirtualReader` 继续作为当前测试基线，只有用户重新明确启动该工作包后才实施拆分和 Manager。
+本决策固定报文级虚拟设备的架构边界。2026-08-16 用户明确启动该工作包；当前已完成
+最小单 Host 到 Core、独立 Manager 的第一轮拆分和精确端点绑定，下一步先在 Manager 中
+实现目标配置实例的 create/new 与多 Host 生命周期，后续 Preset 和 Handler 管道仍按路线图实施。
 
 当前 `LlrpVirtualReader` 是一个最小 LLRP 1.0.1 TCP Server。它已能支撑 SDK
 互操作测试，但命令行只接受端口，设备身份、能力、标签和故障行为主要由
@@ -53,13 +54,13 @@ src/
 │   ├── TCP Listener 与连接生命周期
 │   ├── LLRP Frame 解码/编码
 │   ├── 设备资源和标签状态
-│   ├── 请求 Handler 管道
-│   ├── Preset Catalog
-│   └── 故障注入
+│   ├── 请求 Handler 管道（后续）
+│   └── 故障注入（后续）
 ├── LlrpVirtualReader.Manager/
-│   ├── 内置预设选择
-│   ├── 实例和端点管理
-│   ├── 多 Host 启停
+│   ├── 目标配置与内置预设选择
+│   ├── 实例目录和端点管理
+│   ├── create/new 与多 Host 启停
+│   ├── restart/delete/list/status
 │   ├── 连接/报文/错误状态
 │   └── 控制台入口；桌面 UI 另按实际需要决策
 ├── LlrpVirtualReader.Extensions.Impinj/    （未来）
@@ -75,7 +76,8 @@ tests/
 
 Core 依赖 `LlrpNet.Core`、标准 Protocol 和按需加载的厂商 Protocol Module；设备端实现
 不得依赖客户端门面 `LlrpSdk` 或 `LlrpSdk.Extensions.*`。现有 `VirtualReaderHost` 迁入
-Core，当前控制台入口演进为 Manager 的第一种宿主。
+Core，Manager 通过目标配置为每个实例创建一个 `VirtualReaderHost`；Core 不维护实例目录，
+也不负责多 Host 的创建、删除或生命周期编排。
 
 所有产品项目继续位于顶层 `src/`，所有测试项目继续集中在顶层 `tests/`。测试程序集不得
 放入 `src/LlrpVirtualReader.*` 内部，也不得与 Manager/Core 产品项目处于同一项目目录。
@@ -107,9 +109,9 @@ LlrpVirtualReader.Extensions.Zebra
 
 ### 5. Host 保持设备端语义
 
-每个实例拥有独立 Listener、Reader Config、ROSpec/AccessSpec、Tag Memory、GPIO、回放和
+每个 Manager 实例拥有独立 Listener、Reader Config、ROSpec/AccessSpec、Tag Memory、GPIO、回放和
 故障状态。连接数量、设备重启是否保留状态和故障触发次数由预设定义。Host 负责设备端
-状态机，Manager 只负责编排和展示，不重写报文业务。
+状态机，Manager 负责创建 Host、生命周期编排和展示，不重写报文业务。
 
 原始 TX/RX 帧通过有界观察和日志管道暴露，不能在网络读写路径同步执行无界 UI 或磁盘工作。
 绑定非回环地址时 Manager 必须提示网络暴露和防火墙风险。

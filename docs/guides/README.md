@@ -8,3 +8,5 @@ the architecture and protocol reference sections.
   .NET application.
 - [CLI User Guide](cli-user-guide.md): operate a reader with the Live Shell or
   an agent-friendly one-shot command.
+- [Virtual Reader Manager](virtual-reader-manager.md): start the SDK repository's
+  message-level TCP virtual reader for SDK and integration testing.
