@@ -73,6 +73,7 @@
     <File Path="docs/adr/0003-reader-configuration-default-profiles.md" />
     <File Path="docs/adr/0004-reader-contributors.md" />
     <File Path="docs/adr/0005-llrp101-reader-first-delivery.md" />
+    <File Path="docs/adr/0006-preset-driven-virtual-reader-manager.md" />
     <File Path="docs/adr/README.md" />
   </Folder>
   <Folder Name="/docs/architecture/">

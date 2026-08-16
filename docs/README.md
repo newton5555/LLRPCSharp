@@ -21,6 +21,7 @@ the project.
 - [Protocol Extension Guide](architecture/protocol-extension-guide.md): adding
   protocol or vendor extensions.
 - [Decision Records](adr/README.md): decisions that affect long-term design.
+- [Virtual Reader Core and Manager Decision](adr/0006-preset-driven-virtual-reader-manager.md): preset-driven packet-level virtual readers, exact TCP binding, and future vendor modules.
 
 ## Validate And Reference
 

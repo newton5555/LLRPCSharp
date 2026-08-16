@@ -29,7 +29,7 @@
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
 | CLI | 可用 | Live Shell、一次性 `inventory`、简化 Settings 应用流程和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
-| Virtual Reader | 测试基线 | 覆盖核心 1.0.1 生命周期、报告和部分 AccessSpec 场景，不模拟真实射频。 |
+| Virtual Reader | 测试基线 | 当前是单 Host 的最小 1.0.1 TCP Server，覆盖核心生命周期、报告、部分 AccessSpec 和故障场景；预设式 Core/独立 Manager 是未排期的长期规划，见 ADR 0006 与 roadmap。 |
 
 ## 已实现的应用能力
 
@@ -150,7 +150,9 @@
   (PDF/SDK/yml)当权威——需逐参数抓包验证 `reserved`/字段宽度后才能在 `zebra.yml` 标定,并补 round-trip 测试。
 - LLRP 2.0 与 Zebra 的 CLI 离线/实时命令已接线，但 2.0 的真实设备互操作仍需实机验收。
 - 其他厂商/型号/固件的扩展能力目录仍需按实测证据补充。
-- Virtual Reader 不模拟真实射频、跨进程持久化或全部设备配置行为。
+- Virtual Reader 当前不模拟真实射频、跨进程持久化或全部设备配置行为；没有用户预设目录、
+  多 Host Manager 和厂商设备端 Profile。规划边界见
+  [ADR 0006](adr/0006-preset-driven-virtual-reader-manager.md)。
 - 实机验收范围仍小于自动化测试覆盖范围。
 
 ## 验证状态
