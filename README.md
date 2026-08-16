@@ -4,7 +4,7 @@
 
 ![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
 ![C# 14](https://img.shields.io/badge/C%23-14.0-239120?style=flat-square&logo=c-sharp)
-![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-473%20Passed-10b981?style=flat-square)
+![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-486%20Passed-10b981?style=flat-square)
 ![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-3b82f6?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
@@ -106,6 +106,18 @@ Single-line script command:
 # Run a 10-second inventory scan and output JSON tag stream
 dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 ```
+
+### Message-level Virtual Reader
+
+Run a real TCP LLRP device endpoint for SDK/CLI development and offline CI:
+
+```powershell
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
+  --port 5085 --llrp 1.1 --name ci-reader
+```
+
+The standalone Manager also exposes registered presets and in-process
+multi-instance lifecycle APIs. See the [Virtual Reader Manager guide](docs/guides/virtual-reader-manager.md).
 
 ---
 

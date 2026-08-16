@@ -1,13 +1,84 @@
+using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
+using LlrpNet.Protocol.Messages;
 using LlrpSdk;
 using LlrpVirtualReader;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace Interop.Tests;
 
 public sealed class VirtualReaderSdkInteropTests
 {
+    [Fact]
+    public async Task Unknown_message_receives_correlated_unsupported_message_error()
+    {
+        await using var host = new VirtualReaderHost();
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        uint messageId = reader.Protocol.NextMessageId();
+        var request = new UnknownMessage(
+            LlrpProtocolVersion.Version101,
+            messageType: 999,
+            messageId,
+            payload: []);
+        ReadOnlyMemory<byte> responseFrame = await reader.Protocol.TransactRawAsync(
+            reader.Registry.EncodeMessage(LlrpProtocolVersion.Version101, request),
+            (header, _) => header.MessageId == messageId && header.MessageType == ERROR_MESSAGE.MessageType,
+            cancellationToken: timeout.Token);
+
+        V101Messages.ERROR_MESSAGE response = Assert.IsType<V101Messages.ERROR_MESSAGE>(
+            reader.Registry.DecodeMessage(responseFrame.Span));
+        Assert.Equal(messageId, response.MessageId);
+        Assert.Equal(StatusCode.M_UnsupportedMessage, response.LLRPStatus.StatusCode);
+    }
+
+    [Fact]
+    public async Task Llrp11Negotiation_and_inventory_workflow_complete_over_message_level_host()
+    {
+        await using var host = new VirtualReaderHost(options: new VirtualReaderOptions
+        {
+            ProtocolVersion = LlrpNet.Core.Protocol.LlrpProtocolVersion.Version11,
+            Reports = new VirtualReaderReportOptions
+            {
+                ReportInterval = TimeSpan.FromMilliseconds(20),
+                ReportCount = 2,
+                Repeat = true,
+            },
+        });
+        host.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.Port)
+            .WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithRequestTimeout(TimeSpan.FromSeconds(2))
+            .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force11)
+            .Build();
+
+        await reader.ConnectAsync(timeout.Token);
+        Assert.Equal(LlrpNet.Core.Protocol.LlrpProtocolVersion.Version11, reader.NegotiatedVersion);
+        ReaderCapabilities capabilities = await reader.RefreshCapabilitiesAsync(timeout.Token);
+        Assert.Equal((ushort)4, capabilities.MaxNumberOfAntennas);
+
+        await using InventorySession session = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+        await using IAsyncEnumerator<TagReport> reports = session.ReadReportsAsync(timeout.Token)
+            .GetAsyncEnumerator(timeout.Token);
+        Assert.True(await reports.MoveNextAsync());
+        Assert.Equal("E28011710000020D056E9BEE", Convert.ToHexString(reports.Current.ElectronicProductCode.Span));
+        await session.StopAsync(timeout.Token);
+    }
+
     [Fact]
     public async Task InventorySessionAndEventObserver_AreMutuallyExclusive()
     {

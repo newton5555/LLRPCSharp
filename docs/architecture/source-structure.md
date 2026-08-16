@@ -13,7 +13,7 @@ LLRPCSharp/
 │   ├── LlrpCli/                [手写] CLI 直接位于 src 根下
 │   │
 │   ├── LlrpNet/                [解决方案文件夹：通信层 + 协议层]
-│   │   ├── LlrpNet.Core/       [手写] Client TCP、IO、流式帧切分、LlrpSession、FrameObserver；Server Listener 为下一步抽取项
+│   │   ├── LlrpNet.Core/       [手写] Client/accepted TCP、IO、流式帧切分、LlrpSession、FrameObserver
 │   │   ├── LlrpNet.Protocol/   [生成 + 注册] LLRP 标准 Message/Parameter/Codec/Registry
 │   │   ├── LlrpNet.Protocol.Impinj/ [生成] Impinj 线协议扩展与 Codec（不依赖 LlrpSdk）
 │   │   ├── LlrpNet.Protocol.Zebra/  [生成] Zebra 线协议扩展与 Codec（不依赖 LlrpSdk）
@@ -37,6 +37,7 @@ LLRPCSharp/
 │   ├── LlrpNet.*.Tests/        [通信层、协议层、生成器与厂商 Wire Codec 测试]
 │   ├── LlrpSdk.*.Tests/        [SDK、扩展与硬件验收测试]
 │   ├── LlrpVirtualReader.Core.Tests/ [虚拟设备 Core 测试]
+│   ├── LlrpVirtualReader.Manager.Tests/ [Manager 多实例、预设与生命周期测试]
 │   ├── LlrpCli.Tests/          [CLI 测试]
 │   └── Interop.Tests/          [互操作测试]
 │
@@ -138,8 +139,12 @@ LLRPCSharp/
 - 基于 `Spectre.Console` 和 `Spectre.Console.Cli` 构建的 Live Shell，提供指令补全提示链、灰色 Ghost 后缀、平滑光标控制以及深层 LLRP 报文树状分析器。
 
 ### 3.7 虚拟读写器 (`src/LlrpVirtualReader/`) —— [手写]
-- 最小 1.0.1 TCP Server，用于本地互操作和回归测试。
-- 当前支持能力查询、ROSpec 生命周期、确定性 TagReport、最小 AccessSpec、标签筛选、User Memory 读写模拟和部分故障注入场景；不模拟真实射频。
+- 报文级 1.0.1/1.1 TCP Server，用于本地互操作、回归测试和无硬件开发。
+- Core 复用 `LlrpNet` accepted transport、Session、Codec Registry 和 Frame Observer；支持
+  初始化、能力/配置、ROSpec/AccessSpec、KEEPALIVE、确定性 TagReport、标准 C1G2 读写、
+  TagSource、报告 cadence/count、版本 Profile、注册式 Handler 和故障注入；不模拟真实射频。
+- Manager 负责多 Host 实例身份与生命周期，Preset 通过 Contributor 注册；跨进程持久化和厂商
+  设备端 profile 仍属后续工作。
 
 ---
 

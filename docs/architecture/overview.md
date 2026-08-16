@@ -19,6 +19,35 @@ new Core/Manager implementation, `FUTURE` marks vendor-specific virtual-reader e
 points, and `LlrpReaderPlatform` remains outside this TCP/LLRP scope. The editable Mermaid
 source is [`virtual-reader-architecture.mmd`](virtual-reader-architecture.mmd).
 
+### Runtime ownership and message flow
+
+| Boundary | Owns | Does not own |
+|---|---|---|
+| `VirtualReaderManager` | instance identity, preset lookup, create/start/stop/restart/delete/list/status | wire framing, ROSpec state, tag-memory semantics |
+| `VirtualReaderHost` | one exact TCP endpoint, client limit, lifecycle, accepted sessions, report loops | another instance's resources or SDK client state |
+| `LlrpNet` transport/session/registry | frame assembly, send/receive, transaction-safe session plumbing, versioned codec lookup | device policy and resource transitions |
+| version profile + handlers | status/error mapping, initialization, capabilities/config, ROSpec/AccessSpec transitions, events, reports | Manager instance directory |
+
+```mermaid
+flowchart LR
+    Client["LlrpSdk / CLI / third-party LLRP client"] --> Listener["VirtualReaderHost exact TCP listener"]
+    Listener --> Accepted["LlrpAcceptedTcpTransport"]
+    Accepted --> Session["LlrpNet LlrpSession"]
+    Session --> Registry["Versioned LlrpCodecRegistry"]
+    Registry --> Dispatch["VirtualReaderProtocolDispatcher"]
+    Dispatch --> Module["Registered protocol modules"]
+    Dispatch --> Standard["1.0.1 handler / 1.1 translated profile"]
+    Standard --> State["Canonical device state and tag source"]
+    State --> Reports["Configurable report scheduler"]
+    Manager["VirtualReaderManager"] --> Listener
+    Manager --> Presets["Preset contributors"]
+```
+
+The first inbound frame selects the explicit wire version from its LLRP header.
+For 1.1, version negotiation is handled before standard dispatch, then shared
+standard messages are translated into one canonical 1.0.1 state and translated
+back only at the wire boundary. The TCP port never selects a protocol profile.
+
 ## Final Project Tree
 
 The final repository and solution grouping is shown below. `LlrpCli` remains directly

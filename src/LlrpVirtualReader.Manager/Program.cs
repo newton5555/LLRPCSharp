@@ -7,20 +7,19 @@ internal static class Program
     public static async Task Main(string[] args)
     {
         ManagerOptions options = ParseOptions(args);
-        await using var reader = new LlrpVirtualReader.VirtualReaderHost(
-            new LlrpVirtualReader.VirtualReaderHostOptions
+        await using var manager = new VirtualReaderManager();
+        VirtualReaderInstanceInfo instance = await manager.CreateAndStartAsync(
+            new VirtualReaderInstanceOptions
             {
+                Name = options.Name,
+                PresetId = options.PresetId,
                 ListenAddress = options.ListenAddress,
                 Port = options.Port,
-                ReaderOptions = new LlrpVirtualReader.VirtualReaderOptions
-                {
-                    UseStrictStandardInventoryProfile = options.UseStrictStandardInventoryProfile,
-                },
             });
-        reader.Start();
 
         Console.WriteLine(
-            $"Virtual LLRP 1.0.1 reader listening on {FormatEndpoint(reader.ListenAddress, reader.Port)}. " +
+            $"Virtual LLRP reader instance '{instance.InstanceId}' ({instance.PresetId}) listening on " +
+            $"{FormatEndpoint(instance.ListenAddress, instance.BoundPort)}. " +
             "Press Ctrl+C to stop.");
 
         var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -36,7 +35,8 @@ internal static class Program
     {
         IPAddress listenAddress = IPAddress.Loopback;
         int port = 5084;
-        bool strict = false;
+        string name = "Virtual Reader";
+        string preset = VirtualReaderPresetIds.Standard101Basic;
 
         for (int index = 0; index < args.Length; index++)
         {
@@ -58,16 +58,27 @@ internal static class Program
 
                     break;
                 case "--strict":
-                    strict = true;
+                    preset = VirtualReaderPresetIds.Standard101Strict;
+                    break;
+                case "--name" when index + 1 < args.Length:
+                    name = args[++index];
+                    break;
+                case "--llrp" when index + 1 < args.Length:
+                    preset = args[++index] switch
+                    {
+                        "1.0.1" => VirtualReaderPresetIds.Standard101Basic,
+                        "1.1" => VirtualReaderPresetIds.Standard11Basic,
+                        _ => throw new ArgumentException("--llrp must be 1.0.1 or 1.1."),
+                    };
                     break;
                 case "--help" or "-h":
-                    throw new ArgumentException("Usage: LlrpVirtualReader.Manager [--listen <ip>] [--port <1-65535>] [--strict]");
+                    throw new ArgumentException("Usage: LlrpVirtualReader.Manager [--listen <ip>] [--port <1-65535>] [--name <name>] [--llrp 1.0.1|1.1] [--strict]");
                 default:
-                    throw new ArgumentException("Usage: LlrpVirtualReader.Manager [--listen <ip>] [--port <1-65535>] [--strict]");
+                    throw new ArgumentException("Usage: LlrpVirtualReader.Manager [--listen <ip>] [--port <1-65535>] [--name <name>] [--llrp 1.0.1|1.1] [--strict]");
             }
         }
 
-        return new ManagerOptions(listenAddress, port, strict);
+        return new ManagerOptions(listenAddress, port, name, preset);
     }
 
     private static string FormatEndpoint(IPAddress address, int port) =>
@@ -78,5 +89,6 @@ internal static class Program
     private sealed record ManagerOptions(
         IPAddress ListenAddress,
         int Port,
-        bool UseStrictStandardInventoryProfile);
+        string Name,
+        string PresetId);
 }

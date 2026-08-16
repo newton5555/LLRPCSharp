@@ -4,7 +4,7 @@
 
 ![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
 ![C# 14](https://img.shields.io/badge/C%23-14.0-239120?style=flat-square&logo=c-sharp)
-![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-473%20Passed-10b981?style=flat-square)
+![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-486%20Passed-10b981?style=flat-square)
 ![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-3b82f6?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
@@ -106,6 +106,18 @@ inventory stop          # 停止盘点
 # 执行 10 秒盘点并输出 JSON 标签数据
 dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 ```
+
+### 报文级 Virtual Reader
+
+启动真实 TCP LLRP 设备端点，用于 SDK/CLI 开发和无硬件 CI：
+
+```powershell
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
+  --port 5085 --llrp 1.1 --name ci-reader
+```
+
+独立 Manager 还提供注册式预设与进程内多实例生命周期 API，详见
+[Virtual Reader Manager 指南](docs/guides/virtual-reader-manager.md)。
 
 ---
 

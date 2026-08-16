@@ -19,6 +19,33 @@
 不在本 TCP/LLRP 专项范围内。可编辑的 Mermaid 源码见
 [`virtual-reader-architecture.mmd`](virtual-reader-architecture.mmd)。
 
+### 运行时职责与报文流
+
+| 边界 | 负责 | 不负责 |
+|---|---|---|
+| `VirtualReaderManager` | 实例身份、预设查找、create/start/stop/restart/delete/list/status | 线级组帧、ROSpec 状态、标签内存语义 |
+| `VirtualReaderHost` | 一个精确 TCP 端点、连接上限、生命周期、accepted Session、报告循环 | 其他实例的资源或 SDK 客户端状态 |
+| `LlrpNet` transport/session/registry | 帧组装、收发、Session 管道、版本 Codec 查找 | 设备策略和资源状态迁移 |
+| version profile + Handler | 状态/错误映射、初始化、能力/配置、ROSpec/AccessSpec、事件、报告 | Manager 实例目录 |
+
+```mermaid
+flowchart LR
+    Client["LlrpSdk / CLI / 第三方 LLRP 客户端"] --> Listener["VirtualReaderHost 精确 TCP Listener"]
+    Listener --> Accepted["LlrpAcceptedTcpTransport"]
+    Accepted --> Session["LlrpNet LlrpSession"]
+    Session --> Registry["版本化 LlrpCodecRegistry"]
+    Registry --> Dispatch["VirtualReaderProtocolDispatcher"]
+    Dispatch --> Module["注册式协议模块"]
+    Dispatch --> Standard["1.0.1 Handler / 1.1 翻译 Profile"]
+    Standard --> State["Canonical 设备状态与 TagSource"]
+    State --> Reports["可配置报告调度器"]
+    Manager["VirtualReaderManager"] --> Listener
+    Manager --> Presets["Preset Contributor"]
+```
+
+第一帧从 LLRP Header 选择显式线协议版本。1.1 先完成版本协商，再把标准报文翻译到同一
+canonical 1.0.1 状态，响应只在线路边界翻译回 1.1；TCP 端口不参与版本或设备 Profile 选择。
+
 ## 最终项目结构 Tree
 
 下面是最终仓库与解决方案分组。`LlrpCli` 仍然直接位于 `src` 下；SDK 和 Virtual

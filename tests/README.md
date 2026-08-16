@@ -1,12 +1,12 @@
 # LLRPCSharp 全套测试用例与质量规范指南 (`tests`)
 
-本文档是 LLRPCSharp 解决方案中全部 10 个测试项目的**官方测试清单与断言手册**。详细说明了每一个测试项目、测试类（Test Class）及具体测试用例（`[Fact]` / `[Theory]`）的**测试目标、测试场景、输入条件与成功判定标准（Pass Criteria）**。
+本文档是 LLRPCSharp 解决方案中全部 14 个测试项目的**官方测试清单与断言手册**。详细说明了每一个测试项目、测试类（Test Class）及具体测试用例（`[Fact]` / `[Theory]`）的**测试目标、测试场景、输入条件与成功判定标准（Pass Criteria）**。
 
 ---
 
 ## 🏛️ 测试项目全景清单
 
-解决方案包含 10 个专门的测试项目：
+解决方案包含 14 个专门的测试项目：
 
 1. [**`LlrpNet.ProtocolModel.Tests`**](#1-llrpnetprotocolmodeltests-协议模型定义测试)
 2. [**`LlrpNet.ProtocolGenerator.Tests`**](#2-llrpnetprotocolgeneratortests-代码生成器测试)
@@ -18,6 +18,10 @@
 8. [**`LlrpCli.Tests`**](#8-llrpclitests-cli-命令行工具测试)
 9. [**`Interop.Tests`**](#9-interoptests-虚拟读写器模拟互操作测试)
 10. [**`LlrpSdk.Hardware.Tests`**](#10-llrpsdkhardwaretests-本地物理真机测试)
+11. [**`LlrpNet.Protocol.Zebra.Tests`**](#11-llrpnetprotocolzebratests-zebra-厂商扩展编解码测试)
+12. [**`LlrpSdk.Extensions.Zebra.Tests`**](#12-llrpsdkextensionszebratests-sdk-zebra-扩展管道测试)
+13. [**`LlrpVirtualReader.Core.Tests`**](#13-llrpvirtualreadercoretests-虚拟读写器核心测试)
+14. [**`LlrpVirtualReader.Manager.Tests`**](#14-llrpvirtualreadermanagertests-虚拟读写器管理器测试)
 
 ---
 
@@ -229,6 +233,33 @@
 > 注意：部署型调用（`StartInventoryAsync(settings)` / `ApplySettingsAsync` 带 Inventory）会删除设备上全部 ROSpec/AccessSpec（SDK 完全接管）。真机测试仅在专用测试设备上运行；共享设备请先保存配置快照。
 
 ---
+
+### 11. `LlrpNet.Protocol.Zebra.Tests` (Zebra 厂商扩展编解码测试)
+
+验证 Zebra 自定义消息/参数的 wire identity、Codec 注册和已确认的字段 round-trip。
+未被真机抓包证实的字段不会被测试标记为设备兼容性证据。
+
+### 12. `LlrpSdk.Extensions.Zebra.Tests` (SDK Zebra 扩展管道测试)
+
+验证 `UseZebra()` 的能力、配置和 TagReport 扩展投影，以及扩展缺失时的显式行为。
+
+### 13. `LlrpVirtualReader.Core.Tests` (虚拟读写器核心测试)
+
+- 精确 Loopback 地址和端口绑定；
+- 已占用端口启动失败且不自动换端口；
+- Host 生命周期、停止释放和单 Host 设备边界；
+- ReaderOptions 配置校验与确定性 FixedTagSource User-memory 读写。
+
+### 14. `LlrpVirtualReader.Manager.Tests` (虚拟读写器管理器测试)
+
+- Preset Catalog 的标准 1.0.1/1.1、Tag Access 和故障预设注册；
+- create/start/stop/restart/delete 身份保持与端口释放；
+- 两个 Host 的端点、协议版本和设备状态隔离；
+- 第三方 `IVirtualReaderPresetContributor` 无需修改 Manager 分支即可注册。
+
+`Interop.Tests` 还覆盖真实 TCP Host → `LlrpSdk` 的 1.0.1/1.1 版本协商、
+ROSpec/AccessSpec、报告、Tag Access、自动重连、丢响应、错误、主动断开和截断帧，
+以及设备端 `IVirtualReaderMessageHandler` 扩展。
 
 ## 🏃 运行测试
 

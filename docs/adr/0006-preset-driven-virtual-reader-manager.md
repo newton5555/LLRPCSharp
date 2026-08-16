@@ -1,17 +1,17 @@
 # ADR 0006：预设驱动的报文级 Virtual Reader Core 与独立 Manager
 
-- 状态：Accepted（实施中：VR1/VR2 基线已完成）
-- 日期：2026-08-16
+- 状态：Accepted（实施中：Core、Manager、1.0.1/1.1 标准闭环已交付）
+- 日期：2026-08-17
 
 ## 背景
 
-本决策固定报文级虚拟设备的架构边界。2026-08-16 用户明确启动该工作包；当前已完成
-最小单 Host 到 Core、独立 Manager 的第一轮拆分和精确端点绑定，下一步先在 Manager 中
-实现目标配置实例的 create/new 与多 Host 生命周期，后续 Preset 和 Handler 管道仍按路线图实施。
+本决策固定报文级虚拟设备的架构边界。Core、独立 Manager、精确端点绑定、注册式
+Preset/Handler 管道和 1.0.1/1.1 标准设备行为已经落地；跨进程持久化和厂商设备端
+profile 仍留在后续范围。
 
-当前 `LlrpVirtualReader` 是一个最小 LLRP 1.0.1 TCP Server。它已能支撑 SDK
-互操作测试，但命令行只接受端口，设备身份、能力、标签和故障行为主要由
-`VirtualReaderOptions` 在代码中配置，也没有多 Host 管理、稳定预设目录或厂商设备端扩展边界。
+当前 `LlrpVirtualReader.Core` 是一个消息级 LLRP 1.0.1/1.1 TCP Server，能支撑 SDK
+互操作测试和标准 ROSpec/AccessSpec/Tag Access 闭环；Manager 已提供多 Host 生命周期
+和稳定预设目录，CLI/独立宿主也可启动普通 TCP Reader。
 
 报文级虚拟设备需要独立于任何 Reader Studio 运行，使 SDK CLI、WPF、第三方 LLRP
 客户端和抓包工具都能把它当作普通 TCP Reader。相邻 `LlrpReaderPlatform` 的进程内
@@ -54,10 +54,10 @@ src/
 │   ├── TCP Listener 与连接生命周期
 │   ├── LLRP Frame 解码/编码
 │   ├── 设备资源和标签状态
-│   ├── 请求 Handler 管道（后续）
-│   └── 故障注入（后续）
+│   ├── 请求 Handler 管道
+│   └── 故障注入与报告调度
 ├── LlrpVirtualReader.Manager/
-│   ├── 目标配置与内置预设选择
+│   ├── 目标配置与内置 Preset Catalog
 │   ├── 实例目录和端点管理
 │   ├── create/new 与多 Host 启停
 │   ├── restart/delete/list/status
@@ -87,11 +87,12 @@ Core，Manager 通过目标配置为每个实例创建一个 `VirtualReaderHost`
 每个预设具有稳定的 `PresetId`、`PresetVersion`、显示名称、分类、协议 Profile 和所需
 模块。Manager 只读取 Catalog，不硬编码 Standard、Impinj、Zebra 的 `switch`。
 
-第一阶段内置：
+当前内置：
 
 - Standard LLRP 1.0.1；
 - Strict Standard LLRP 1.0.1；
 - Standard Tag Access；
+- Standard LLRP 1.1；
 - Request Timeout；
 - Device Disconnect。
 
@@ -113,7 +114,7 @@ LlrpVirtualReader.Extensions.Zebra
 故障状态。连接数量、设备重启是否保留状态和故障触发次数由预设定义。Host 负责设备端
 状态机，Manager 负责创建 Host、生命周期编排和展示，不重写报文业务。
 
-原始 TX/RX 帧通过有界观察和日志管道暴露，不能在网络读写路径同步执行无界 UI 或磁盘工作。
+原始 TX/RX 帧通过共享 `ILlrpFrameObserver` 和日志管道暴露，不能在网络读写路径同步执行无界 UI 或磁盘工作。
 绑定非回环地址时 Manager 必须提示网络暴露和防火墙风险。
 
 ## 替代方案

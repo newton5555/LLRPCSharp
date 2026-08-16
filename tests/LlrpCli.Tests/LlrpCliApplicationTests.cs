@@ -107,6 +107,7 @@ public sealed class LlrpCliApplicationTests
         Assert.Contains("validate", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("encode", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("inventory", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("virtual-reader", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("monitor", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(result.Error);
     }

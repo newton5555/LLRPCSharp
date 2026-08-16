@@ -1,43 +1,51 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;
-using LlrpNet.Protocol.Enumerations.V1_0_1;
+using LlrpNet.Core.Session;
+using LlrpNet.Core.Transport;
 using LlrpNet.Protocol.Messages;
-using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
-using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Registry;
-using LlrpNet.Protocol.Registry.V1_0_1;
-using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LlrpVirtualReader;
 
-/// <summary>Small stateful LLRP 1.0.1 TCP server for SDK and integration development.</summary>
+/// <summary>
+/// Runs one message-level LLRP virtual reader over a real TCP listener.
+/// </summary>
+/// <remarks>
+/// A host is one device, not a platform instance directory. It owns its listener, device resources, tag source,
+/// protocol registry, client sessions, and report scheduler. The independent Manager may create several hosts by
+/// using these public lifecycle and options APIs without adding a Manager dependency to this assembly.
+/// </remarks>
 public sealed class VirtualReaderHost : IAsyncDisposable
 {
-    private readonly TcpListener listener;
-    private readonly LlrpCodecRegistry registry = new();
-    private readonly Dictionary<uint, ROSpec> roSpecs = [];
-    private readonly HashSet<uint> enabledRoSpecs = [];
-    private readonly Dictionary<uint, AccessSpec> accessSpecs = [];
-    private readonly HashSet<uint> enabledAccessSpecs = [];
-    private readonly object configurationGate = new();
-    private IReadOnlyList<AntennaConfiguration> antennaConfigurations = [];
-    private IReadOnlyList<GPOWriteData> gpoWriteData = [new GPOWriteData(1, false)];
-    private ReaderEventNotificationSpec? readerEventNotificationSpec;
-    private KeepaliveSpec? keepaliveSpec = new(KeepaliveTriggerType.Null, 0);
-    private readonly CancellationTokenSource cancellation = new();
-    private readonly byte[] tagEpc;
-    private ushort[] tagUserMemory;
-    private readonly HashSet<ushort> droppedResponseMessageTypes;
-    private readonly Dictionary<ushort, VirtualReaderErrorResponse> errorResponseMessageTypes;
-    private readonly HashSet<ushort> closeConnectionRequestMessageTypes;
-    private readonly HashSet<ushort> truncateResponseMessageTypes;
-    private readonly bool useStrictStandardInventoryProfile;
-    private int nextAsyncMessageId;
-    private Task? acceptLoop;
+    private readonly VirtualReaderHostOptions _hostOptions;
+    private readonly VirtualReaderOptions _options;
+    private readonly ILogger<VirtualReaderHost> _logger;
+    private readonly LlrpCodecRegistry _registry;
+    private readonly VirtualReaderDeviceState _deviceState;
+    private readonly VirtualReaderProtocolDispatcher _dispatcher;
+    private readonly HashSet<ushort> _dropResponseMessageTypes;
+    private readonly Dictionary<ushort, VirtualReaderErrorResponse> _errorResponseMessageTypes;
+    private readonly HashSet<ushort> _closeConnectionMessageTypes;
+    private readonly HashSet<ushort> _truncateResponseMessageTypes;
+    private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+    private readonly object _connectionGate = new();
+    private readonly object _reportGate = new();
+    private readonly Dictionary<string, VirtualReaderConnection> _connections = [];
+    private readonly Dictionary<string, Task> _connectionTasks = [];
+    private readonly Dictionary<uint, ReportLoop> _reportLoops = [];
+    private TcpListener? _listener;
+    private CancellationTokenSource? _lifetime;
+    private Task? _acceptLoop;
+    private int _lifecycleState = (int)VirtualReaderLifecycleState.Created;
+    private int _disposeStarted;
 
-    /// <summary>Creates a loopback host using the legacy test-friendly constructor.</summary>
+    /// <summary>Creates a loopback host using the compatibility constructor.</summary>
     public VirtualReaderHost(int port = 0, VirtualReaderOptions? options = null)
         : this(new VirtualReaderHostOptions
         {
@@ -51,741 +59,843 @@ public sealed class VirtualReaderHost : IAsyncDisposable
     public VirtualReaderHost(VirtualReaderHostOptions hostOptions)
     {
         ArgumentNullException.ThrowIfNull(hostOptions);
-        ArgumentNullException.ThrowIfNull(hostOptions.ListenAddress);
-        ArgumentNullException.ThrowIfNull(hostOptions.ReaderOptions);
-        if (hostOptions.Port is < 0 or > ushort.MaxValue)
+        hostOptions.Validate();
+        _hostOptions = hostOptions;
+        _options = hostOptions.ReaderOptions with
         {
-            throw new ArgumentOutOfRangeException(nameof(hostOptions), "The virtual reader port must be between 0 and 65535.");
-        }
-
-        VirtualReaderOptions options = hostOptions.ReaderOptions;
-        if (options.ElectronicProductCode.Length != 12)
-        {
-            throw new ArgumentException("The virtual tag EPC must be exactly 96 bits.", nameof(options));
-        }
-        ArgumentNullException.ThrowIfNull(options.UserMemory);
-        ArgumentNullException.ThrowIfNull(options.DropResponseForMessageTypes);
-        ArgumentNullException.ThrowIfNull(options.ErrorResponseForMessageTypes);
-        ArgumentNullException.ThrowIfNull(options.CloseConnectionAfterRequestMessageTypes);
-        ArgumentNullException.ThrowIfNull(options.TruncateResponseForMessageTypes);
-
-        listener = new TcpListener(hostOptions.ListenAddress, hostOptions.Port);
-        tagEpc = options.ElectronicProductCode.ToArray();
-        tagUserMemory = options.UserMemory.ToArray();
-        droppedResponseMessageTypes = options.DropResponseForMessageTypes.ToHashSet();
-        errorResponseMessageTypes = options.ErrorResponseForMessageTypes.ToDictionary();
-        closeConnectionRequestMessageTypes = options.CloseConnectionAfterRequestMessageTypes.ToHashSet();
-        truncateResponseMessageTypes = options.TruncateResponseForMessageTypes.ToHashSet();
-        useStrictStandardInventoryProfile = options.UseStrictStandardInventoryProfile;
-        Llrp101StandardModule.Register(registry);
+            TagSource = hostOptions.ReaderOptions.NormalizeLegacyTagSource(),
+        };
+        _logger = (hostOptions.LoggerFactory ?? NullLoggerFactory.Instance).CreateLogger<VirtualReaderHost>();
+        _registry = VirtualReaderProtocolDispatcher.CreateRegistry(hostOptions.ProtocolModules);
+        _deviceState = new VirtualReaderDeviceState(_options);
+        _dispatcher = new VirtualReaderProtocolDispatcher(
+            _deviceState,
+            _registry,
+            hostOptions.ProtocolModules);
+        _dropResponseMessageTypes = hostOptions.ReaderOptions.DropResponseForMessageTypes.ToHashSet();
+        _errorResponseMessageTypes = hostOptions.ReaderOptions.ErrorResponseForMessageTypes.ToDictionary();
+        _closeConnectionMessageTypes = hostOptions.ReaderOptions.CloseConnectionAfterRequestMessageTypes.ToHashSet();
+        _truncateResponseMessageTypes = hostOptions.ReaderOptions.TruncateResponseForMessageTypes.ToHashSet();
     }
 
-    public int Port => ((IPEndPoint)listener.LocalEndpoint).Port;
+    /// <summary>Gets the configured device options.</summary>
+    public VirtualReaderOptions Options => _options;
 
-    /// <summary>Gets the exact local address configured for this host.</summary>
-    public IPAddress ListenAddress => ((IPEndPoint)listener.LocalEndpoint).Address;
+    /// <summary>Gets the current host lifecycle state.</summary>
+    public VirtualReaderLifecycleState State => (VirtualReaderLifecycleState)Volatile.Read(ref _lifecycleState);
 
-    public void Start()
+    /// <summary>Gets the exact configured listen address.</summary>
+    public IPAddress ListenAddress => _hostOptions.ListenAddress;
+
+    /// <summary>Gets the bound port, or the configured port before the host starts.</summary>
+    public int Port
     {
-        if (acceptLoop is not null)
+        get
         {
-            throw new InvalidOperationException("The virtual reader is already running.");
+            TcpListener? listener = Volatile.Read(ref _listener);
+            return listener is null ? _hostOptions.Port : ((IPEndPoint)listener.LocalEndpoint).Port;
         }
-        listener.Start();
-        acceptLoop = AcceptAsync(cancellation.Token);
     }
 
+    /// <summary>Gets whether the host has a live listener.</summary>
+    public bool IsRunning => State == VirtualReaderLifecycleState.Running;
+
+    /// <summary>Gets a point-in-time view of active client connections.</summary>
+    public IReadOnlyList<VirtualReaderClientInfo> ConnectedClients
+    {
+        get
+        {
+            lock (_connectionGate)
+            {
+                return _connections.Values.Select(static connection => connection.ToInfo()).ToArray();
+            }
+        }
+    }
+
+    /// <summary>Raised after the host lifecycle state changes.</summary>
+    public event EventHandler<VirtualReaderLifecycleChangedEventArgs>? LifecycleChanged;
+
+    /// <summary>Raised when a client connection is accepted or removed.</summary>
+    public event EventHandler<VirtualReaderClientChangedEventArgs>? ClientChanged;
+
+    /// <summary>Raised for decoded incoming and outgoing message metadata.</summary>
+    public event EventHandler<VirtualReaderMessageEventArgs>? MessageObserved;
+
+    /// <summary>Starts the listener and accepts clients asynchronously.</summary>
+    public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            if (State == VirtualReaderLifecycleState.Running || State == VirtualReaderLifecycleState.Starting)
+            {
+                throw new InvalidOperationException("The virtual reader is already running or starting.");
+            }
+
+            SetState(VirtualReaderLifecycleState.Starting);
+            cancellationToken.ThrowIfCancellationRequested();
+            var lifetime = new CancellationTokenSource();
+            TcpListener? listener = null;
+            try
+            {
+                listener = new TcpListener(_hostOptions.ListenAddress, _hostOptions.Port);
+                listener.Start();
+                _listener = listener;
+                _lifetime = lifetime;
+                _acceptLoop = AcceptLoopAsync(listener, lifetime.Token);
+                SetState(VirtualReaderLifecycleState.Running);
+                _logger.LogInformation(
+                    "Virtual reader {ReaderName} started on {Address}:{Port} using LLRP {Version}",
+                    _options.ReaderName,
+                    ListenAddress,
+                    Port,
+                    _options.ProtocolVersion);
+            }
+            catch (Exception exception)
+            {
+                lifetime.Cancel();
+                listener?.Stop();
+                lifetime.Dispose();
+                SetState(VirtualReaderLifecycleState.Faulted, exception);
+                throw;
+            }
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    /// <summary>Compatibility synchronous start for the original single-host launcher.</summary>
+    public void Start() => StartAsync().GetAwaiter().GetResult();
+
+    /// <summary>Stops the listener, report schedulers, and all accepted client sessions.</summary>
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        return StopCoreAsync(cancellationToken);
+    }
+
+    private async Task StopCoreAsync(CancellationToken cancellationToken = default)
+    {
+        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (State is VirtualReaderLifecycleState.Created or VirtualReaderLifecycleState.Stopped)
+            {
+                if (State == VirtualReaderLifecycleState.Created)
+                {
+                    SetState(VirtualReaderLifecycleState.Stopped);
+                }
+
+                return;
+            }
+
+            if (State == VirtualReaderLifecycleState.Stopping)
+            {
+                return;
+            }
+
+            SetState(VirtualReaderLifecycleState.Stopping);
+            CancellationTokenSource? lifetime = _lifetime;
+            lifetime?.Cancel();
+            _listener?.Stop();
+
+            Task? acceptLoop = _acceptLoop;
+            VirtualReaderConnection[] connections;
+            Task[] connectionTasks;
+            lock (_connectionGate)
+            {
+                connections = _connections.Values.ToArray();
+                connectionTasks = _connectionTasks.Values.ToArray();
+            }
+
+            CancelReportLoops();
+            foreach (VirtualReaderConnection connection in connections)
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+
+            if (acceptLoop is not null)
+            {
+                await IgnoreExpectedShutdownAsync(acceptLoop).ConfigureAwait(false);
+            }
+
+            if (connectionTasks.Length > 0)
+            {
+                await Task.WhenAll(connectionTasks).ConfigureAwait(false);
+            }
+
+            lock (_connectionGate)
+            {
+                _connections.Clear();
+                _connectionTasks.Clear();
+            }
+
+            _listener = null;
+            _acceptLoop = null;
+            _lifetime = null;
+            lifetime?.Dispose();
+            SetState(VirtualReaderLifecycleState.Stopped);
+            _logger.LogInformation("Virtual reader {ReaderName} stopped.", _options.ReaderName);
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    /// <summary>Stops and starts the same single-host runtime on the same configured endpoint.</summary>
+    public async Task RestartAsync(CancellationToken cancellationToken = default)
+    {
+        await StopAsync(cancellationToken).ConfigureAwait(false);
+        await StartAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        cancellation.Cancel();
-        listener.Stop();
-        if (acceptLoop is not null)
+        if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
         {
-            await acceptLoop.ConfigureAwait(false);
+            return;
         }
-        cancellation.Dispose();
+
+        try
+        {
+            await StopCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            Volatile.Write(ref _disposeStarted, 2);
+            Volatile.Write(ref _lifecycleState, (int)VirtualReaderLifecycleState.Stopped);
+            _lifecycleLock.Dispose();
+        }
     }
 
-    private async Task AcceptAsync(CancellationToken token)
+    internal async ValueTask SendToAllClientsAsync(
+        LlrpProtocolVersion version,
+        ILlrpMessage message,
+        CancellationToken cancellationToken)
+    {
+        VirtualReaderConnection[] connections;
+        lock (_connectionGate)
+        {
+            connections = _connections.Values.ToArray();
+        }
+
+        foreach (VirtualReaderConnection connection in connections)
+        {
+            if (connection.ProtocolVersion != version)
+            {
+                continue;
+            }
+
+            try
+            {
+                await SendMessageAsync(connection, message, version, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is IOException or SocketException or LlrpSessionDisconnectedException or ObjectDisposedException)
+            {
+                _logger.LogDebug(exception, "Failed to send a scheduled virtual-reader message to {ConnectionId}.", connection.ConnectionId);
+            }
+        }
+    }
+
+    private async Task AcceptLoopAsync(TcpListener listener, CancellationToken cancellationToken)
     {
         try
         {
-            while (!token.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                TcpClient client = await listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
-                _ = ServeAsync(client, token);
+                TcpClient client = await listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
+                if (!TryReserveClientSlot(client))
+                {
+                    client.Dispose();
+                    continue;
+                }
+
+                VirtualReaderConnection connection;
+                try
+                {
+                    ConfigureSocket(client);
+                    var transport = new LlrpAcceptedTcpTransport(
+                        client,
+                        new LlrpAcceptedTcpTransportOptions
+                        {
+                            FrameAssemblyTimeout = _options.FrameAssemblyTimeout,
+                            IdleTimeout = _options.IdleTimeout,
+                            MaximumFrameLength = _options.MaximumFrameLength,
+                            LogFrameHex = false,
+                        },
+                        _hostOptions.LoggerFactory,
+                        _hostOptions.FrameObserver);
+                    connection = new VirtualReaderConnection(transport);
+                }
+                catch
+                {
+                    client.Dispose();
+                    continue;
+                }
+
+                lock (_connectionGate)
+                {
+                    _connections[connection.ConnectionId] = connection;
+                }
+
+                RaiseClientChanged(connection, connected: true);
+                _logger.LogInformation(
+                    "Virtual reader accepted client {ConnectionId} from {RemoteEndPoint}.",
+                    connection.ConnectionId,
+                    connection.RemoteEndPoint);
+
+                Task connectionTask = RunConnectionAsync(connection, cancellationToken);
+                lock (_connectionGate)
+                {
+                    if (_connections.ContainsKey(connection.ConnectionId))
+                    {
+                        _connectionTasks[connection.ConnectionId] = connectionTask;
+                    }
+                }
             }
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
-        catch (SocketException) when (token.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (SocketException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Virtual reader accept loop failed.");
+            SetState(VirtualReaderLifecycleState.Faulted, exception);
+        }
     }
 
-    private async Task ServeAsync(TcpClient client, CancellationToken token)
+    private bool TryReserveClientSlot(TcpClient client)
     {
-        using (client)
-        await using (NetworkStream stream = client.GetStream())
+        VirtualReaderConnection[] existing;
+        lock (_connectionGate)
         {
-            var headerBuffer = new byte[LlrpMessageHeader.EncodedLength];
-            while (!token.IsCancellationRequested && await ReadExactAsync(stream, headerBuffer, token).ConfigureAwait(false))
+            if (_connections.Count < _options.MaximumClientConnections)
             {
-                LlrpMessageHeader header = LlrpMessageHeader.Decode(headerBuffer);
-                byte[] frame = new byte[checked((int)header.MessageLength)];
-                headerBuffer.CopyTo(frame, 0);
-                if (!await ReadExactAsync(stream, frame.AsMemory(headerBuffer.Length), token).ConfigureAwait(false))
-                {
-                    return;
-                }
-                ILlrpMessage request = registry.DecodeMessage(frame);
-                if (ShouldCloseConnection(header.MessageType))
-                {
-                    return;
-                }
-                VirtualResponse dispatched = errorResponseMessageTypes.TryGetValue(header.MessageType, out VirtualReaderErrorResponse? fault)
-                    ? new(new V101Messages.ERROR_MESSAGE(header.MessageId, new LLRPStatus(fault.StatusCode, fault.Description, null, null)), [])
-                    : request switch
-                    {
-                        V101Messages.GET_READER_CAPABILITIES => new(Capabilities(header.MessageId), []),
-                        GET_READER_CONFIG get => new(GetReaderConfig(get), []),
-                        SET_READER_CONFIG set => new(SetReaderConfig(set), []),
-                        ADD_ROSPEC add => new(AddRoSpec(add), []),
-                        GET_ROSPECS get => new(GetRoSpecs(get), []),
-                        DELETE_ROSPEC delete => new(DeleteRoSpec(delete), []),
-                        ENABLE_ROSPEC enable => EnableRoSpecWithReports(enable),
-                        DISABLE_ROSPEC disable => new(DisableRoSpec(disable), []),
-                        START_ROSPEC start => StartRoSpecWithReports(start),
-                        STOP_ROSPEC stop => new(StopRoSpec(stop), []),
-                        ADD_ACCESSSPEC add => new(AddAccessSpec(add), []),
-                        GET_ACCESSSPECS get => new(GetAccessSpecs(get), []),
-                        DELETE_ACCESSSPEC delete => new(DeleteAccessSpec(delete), []),
-                        ENABLE_ACCESSSPEC enable => EnableAccessSpecWithReport(enable),
-                        DISABLE_ACCESSSPEC disable => new(DisableAccessSpec(disable), []),
-                        _ => new(new V101Messages.ERROR_MESSAGE(header.MessageId, new LLRPStatus(StatusCode.M_UnsupportedMessage, "Virtual reader does not implement this request.", null, null)), []),
-                    };
-                if (droppedResponseMessageTypes.Contains(header.MessageType))
+                return true;
+            }
+
+            if (_options.ConnectionLimitPolicy == VirtualReaderConnectionLimitPolicy.RejectAdditional)
+            {
+                _logger.LogWarning(
+                    "Rejected a virtual-reader client from {RemoteEndPoint} because the connection limit {Limit} was reached.",
+                    client.Client.RemoteEndPoint,
+                    _options.MaximumClientConnections);
+                return false;
+            }
+
+            existing = _connections.Values.Take(1).ToArray();
+            foreach (VirtualReaderConnection connection in existing)
+            {
+                _connections.Remove(connection.ConnectionId);
+            }
+        }
+
+        foreach (VirtualReaderConnection connection in existing)
+        {
+            _ = connection.DisposeAsync();
+        }
+
+        return true;
+    }
+
+    private async Task RunConnectionAsync(VirtualReaderConnection connection, CancellationToken hostCancellationToken)
+    {
+        using var connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(hostCancellationToken);
+        CancellationToken cancellationToken = connectionCancellation.Token;
+        Task? terminationWatcher = null;
+        Task? keepAliveTask = null;
+        try
+        {
+            await connection.Session.ConnectAsync(cancellationToken).ConfigureAwait(false);
+            connection.SetProtocolVersion(_options.ProtocolVersion);
+            await SendMessageAsync(
+                connection,
+                _dispatcher.CreateReaderEventNotification(
+                    _options.ProtocolVersion,
+                    connection.NextAsyncMessageId()),
+                _options.ProtocolVersion,
+                cancellationToken).ConfigureAwait(false);
+
+            terminationWatcher = WatchSessionTerminationAsync(connection.Session, connectionCancellation);
+            if (_options.KeepAliveInterval is TimeSpan keepAliveInterval)
+            {
+                keepAliveTask = KeepAliveAsync(connection, keepAliveInterval, cancellationToken);
+            }
+
+            await foreach (ReadOnlyMemory<byte> frame in connection.Session.ReadUnsolicitedFramesAsync(cancellationToken)
+                .ConfigureAwait(false))
+            {
+                await HandleFrameAsync(connection, frame, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (exception is IOException or SocketException or EndOfStreamException or LlrpSessionDisconnectedException or ObjectDisposedException)
+        {
+            _logger.LogDebug(exception, "Virtual-reader client {ConnectionId} disconnected.", connection.ConnectionId);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Virtual-reader client {ConnectionId} session failed.", connection.ConnectionId);
+        }
+        finally
+        {
+            connectionCancellation.Cancel();
+            if (terminationWatcher is not null)
+            {
+                await IgnoreExpectedShutdownAsync(terminationWatcher).ConfigureAwait(false);
+            }
+
+            if (keepAliveTask is not null)
+            {
+                await IgnoreExpectedShutdownAsync(keepAliveTask).ConfigureAwait(false);
+            }
+
+            await connection.DisposeAsync().ConfigureAwait(false);
+            lock (_connectionGate)
+            {
+                _connections.Remove(connection.ConnectionId);
+                _connectionTasks.Remove(connection.ConnectionId);
+            }
+
+            RaiseClientChanged(connection, connected: false);
+            ReconcileReportLoops();
+        }
+    }
+
+    private async Task HandleFrameAsync(
+        VirtualReaderConnection connection,
+        ReadOnlyMemory<byte> frame,
+        CancellationToken cancellationToken)
+    {
+        LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+        connection.SetProtocolVersion(header.Version);
+        ILlrpMessage message;
+        try
+        {
+            message = _registry.DecodeMessage(frame.Span);
+        }
+        catch (Exception exception) when (
+            exception is LlrpProtocolException or UnknownTvParameterException or ArgumentException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Rejected malformed or undecodable message type {MessageType} from {ConnectionId}.",
+                header.MessageType,
+                connection.ConnectionId);
+            ILlrpMessage error = _dispatcher.CreateError(
+                header.Version,
+                header.MessageId,
+                (ushort)GetParameterErrorCode(header.Version),
+                exception.Message);
+            await SendMessageAsync(connection, error, header.Version, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        RaiseMessageObserved(connection, header, incoming: true, detail: message.GetType().Name);
+        if (ShouldCloseConnection(header.MessageType))
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            return;
+        }
+
+        VirtualReaderRequestContext context = new(
+            this,
+            _deviceState,
+            connection.ConnectionId,
+            header.Version,
+            header.MessageId);
+        VirtualReaderDispatchResult result;
+        if (_errorResponseMessageTypes.TryGetValue(header.MessageType, out VirtualReaderErrorResponse? injectedError))
+        {
+            result = new VirtualReaderDispatchResult(
+                _dispatcher.CreateError(
+                    header.Version,
+                    header.MessageId,
+                    injectedError.StatusCode,
+                    injectedError.Description),
+                []);
+        }
+        else
+        {
+            try
+            {
+                result = await _dispatcher.DispatchAsync(context, message, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException or InvalidOperationException or NotSupportedException or
+                    OverflowException or LlrpProtocolException)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Rejected virtual-reader request {MessageType} from {ConnectionId}.",
+                    header.MessageType,
+                    connection.ConnectionId);
+                result = new VirtualReaderDispatchResult(
+                    _dispatcher.CreateError(
+                        header.Version,
+                        header.MessageId,
+                        GetParameterErrorCode(header.Version),
+                        exception.Message),
+                    []);
+            }
+        }
+
+        if (_dropResponseMessageTypes.Contains(header.MessageType))
+        {
+            return;
+        }
+
+        LlrpProtocolVersion responseVersion = result.ResponseVersion ?? header.Version;
+        if (result.Response is not null)
+        {
+            byte[] responseFrame = _registry.EncodeMessage(responseVersion, result.Response);
+            RaiseMessageObserved(connection, LlrpMessageHeader.Decode(responseFrame), incoming: false, detail: result.Response.GetType().Name);
+            if (_truncateResponseMessageTypes.Contains(header.MessageType))
+            {
+                await connection.SendRawFrameAsync(
+                    responseFrame.AsMemory(0, Math.Max(1, responseFrame.Length - 1)),
+                    cancellationToken).ConfigureAwait(false);
+                await connection.DisposeAsync().ConfigureAwait(false);
+                return;
+            }
+
+            await connection.Session.SendFrameAsync(responseFrame, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (ILlrpMessage additionalMessage in result.AdditionalMessages)
+        {
+            LlrpProtocolVersion additionalVersion = result.ResponseVersion ?? header.Version;
+            byte[] additionalFrame = _registry.EncodeMessage(additionalVersion, additionalMessage);
+            RaiseMessageObserved(connection, LlrpMessageHeader.Decode(additionalFrame), incoming: false, detail: additionalMessage.GetType().Name);
+            await connection.Session.SendFrameAsync(additionalFrame, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (result.NextProtocolVersion is LlrpProtocolVersion nextVersion)
+        {
+            connection.SetProtocolVersion(nextVersion);
+        }
+
+        ReconcileReportLoops();
+        if (result.CloseConnection)
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            return;
+        }
+    }
+
+    private async Task KeepAliveAsync(
+        VirtualReaderConnection connection,
+        TimeSpan interval,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+                LlrpProtocolVersion version = connection.ProtocolVersion;
+                ILlrpMessage keepalive = _dispatcher.CreateKeepalive(version, connection.NextAsyncMessageId());
+                await SendMessageAsync(connection, keepalive, version, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void ReconcileReportLoops()
+    {
+        if (!IsRunning)
+        {
+            return;
+        }
+
+        IReadOnlyList<uint> activeRoSpecIds = _deviceState.GetActiveRoSpecIds();
+        lock (_reportGate)
+        {
+            foreach (uint roSpecId in activeRoSpecIds)
+            {
+                if (_reportLoops.ContainsKey(roSpecId))
                 {
                     continue;
                 }
-                byte[] responseFrame = registry.EncodeMessage(LlrpProtocolVersion.Version101, dispatched.Response);
-                if (truncateResponseMessageTypes.Contains(header.MessageType))
+
+                CancellationToken hostToken = _lifetime?.Token ?? CancellationToken.None;
+                var cancellation = CancellationTokenSource.CreateLinkedTokenSource(hostToken);
+                _reportLoops[roSpecId] = new ReportLoop(cancellation, ReportLoopAsync(roSpecId, cancellation.Token));
+            }
+
+            foreach ((uint roSpecId, ReportLoop loop) in _reportLoops.ToArray())
+            {
+                if (activeRoSpecIds.Contains(roSpecId))
                 {
-                    await stream.WriteAsync(responseFrame.AsMemory(0, responseFrame.Length - 1), token).ConfigureAwait(false);
+                    continue;
+                }
+
+                loop.Cancellation.Cancel();
+                loop.Cancellation.Dispose();
+                _reportLoops.Remove(roSpecId);
+            }
+        }
+    }
+
+    private async Task ReportLoopAsync(uint roSpecId, CancellationToken cancellationToken)
+    {
+        int reportCount = 0;
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (!_deviceState.GetActiveRoSpecIds().Contains(roSpecId))
+                {
                     return;
                 }
-                await stream.WriteAsync(responseFrame, token).ConfigureAwait(false);
-                foreach (ILlrpMessage report in dispatched.Reports)
+
+                VirtualReaderConnection[] connections;
+                lock (_connectionGate)
                 {
-                    byte[] reportFrame = registry.EncodeMessage(LlrpProtocolVersion.Version101, report);
-                    await stream.WriteAsync(reportFrame, token).ConfigureAwait(false);
-                }
-            }
-        }
-    }
-
-    private bool ShouldCloseConnection(ushort messageType)
-    {
-        lock (closeConnectionRequestMessageTypes)
-        {
-            return closeConnectionRequestMessageTypes.Remove(messageType);
-        }
-    }
-
-    private V101Messages.GET_READER_CAPABILITIES_RESPONSE Capabilities(uint messageId) => new(
-        messageId,
-        new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
-        new GeneralDeviceCapabilities(4, true, true, 0, 0, "virtual-reader", [new ReceiveSensitivityTableEntry(1, 0)], [], new GPIOCapabilities(0, 0), [new PerAntennaAirProtocol(1, [AirProtocols.Unspecified])]),
-        null,
-        useStrictStandardInventoryProfile ? StrictRegulatoryCapabilities() : null,
-        useStrictStandardInventoryProfile ? new C1G2LLRPCapabilities(false, false, 0) : null,
-        []);
-
-    private static RegulatoryCapabilities StrictRegulatoryCapabilities() => new(
-        CountryCode: 840,
-        CommunicationsStandard: CommunicationsStandard.US_FCC_Part_15,
-        UHFBandCapabilities: new UHFBandCapabilities(
-            [new TransmitPowerLevelTableEntry(20, 2000)],
-            new FrequencyInformation(
-                Hopping: true,
-                [new FrequencyHopTable(1, [902_750])],
-                FixedFrequencyTable: null),
-            [
-                new C1G2UHFRFModeTable(
-                [
-                    new C1G2UHFRFModeTableEntry(
-                        ModeIdentifier: 20,
-                        DRValue: C1G2DRValue.DRV_64_3,
-                        EPCHAGTCConformance: true,
-                        MValue: C1G2MValue.MV_4,
-                        ForwardLinkModulation: C1G2ForwardLinkModulation.PR_ASK,
-                        SpectralMaskIndicator: C1G2SpectralMaskIndicator.DI,
-                        BDRValue: 64_000,
-                        PIEValue: 2_000,
-                        MinTariValue: 12_500,
-                        MaxTariValue: 23_000,
-                        StepTariValue: 2_100),
-                ]),
-            ]),
-        CustomItems: []);
-
-    private GET_READER_CONFIG_RESPONSE GetReaderConfig(GET_READER_CONFIG request)
-    {
-        lock (configurationGate)
-        {
-            IReadOnlyList<AntennaProperties> properties = Enumerable.Range(1, 4)
-                .Select(static id => new AntennaProperties(true, checked((ushort)id), 0))
-                .ToArray();
-            IReadOnlyList<GPIPortCurrentState> gpis = Enumerable.Range(1, 4)
-                .Select(static id => new GPIPortCurrentState(checked((ushort)id), true, GPIPortState.Low))
-                .ToArray();
-            return new GET_READER_CONFIG_RESPONSE(
-                request.MessageId,
-                Status(StatusCode.M_Success, string.Empty),
-                Identification: null,
-                AntennaPropertiesItems: properties,
-                AntennaConfigurationItems: antennaConfigurations,
-                ReaderEventNotificationSpec: readerEventNotificationSpec,
-                ROReportSpec: null,
-                AccessReportSpec: null,
-                LLRPConfigurationStateValue: null,
-                KeepaliveSpec: keepaliveSpec,
-                GPIPortCurrentStateItems: gpis,
-                GPOWriteDataItems: gpoWriteData,
-                EventsAndReports: null,
-                CustomItems: []);
-        }
-    }
-
-    private SET_READER_CONFIG_RESPONSE SetReaderConfig(SET_READER_CONFIG request)
-    {
-        lock (configurationGate)
-        {
-            if (request.ResetToFactoryDefault)
-            {
-                antennaConfigurations = [];
-                gpoWriteData = [new GPOWriteData(1, false)];
-                readerEventNotificationSpec = null;
-                keepaliveSpec = new KeepaliveSpec(KeepaliveTriggerType.Null, 0);
-            }
-            else
-            {
-                if (request.KeepaliveSpec is not null)
-                {
-                    keepaliveSpec = request.KeepaliveSpec;
-                }
-                if (request.AntennaConfigurationItems.Count > 0)
-                {
-                    antennaConfigurations = request.AntennaConfigurationItems.ToArray();
-                }
-                if (request.GPOWriteDataItems.Count > 0)
-                {
-                    gpoWriteData = request.GPOWriteDataItems.ToArray();
-                }
-                if (request.ReaderEventNotificationSpec is not null)
-                {
-                    readerEventNotificationSpec = request.ReaderEventNotificationSpec;
-                }
-            }
-        }
-
-        return new SET_READER_CONFIG_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
-    }
-
-    private ADD_ROSPEC_RESPONSE AddRoSpec(ADD_ROSPEC request)
-    {
-        if (useStrictStandardInventoryProfile
-            && ValidateStrictInventory(request.ROSpec) is string validationError)
-        {
-            return new ADD_ROSPEC_RESPONSE(
-                request.MessageId,
-                Status(StatusCode.M_ParameterError, validationError));
-        }
-
-        lock (roSpecs)
-        {
-            if (!roSpecs.TryAdd(request.ROSpec.ROSpecID, request.ROSpec))
-            {
-                return new ADD_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_ParameterError, "ROSpec already exists."));
-            }
-        }
-
-        return new ADD_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
-    }
-
-    private static string? ValidateStrictInventory(ROSpec roSpec)
-    {
-        AISpec[] aiSpecs = roSpec.SpecParameterItems.OfType<AISpec>().ToArray();
-        if (aiSpecs.Length == 0)
-        {
-            return "Strict inventory profile requires an AISpec.";
-        }
-
-        foreach (AISpec aiSpec in aiSpecs)
-        {
-            if (aiSpec.AntennaIDs.Count == 0 || aiSpec.AntennaIDs.Contains((ushort)0))
-            {
-                return "Strict inventory profile requires explicit, non-zero AISpec antenna IDs.";
-            }
-
-            foreach (AntennaConfiguration antenna in aiSpec.InventoryParameterSpecItems
-                .SelectMany(static inventory => inventory.AntennaConfigurationItems))
-            {
-                if (antenna.AntennaID == 0)
-                {
-                    return "Strict inventory profile requires explicit, non-zero antenna configuration IDs.";
+                    connections = _connections.Values.ToArray();
                 }
 
-                foreach (C1G2InventoryCommand command in antenna.AirProtocolInventoryCommandSettingsItems
-                    .OfType<C1G2InventoryCommand>())
+                foreach (VirtualReaderConnection connection in connections)
                 {
-                    if (command.C1G2RFControl is not { } rfControl)
+                    if (!connection.IsConnected)
                     {
                         continue;
                     }
 
-                    bool validTari = rfControl.ModeIndex == 20
-                        && rfControl.Tari >= 12_500
-                        && rfControl.Tari <= 23_000
-                        && (rfControl.Tari - 12_500) % 2_100 == 0;
-                    if (!validTari)
+                    LlrpProtocolVersion version = connection.ProtocolVersion;
+                    foreach (ILlrpMessage report in _dispatcher.BuildInventoryReports(version, roSpecId))
                     {
-                        return $"C1G2RFControl Tari {rfControl.Tari} is invalid for mode {rfControl.ModeIndex}.";
+                        try
+                        {
+                            await SendMessageAsync(connection, report, version, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (Exception exception) when (exception is IOException or SocketException or LlrpSessionDisconnectedException or ObjectDisposedException)
+                        {
+                            _logger.LogDebug(exception, "Inventory report delivery failed for {ConnectionId}.", connection.ConnectionId);
+                        }
                     }
                 }
+
+                reportCount++;
+                if (!_options.Reports.Repeat ||
+                    (_options.Reports.ReportCount > 0 && reportCount >= _options.Reports.ReportCount))
+                {
+                    return;
+                }
+
+                await Task.Delay(_options.Reports.ReportInterval, cancellationToken).ConfigureAwait(false);
             }
         }
-
-        return null;
-    }
-
-    private GET_ROSPECS_RESPONSE GetRoSpecs(GET_ROSPECS request)
-    {
-        ROSpec[] items;
-        lock (roSpecs)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            items = roSpecs.Values.OrderBy(static item => item.ROSpecID).ToArray();
         }
-
-        return new GET_ROSPECS_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty), items);
     }
 
-    private DELETE_ROSPEC_RESPONSE DeleteRoSpec(DELETE_ROSPEC request)
+    private void CancelReportLoops()
     {
-        lock (roSpecs)
+        lock (_reportGate)
         {
-            if (request.ROSpecID == 0)
+            foreach (ReportLoop loop in _reportLoops.Values)
             {
-                roSpecs.Clear();
-                enabledRoSpecs.Clear();
-                accessSpecs.Clear();
-                enabledAccessSpecs.Clear();
-                return new DELETE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+                loop.Cancellation.Cancel();
+                loop.Cancellation.Dispose();
             }
 
-            if (!roSpecs.Remove(request.ROSpecID))
-            {
-                return new DELETE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
-            }
-
-            enabledRoSpecs.Remove(request.ROSpecID);
-            foreach (uint accessSpecId in accessSpecs.Values
-                .Where(accessSpec => accessSpec.ROSpecID == request.ROSpecID)
-                .Select(static accessSpec => accessSpec.AccessSpecID)
-                .ToArray())
-            {
-                accessSpecs.Remove(accessSpecId);
-                enabledAccessSpecs.Remove(accessSpecId);
-            }
+            _reportLoops.Clear();
         }
-
-        return new DELETE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
     }
 
-    private ENABLE_ROSPEC_RESPONSE EnableRoSpec(ENABLE_ROSPEC request)
+    private async Task SendMessageAsync(
+        VirtualReaderConnection connection,
+        ILlrpMessage message,
+        LlrpProtocolVersion version,
+        CancellationToken cancellationToken)
     {
-        lock (roSpecs)
-        {
-            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
-            {
-                return new ENABLE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
-            }
-
-            bool immediate = roSpec.ROBoundarySpec.ROSpecStartTrigger.ROSpecStartTriggerType == ROSpecStartTriggerType.Immediate;
-            roSpecs[request.ROSpecID] = roSpec with { CurrentState = immediate ? ROSpecState.Active : ROSpecState.Inactive };
-            enabledRoSpecs.Add(request.ROSpecID);
-        }
-
-        return new ENABLE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+        byte[] frame = _registry.EncodeMessage(version, message);
+        RaiseMessageObserved(connection, LlrpMessageHeader.Decode(frame), incoming: false, detail: message.GetType().Name);
+        await connection.Session.SendFrameAsync(frame, cancellationToken).ConfigureAwait(false);
     }
 
-    private VirtualResponse EnableRoSpecWithReports(ENABLE_ROSPEC request)
+    private bool ShouldCloseConnection(ushort messageType)
     {
-        ENABLE_ROSPEC_RESPONSE response = EnableRoSpec(request);
-        return response.LLRPStatus.StatusCode == StatusCode.M_Success
-            ? new(response, BuildInventoryReports(request.ROSpecID))
-            : new(response, []);
+        lock (_closeConnectionMessageTypes)
+        {
+            return _closeConnectionMessageTypes.Remove(messageType);
+        }
     }
 
-    private DISABLE_ROSPEC_RESPONSE DisableRoSpec(DISABLE_ROSPEC request)
+    private void ConfigureSocket(TcpClient client)
     {
-        lock (roSpecs)
+        if (!_options.UseTcpKeepAlive)
         {
-            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
-            {
-                return new DISABLE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
-            }
-
-            roSpecs[request.ROSpecID] = roSpec with { CurrentState = ROSpecState.Disabled };
-            enabledRoSpecs.Remove(request.ROSpecID);
+            return;
         }
 
-        return new DISABLE_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+        try
+        {
+            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+        }
+        catch (SocketException exception)
+        {
+            _logger.LogDebug(exception, "The virtual-reader socket did not accept TCP keepalive configuration.");
+        }
     }
 
-    private START_ROSPEC_RESPONSE StartRoSpec(START_ROSPEC request)
+    private void SetState(VirtualReaderLifecycleState state, Exception? error = null)
     {
-        lock (roSpecs)
+        VirtualReaderLifecycleState previous = (VirtualReaderLifecycleState)Interlocked.Exchange(
+            ref _lifecycleState,
+            (int)state);
+        if (previous == state && error is null)
         {
-            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
-            {
-                return new START_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
-            }
-
-            if (!enabledRoSpecs.Contains(request.ROSpecID))
-            {
-                return new START_ROSPEC_RESPONSE(
-                    request.MessageId,
-                    Status(StatusCode.M_ParameterError, "ROSpec must be enabled before it can be started."));
-            }
-
-            roSpecs[request.ROSpecID] = roSpec with { CurrentState = ROSpecState.Active };
+            return;
         }
 
-        return new START_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+        try
+        {
+            LifecycleChanged?.Invoke(this, new VirtualReaderLifecycleChangedEventArgs(previous, state, error));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "A virtual-reader lifecycle observer threw.");
+        }
     }
 
-    private VirtualResponse StartRoSpecWithReports(START_ROSPEC request)
+    private void RaiseClientChanged(VirtualReaderConnection connection, bool connected)
     {
-        START_ROSPEC_RESPONSE response = StartRoSpec(request);
-        return response.LLRPStatus.StatusCode == StatusCode.M_Success
-            ? new(response, BuildInventoryReports(request.ROSpecID))
-            : new(response, []);
+        try
+        {
+            ClientChanged?.Invoke(this, new VirtualReaderClientChangedEventArgs(connection.ToInfo(), connected));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "A virtual-reader client observer threw.");
+        }
     }
 
-    private STOP_ROSPEC_RESPONSE StopRoSpec(STOP_ROSPEC request)
+    private void RaiseMessageObserved(
+        VirtualReaderConnection connection,
+        LlrpMessageHeader header,
+        bool incoming,
+        string? detail)
     {
-        lock (roSpecs)
+        try
         {
-            if (!roSpecs.TryGetValue(request.ROSpecID, out ROSpec? roSpec))
-            {
-                return new STOP_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
-            }
-
-            roSpecs[request.ROSpecID] = roSpec with
-            {
-                CurrentState = enabledRoSpecs.Contains(request.ROSpecID)
-                    ? ROSpecState.Inactive
-                    : ROSpecState.Disabled,
-            };
+            MessageObserved?.Invoke(
+                this,
+                new VirtualReaderMessageEventArgs(
+                    connection.ConnectionId,
+                    header.Version,
+                    header.MessageType,
+                    header.MessageId,
+                    incoming,
+                    detail));
         }
-
-        return new STOP_ROSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "A virtual-reader message observer threw.");
+        }
     }
 
-    private ADD_ACCESSSPEC_RESPONSE AddAccessSpec(ADD_ACCESSSPEC request)
+    private static async Task WatchSessionTerminationAsync(
+        LlrpSession session,
+        CancellationTokenSource cancellation)
     {
-        lock (accessSpecs)
-        {
-            if (!roSpecs.ContainsKey(request.AccessSpec.ROSpecID))
-            {
-                return new ADD_ACCESSSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.AccessSpec.ROSpecID));
-            }
-
-            if (!accessSpecs.TryAdd(request.AccessSpec.AccessSpecID, request.AccessSpec))
-            {
-                return new ADD_ACCESSSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_ParameterError, "AccessSpec already exists."));
-            }
-        }
-
-        return new ADD_ACCESSSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
+        await session.ConnectionCompletion.ConfigureAwait(false);
+        cancellation.Cancel();
     }
 
-    private GET_ACCESSSPECS_RESPONSE GetAccessSpecs(GET_ACCESSSPECS request)
+    private static async Task IgnoreExpectedShutdownAsync(Task task)
     {
-        AccessSpec[] items;
-        lock (accessSpecs)
+        try
         {
-            items = accessSpecs.Values.OrderBy(static item => item.AccessSpecID).ToArray();
+            await task.ConfigureAwait(false);
         }
-
-        return new GET_ACCESSSPECS_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty), items);
+        catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException or SocketException or IOException or EndOfStreamException)
+        {
+        }
     }
 
-    private DELETE_ACCESSSPEC_RESPONSE DeleteAccessSpec(DELETE_ACCESSSPEC request)
+    private static ushort GetParameterErrorCode(LlrpProtocolVersion version) => version switch
     {
-        lock (accessSpecs)
-        {
-            if (request.AccessSpecID == 0)
-            {
-                accessSpecs.Clear();
-                enabledAccessSpecs.Clear();
-                return new DELETE_ACCESSSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
-            }
-
-            if (!accessSpecs.Remove(request.AccessSpecID))
-            {
-                return new DELETE_ACCESSSPEC_RESPONSE(request.MessageId, MissingAccessSpec(request.AccessSpecID));
-            }
-
-            enabledAccessSpecs.Remove(request.AccessSpecID);
-        }
-
-        return new DELETE_ACCESSSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
-    }
-
-    private DISABLE_ACCESSSPEC_RESPONSE DisableAccessSpec(DISABLE_ACCESSSPEC request)
-    {
-        lock (accessSpecs)
-        {
-            if (!accessSpecs.TryGetValue(request.AccessSpecID, out AccessSpec? accessSpec))
-            {
-                return new DISABLE_ACCESSSPEC_RESPONSE(request.MessageId, MissingAccessSpec(request.AccessSpecID));
-            }
-
-            accessSpecs[request.AccessSpecID] = accessSpec with { CurrentState = AccessSpecState.Disabled };
-            enabledAccessSpecs.Remove(request.AccessSpecID);
-        }
-
-        return new DISABLE_ACCESSSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
-    }
-
-    private VirtualResponse EnableAccessSpecWithReport(ENABLE_ACCESSSPEC request)
-    {
-        ENABLE_ACCESSSPEC_RESPONSE response;
-        AccessSpec? enabled = null;
-        lock (accessSpecs)
-        {
-            if (!accessSpecs.TryGetValue(request.AccessSpecID, out AccessSpec? accessSpec))
-            {
-                response = new ENABLE_ACCESSSPEC_RESPONSE(request.MessageId, MissingAccessSpec(request.AccessSpecID));
-            }
-            else if (!enabledRoSpecs.Contains(accessSpec.ROSpecID))
-            {
-                response = new ENABLE_ACCESSSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_ParameterError, "Associated ROSpec is not enabled."));
-            }
-            else
-            {
-                enabled = accessSpec with { CurrentState = AccessSpecState.Active };
-                accessSpecs[request.AccessSpecID] = enabled;
-                enabledAccessSpecs.Add(request.AccessSpecID);
-                response = new ENABLE_ACCESSSPEC_RESPONSE(request.MessageId, Status(StatusCode.M_Success, string.Empty));
-            }
-        }
-
-        return enabled is null ? new(response, []) : new(response, [BuildAccessReport(enabled)]);
-    }
-
-    private IReadOnlyList<ILlrpMessage> BuildInventoryReports(uint roSpecId)
-    {
-        ROSpec? roSpec;
-        lock (roSpecs)
-        {
-            roSpecs.TryGetValue(roSpecId, out roSpec);
-        }
-
-        return roSpec?.CurrentState == ROSpecState.Active
-            ? [new RO_ACCESS_REPORT(NextAsyncMessageId(), [BuildTagReport(roSpecId, null, [])], [], [])]
-            : [];
-    }
-
-    private RO_ACCESS_REPORT BuildAccessReport(AccessSpec accessSpec)
-    {
-        bool selected = MatchesTag(accessSpec.AccessCommand.AirProtocolTagSpec);
-        IReadOnlyList<ILlrpParameter> results = accessSpec.AccessCommand.AccessCommandOpSpecItems
-            .Select(operation => BuildOperationResult(operation, selected))
-            .ToArray();
-        return new RO_ACCESS_REPORT(
-            NextAsyncMessageId(),
-            [BuildTagReport(accessSpec.ROSpecID, accessSpec.AccessSpecID, results)],
-            [],
-            []);
-    }
-
-    private ILlrpParameter BuildOperationResult(ILlrpParameter operation, bool selected)
-    {
-        if (!selected)
-        {
-            return operation switch
-            {
-                C1G2Read read => new C1G2ReadOpSpecResult(C1G2ReadResultType.No_Response_From_Tag, read.OpSpecID, []),
-                C1G2Write write => new C1G2WriteOpSpecResult(C1G2WriteResultType.No_Response_From_Tag, write.OpSpecID, 0),
-                _ => throw new NotSupportedException($"Virtual reader does not implement access operation {operation.GetType().Name}."),
-            };
-        }
-
-        return operation switch
-        {
-            C1G2Read read => Read(read),
-            C1G2Write write => Write(write),
-            _ => throw new NotSupportedException($"Virtual reader does not implement access operation {operation.GetType().Name}."),
-        };
-    }
-
-    private C1G2ReadOpSpecResult Read(C1G2Read operation)
-    {
-        ushort[] memory = GetMemory(operation.MB);
-        int start = operation.WordPointer;
-        int count = operation.WordCount;
-        return start < 0 || start + count > memory.Length
-            ? new C1G2ReadOpSpecResult(C1G2ReadResultType.Nonspecific_Tag_Error, operation.OpSpecID, [])
-            : new C1G2ReadOpSpecResult(C1G2ReadResultType.Success, operation.OpSpecID, memory.Skip(start).Take(count).ToArray());
-    }
-
-    private C1G2WriteOpSpecResult Write(C1G2Write operation)
-    {
-        if (operation.MB != 3)
-        {
-            return new C1G2WriteOpSpecResult(C1G2WriteResultType.Tag_Memory_Locked_Error, operation.OpSpecID, 0);
-        }
-
-        int start = operation.WordPointer;
-        if (start < 0 || start + operation.WriteData.Count > tagUserMemory.Length)
-        {
-            return new C1G2WriteOpSpecResult(C1G2WriteResultType.Tag_Memory_Overrun_Error, operation.OpSpecID, 0);
-        }
-
-        for (int index = 0; index < operation.WriteData.Count; index++)
-        {
-            tagUserMemory[start + index] = operation.WriteData[index];
-        }
-        return new C1G2WriteOpSpecResult(C1G2WriteResultType.Success, operation.OpSpecID, checked((ushort)operation.WriteData.Count));
-    }
-
-    private bool MatchesTag(global::LlrpNet.Protocol.Choices.V1_0_1.IAirProtocolTagSpec tagSpec)
-    {
-        if (tagSpec is not C1G2TagSpec c1g2)
-        {
-            return false;
-        }
-
-        foreach (C1G2TargetTag target in c1g2.C1G2TargetTagItems)
-        {
-            bool match = MatchesTarget(target);
-            if (match != target.Match)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private bool MatchesTarget(C1G2TargetTag target)
-    {
-        bool[] memoryBits = ToBits(GetMemoryBytes(target.MB));
-        if (target.Pointer + target.TagMask.Count > memoryBits.Length || target.TagMask.Count != target.TagData.Count)
-        {
-            return false;
-        }
-
-        for (int index = 0; index < target.TagMask.Count; index++)
-        {
-            if (target.TagMask[index] && memoryBits[target.Pointer + index] != target.TagData[index])
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private ushort[] GetMemory(byte memoryBank) => memoryBank switch
-    {
-        1 => [0, 0, .. BytesToWords(tagEpc)],
-        3 => tagUserMemory,
-        _ => [],
+        LlrpProtocolVersion.Version101 => 100,
+        LlrpProtocolVersion.Version11 => 100,
+        _ => 100,
     };
 
-    private byte[] GetMemoryBytes(byte memoryBank) => memoryBank switch
+    private void ThrowIfDisposed()
     {
-        1 => [0, 0, 0, 0, .. tagEpc],
-        3 => WordsToBytes(tagUserMemory),
-        _ => [],
-    };
-
-    private static ushort[] BytesToWords(ReadOnlySpan<byte> bytes)
-    {
-        var words = new ushort[bytes.Length / 2];
-        for (int index = 0; index < words.Length; index++)
+        if (Volatile.Read(ref _disposeStarted) != 0)
         {
-            words[index] = (ushort)((bytes[index * 2] << 8) | bytes[(index * 2) + 1]);
+            throw new ObjectDisposedException(nameof(VirtualReaderHost));
         }
-        return words;
     }
 
-    private static byte[] WordsToBytes(ReadOnlySpan<ushort> words)
+    private sealed record ReportLoop(CancellationTokenSource Cancellation, Task Task);
+
+    private sealed class VirtualReaderConnection : IAsyncDisposable
     {
-        var bytes = new byte[words.Length * 2];
-        for (int index = 0; index < words.Length; index++)
+        private readonly LlrpAcceptedTcpTransport _transport;
+        private int _disposed;
+        private int _nextAsyncMessageId;
+        private int _protocolVersion = (int)LlrpProtocolVersion.Version101;
+
+        public VirtualReaderConnection(LlrpAcceptedTcpTransport transport)
         {
-            bytes[index * 2] = (byte)(words[index] >> 8);
-            bytes[(index * 2) + 1] = (byte)words[index];
-        }
-        return bytes;
-    }
-
-    private static bool[] ToBits(ReadOnlySpan<byte> bytes)
-    {
-        var bits = new bool[bytes.Length * 8];
-        for (int index = 0; index < bits.Length; index++)
-        {
-            bits[index] = (bytes[index / 8] & (1 << (7 - (index % 8)))) != 0;
-        }
-        return bits;
-    }
-
-    private TagReportData BuildTagReport(
-        uint roSpecId,
-        uint? accessSpecId,
-        IReadOnlyList<ILlrpParameter> results) =>
-        new(
-            new EPC_96(tagEpc),
-            new ROSpecID(roSpecId),
-            null,
-            new InventoryParameterSpecID(1),
-            new AntennaID(1),
-            new PeakRSSI(-42),
-            null,
-            null,
-            null,
-            null,
-            null,
-            new TagSeenCount(1),
-            [],
-            accessSpecId is uint id ? new AccessSpecID(id) : null,
-            results,
-            []);
-
-    private uint NextAsyncMessageId() => unchecked((uint)Interlocked.Increment(ref nextAsyncMessageId));
-
-    private static LLRPStatus MissingRoSpec(uint roSpecId) =>
-        Status(StatusCode.M_ParameterError, $"ROSpec {roSpecId} does not exist.");
-
-    private static LLRPStatus MissingAccessSpec(uint accessSpecId) =>
-        Status(StatusCode.M_ParameterError, $"AccessSpec {accessSpecId} does not exist.");
-
-    private static LLRPStatus Status(StatusCode code, string description) => new(code, description, null, null);
-
-    private static async Task<bool> ReadExactAsync(NetworkStream stream, Memory<byte> buffer, CancellationToken token)
-    {
-        int offset = 0;
-        while (offset < buffer.Length)
-        {
-            int read = await stream.ReadAsync(buffer[offset..], token).ConfigureAwait(false);
-            if (read == 0)
+            _transport = transport;
+            Session = new LlrpSession(transport, new LlrpSessionOptions
             {
-                return false;
-            }
-            offset += read;
+                UnsolicitedFrameCapacity = 4096,
+                UnsolicitedFrameOverflowPolicy = LlrpUnsolicitedFrameOverflowPolicy.FaultConnection,
+            });
+            ConnectedAt = DateTimeOffset.UtcNow;
         }
-        return true;
-    }
 
-    private sealed record VirtualResponse(ILlrpMessage Response, IReadOnlyList<ILlrpMessage> Reports);
+        public string ConnectionId => _transport.ConnectionId;
+        public EndPoint? RemoteEndPoint => _transport.RemoteEndPoint;
+        public DateTimeOffset ConnectedAt { get; }
+        public LlrpSession Session { get; }
+        public bool IsConnected => Session.IsConnected && Volatile.Read(ref _disposed) == 0;
+        public LlrpProtocolVersion ProtocolVersion => (LlrpProtocolVersion)Volatile.Read(ref _protocolVersion);
+
+        public void SetProtocolVersion(LlrpProtocolVersion version) => Volatile.Write(ref _protocolVersion, (int)version);
+
+        public uint NextAsyncMessageId() => unchecked((uint)Interlocked.Increment(ref _nextAsyncMessageId));
+
+        public VirtualReaderClientInfo ToInfo() => new(
+            ConnectionId,
+            RemoteEndPoint,
+            ConnectedAt,
+            ProtocolVersion,
+            IsConnected);
+
+        public ValueTask SendRawFrameAsync(ReadOnlyMemory<byte> frame, CancellationToken cancellationToken) =>
+            _transport.SendRawFrameAsync(frame, cancellationToken);
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            await Session.DisposeAsync().ConfigureAwait(false);
+        }
+    }
 }
