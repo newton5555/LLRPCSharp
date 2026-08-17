@@ -4,7 +4,7 @@
 - 基准日期：2026-08-17
 - 实施前基线：496 项测试通过，构建 0 warning / 0 error
 - 架构迁移阶段验收：508 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error；
-  后续 1.0.1 设备端对齐增量验收：529 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error
+  后续 1.0.1 设备端对齐增量验收：531 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error
 - 计划入口：[路线图](../roadmap.md)
 
 ## 1. 目标

@@ -20,6 +20,7 @@ public sealed class LlrpAcceptedTcpTransport : ILlrpTransport
 {
     private readonly TcpClient _client;
     private readonly NetworkStream _stream;
+    private readonly EndPoint? _remoteEndPoint;
     private readonly LlrpAcceptedTcpTransportOptions _options;
     private readonly ILogger<LlrpAcceptedTcpTransport> _logger;
     private readonly ILlrpFrameObserver _frameObserver;
@@ -41,6 +42,10 @@ public sealed class LlrpAcceptedTcpTransport : ILlrpTransport
         _client = client;
         _client.NoDelay = true;
         _stream = client.GetStream();
+        // TcpClient.Client can become null after a concurrent close. Capture the
+        // endpoint while the accepted socket is still owned by this transport so
+        // diagnostics cannot turn a normal reconnect into an accept-loop failure.
+        _remoteEndPoint = TryGetRemoteEndPoint(client);
         _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<LlrpAcceptedTcpTransport>();
         _frameObserver = frameObserver ?? NullLlrpFrameObserver.Instance;
         ConnectionId = Guid.NewGuid().ToString("N");
@@ -50,7 +55,7 @@ public sealed class LlrpAcceptedTcpTransport : ILlrpTransport
     public string ConnectionId { get; }
 
     /// <summary>Gets the remote endpoint captured when the connection was accepted.</summary>
-    public EndPoint? RemoteEndPoint => _client.Client.RemoteEndPoint;
+    public EndPoint? RemoteEndPoint => _remoteEndPoint;
 
     /// <inheritdoc />
     public bool IsConnected => Volatile.Read(ref _connected) != 0 && Volatile.Read(ref _disposed) == 0;
@@ -282,6 +287,22 @@ public sealed class LlrpAcceptedTcpTransport : ILlrpTransport
             }
 
             offset += bytesRead;
+        }
+    }
+
+    private static EndPoint? TryGetRemoteEndPoint(TcpClient client)
+    {
+        try
+        {
+            return client.Client?.RemoteEndPoint;
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+        catch (SocketException)
+        {
+            return null;
         }
     }
 

@@ -26,7 +26,7 @@
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
-| LLRP 1.0.1 | 可用 | SDK 客户端与通用设备端 Server/Virtual 已完成对齐闭环；客户端未接线的 CLIENT_REQUEST_OP/RF Survey 仍按能力门控处理。详见 [设备端对齐表](coverage/llrp101-device-server-coverage.md)。 |
+| LLRP 1.0.1 | 可用 | SDK 客户端与通用设备端 Server/Virtual 已完成对齐闭环；Virtual 标准默认设备暴露 4 根逻辑天线，并内置基于 Zebra 96008 实机抓取的 RF profile（193 项 Tx、1 项 Rx、41 项 RF Mode、16 个跳频点）；客户端未接线的 CLIENT_REQUEST_OP/RF Survey 仍按能力门控处理。详见 [设备端对齐表](coverage/llrp101-device-server-coverage.md)。 |
 | LLRP 1.1 | 可用基线 | SDK 支持自动协商、强制版本策略和对应 Adapter；真实 Reader 型号/固件覆盖仍需持续验证。 |
 | LLRP 2.0 | 协议层+SDK 适配器基线 | `V2_0` 类型/Codec/`Llrp20StandardModule` 已生成(433 文件,可复现);`Llrp20ProtocolAdapter` 六个切片已实现,`Auto`/`Force20` 协商接入,往返/翻译/事件投影/协商测试通过;未实机验收。 |
 | Zebra 扩展 | 协议层+SDK 扩展基线(可信度存疑) | `LlrpNet.Protocol.Zebra` 线协议包(159 文件,可复现)+ `LlrpSdk.Extensions.Zebra`(`UseZebra()`、设置/报告选项/相位·GPS·XPC 投影,最小子集)。FX9600(161/96008,固件 3.32.37.0)真机已验证:连接、8 个能力参数强类型解码、配置查询、`zebra.configuration` 往返、`MotoTagPhase`/`BrandIDCheckStatus` 报告投影。官方 ICG 二进制页 `reserved` 位数与固件字节系统性偏移,已按抓包修正部分参数,其余报告/盘点参数(GPS/XPC/zone 等)仍缺实机字节级验证,需逐参数抓包标定。 |
@@ -34,7 +34,7 @@
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
 | CLI | 可用 | Live Shell、一次性 `inventory`、简化 Settings 应用流程和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
-| Virtual Reader | 单台 SDK 门面 + 独立 CLI 已可用 | `LlrpDevice.Virtual.Hosting` 提供 `IVirtualLlrpDeviceHost`/`VirtualLlrpDeviceHost`，组合一台 `LlrpDevice.Server` 与一台 `VirtualLlrpDevice`，支持 Start/Stop/Restart、端点、客户端状态和解码报文事件；`LlrpVirtualDevice.Cli` 位于 `src` 根下，与 `LlrpCli` 平级，支持默认交互 Shell、单设备 `server create/start/stop/restart/status/destroy` 生命周期命令、`run`/`live`/`validate`/`presets`、1.0.1/1.1/2.0、版本化单设备 JSON、确定性 RF 和标准 Tag Access。`LlrpDevice.Server` 已完成客户端 1.0.1 对齐的报告触发/缓冲、事件、Hold/Release、状态感知寻卡、附加数据和 Tag Access 设备端闭环。`live` 会自动创建/启动设备并进入 Shell，默认输出生命周期、客户端和 `RX/TX` 报文，但不会自己生成 LLRP 客户端指令。旧 `LlrpVirtualReader.Manager` 多实例 API 与旧启动器保留兼容，不是新 SDK 主入口。真实 RFID 模块/真实 RF 波形模拟、运行态重启自动恢复和厂商虚拟 profile 仍未交付。详见 [设备端对齐表](coverage/llrp101-device-server-coverage.md)。 |
+| Virtual Reader | 单台 SDK 门面 + 独立 CLI 已可用 | `LlrpDevice.Virtual.Hosting` 提供 `IVirtualLlrpDeviceHost`/`VirtualLlrpDeviceHost`，组合一台 `LlrpDevice.Server` 与一台 `VirtualLlrpDevice`，支持 Start/Stop/Restart、端点、客户端状态和解码报文事件；`LlrpVirtualDevice.Cli` 位于 `src` 根下，与 `LlrpCli` 平级，支持默认交互 Shell、单设备 `server create/start/stop/restart/status/destroy` 生命周期命令、`run`/`live`/`validate`/`presets`、1.0.1/1.1/2.0、版本化单设备 JSON、确定性 RF 和标准 Tag Access。1.0.1 标准默认设备暴露 4 根逻辑天线，RF profile 基于 Zebra 96008（193 项 Tx、1 项 Rx、41 项 RF Mode、16 个跳频点），表格目前是 SDK 内置 profile，不由 JSON 配置覆盖。`LlrpDevice.Server` 已完成客户端 1.0.1 对齐的报告触发/缓冲、事件、Hold/Release、状态感知寻卡、附加数据和 Tag Access 设备端闭环。`live` 会自动创建/启动设备并进入 Shell，默认输出生命周期、客户端和 `RX/TX` 报文，但不会自己生成 LLRP 客户端指令。旧 `LlrpVirtualReader.Manager` 多实例 API 与旧启动器保留兼容，不是新 SDK 主入口。真实 RFID 模块/真实 RF 波形模拟、运行态重启自动恢复和厂商虚拟 profile 仍未交付。详见 [设备端对齐表](coverage/llrp101-device-server-coverage.md)。 |
 
 ## 已实现的应用能力
 
@@ -172,13 +172,16 @@
 客户端连接和解码后的 RX/TX LLRP 报文输出。`live` 会自动创建并启动一台虚拟
 设备后进入同一个 Shell；它观察外部 LLRP 客户端产生的流量，不会自己生成
 客户端指令；`run` 仍是安静的前台服务模式。
+单客户端默认配置采用“新会话替换旧会话”，因此 WPF/SDK 的 Probe、Activate、
+Settings 短连接可以在断开后立即重连，而不会被旧会话的异步清理窗口误拒绝。
 
 - LLRP 1.0.1 完成度审计:协议层 42 消息 / 111 参数全覆盖,SDK 层 42/42 消息
   有业务路径或已定案（`CLIENT_REQUEST_OP` 经实机实测设备不支持,SDK 不接线、
   仅提供 `SupportsClientRequestOpSpec` 门控）;`ReaderExceptionEvent` 已暴露为
   `ReaderExceptionOccurred`,`TagReport.PcBits` 已投影。详见
   [coverage/llrp101-sdk-coverage.md](coverage/llrp101-sdk-coverage.md)。
-- 1.0.1 虚拟设备端对齐已完成：通用 Server/Virtual 覆盖客户端已使用的能力、配置、
+- 1.0.1 虚拟设备端对齐已完成：通用 Server/Virtual 覆盖客户端已使用的能力（包括
+  Regulatory/RF Mode 能力表）、配置、
   ROSpec/AccessSpec、触发器、过滤器、报告 selector/缓冲、事件、Hold/Release、标准
   C1G2 Tag Access 和主动关闭；未接线的 CLIENT_REQUEST_OP/RF Survey 保持明确门控。
   详见 [llrp101-device-server-coverage.md](coverage/llrp101-device-server-coverage.md)。
@@ -203,7 +206,7 @@
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，共 529 项自动化测试全部通过；其中
+截至基准日期，解决方案构建为零警告、零错误，共 531 项自动化测试全部通过；其中
 `LlrpDevice.Abstractions.Tests` 覆盖合同模型和依赖边界，`LlrpDevice.Server.Tests` 覆盖
   非 Virtual Scripted Device、生命周期和配置隔离，`LlrpDevice.Virtual.Tests` 覆盖确定性
   RF、Tag Access 和实例隔离；`LlrpVirtualReader.Core.Tests` 覆盖显式端点绑定、端口占用失败、
@@ -213,7 +216,7 @@
   `LlrpVirtualDevice.Cli.Tests` 覆盖独立 CLI 的帮助、默认交互 Shell、单设备配置校验、
   server 生命周期和前台启停，
   `LlrpCli.Tests` 覆盖兼容 Virtual Reader 配置校验/帮助入口，
-`Interop.Tests` 覆盖旧兼容入口、通用 Server 的 1.0.1/1.1/2.0 SDK 端到端盘点与标准 Tag Access、
+`Interop.Tests` 覆盖旧兼容入口、通用 Server 的 1.0.1/1.1/2.0 SDK 端到端能力（含 Regulatory/RF Mode 表）、盘点与标准 Tag Access、
 报告触发/缓冲、状态感知过滤、附加数据、GPI/Reader Event、主动关闭、故障注入和设备端 Handler。
 生成管线经 `--verify` 逐字节复现验证:1.0.1 XML(364 文件)、1.1 YAML(395 文件)、
 Impinj XML(267 文件)、2.0 delta(433 文件)、Zebra YAML(159 文件)均与已提交产物一致。

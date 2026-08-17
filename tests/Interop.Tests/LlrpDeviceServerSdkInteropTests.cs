@@ -10,6 +10,75 @@ namespace Interop.Tests;
 public sealed class LlrpDeviceServerSdkInteropTests
 {
     [Fact]
+    public async Task Llrp101_capabilities_expose_four_standard_antennas_and_the_captured_zebra_rf_profile()
+    {
+        await using var host = new VirtualLlrpDeviceHost(
+            new VirtualLlrpDeviceHostOptions
+            {
+                Server = new LlrpDeviceServerOptions
+                {
+                    Port = 0,
+                    ProtocolVersion = LlrpProtocolVersion.Version101,
+                },
+            });
+        await host.StartAsync();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using LlrpReader reader = CreateReader(host.BoundPort);
+        await reader.ConnectAsync(timeout.Token);
+
+        ReaderCapabilities capabilities = await reader.RefreshCapabilitiesAsync(timeout.Token);
+
+        Assert.Equal((ushort)4, capabilities.MaxNumberOfAntennas);
+        Assert.False(capabilities.CanSetAntennaProperties);
+
+        Assert.Equal(193, capabilities.TxPowers.Count);
+        TxPowerEntry firstPower = Assert.IsType<TxPowerEntry>(capabilities.TxPowers[0]);
+        Assert.Equal((ushort)0, firstPower.Index);
+        Assert.Equal((short)1000, firstPower.TransmitPowerValue);
+        TxPowerEntry lastPower = Assert.IsType<TxPowerEntry>(capabilities.TxPowers[^1]);
+        Assert.Equal((ushort)192, lastPower.Index);
+        Assert.Equal((short)2920, lastPower.TransmitPowerValue);
+        Assert.Equal(29.2, lastPower.TransmitPowerDbm);
+
+        RxSensitivityEntry sensitivity = Assert.Single(capabilities.RxSensitivities);
+        Assert.Equal((ushort)0, sensitivity.Index);
+        Assert.Equal((short)0, sensitivity.ReceiveSensitivityValue);
+
+        FrequencyHopTableEntry hopTable = Assert.Single(capabilities.HopTables);
+        Assert.Equal((byte)1, hopTable.HopTableId);
+        Assert.Equal(
+            [923_375u, 923_125u, 921_375u, 922_875u, 921_875u, 922_375u, 924_125u, 922_625u,
+                921_625u, 922_125u, 923_875u, 920_875u, 924_375u, 921_125u, 923_625u, 920_625u],
+            hopTable.Frequencies);
+
+        Assert.Equal(41, capabilities.RfModes.Count);
+        Assert.Equal(2, capabilities.RfModes.Count(static mode => mode.ModeIdentifier == 20));
+        C1G2RfModeEntry rfMode = capabilities.RfModes[0];
+        Assert.Equal((uint)20, rfMode.ModeIdentifier);
+        Assert.Equal("DRV_64_3", rfMode.DrValue);
+        Assert.Equal((byte)2, rfMode.MValue);
+        Assert.Equal((uint)12_500, rfMode.MinTariValue);
+        Assert.Equal((uint)23_000, rfMode.MaxTariValue);
+        Assert.Equal((uint)2_100, rfMode.StepTariValue);
+
+        ReaderSettingsSnapshot settings = await reader.QuerySettingsAsync(timeout.Token);
+        Assert.Equal(4, settings.Settings.Configuration.Antennas.Count);
+        Assert.Equal(
+            new ushort[] { 1, 2, 3, 4 },
+            settings.Settings.Configuration.Antennas.Select(static antenna => antenna.AntennaId).ToArray());
+        Assert.All(
+            settings.Settings.Configuration.Antennas,
+            antenna =>
+            {
+                Assert.Equal((ushort)0, antenna.ReceiverSensitivityIndex);
+                Assert.Equal((ushort)192, antenna.TransmitPowerIndex);
+                Assert.Equal((ushort)1, antenna.HopTableId);
+                Assert.Equal((ushort)1, antenna.ChannelIndex);
+            });
+    }
+
+    [Fact]
     public async Task Llrp101_end_of_rospec_report_trigger_flushes_the_accumulated_tail()
     {
         await using var host = new VirtualLlrpDeviceHost(

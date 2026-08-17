@@ -25,6 +25,97 @@ public sealed record LlrpDeviceCapabilities
     public bool SupportsStateAwareSingulation { get; init; }
     public bool SupportsReportBuffer { get; init; } = true;
     public bool SupportsEventAndReportHolding { get; init; } = true;
+    public IReadOnlyList<LlrpDeviceReceiveSensitivityLevel> ReceiveSensitivityLevels { get; init; } = [];
+    public LlrpDeviceRegulatoryCapabilities? RegulatoryCapabilities { get; init; }
+}
+
+/// <summary>Identifies the regulatory communications standard advertised by a device.</summary>
+public enum LlrpCommunicationsStandard
+{
+    Unspecified,
+    UsFccPart15,
+    Etsi302208,
+    Etsi300220,
+    AustraliaLipd1W,
+    AustraliaLipd4W,
+    JapanAribStdT89,
+    HongKongOfta1049,
+    TaiwanDgtLp0002,
+    KoreaMicArticle52,
+}
+
+/// <summary>Identifies the C1G2 divide-ratio value for one RF mode.</summary>
+public enum LlrpC1G2DrValue
+{
+    Dr8,
+    Dr64_3,
+}
+
+/// <summary>Identifies the C1G2 Miller value for one RF mode.</summary>
+public enum LlrpC1G2MValue
+{
+    Fm0,
+    M2,
+    M4,
+    M8,
+}
+
+/// <summary>Identifies the C1G2 forward-link modulation for one RF mode.</summary>
+public enum LlrpC1G2ForwardLinkModulation
+{
+    PrAsk,
+    SsbAsk,
+    DsbAsk,
+}
+
+/// <summary>Identifies the C1G2 spectral-mask indicator for one RF mode.</summary>
+public enum LlrpC1G2SpectralMaskIndicator
+{
+    Unknown,
+    Si,
+    Mi,
+    Di,
+}
+
+/// <summary>Describes one transmit-power table entry without binding the device API to a protocol version.</summary>
+public sealed record LlrpDeviceTransmitPowerLevel(ushort Index, short TransmitPowerValue);
+
+/// <summary>Describes one receive-sensitivity table entry without binding the device API to a protocol version.</summary>
+public sealed record LlrpDeviceReceiveSensitivityLevel(ushort Index, short ReceiveSensitivityValue);
+
+/// <summary>Describes one frequency-hop table without binding the device API to a protocol version.</summary>
+public sealed record LlrpDeviceFrequencyHopTable(byte HopTableId, IReadOnlyList<uint> Frequencies);
+
+/// <summary>Describes one C1G2 UHF RF mode without binding the device API to a protocol version.</summary>
+public sealed record LlrpDeviceC1G2RfMode
+{
+    public required uint ModeIdentifier { get; init; }
+    public LlrpC1G2DrValue DrValue { get; init; } = LlrpC1G2DrValue.Dr64_3;
+    public bool EpcHagTcConformance { get; init; } = true;
+    public LlrpC1G2MValue MValue { get; init; } = LlrpC1G2MValue.M4;
+    public LlrpC1G2ForwardLinkModulation ForwardLinkModulation { get; init; } = LlrpC1G2ForwardLinkModulation.PrAsk;
+    public LlrpC1G2SpectralMaskIndicator SpectralMaskIndicator { get; init; } = LlrpC1G2SpectralMaskIndicator.Di;
+    public uint BdrValue { get; init; }
+    public uint PieValue { get; init; }
+    public uint MinTariValue { get; init; }
+    public uint MaxTariValue { get; init; }
+    public uint StepTariValue { get; init; }
+}
+
+/// <summary>
+/// Describes the regulatory and RF capability tables exposed by an LLRP device.
+/// The model is intentionally protocol-version-neutral; version handlers translate it
+/// into the corresponding LLRP capability parameters.
+/// </summary>
+public sealed record LlrpDeviceRegulatoryCapabilities
+{
+    public ushort CountryCode { get; init; }
+    public LlrpCommunicationsStandard CommunicationsStandard { get; init; } = LlrpCommunicationsStandard.Unspecified;
+    public IReadOnlyList<LlrpDeviceTransmitPowerLevel> TransmitPowerLevels { get; init; } = [];
+    public bool Hopping { get; init; }
+    public IReadOnlyList<LlrpDeviceFrequencyHopTable> FrequencyHopTables { get; init; } = [];
+    public IReadOnlyList<uint> FixedFrequencies { get; init; } = [];
+    public IReadOnlyList<LlrpDeviceC1G2RfMode> C1G2RfModes { get; init; } = [];
 }
 
 /// <summary>Describes one device antenna configuration.</summary>

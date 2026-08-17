@@ -93,6 +93,20 @@ device identity, protocol preset, report cadence, deterministic RF-observable
 scenario, and tag/TID/User-memory data. Loading is explicit; the process does
 not scan for configuration files or restore runtime ROSpec/AccessSpec state.
 
+The built-in 1.0.1 RF profile is currently code-defined in
+`VirtualDeviceOptions`: the standard virtual device exposes 4 logical antennas
+and uses the captured Zebra 96008 RF tables used by the interop tests (193
+transmit-power entries, one receive-sensitivity entry, 41 RF-mode entries, and
+one 16-channel hop table). The JSON document can override endpoint, identity,
+antenna count, tags, and simulation settings, but does not yet replace those RF
+capability tables.
+
+When `maximumClientConnections` is `1` (the default), a newly accepted control
+session replaces the previous session. This preserves a single active owner while
+supporting SDK/WPF probe, activation, and settings workflows that disconnect and
+reconnect immediately. Values greater than `1` keep the configured slots and
+reject clients beyond the limit.
+
 ## Use the SDK facade
 
 ```csharp

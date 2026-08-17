@@ -98,8 +98,8 @@ public sealed class VirtualLlrpDevice : ILlrpDevice
             _configuration = update.ResetToFactoryDefault
                 ? new LlrpDeviceConfiguration
                 {
-                    Antennas = [],
-                    Gpos = [new LlrpDeviceGpoState { PortNumber = 1, State = false }],
+                    Antennas = _options.Configuration.Antennas.ToArray(),
+                    Gpos = _options.Configuration.Gpos.ToArray(),
                 }
                 : _configuration with
                 {

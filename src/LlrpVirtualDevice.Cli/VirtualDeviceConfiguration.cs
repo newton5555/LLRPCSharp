@@ -76,9 +76,9 @@ public sealed record VirtualDeviceConfigurationDocument
     public string? ProtocolVersion { get; init; }
     public bool? Strict { get; init; }
     public ulong ReaderId { get; init; } = 1;
-    public uint ManufacturerId { get; init; }
-    public uint ModelId { get; init; }
-    public string FirmwareVersion { get; init; } = "virtual-device";
+    public uint ManufacturerId { get; init; } = 161;
+    public uint ModelId { get; init; } = 96008;
+    public string FirmwareVersion { get; init; } = "3.32.37.0";
     public ushort MaxNumberOfAntennas { get; init; } = 4;
     public int MaximumClientConnections { get; init; } = 1;
     public int? KeepAliveIntervalMilliseconds { get; init; }
@@ -329,34 +329,18 @@ internal static class VirtualDeviceHostOptionsBuilder
         ushort maxAntennas = document?.MaxNumberOfAntennas ?? 4;
         var deviceOptions = new VirtualDeviceOptions
         {
-            Identity = new LlrpDeviceIdentity
+            Identity = VirtualDeviceOptions.CreateDefaultIdentity() with
             {
                 ReaderId = document?.ReaderId ?? 1,
                 Name = name,
-                ManufacturerId = document?.ManufacturerId ?? 0,
-                ModelId = document?.ModelId ?? 0,
-                FirmwareVersion = document?.FirmwareVersion ?? "virtual-device",
+                ManufacturerId = document?.ManufacturerId ?? 161,
+                ModelId = document?.ModelId ?? 96008,
+                FirmwareVersion = document?.FirmwareVersion ?? "3.32.37.0",
             },
-            Capabilities = new LlrpDeviceCapabilities
-            {
-                MaxNumberOfAntennas = maxAntennas,
-                CanSetAntennaProperties = true,
-                HasUtcClockCapability = true,
-                SupportsEpcGlobalClass1Gen2 = true,
-                SupportsTagAccess = true,
-                SupportsBlockWrite = true,
-                SupportsBlockErase = true,
-            },
+            Capabilities = VirtualDeviceOptions.CreateDefaultCapabilities(maxAntennas),
             Configuration = new LlrpDeviceConfiguration
             {
-                Antennas =
-                [
-                    new LlrpDeviceAntennaConfiguration
-                    {
-                        AntennaId = 1,
-                        ChannelIndex = 1,
-                    },
-                ],
+                Antennas = VirtualDeviceOptions.CreateDefaultAntennaConfigurations(maxAntennas),
                 Gpos = [new LlrpDeviceGpoState { PortNumber = 1, State = false }],
             },
             Tags = tags,
@@ -377,6 +361,14 @@ internal static class VirtualDeviceHostOptionsBuilder
             Port = port,
             ProtocolVersion = protocolVersion,
             MaximumClientConnections = maximumClientConnections,
+            // WPF and other SDK consumers commonly finish a short probe/configuration
+            // lease and reconnect immediately. With a single client slot the server-side
+            // receive loop may still be cleaning up the old socket, so rejecting the new
+            // TCP connection produces a spurious 10054. One-device CLI instances model a
+            // physical single-owner reader: the newest control session takes ownership.
+            ConnectionLimitPolicy = maximumClientConnections == 1
+                ? LlrpDeviceConnectionLimitPolicy.ReplaceExisting
+                : LlrpDeviceConnectionLimitPolicy.RejectAdditional,
             KeepAliveInterval = keepAliveMilliseconds is int keepAlive
                 ? TimeSpan.FromMilliseconds(keepAlive)
                 : null,

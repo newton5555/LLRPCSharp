@@ -38,14 +38,7 @@ internal sealed class LlrpResourceRegistry
     {
         _device = device ?? throw new ArgumentNullException(nameof(device));
         _antennaConfigurations = device.Configuration.Antennas
-            .Select(static antenna => new V101Parameters.AntennaConfiguration(
-                antenna.AntennaId,
-                new V101Parameters.RFReceiver(antenna.ReceiverSensitivityIndex),
-                new V101Parameters.RFTransmitter(
-                    antenna.HopTableId,
-                    antenna.ChannelIndex,
-                    antenna.TransmitPowerIndex),
-                []))
+            .Select(ToWireAntennaConfiguration)
             .ToArray();
         _gpoWriteData = device.Configuration.Gpos
             .Select(static gpo => new V101Parameters.GPOWriteData(gpo.PortNumber, gpo.State))
@@ -546,7 +539,9 @@ internal sealed class LlrpResourceRegistry
                 _roSpecs.Clear();
                 _accessSpecs.Clear();
                 _roSpecRuntime.Clear();
-                _antennaConfigurations = [];
+                _antennaConfigurations = _device.Configuration.Antennas
+                    .Select(ToWireAntennaConfiguration)
+                    .ToArray();
                 _gpoWriteData = [new(1, false)];
                 _readerEventNotificationSpec = null;
                 _roReportSpec = null;
@@ -582,6 +577,16 @@ internal sealed class LlrpResourceRegistry
 
         return result;
     }
+
+    private static V101Parameters.AntennaConfiguration ToWireAntennaConfiguration(
+        LlrpDeviceAntennaConfiguration antenna) => new(
+            antenna.AntennaId,
+            new V101Parameters.RFReceiver(antenna.ReceiverSensitivityIndex),
+            new V101Parameters.RFTransmitter(
+                antenna.HopTableId,
+                antenna.ChannelIndex,
+                antenna.TransmitPowerIndex),
+            []);
 
     public InventoryObservationBatch ObserveInventory(uint roSpecId, int sequence)
     {

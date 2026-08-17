@@ -414,7 +414,12 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
         LlrpDeviceConnection[] existing;
         lock (_connectionGate)
         {
-            if (_connections.Count < _options.MaximumClientConnections)
+            // A client can close its socket before RunConnectionAsync reaches its
+            // final dictionary cleanup.  Count only live sessions so a single-client
+            // virtual Reader does not reject the legitimate reconnect that follows a
+            // completed disconnect.  The final cleanup remains idempotent.
+            int activeConnectionCount = _connections.Values.Count(static connection => connection.IsConnected);
+            if (activeConnectionCount < _options.MaximumClientConnections)
             {
                 return true;
             }

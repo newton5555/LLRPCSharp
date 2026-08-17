@@ -128,6 +128,41 @@ public sealed class VirtualDeviceCliApplicationTests
     }
 
     [Fact]
+    public async Task Single_client_run_replaces_the_previous_short_session_for_configuration_queries()
+    {
+        int port = GetFreePort();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        using var stop = new CancellationTokenSource();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Task<int> run = new VirtualDeviceCliApplication().RunAsync(
+            ["run", "--port", port.ToString(), "--max-client-connections", "1"],
+            output,
+            error,
+            stop.Token);
+
+        try
+        {
+            await WaitForOutputAsync(output, "listening on", timeout.Token);
+            await using LlrpReader first = CreateReader(port);
+            await using LlrpReader replacement = CreateReader(port);
+
+            await first.ConnectAsync(timeout.Token);
+            await replacement.ConnectAsync(timeout.Token);
+            ReaderSettingsSnapshot settings = await replacement.QuerySettingsAsync(timeout.Token);
+
+            Assert.Equal(4, settings.Settings.Configuration.Antennas.Count);
+        }
+        finally
+        {
+            stop.Cancel();
+            Assert.Equal(0, await run);
+        }
+
+        Assert.Empty(error.ToString());
+    }
+
+    [Fact]
     public async Task Live_creates_one_device_and_streams_protocol_events()
     {
         int port = GetFreePort();
@@ -209,6 +244,13 @@ public sealed class VirtualDeviceCliApplicationTests
         listener.Start();
         return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
+
+    private static LlrpReader CreateReader(int port) => LlrpReader.CreateBuilder("127.0.0.1")
+        .WithPort(port)
+        .WithConnectTimeout(TimeSpan.FromSeconds(2))
+        .WithRequestTimeout(TimeSpan.FromSeconds(2))
+        .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+        .Build();
 
     private static async Task WaitForOutputAsync(
         StringWriter output,

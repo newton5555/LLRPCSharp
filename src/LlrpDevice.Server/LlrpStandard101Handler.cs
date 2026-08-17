@@ -242,7 +242,7 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
                 ? BuildLlrpCapabilities()
                 : null,
             all || request.RequestedData == V101Enumerations.GetReaderCapabilitiesRequestedData.Regulatory_Capabilities
-                ? (_state.Options.UseStrictStandardInventoryProfile ? StrictRegulatoryCapabilities() : null)
+                ? BuildRegulatoryCapabilities()
                 : null,
             all || request.RequestedData == V101Enumerations.GetReaderCapabilitiesRequestedData.LLRP_Air_Protocol_Capabilities
                 ? BuildC1G2Capabilities()
@@ -253,6 +253,18 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
     private V101Parameters.GeneralDeviceCapabilities BuildGeneralDeviceCapabilities()
     {
         LlrpDeviceCapabilities capabilities = _state.Device.Capabilities;
+        IReadOnlyList<V101Parameters.ReceiveSensitivityTableEntry> receiveSensitivityTable =
+            capabilities.ReceiveSensitivityLevels.Count > 0
+                ? capabilities.ReceiveSensitivityLevels
+                    .Select(static level => new V101Parameters.ReceiveSensitivityTableEntry(
+                        level.Index,
+                        level.ReceiveSensitivityValue))
+                    .ToArray()
+                : Enumerable
+                    .Range(1, capabilities.MaxNumberOfAntennas)
+                    .Select(static id => new V101Parameters.ReceiveSensitivityTableEntry(checked((ushort)id), 0))
+                    .ToArray();
+
         return new V101Parameters.GeneralDeviceCapabilities(
             capabilities.MaxNumberOfAntennas,
             capabilities.CanSetAntennaProperties,
@@ -260,9 +272,7 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             _state.Device.Identity.ManufacturerId,
             _state.Device.Identity.ModelId,
             _state.Device.Identity.FirmwareVersion,
-            Enumerable.Range(1, capabilities.MaxNumberOfAntennas)
-                .Select(static id => new V101Parameters.ReceiveSensitivityTableEntry(checked((ushort)id), 0))
-                .ToArray(),
+            receiveSensitivityTable,
             [],
             new V101Parameters.GPIOCapabilities(4, 1),
             Enumerable.Range(1, capabilities.MaxNumberOfAntennas)
@@ -311,33 +321,106 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             : null;
     }
 
-    private static V101Parameters.RegulatoryCapabilities StrictRegulatoryCapabilities() => new(
-        CountryCode: 840,
-        CommunicationsStandard: V101Enumerations.CommunicationsStandard.US_FCC_Part_15,
-        UHFBandCapabilities: new V101Parameters.UHFBandCapabilities(
-            [new V101Parameters.TransmitPowerLevelTableEntry(20, 2000)],
-            new V101Parameters.FrequencyInformation(
-                Hopping: true,
-                [new V101Parameters.FrequencyHopTable(1, [902_750])],
-                FixedFrequencyTable: null),
-            [
-                new V101Parameters.C1G2UHFRFModeTable(
-                [
-                    new V101Parameters.C1G2UHFRFModeTableEntry(
-                        ModeIdentifier: 20,
-                        DRValue: V101Enumerations.C1G2DRValue.DRV_64_3,
-                        EPCHAGTCConformance: true,
-                        MValue: V101Enumerations.C1G2MValue.MV_4,
-                        ForwardLinkModulation: V101Enumerations.C1G2ForwardLinkModulation.PR_ASK,
-                        SpectralMaskIndicator: V101Enumerations.C1G2SpectralMaskIndicator.DI,
-                        BDRValue: 64_000,
-                        PIEValue: 2_000,
-                        MinTariValue: 12_500,
-                        MaxTariValue: 23_000,
-                        StepTariValue: 2_100),
-                ]),
-            ]),
-        CustomItems: []);
+    private V101Parameters.RegulatoryCapabilities? BuildRegulatoryCapabilities()
+    {
+        LlrpDeviceRegulatoryCapabilities? regulatory = _state.Device.Capabilities.RegulatoryCapabilities;
+        if (regulatory is null ||
+            regulatory.TransmitPowerLevels.Count == 0 ||
+            regulatory.C1G2RfModes.Count == 0)
+        {
+            return null;
+        }
+
+        var rfModeTable = new V101Parameters.C1G2UHFRFModeTable(
+            regulatory.C1G2RfModes
+                .Select(static mode => new V101Parameters.C1G2UHFRFModeTableEntry(
+                    mode.ModeIdentifier,
+                    MapDrValue(mode.DrValue),
+                    mode.EpcHagTcConformance,
+                    MapMValue(mode.MValue),
+                    MapForwardLinkModulation(mode.ForwardLinkModulation),
+                    MapSpectralMaskIndicator(mode.SpectralMaskIndicator),
+                    mode.BdrValue,
+                    mode.PieValue,
+                    mode.MinTariValue,
+                    mode.MaxTariValue,
+                    mode.StepTariValue))
+                .ToArray());
+
+        var rfModeTables = new V101Choices.IAirProtocolUHFRFModeTable[] { rfModeTable };
+        var frequencyInformation = new V101Parameters.FrequencyInformation(
+            regulatory.Hopping,
+            regulatory.FrequencyHopTables
+                .Select(static table => new V101Parameters.FrequencyHopTable(table.HopTableId, table.Frequencies))
+                .ToArray(),
+            regulatory.FixedFrequencies.Count == 0
+                ? null
+                : new V101Parameters.FixedFrequencyTable(regulatory.FixedFrequencies));
+
+        return new V101Parameters.RegulatoryCapabilities(
+            regulatory.CountryCode,
+            MapCommunicationsStandard(regulatory.CommunicationsStandard),
+            new V101Parameters.UHFBandCapabilities(
+                regulatory.TransmitPowerLevels
+                    .Select(static power => new V101Parameters.TransmitPowerLevelTableEntry(
+                        power.Index,
+                        power.TransmitPowerValue))
+                    .ToArray(),
+                frequencyInformation,
+                rfModeTables),
+            []);
+    }
+
+    private static V101Enumerations.CommunicationsStandard MapCommunicationsStandard(
+        LlrpCommunicationsStandard standard) => standard switch
+    {
+        LlrpCommunicationsStandard.Unspecified => V101Enumerations.CommunicationsStandard.Unspecified,
+        LlrpCommunicationsStandard.UsFccPart15 => V101Enumerations.CommunicationsStandard.US_FCC_Part_15,
+        LlrpCommunicationsStandard.Etsi302208 => V101Enumerations.CommunicationsStandard.ETSI_302_208,
+        LlrpCommunicationsStandard.Etsi300220 => V101Enumerations.CommunicationsStandard.ETSI_300_220,
+        LlrpCommunicationsStandard.AustraliaLipd1W => V101Enumerations.CommunicationsStandard.Australia_LIPD_1W,
+        LlrpCommunicationsStandard.AustraliaLipd4W => V101Enumerations.CommunicationsStandard.Australia_LIPD_4W,
+        LlrpCommunicationsStandard.JapanAribStdT89 => V101Enumerations.CommunicationsStandard.Japan_ARIB_STD_T89,
+        LlrpCommunicationsStandard.HongKongOfta1049 => V101Enumerations.CommunicationsStandard.Hong_Kong_OFTA_1049,
+        LlrpCommunicationsStandard.TaiwanDgtLp0002 => V101Enumerations.CommunicationsStandard.Taiwan_DGT_LP0002,
+        LlrpCommunicationsStandard.KoreaMicArticle52 => V101Enumerations.CommunicationsStandard.Korea_MIC_Article_5_2,
+        _ => throw new ArgumentOutOfRangeException(nameof(standard), standard, "Unsupported communications standard."),
+    };
+
+    private static V101Enumerations.C1G2DRValue MapDrValue(LlrpC1G2DrValue value) => value switch
+    {
+        LlrpC1G2DrValue.Dr8 => V101Enumerations.C1G2DRValue.DRV_8,
+        LlrpC1G2DrValue.Dr64_3 => V101Enumerations.C1G2DRValue.DRV_64_3,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unsupported C1G2 DR value."),
+    };
+
+    private static V101Enumerations.C1G2MValue MapMValue(LlrpC1G2MValue value) => value switch
+    {
+        LlrpC1G2MValue.Fm0 => V101Enumerations.C1G2MValue.MV_FM0,
+        LlrpC1G2MValue.M2 => V101Enumerations.C1G2MValue.MV_2,
+        LlrpC1G2MValue.M4 => V101Enumerations.C1G2MValue.MV_4,
+        LlrpC1G2MValue.M8 => V101Enumerations.C1G2MValue.MV_8,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unsupported C1G2 M value."),
+    };
+
+    private static V101Enumerations.C1G2ForwardLinkModulation MapForwardLinkModulation(
+        LlrpC1G2ForwardLinkModulation value) => value switch
+    {
+        LlrpC1G2ForwardLinkModulation.PrAsk => V101Enumerations.C1G2ForwardLinkModulation.PR_ASK,
+        LlrpC1G2ForwardLinkModulation.SsbAsk => V101Enumerations.C1G2ForwardLinkModulation.SSB_ASK,
+        LlrpC1G2ForwardLinkModulation.DsbAsk => V101Enumerations.C1G2ForwardLinkModulation.DSB_ASK,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unsupported C1G2 modulation."),
+    };
+
+    private static V101Enumerations.C1G2SpectralMaskIndicator MapSpectralMaskIndicator(
+        LlrpC1G2SpectralMaskIndicator value) => value switch
+    {
+        LlrpC1G2SpectralMaskIndicator.Unknown => V101Enumerations.C1G2SpectralMaskIndicator.Unknown,
+        LlrpC1G2SpectralMaskIndicator.Si => V101Enumerations.C1G2SpectralMaskIndicator.SI,
+        LlrpC1G2SpectralMaskIndicator.Mi => V101Enumerations.C1G2SpectralMaskIndicator.MI,
+        LlrpC1G2SpectralMaskIndicator.Di => V101Enumerations.C1G2SpectralMaskIndicator.DI,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unsupported C1G2 spectral mask indicator."),
+    };
 
     private V101Messages.GET_READER_CONFIG_RESPONSE GetReaderConfig(V101Messages.GET_READER_CONFIG request)
     {

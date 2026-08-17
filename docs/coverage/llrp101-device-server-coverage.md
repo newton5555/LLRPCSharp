@@ -20,8 +20,8 @@ RF Survey 仍按客户端能力门控保持不接线，因为当前客户端实�
 | 客户端 1.0.1 功能 | Server / Virtual 对齐实现 | 验收状态 |
 |---|---|---|
 | TCP 连接、初始化 Reader Event | `LlrpDeviceServer` accepted TCP、Session、ConnectionAttemptEvent、客户端隔离 | ✅ |
-| GET_READER_CAPABILITIES | General、LLRP、Regulatory（严格 profile）、C1G2 能力；按 RequestedData 筛选 | ✅ |
-| GET/SET_READER_CONFIG | 天线、GPO、GPI 当前状态、事件通知、RO/Access ReportSpec、Keepalive、EventsAndReports、配置状态值、Factory Reset | ✅ |
+| GET_READER_CAPABILITIES | General、LLRP、设备配置的 Regulatory（193 项 Tx 功率、16 个跳频点、41 项 C1G2 RF Mode）、C1G2 能力；按 RequestedData 筛选；General Rx 表为真实 profile 的 Index 0 / 0 dB | ✅ |
+| GET/SET_READER_CONFIG | 天线、GPO、GPI 当前状态、事件通知、RO/Access ReportSpec、Keepalive、EventsAndReports、配置状态值、Factory Reset；Virtual 标准默认 4 根天线均返回 Rx=0、Tx=192（29.2 dBm）、HopTable=1、Channel=1 | ✅ |
 | ROSpec CRUD 与状态机 | Add/Get/Delete/Enable/Disable/Start/Stop；ID=0 批量语义；Disabled/Inactive/Active | ✅ |
 | ROSpec Start Trigger | Null/Immediate、Periodic（Offset/Period/UTC）、GPI 电平触发 | ✅ |
 | ROSpec Stop Trigger | Null、Duration、GPI With Timeout；结束事件和尾报告 | ✅ |
@@ -65,7 +65,7 @@ UI 和持久化运行态属于后续独立阶段。
 ## 验收
 
 - 解决方案构建：0 warning / 0 error。
-- 全量自动化测试：529 passed、0 failed、0 skipped。
-- `Interop.Tests`：32 passed，包含 1.0.1 报告缓冲、报告触发尾部、状态感知过滤、
+- 全量自动化测试：531 passed、0 failed、0 skipped。
+- `Interop.Tests`：33 passed，包含 1.0.1 能力表（功率、频点、RF Mode）、报告缓冲、报告触发尾部、状态感知过滤、
   附加数据、GPI 事件、主动关闭、标准 Tag Access，以及 1.0.1/1.1/2.0 Server 基线。
 - 冻结边界：`src/LlrpNet`、`src/LlrpSdk`、`definitions` 和生成 `.g.cs` 无修改。
