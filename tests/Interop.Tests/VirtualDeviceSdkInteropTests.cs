@@ -1,25 +1,36 @@
+using LlrpDevice.Server;
+using LlrpDevice.Virtual;
+using LlrpDevice.Virtual.Hosting;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters.V1_0_1;
 using LlrpNet.Protocol.Messages;
 using LlrpSdk;
-using LlrpVirtualReader;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace Interop.Tests;
 
-public sealed class VirtualReaderSdkInteropTests
+public sealed class VirtualDeviceSdkInteropTests
 {
+    private static VirtualLlrpDeviceHost CreateHost(
+        LlrpDeviceServerOptions? serverOptions = null,
+        VirtualDeviceOptions? deviceOptions = null) =>
+        new(new VirtualLlrpDeviceHostOptions
+        {
+            Server = serverOptions ?? new LlrpDeviceServerOptions { Port = 0 },
+            Device = deviceOptions ?? new VirtualDeviceOptions(),
+        });
+
     [Fact]
     public async Task Unknown_message_receives_correlated_unsupported_message_error()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -46,21 +57,23 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task Llrp11Negotiation_and_inventory_workflow_complete_over_message_level_host()
     {
-        await using var host = new VirtualReaderHost(options: new VirtualReaderOptions
-        {
-            ProtocolVersion = LlrpNet.Core.Protocol.LlrpProtocolVersion.Version11,
-            Reports = new VirtualReaderReportOptions
+        await using var host = CreateHost(
+            new LlrpDeviceServerOptions
             {
-                ReportInterval = TimeSpan.FromMilliseconds(20),
-                ReportCount = 2,
-                Repeat = true,
-            },
-        });
-        host.Start();
+                Port = 0,
+                ProtocolVersion = LlrpProtocolVersion.Version11,
+                Reports = new LlrpDeviceReportOptions
+                {
+                    ReportInterval = TimeSpan.FromMilliseconds(20),
+                    ReportCount = 2,
+                    Repeat = true,
+                },
+            });
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force11)
@@ -82,12 +95,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task InventorySessionAndEventObserver_AreMutuallyExclusive()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -105,12 +118,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task EventObserverSelectedBeforeInventory_RejectsSessionReader()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -135,12 +148,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task ReaderAsyncObserverSelected_RejectsSessionReader()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -158,16 +171,17 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task DroppedAddRoSpecResponse_ProducesSdkRequestTimeout()
     {
-        await using var host = new VirtualReaderHost(
-            options: new VirtualReaderOptions
+        await using var host = CreateHost(
+            new LlrpDeviceServerOptions
             {
+                Port = 0,
                 DropResponseForMessageTypes = new HashSet<ushort> { ADD_ROSPEC.MessageType }
             });
-        host.Start();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromMilliseconds(100))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -181,19 +195,20 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task InjectedAddRoSpecError_ProducesSdkOperationException()
     {
-        await using var host = new VirtualReaderHost(
-            options: new VirtualReaderOptions
+        await using var host = CreateHost(
+            new LlrpDeviceServerOptions
             {
-                ErrorResponseForMessageTypes = new Dictionary<ushort, VirtualReaderErrorResponse>
+                Port = 0,
+                ErrorResponseForMessageTypes = new Dictionary<ushort, LlrpDeviceServerErrorResponse>
                 {
-                    [ADD_ROSPEC.MessageType] = new(StatusCode.M_ParameterError, "Injected ADD_ROSPEC failure.")
+                    [ADD_ROSPEC.MessageType] = new((ushort)StatusCode.M_ParameterError, "Injected ADD_ROSPEC failure.")
                 }
             });
-        host.Start();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -210,16 +225,17 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task ConnectionClose_TriggersAutomaticReconnectWithoutRestoringInventory()
     {
-        await using var host = new VirtualReaderHost(
-            options: new VirtualReaderOptions
+        await using var host = CreateHost(
+            new LlrpDeviceServerOptions
             {
+                Port = 0,
                 CloseConnectionAfterRequestMessageTypes = new HashSet<ushort> { GET_READER_CONFIG.MessageType }
             });
-        host.Start();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -262,15 +278,17 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task TruncatedResponse_FaultsTheReceiveLoop()
     {
-        await using var host = new VirtualReaderHost(options: new VirtualReaderOptions
-        {
-            TruncateResponseForMessageTypes = new HashSet<ushort> { GET_ROSPECS.MessageType }
-        });
-        host.Start();
+        await using var host = CreateHost(
+            new LlrpDeviceServerOptions
+            {
+                Port = 0,
+                TruncateResponseForMessageTypes = new HashSet<ushort> { GET_ROSPECS.MessageType }
+            });
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port).WithConnectTimeout(TimeSpan.FromSeconds(2))
+            .WithPort(host.BoundPort).WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101).Build();
         await reader.ConnectAsync(timeout.Token);
@@ -281,14 +299,14 @@ public sealed class VirtualReaderSdkInteropTests
     }
 
     [Fact]
-    public async Task QueryAndApplySettings_RoundTripAgainstVirtualReader()
+    public async Task QueryAndApplySettings_RoundTripAgainstVirtualDevice()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -323,12 +341,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task ApplySettings_WithInventory_ContinuesAfterManagedConfigurationWrite()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -384,12 +402,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task QuerySettings_RehydratesManaged101InventoryFiltersAttachedDataAndState()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -447,12 +465,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task ManualMode_HighLevelTakeoverAndRawSynchronizationFollowResourceContract()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -504,13 +522,17 @@ public sealed class VirtualReaderSdkInteropTests
     private static async Task<InventoryRunEvidence> StartAndReceiveInventoryReportAsync(
         InventorySettings settings)
     {
-        await using var host = new VirtualReaderHost(
-            options: new VirtualReaderOptions { UseStrictStandardInventoryProfile = true });
-        host.Start();
+        await using var host = CreateHost(
+            new LlrpDeviceServerOptions
+            {
+                Port = 0,
+                UseStrictStandardInventoryProfile = true,
+            });
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -558,12 +580,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task RawDeleteOfActiveManagedResource_EndsSessionAndSettingsEntryPointTakesOver()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -587,12 +609,12 @@ public sealed class VirtualReaderSdkInteropTests
     [Fact]
     public async Task QuerySettings_DoesNotRequireStateSynchronizationBeforeManagedInventory()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -612,14 +634,14 @@ public sealed class VirtualReaderSdkInteropTests
     }
 
     [Fact]
-    public async Task ManagedInventoryAndReadAccess_CompleteAgainstVirtualReader()
+    public async Task ManagedInventoryAndReadAccess_CompleteAgainstVirtualDevice()
     {
-        await using var host = new VirtualReaderHost();
-        host.Start();
+        await using var host = CreateHost();
+        await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(5))
             .WithRequestTimeout(TimeSpan.FromSeconds(5))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -696,5 +718,4 @@ public sealed class VirtualReaderSdkInteropTests
             await reader.StopAsync(timeout.Token);
         }
     }
-
 }

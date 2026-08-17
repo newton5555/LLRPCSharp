@@ -4,7 +4,7 @@
 - 基准日期：2026-08-17
 - 实施前基线：496 项测试通过，构建 0 warning / 0 error
 - 架构迁移阶段验收：508 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error；
-  后续 1.0.1 设备端对齐增量验收：531 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error
+  后续 1.0.1 设备端对齐与兼容层清理验收：511 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error
 - 计划入口：[路线图](../roadmap.md)
 
 ## 1. 目标
@@ -26,8 +26,8 @@ ROSpec/AccessSpec 状态机或版本处理逻辑。
 本计划完成后，Virtual Reader 是通用设备端架构的一种具体装配，不再是设备端核心层。
 
 本计划已完成：`LlrpDevice.Server` 现在可以接入不依赖 Virtual 的脚本设备；
-`VirtualLlrpDevice` 只实现设备行为合同；旧 `VirtualReaderHost` 仅作为兼容 façade
-委托到新 Server。客户端 `LlrpSdk`、共享 `LlrpNet` 和协议生成资产均保持冻结。
+`VirtualLlrpDevice` 只实现设备行为合同；旧 `LlrpVirtualReader.*` 兼容层已从解决方案
+和仓库主路径移除。客户端 `LlrpSdk`、共享 `LlrpNet` 和协议生成资产均保持冻结。
 
 后续的单台设备 SDK 门面与独立 CLI 已在 [ADR 0008](../adr/0008-single-virtual-device-sdk-and-cli.md)
 中单独落地，不回滚本计划的完成状态。
@@ -67,16 +67,14 @@ ROSpec/AccessSpec 状态机或版本处理逻辑。
 
 - `LLRPCSharp.slnx`
 - 新增的 `src/LlrpDevice.*` 项目
-- `src/LlrpVirtualReader.Core/**`
-- `src/LlrpVirtualReader.Manager/**`
-- `src/LlrpVirtualReader/**`
-- `src/LlrpCli/Commands/VirtualReaderCommand.cs`
-- `src/LlrpCli/LlrpCli.csproj` 中 Virtual Reader 所需的项目引用
-- 设备端、Virtual、Manager、CLI Virtual Reader 和 Interop 测试
+- `src/LlrpDevice.*` 和 `src/LlrpVirtualDevice.Cli/**`
+- `src/LlrpCli/LlrpCli.csproj` 与客户端 CLI 注册（仅删除旧 Virtual Reader 引用）
+- 设备端、Virtual、单台 Hosting、设备端 CLI 和 Interop 测试
 - 本专项相关文档
 
-`LlrpCli` 中除 `virtual-reader` 启动入口外，`connect`、`inventory`、`settings`、`tag`、
-离线 Codec 等客户端命令不修改。
+`LlrpCli` 的 `connect`、`inventory`、`settings`、`tag`、离线 Codec 等客户端命令不修改；
+旧 `virtual-reader` 服务入口从客户端 CLI 删除，设备端生命周期统一由
+`LlrpVirtualDevice.Cli` 提供。
 
 ### 2.3 明确不做
 
@@ -114,8 +112,9 @@ flowchart LR
     Contract -.-> Virtual["VirtualLlrpDevice"]
     Contract -.-> Physical["Future PhysicalLlrpDevice"]
 
-    Manager["LlrpVirtualReader.Manager"] --> Server
-    Manager --> Virtual
+    DeviceCli["LlrpVirtualDevice.Cli"] --> Host["VirtualLlrpDeviceHost"]
+    Host --> Server
+    Host --> Virtual
 ```
 
 ### 3.1 项目结构
@@ -144,10 +143,9 @@ src/
 │  ├─ VirtualTagStore.cs
 │  └─ VirtualInventoryExecution.cs
 │
-├─ LlrpVirtualReader.Core/               [迁移期兼容层，最终决策见阶段 9]
-├─ LlrpVirtualReader.Manager/            [Virtual 实例和本地配置]
-├─ LlrpVirtualReader/                    [兼容启动器]
-└─ LlrpCli/                              [仅迁移 virtual-reader 启动入口]
+├─ LlrpDevice.Virtual.Hosting/            [单台 Virtual SDK 门面]
+├─ LlrpVirtualDevice.Cli/                 [单台设备端 CLI]
+└─ LlrpCli/                               [仅客户端 CLI]
 ```
 
 ### 3.2 依赖方向
@@ -164,7 +162,7 @@ LlrpDevice.Server
 LlrpDevice.Virtual
     └─ LlrpDevice.Abstractions
 
-LlrpVirtualReader.Manager
+LlrpDevice.Virtual.Hosting
     ├─ LlrpDevice.Server
     └─ LlrpDevice.Virtual
 
@@ -178,7 +176,7 @@ LlrpVirtualReader.Manager
 - `LlrpDevice.Server` 不引用 `LlrpDevice.Virtual`。
 - `LlrpDevice.Virtual` 不引用 Server 内部 Runtime 类型。
 - `LlrpDevice.Abstractions` 不引用 `LlrpNet.Protocol`、`LlrpSdk` 或任何 `Virtual*` 项目。
-- Manager 是 Server 与 Virtual 的组合根，不把实例目录放入 Server。
+- Hosting 是单台 Server 与 Virtual 的组合根，不把实例目录放入 Server。
 
 ## 4. 命名迁移
 
@@ -195,7 +193,7 @@ LlrpVirtualReader.Manager
 | `VirtualReaderProtocolDispatcher` | `LlrpDeviceProtocolDispatcher` | `LlrpDevice.Server.Protocol` |
 | `VirtualReaderOptions` | `LlrpDeviceServerOptions` + `VirtualDeviceOptions` | Server + Virtual |
 
-迁移期间允许旧名称作为薄包装存在，但新业务逻辑只能进入目标项目和目标名称。
+迁移阶段曾允许旧名称作为薄包装存在；最终版本已删除这些旧项目，新业务逻辑只进入目标项目和目标名称。
 
 ## 5. 设备合同
 
@@ -519,8 +517,8 @@ await using var server = new LlrpDeviceServer(serverOptions, device);
 - `LlrpDevice.Abstractions.Tests`
 - `LlrpDevice.Server.Tests`
 - `LlrpDevice.Virtual.Tests`
-- Manager 配置和生命周期测试
-- CLI Virtual Reader 测试
+- Virtual Device Hosting 配置和生命周期测试
+- 单台 Virtual Device CLI 测试
 - SDK ↔ Device Server Interop 测试
 - `ScriptedLlrpDevice` 合同测试
 - 1.0.1/1.1 双版本等价测试
@@ -549,8 +547,8 @@ await using var server = new LlrpDeviceServer(serverOptions, device);
 - `docs/roadmap.md`。
 - `docs/architecture/overview.md` / `overview.zh.md`。
 - `docs/architecture/source-structure.md`。
-- Virtual Reader Manager guide。
-- README/README.zh Virtual Reader 部分。
+- Virtual Device SDK and CLI guide。
+- README/README.zh Virtual Device 部分。
 - `tests/README.md`。
 
 最终验证：
@@ -565,12 +563,12 @@ dotnet test LLRPCSharp.slnx --no-build
 - `git diff --check`
 - 冻结目录 diff 审计
 - 生成 `*.g.cs` diff 审计
-- CLI `virtual-reader --help`
+- `LlrpVirtualDevice.Cli` help、validate 和 lifecycle 冒烟
 - JSON validate/list 冒烟
-- Virtual Reader TCP 启动
+- Virtual Device TCP 启动
 - SDK 1.0.1/1.1 端到端盘点
 - 标准 Tag Access 全操作回归
-- 两个 Virtual 实例隔离验证
+- 两个 `VirtualLlrpDevice` 实例隔离验证
 - `ScriptedLlrpDevice` 替换验证
 
 ## 9. 实施期间的回归策略
@@ -592,7 +590,7 @@ dotnet test LLRPCSharp.slnx --no-build
 4. Server 不引用 Virtual。
 5. Abstractions 不引用生成协议类型、SDK、Manager 或 Virtual。
 6. Virtual 完成标签、确定性 RF 场景和项目标准 Tag Access 闭环。
-7. Manager、CLI、本地 JSON 全部迁移到新组合方式。
+7. Hosting、设备端 CLI 和单设备本地 JSON 全部使用新组合方式。
 8. LLRP 1.0.1/1.1 现有行为无回退。
 9. LLRP 2.0 当前基线无回退。
 10. 客户端产品代码无修改。
@@ -613,9 +611,9 @@ dotnet test LLRPCSharp.slnx --no-build
 | 0–2 | 已完成 | 冻结边界、ADR 0007、`LlrpDevice.Abstractions` 与合同测试 |
 | 3–5 | 已完成 | `LlrpDevice.Server`、非 Virtual Scripted Device 测试、1.0.1/1.1 Server 互操作 |
 | 6–7 | 已完成 | `VirtualLlrpDevice` RF/Tag Access/故障与隔离测试 |
-| 8–9 | 已完成 | Manager/CLI 新组合路径、旧 `VirtualReaderHost` 委托 façade、旧测试回归 |
-| 10 | 已完成 | 508 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error |
-| 11 | 已完成 | 状态、路线图、双语架构、Manager 指南、README、测试清单已同步 |
+| 8–9 | 已完成 | Hosting/设备端 CLI 新组合路径、旧项目与旧命令删除、Interop 测试迁移 |
+| 10 | 已完成 | 511 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error |
+| 11 | 已完成 | 状态、路线图、双语架构、Virtual Device 指南、README、测试清单已同步 |
 
 实现边界保持原计划声明：当前仍不包含真实 RFID 驱动、模拟真实 RF 波形、桌面 UI，
 也不包含进程重启后的 ROSpec/AccessSpec/托管盘点自动恢复。上述能力如需实现，应作为

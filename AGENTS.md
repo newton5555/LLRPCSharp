@@ -86,7 +86,9 @@ Version must always be explicit in SDK/CLI/tool code — never rely on a
 - Transport/session core: `src/LlrpNet/LlrpNet.Core/Session/`,
   `src/LlrpNet/LlrpNet.Core/Transport/`
 - CLI commands: `src/LlrpCli/Commands/`
-- Virtual reader: `src/LlrpVirtualReader/`
+- Virtual device: `src/LlrpDevice.Server/`, `src/LlrpDevice.Virtual/`, and
+  `src/LlrpDevice.Virtual.Hosting/`; device-side CLI:
+  `src/LlrpVirtualDevice.Cli/`
 - Live Hardware Smoke Tool: `tools/LlrpSdk.LiveSmoke/`
 
 ## Current Boundaries

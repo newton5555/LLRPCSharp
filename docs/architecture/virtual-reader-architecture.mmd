@@ -1,6 +1,7 @@
 flowchart TB
     subgraph APP["Application and client layer"]
-        CLI["LlrpCli"]
+        CLI["LlrpCli<br/>client commands"]
+        CLIENT_APP["WPF / third-party client"]
         DEVICE_CLI["LlrpVirtualDevice.Cli<br/>one device / foreground"]
         SDK["LlrpSdk<br/>LlrpReader / client adapter"]
         SDK_EXT["LlrpSdk.Extensions.*<br/>client vendor projections"]
@@ -20,14 +21,13 @@ flowchart TB
         CONTRACT["LlrpDevice.Abstractions<br/>ILlrpDevice"]
         VIRTUAL["LlrpDevice.Virtual<br/>VirtualLlrpDevice + deterministic RF"]
         CONFIG["Single-device JSON<br/>explicit load"]
-        MANAGER["LlrpVirtualReader.Manager<br/>legacy multi-instance orchestration"]
         EXT["ILlrpDeviceProtocolModule<br/>device-side extension point"]
-        LEGACY["VirtualReaderHost<br/>compatibility façade"]
     end
 
     PLATFORM["LlrpReaderPlatform<br/>platform session substitute<br/>OUT OF SCOPE"]
 
     CLI --> SDK
+    CLIENT_APP --> SDK
     DEVICE_CLI --> HOST
     SDK_EXT --> SDK
     SDK --> CLIENT_TCP
@@ -37,9 +37,6 @@ flowchart TB
     HOST -->|"compose one"| SERVER
     HOST -->|"compose one"| VIRTUAL
     CONFIG --> DEVICE_CLI
-    MANAGER -.->|"compatibility compose"| SERVER
-    MANAGER -.->|"future/legacy multi-host"| HOST
-    LEGACY -.->|"delegate"| SERVER
     SERVER --> SERVER_TCP
     SERVER_TCP --> FRAME
     FRAME -->|"decode / encode"| REGISTRY

@@ -1,6 +1,6 @@
 # ADR 0007: Generic LLRP Device Server and `ILlrpDevice` Boundary
 
-- Status: Accepted and implemented
+- Status: Accepted and implemented; legacy compatibility layer retired by ADR 0008
 - Date: 2026-08-17
 
 ## Context

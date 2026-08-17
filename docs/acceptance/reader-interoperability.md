@@ -13,7 +13,7 @@ dotnet run --project tools/LlrpSdk.LiveSmoke -- <reader-host>
 | 1.0.1 | 标准协议 | `192.168.1.148`（纯标准设备） | `Force101` 连接、标准身份/能力初始化、盘点、配置查询、非破坏性 Tag Access 读取与断开。 |
 | 1.0.1 | 标准协议与 Impinj 扩展 | `192.168.1.27`（Impinj R420） | `Force101` 连接、`UseImpinj()` 启用扩展并解析 Custom Capability、盘点、配置查询、非破坏性 Tag Access 读取与断开。 |
 | 1.1 | 标准协议与版本协商 | Zebra FX9600 | `Auto` 协商到 1.1，及 `Force11` 连接；身份/能力初始化、盘点、读取并恢复配置、标准 Tag Access 读/写闭环、报文诊断与断开重连。 |
-| 2.0 | 版本 Adapter 与回归场景 | LlrpVirtualReader（2.0） | 2.0 版本协商或强制连接、初始化、ROSpec/AccessSpec、TagReport 翻译、Reader 配置流、故障注入和自动化互操作测试。 |
+| 2.0 | 版本 Adapter 与回归场景 | `LlrpVirtualDevice.Cli` / `VirtualLlrpDeviceHost` | 2.0 版本协商或强制连接、初始化、ROSpec/AccessSpec、TagReport 翻译、Reader 配置流、故障注入和自动化互操作测试。 |
 
 ## 通过条件
 
@@ -23,7 +23,7 @@ dotnet run --project tools/LlrpSdk.LiveSmoke -- <reader-host>
 4. 配置验收先保存设备快照；如执行 `ApplySettingsAsync()`，只允许修改约定的可恢复测试字段，并在结束时恢复快照。
 5. Impinj 验收必须确认 `IMPINJ_ENABLE_EXTENSIONS` 成功响应，且后续完整 Capabilities 中的 Impinj Custom Parameter 被强类型解析。
 6. Zebra 验收必须保留 `GET_SUPPORTED_VERSION` / `SET_PROTOCOL_VERSION` 相关帧，证明 1.1 不是仅靠 Header 假设。
-7. 2.0 Virtual Reader 验收必须进入 CI；真实设备验收可以人工执行，但结果应记录测试日期、型号、固件、区域和操作者。
+7. 2.0 虚拟设备端点验收必须进入 CI；真实设备验收可以人工执行，但结果应记录测试日期、型号、固件、区域和操作者。
 
 ## 非破坏性约束
 

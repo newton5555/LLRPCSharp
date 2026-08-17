@@ -65,9 +65,6 @@ public sealed class LlrpCliApplication
             config.AddCommand<CapsCommand>("caps")
                 .WithDescription("Connect, fetch GET_READER_CAPABILITIES, and disconnect.");
 
-            config.AddCommand<VirtualReaderCommand>("virtual-reader")
-                .WithDescription("Run a message-level LLRP virtual reader until Ctrl+C.");
-
         });
 
         try

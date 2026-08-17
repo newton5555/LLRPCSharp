@@ -107,33 +107,6 @@ Single-line script command:
 dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 ```
 
-### Message-level Virtual Reader
-
-Run a real TCP LLRP device endpoint for SDK/CLI development and offline CI:
-
-```powershell
-dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
-  --port 5085 --llrp 1.1 --name ci-reader
-```
-
-Load a versioned local reader/inventory preset explicitly:
-
-```powershell
-dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
-  --config config/virtual-readers.example.json --validate-config
-dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
-  --config config/virtual-readers.example.json --instance reader-local-1
-```
-
-The Virtual Reader is composed from the generic `LlrpDevice.Server` and the
-`VirtualLlrpDevice` implementation of `ILlrpDevice`. It provides deterministic
-`static`, `moving-tags`, and `noisy` tag-observation scenarios. Configuration
-loading is explicit; active LLRP resources are not automatically restored after
-restart.
-
-The standalone Manager also exposes registered presets and in-process
-multi-instance lifecycle APIs. See the [Virtual Reader Manager guide](docs/guides/virtual-reader-manager.md).
-
 ### Standalone single-device SDK and CLI
 
 The device-side SDK exposes `IVirtualLlrpDeviceHost` from
@@ -171,7 +144,7 @@ from an LLRP client; it does not generate client commands on its own.
 
 | Capability / Vendor | Support | Details |
 | :--- | :--- | :--- |
-| **LLRP 1.0.1** | Available (Verified) | Full SDK, CLI, Virtual Reader, and standard ROSpec / AccessSpec operations |
+| **LLRP 1.0.1** | Available (Verified) | Full SDK, client CLI, virtual device server, and standard ROSpec / AccessSpec operations |
 | **LLRP 1.1** | Available Baseline | Protocol version auto-negotiation and `Llrp11ProtocolAdapter` baseline |
 | **LLRP 2.0** | Protocol & Adapter Baseline | Generated `V2_0` assets and `Llrp20ProtocolAdapter` implemented; real-device verification pending |
 | **Impinj Extensions** | Available (Mainline) | Strongly typed `UseImpinj()` pipeline, Contributor model (TID, Phase, RSSI) verified on R420/R430 |
@@ -186,7 +159,7 @@ src/
   LlrpSdk/    Managed high-level API (Inspired by Impinj Octane SDK)
   LlrpNet/    Protocol codecs & TCP transport (Modernized LTK.NET)
   LlrpCli/    General client-side command-line tooling & Live Shell
-  LlrpVirtualDevice.Cli/  Single-device virtual LLRP service CLI
+  LlrpVirtualDevice.Cli/  Single-device virtual LLRP device CLI
 docs/
   guides/     SDK, CLI, and Virtual Device guides
 ```

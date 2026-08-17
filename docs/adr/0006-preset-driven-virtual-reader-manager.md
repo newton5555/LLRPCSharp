@@ -1,14 +1,14 @@
 # ADR 0006：预设驱动的报文级 Virtual Reader Core 与独立 Manager
 
-- 状态：Accepted（Manager/预设决策已交付；设备端实现细节由 [ADR 0007](0007-llrp-device-server-device-abstraction.md) 维护）
+- 状态：Superseded（历史决策；由 [ADR 0007](0007-llrp-device-server-device-abstraction.md) 和 [ADR 0008](0008-single-virtual-device-sdk-and-cli.md) 取代）
 - 日期：2026-08-17
 
 ## 背景
 
-本决策固定报文级虚拟设备的 Manager、预设、精确端点绑定和显式本地配置边界。
-独立 Manager、注册式 Preset/Handler 管道和 1.0.1/1.1 标准设备行为已经落地；通用
-设备端 Server 与 `ILlrpDevice` 的分层见 [ADR 0007](0007-llrp-device-server-device-abstraction.md)。
-真实 RFID 设备实现、自动恢复和厂商设备端 profile 仍留在后续范围。
+本决策记录早期报文级虚拟设备的 Manager、预设、精确端点绑定和显式本地配置设计。
+后续实现已改为通用设备端 Server、`ILlrpDevice` 和单台 Hosting 门面；当前不再保留
+本决策中的 Manager/兼容入口。真实 RFID 设备实现、自动恢复和厂商设备端 profile
+仍留在后续范围。
 
 当前 `LlrpDevice.Server` 是消息级 LLRP 1.0.1/1.1/2.0 设备端服务，能支撑 SDK
 互操作测试和标准 ROSpec/AccessSpec/Tag Access 闭环；`LlrpDevice.Virtual` 提供确定性

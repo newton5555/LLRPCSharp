@@ -10,5 +10,3 @@ the architecture and protocol reference sections.
   an agent-friendly one-shot command.
 - [Virtual Device SDK and CLI](virtual-device-cli.md): host one virtual LLRP
   device through the public SDK facade or the standalone device-side CLI.
-- [Virtual Reader Manager](virtual-reader-manager.md): start the SDK repository's
-  message-level TCP virtual reader for SDK and integration testing.

@@ -21,7 +21,6 @@
     <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk\LlrpSdk.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
-    <ProjectReference Include="..\..\src\LlrpVirtualReader\LlrpVirtualReader.csproj" />
   </ItemGroup>
 
   <ItemGroup>

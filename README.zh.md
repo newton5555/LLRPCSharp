@@ -107,31 +107,6 @@ inventory stop          # 停止盘点
 dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 ```
 
-### 报文级 Virtual Reader
-
-启动真实 TCP LLRP 设备端点，用于 SDK/CLI 开发和无硬件 CI：
-
-```powershell
-dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
-  --port 5085 --llrp 1.1 --name ci-reader
-```
-
-显式加载版本化的本地读写器/寻卡预设：
-
-```powershell
-dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
-  --config config/virtual-readers.example.json --validate-config
-dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
-  --config config/virtual-readers.example.json --instance reader-local-1
-```
-
-Virtual Reader 由通用 `LlrpDevice.Server` 和实现 `ILlrpDevice` 的
-`VirtualLlrpDevice` 组合而成，提供确定性的 `static`、`moving-tags`、`noisy` 标签观察
-场景。配置只会在显式命令下加载；进程重启后不会自动恢复活跃的 LLRP 资源。
-
-独立 Manager 还提供注册式预设与进程内多实例生命周期 API，详见
-[Virtual Reader Manager 指南](docs/guides/virtual-reader-manager.md)。
-
 ### 单台虚拟设备 SDK 与 CLI
 
 设备端 SDK 通过 `LlrpDevice.Virtual.Hosting` 提供
@@ -168,7 +143,7 @@ dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
 
 | 协议 / 厂商 | 支持状态 | 说明 |
 | :--- | :--- | :--- |
-| **LLRP 1.0.1** | 可用（实机验证） | 覆盖完整 SDK、CLI、虚拟读写器及标准 ROSpec / AccessSpec 操作 |
+| **LLRP 1.0.1** | 可用（实机验证） | 覆盖完整 SDK、客户端 CLI、虚拟设备服务及标准 ROSpec / AccessSpec 操作 |
 | **LLRP 1.1** | 可用基线 | 支持协议版本自动协商与 `Llrp11ProtocolAdapter` 适配器基线 |
 | **LLRP 2.0** | 协议+适配器基线 | 已生成 `V2_0` 协议资产与 `Llrp20ProtocolAdapter`，支持协商接入；待实机验收 |
 | **Impinj 扩展** | 主线可用 | 提供强类型 `UseImpinj()` 管道与 Contributor 模型（TID、相位、RSSI），R420/R430 实测通过 |
@@ -183,7 +158,7 @@ src/
   LlrpSdk/    托管高层 API (参考 Impinj Octane SDK)
   LlrpNet/    协议编解码与 TCP 传输 (LTK.NET 现代化实现)
   LlrpCli/    通用客户端命令行工具与 Live Shell
-  LlrpVirtualDevice.Cli/  单台虚拟 LLRP 设备服务 CLI
+  LlrpVirtualDevice.Cli/  单台虚拟 LLRP 设备 CLI
 docs/
   guides/     SDK、CLI 与 Virtual Device 指南
 ```

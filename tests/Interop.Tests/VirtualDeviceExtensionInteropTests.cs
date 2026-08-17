@@ -1,29 +1,34 @@
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Registry;
+using LlrpDevice.Server;
+using LlrpDevice.Virtual;
+using LlrpDevice.Virtual.Hosting;
 using LlrpSdk;
-using LlrpVirtualReader;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 namespace Interop.Tests;
 
-public sealed class VirtualReaderExtensionInteropTests
+public sealed class VirtualDeviceExtensionInteropTests
 {
     [Fact]
     public async Task Registered_message_handler_runs_before_the_standard_profile()
     {
         var module = new KeepaliveModule();
-        await using var host = new VirtualReaderHost(
-            new VirtualReaderHostOptions
+        await using var host = new VirtualLlrpDeviceHost(
+            new VirtualLlrpDeviceHostOptions
             {
-                Port = 0,
-                ProtocolModules = [module],
+                Server = new LlrpDeviceServerOptions
+                {
+                    Port = 0,
+                    ProtocolModules = [module],
+                },
             });
         await host.StartAsync();
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using LlrpReader reader = LlrpReader.CreateBuilder("127.0.0.1")
-            .WithPort(host.Port)
+            .WithPort(host.BoundPort)
             .WithConnectTimeout(TimeSpan.FromSeconds(2))
             .WithRequestTimeout(TimeSpan.FromSeconds(2))
             .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
@@ -41,7 +46,7 @@ public sealed class VirtualReaderExtensionInteropTests
         Assert.Equal(1, module.Calls);
     }
 
-    private sealed class KeepaliveModule : IVirtualReaderProtocolModule
+    private sealed class KeepaliveModule : ILlrpDeviceProtocolModule
     {
         public int Calls { get; private set; }
 
@@ -54,10 +59,10 @@ public sealed class VirtualReaderExtensionInteropTests
         {
         }
 
-        public void RegisterHandlers(VirtualReaderHandlerRegistry registry) =>
+        public void RegisterHandlers(LlrpDeviceHandlerRegistry registry) =>
             registry.Add(new KeepaliveHandler(this));
 
-        private sealed class KeepaliveHandler : IVirtualReaderMessageHandler
+        private sealed class KeepaliveHandler : ILlrpDeviceMessageHandler
         {
             private readonly KeepaliveModule _owner;
 
@@ -71,8 +76,8 @@ public sealed class VirtualReaderExtensionInteropTests
             public bool CanHandle(LlrpProtocolVersion version, ILlrpMessage message) =>
                 version == LlrpProtocolVersion.Version101 && message is V101Messages.KEEPALIVE;
 
-            public ValueTask<VirtualReaderDispatchResult> HandleAsync(
-                VirtualReaderRequestContext context,
+            public ValueTask<LlrpDeviceDispatchResult> HandleAsync(
+                LlrpDeviceRequestContext context,
                 ILlrpMessage message,
                 CancellationToken cancellationToken)
             {
@@ -80,7 +85,7 @@ public sealed class VirtualReaderExtensionInteropTests
                 _owner.Calls++;
                 V101Messages.KEEPALIVE request = (V101Messages.KEEPALIVE)message;
                 return ValueTask.FromResult(
-                    VirtualReaderDispatchResult.FromResponse(new V101Messages.KEEPALIVE_ACK(request.MessageId)));
+                    LlrpDeviceDispatchResult.FromResponse(new V101Messages.KEEPALIVE_ACK(request.MessageId)));
             }
         }
     }

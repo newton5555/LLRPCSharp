@@ -1,6 +1,6 @@
 # ADR 0008: Single Virtual Device SDK Facade and Sibling CLI
 
-- Status: Accepted and implemented
+- Status: Accepted, implemented, and legacy compatibility retired
 - Date: 2026-08-17
 
 ## Context
@@ -30,9 +30,10 @@ recovery and a cross-process multi-device control service are not current goals.
   that one device and enters the same shell with lifecycle, client, and RX/TX
   observations enabled; it does not manufacture client traffic or manage an
   instance directory.
-- Keep `src/LlrpCli` as the general client-side CLI. Keep the old
-  `LlrpVirtualReader.Manager` and `LlrpVirtualReader` launcher as compatibility
-  entry points; they are not dependencies of the new single-device SDK path.
+- Keep `src/LlrpCli` as the general client-side CLI. It operates LLRP readers
+  and does not create or manage virtual-device servers. `LlrpVirtualDevice.Cli`
+  is the only device-side CLI; the old `LlrpVirtualReader.*` compatibility
+  projects and the old `virtual-reader` command are retired.
 - Use a separate versioned single-device JSON document for the new CLI. It is
   loaded explicitly and contains repeatable device/RF/tag behavior only; it
   does not persist or restore active ROSpec/AccessSpec runtime state.
@@ -40,7 +41,7 @@ recovery and a cross-process multi-device control service are not current goals.
 ## Consequences
 
 Applications and a future UI can use the same stable host contract without
-depending on command-line parsing or the multi-instance Manager. Multiple
-hosts can still be created by an upper-level application when needed, but
+depending on command-line parsing or a multi-instance Manager. Multiple hosts
+can still be created by an upper-level application when needed, but
 multi-process orchestration, IPC, daemon status, and automatic recovery remain
 separate future concerns.

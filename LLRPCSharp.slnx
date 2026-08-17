@@ -31,11 +31,6 @@
     <Project Path="src/LlrpSdk.Extensions.Zebra/LlrpSdk.Extensions.Zebra.csproj" />
     <Project Path="src/LlrpSdk/LlrpSdk.csproj" />
   </Folder>
-  <Folder Name="/src/LlrpVirtualReader/">
-    <Project Path="src/LlrpVirtualReader/LlrpVirtualReader.csproj" />
-    <Project Path="src/LlrpVirtualReader.Core/LlrpVirtualReader.Core.csproj" />
-    <Project Path="src/LlrpVirtualReader.Manager/LlrpVirtualReader.Manager.csproj" />
-  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LlrpDevice.Abstractions.Tests/LlrpDevice.Abstractions.Tests.csproj" />
     <Project Path="tests/Interop.Tests/Interop.Tests.csproj" />
@@ -50,8 +45,6 @@
     <Project Path="tests/LlrpSdk.Extensions.Impinj.Tests/LlrpSdk.Extensions.Impinj.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Extensions.Zebra.Tests/LlrpSdk.Extensions.Zebra.Tests.csproj" />
     <Project Path="tests/LlrpSdk.Hardware.Tests/LlrpSdk.Hardware.Tests.csproj" />
-    <Project Path="tests/LlrpVirtualReader.Core.Tests/LlrpVirtualReader.Core.Tests.csproj" />
-    <Project Path="tests/LlrpVirtualReader.Manager.Tests/LlrpVirtualReader.Manager.Tests.csproj" />
     <Project Path="tests/LlrpDevice.Virtual.Tests/LlrpDevice.Virtual.Tests.csproj" />
     <Project Path="tests/LlrpDevice.Server.Tests/LlrpDevice.Server.Tests.csproj" />
     <Project Path="tests/LlrpDevice.Virtual.Hosting.Tests/LlrpDevice.Virtual.Hosting.Tests.csproj" />

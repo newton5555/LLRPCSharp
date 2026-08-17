@@ -329,7 +329,7 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
             }
             catch (Exception exception) when (exception is IOException or SocketException or LlrpSessionDisconnectedException or ObjectDisposedException)
             {
-                _logger.LogDebug(exception, "Failed to send a scheduled virtual-reader message to {ConnectionId}.", connection.ConnectionId);
+                _logger.LogDebug(exception, "Failed to send a scheduled LLRP device message to {ConnectionId}.", connection.ConnectionId);
             }
         }
     }
@@ -427,7 +427,7 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
             if (_options.ConnectionLimitPolicy == LlrpDeviceConnectionLimitPolicy.RejectAdditional)
             {
                 _logger.LogWarning(
-                    "Rejected a virtual-reader client from {RemoteEndPoint} because the connection limit {Limit} was reached.",
+                    "Rejected an LLRP client from {RemoteEndPoint} because the connection limit {Limit} was reached.",
                     client.Client.RemoteEndPoint,
                     _options.MaximumClientConnections);
                 return false;
@@ -578,7 +578,7 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
             {
                 _logger.LogWarning(
                     exception,
-                    "Rejected virtual-reader request {MessageType} from {ConnectionId}.",
+                    "Rejected LLRP request {MessageType} from {ConnectionId}.",
                     header.MessageType,
                     connection.ConnectionId);
                 result = new LlrpDeviceDispatchResult(
@@ -920,7 +920,7 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
         }
         catch (SocketException exception)
         {
-            _logger.LogDebug(exception, "The virtual-reader socket did not accept TCP keepalive configuration.");
+            _logger.LogDebug(exception, "The LLRP device socket did not accept TCP keepalive configuration.");
         }
     }
 
@@ -940,7 +940,7 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "A virtual-reader lifecycle observer threw.");
+            _logger.LogWarning(exception, "An LLRP device lifecycle observer threw.");
         }
     }
 
@@ -952,7 +952,7 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "A virtual-reader client observer threw.");
+            _logger.LogWarning(exception, "An LLRP device client observer threw.");
         }
     }
 
@@ -976,7 +976,7 @@ public sealed class LlrpDeviceServer : IAsyncDisposable
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "A virtual-reader message observer threw.");
+            _logger.LogWarning(exception, "An LLRP device message observer threw.");
         }
     }
 

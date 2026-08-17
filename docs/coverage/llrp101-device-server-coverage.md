@@ -65,7 +65,7 @@ UI 和持久化运行态属于后续独立阶段。
 ## 验收
 
 - 解决方案构建：0 warning / 0 error。
-- 全量自动化测试：531 passed、0 failed、0 skipped。
+- 全量自动化测试：511 passed、0 failed、0 skipped。
 - `Interop.Tests`：33 passed，包含 1.0.1 能力表（功率、频点、RF Mode）、报告缓冲、报告触发尾部、状态感知过滤、
   附加数据、GPI 事件、主动关闭、标准 Tag Access，以及 1.0.1/1.1/2.0 Server 基线。
 - 冻结边界：`src/LlrpNet`、`src/LlrpSdk`、`definitions` 和生成 `.g.cs` 无修改。

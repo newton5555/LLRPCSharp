@@ -1,12 +1,12 @@
 # LLRPCSharp 全套测试用例与质量规范指南 (`tests`)
 
-本文档是 LLRPCSharp 解决方案中全部 19 个测试项目的**官方测试清单与断言手册**。详细说明了每一个测试项目、测试类（Test Class）及具体测试用例（`[Fact]` / `[Theory]`）的**测试目标、测试场景、输入条件与成功判定标准（Pass Criteria）**。
+本文档是 LLRPCSharp 解决方案中全部 17 个测试项目的**官方测试清单与断言手册**。详细说明了每一个测试项目、测试类（Test Class）及具体测试用例（`[Fact]` / `[Theory]`）的**测试目标、测试场景、输入条件与成功判定标准（Pass Criteria）**。
 
 ---
 
 ## 🏛️ 测试项目全景清单
 
-解决方案包含 19 个专门的测试项目：
+解决方案包含 17 个专门的测试项目：
 
 1. [**`LlrpNet.ProtocolModel.Tests`**](#1-llrpnetprotocolmodeltests-协议模型定义测试)
 2. [**`LlrpNet.ProtocolGenerator.Tests`**](#2-llrpnetprotocolgeneratortests-代码生成器测试)
@@ -16,7 +16,7 @@
 6. [**`LlrpSdk.Tests`**](#6-llrpsdktests-托管-sdk-门面与状态机测试)
 7. [**`LlrpSdk.Extensions.Impinj.Tests`**](#7-llrpsdkextensionsimpinjtests-sdk-impinj-扩展管道测试)
 8. [**`LlrpCli.Tests`**](#8-llrpclitests-cli-命令行工具测试)
-9. [**`Interop.Tests`**](#9-interoptests-虚拟读写器模拟互操作测试)
+9. [**`Interop.Tests`**](#9-interoptests-虚拟设备模拟互操作测试)
 10. [**`LlrpSdk.Hardware.Tests`**](#10-llrpsdkhardwaretests-本地物理真机测试)
 11. [**`LlrpNet.Protocol.Zebra.Tests`**](#11-llrpnetprotocolzebratests-zebra-厂商扩展编解码测试)
 12. [**`LlrpSdk.Extensions.Zebra.Tests`**](#12-llrpsdkextensionszebratests-sdk-zebra-扩展管道测试)
@@ -25,8 +25,6 @@
 15. [**`LlrpDevice.Virtual.Tests`**](#15-llrpdevicevirtualtests-virtual-设备行为测试)
 16. [**`LlrpDevice.Virtual.Hosting.Tests`**](#16-llrpdevicevirtualhostingtests-单台虚拟设备-sdk-门面测试)
 17. [**`LlrpVirtualDevice.Cli.Tests`**](#17-llrpvirtualdeviceclitests-单台虚拟设备-cli-测试)
-18. [**`LlrpVirtualReader.Core.Tests`**](#18-llrpvirtualreadercoretests-兼容虚拟读写器核心测试)
-19. [**`LlrpVirtualReader.Manager.Tests`**](#19-llrpvirtualreadermanagertests-虚拟读写器管理器测试)
 
 ---
 
@@ -182,16 +180,16 @@
 
 ---
 
-### 9. `Interop.Tests` (虚拟读写器模拟互操作测试)
+### 9. `Interop.Tests` (虚拟设备模拟互操作测试)
 
-#### 9.1 `VirtualReaderSdkInteropTests` (虚拟读写器端到端互操作测试)
-* **`[Fact] EndToEnd_InventoryWorkflow_ReceivesTagReportsFromVirtualReader`**
+#### 9.1 `VirtualDeviceSdkInteropTests` (虚拟设备端到端互操作测试)
+* **`[Fact] EndToEnd_InventoryWorkflow_ReceivesTagReportsFromVirtualDevice`**
   - **测试内容**：验证完全离线环境下的端到端盘点全链路。
-  - **输入条件**：启动本地内存 `VirtualReaderHost`。
-  - **OK 判定标准**：SDK 连接 `VirtualReaderHost` -> 下发 ROSpec -> 启动盘点 -> `session.ReadReportsAsync()` 顺利接收并解包虚拟读写器推送的标签数据。
+  - **输入条件**：启动本地 `VirtualLlrpDeviceHost`。
+  - **OK 判定标准**：SDK 连接 `VirtualLlrpDeviceHost` -> 下发 ROSpec -> 启动盘点 -> `session.ReadReportsAsync()` 顺利接收并解包虚拟设备推送的标签数据。
 * **`[Fact] DroppedAddRoSpecResponse_ProducesSdkRequestTimeout`**
   - **测试内容**：验证异常丢包响应处理。
-  - **输入条件**：配置 `VirtualReaderHost` 故意丢弃 `ADD_ROSPEC_RESPONSE`。
+  - **输入条件**：配置通用 `LlrpDeviceServer` 故意丢弃 `ADD_ROSPEC_RESPONSE`。
   - **OK 判定标准**：SDK 正确捕获并抛出 `TimeoutException`，没有发生死锁或死等。
 
 ---
@@ -282,30 +280,12 @@
 - `live` 自动创建/启动设备，进入交互 Shell，并输出生命周期、客户端和 RX/TX 报文；
 - 内置预设与参数边界由 CLI 应用路径覆盖。
 
-### 18. `LlrpVirtualReader.Core.Tests` (兼容虚拟读写器核心测试)
-
-- 精确 Loopback 地址和端口绑定；
-- 已占用端口启动失败且不自动换端口；
-- Host 生命周期、停止释放和单 Host 设备边界；
-- ReaderOptions 配置校验与确定性 FixedTagSource User-memory 读写；
-- 旧 `VirtualReaderHost` façade 的精确端点、生命周期、配置校验和兼容行为；
-- 旧 Backend 合同适配器，以及 `static`、`moving-tags`、`noisy` 三种可重复 RF 观察场景。
-
-### 19. `LlrpVirtualReader.Manager.Tests` (虚拟读写器管理器测试)
-
-- Preset Catalog 的标准 1.0.1/1.1、Tag Access 和故障预设注册；
-- create/start/stop/restart/delete 身份保持与端口释放；
-- 两个 Host 的端点、协议版本和设备状态隔离；
-- 第三方 `IVirtualReaderPresetContributor` 无需修改 Manager 分支即可注册；
-- 本地 JSON Reader/寻卡预设的保存、加载、校验、显式启动和非法引用拒绝。
-
 `Interop.Tests` 还覆盖真实 TCP `LlrpDevice.Server`/公开单台 Host 门面 → `LlrpSdk` 的 1.0.1/1.1
 版本协商、ROSpec/AccessSpec、报告、标准 Tag Access 全操作、自动重连、丢响应、错误、
-主动断开和截断帧；旧 `VirtualReaderHost` 兼容入口与设备端旧/新 Handler 扩展也有回归覆盖。
+主动断开和截断帧；设备端 Handler 扩展也有回归覆盖。
 
-`LlrpCli.Tests` 还覆盖兼容 Virtual Reader 的本地配置校验入口、帮助选项和 RF 场景 CLI
-参数暴露；独立单设备 CLI 的帮助、配置校验和前台启停由
-`LlrpVirtualDevice.Cli.Tests` 覆盖，旧预设列表入口另有 Manager 命令行冒烟验证。
+`LlrpCli.Tests` 覆盖客户端 CLI 的帮助、解析和诊断入口；独立单设备 CLI 的帮助、配置
+校验和前台启停由 `LlrpVirtualDevice.Cli.Tests` 覆盖。
 
 ## 🏃 运行测试
 

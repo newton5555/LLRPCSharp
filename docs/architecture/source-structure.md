@@ -32,11 +32,7 @@ LLRPCSharp/
 │   ├── LlrpDevice.Abstractions/ [手写] 版本中立的设备行为合同
 │   ├── LlrpDevice.Server/       [手写] 通用 LLRP 设备端服务、资源状态与版本分发
 │   ├── LlrpDevice.Virtual/      [手写] 确定性标签、RF 观察和 Tag Access 实现
-│   ├── LlrpDevice.Virtual.Hosting/ [手写] 单台虚拟设备公开 SDK 门面与生命周期
-│   └── LlrpVirtualReader/      [解决方案文件夹：兼容与管理入口]
-│       ├── LlrpVirtualReader.Core/ [兼容 façade] 旧选项/事件映射与 Legacy 适配器
-│       ├── LlrpVirtualReader.Manager/ [组合根] 多实例配置与生命周期
-│       └── LlrpVirtualReader/  [兼容入口] 旧版启动器，转发到 Manager
+│   └── LlrpDevice.Virtual.Hosting/ [手写] 单台虚拟设备公开 SDK 门面与生命周期
 │
 ├── /tests/                     [测试项目根目录]
 │   ├── LlrpNet.*.Tests/        [通信层、协议层、生成器与厂商 Wire Codec 测试]
@@ -46,8 +42,6 @@ LLRPCSharp/
 │   ├── LlrpDevice.Virtual.Tests/ [Virtual RF、Tag Access、隔离测试]
 │   ├── LlrpDevice.Virtual.Hosting.Tests/ [单台设备 SDK 门面与生命周期测试]
 │   ├── LlrpVirtualDevice.Cli.Tests/ [单台设备 CLI 测试]
-│   ├── LlrpVirtualReader.Core.Tests/ [兼容 façade 与旧 API 测试]
-│   ├── LlrpVirtualReader.Manager.Tests/ [Manager 多实例、预设与生命周期测试]
 │   ├── LlrpCli.Tests/          [CLI 测试]
 │   └── Interop.Tests/          [互操作测试]
 │
@@ -56,12 +50,12 @@ LLRPCSharp/
     └── LlrpSdk.Probe.ClientRequestOp/ [协议客户端探针]
 ```
 
-这里的 `LlrpSdk`、`LlrpDevice` 与 `LlrpVirtualReader` 是同一解决方案下的并列能力域：
-设备端不嵌套在 `src/LlrpSdk/` 物理目录中，而是由 `LlrpDevice.Server` 通过
+这里的 `LlrpSdk`、`LlrpDevice` 与两个 CLI 是同一解决方案下的并列能力域：设备端不
+嵌套在 `src/LlrpSdk/` 物理目录中，而是由 `LlrpDevice.Server` 通过
 `LlrpNet.Core` 和 `LlrpNet.Protocol` 复用通信与报文解析/编码能力；
 `LlrpDevice.Virtual` 只实现 `ILlrpDevice`，`LlrpDevice.Virtual.Hosting` 负责组合
-单台 Server 与 Virtual 并提供公开生命周期门面；`LlrpVirtualReader.Manager` 只保留
-旧的多实例编排能力，`LlrpVirtualReader.Core` 只保留兼容 façade 和旧合同适配器。
+单台 Server 与 Virtual 并提供公开生命周期门面；`LlrpCli` 只消费客户端 SDK，
+`LlrpVirtualDevice.Cli` 只消费设备端 Hosting 门面。
 
 ---
 
@@ -170,19 +164,11 @@ LLRPCSharp/
   `VirtualLlrpDeviceHost`，把一台 `VirtualLlrpDevice` 和一台 `LlrpDeviceServer`
   组合成上层应用可直接启动/停止/重启的设备端入口。
 
-### 3.8 Virtual Reader 兼容与管理 (`src/LlrpVirtualReader/`) —— [手写]
-- Manager 是旧的上层多实例组合根，负责多实例身份、显式 JSON 配置、Preset
-  Contributor 和生命周期；不属于单台设备 SDK 主入口，也不拥有协议状态机。
-- Core 的 `VirtualReaderHost` 仅做旧选项/事件映射并委托到 `LlrpDeviceServer`；旧
-  Backend/Protocol 类型仅为兼容调用方保留，不再形成第二套主状态机。
-- `VirtualReaderConfiguration` 提供显式加载的版本化本地 JSON 设备/寻卡预设；不自动
-  恢复运行中的 ROSpec/AccessSpec，真实设备端 profile 仍属后续工作。
-
 ---
 
 ## 4. 手写与生成的区分原则总结
 
 | 类别 | 包含模块 / 目录 | 修改与维护原则 |
 |---|---|---|
-| **手写核心逻辑** | `LlrpSdk`, `LlrpNet/LlrpNet.Core`, `LlrpNet/LlrpNet.ProtocolModel`, `LlrpNet/LlrpNet.ProtocolGenerator`, `LlrpDevice.*`, `LlrpVirtualReader.*`, `LlrpCli` | 正常的 C# 逻辑代码，随需求功能演进手写维护；本阶段客户端和共享协议产品代码冻结。 |
+| **手写核心逻辑** | `LlrpSdk`, `LlrpNet/LlrpNet.Core`, `LlrpNet/LlrpNet.ProtocolModel`, `LlrpNet/LlrpNet.ProtocolGenerator`, `LlrpDevice.*`, `LlrpCli`, `LlrpVirtualDevice.Cli` | 正常的 C# 逻辑代码，随需求功能演进手写维护；本阶段客户端和共享协议产品代码冻结。 |
 | **自动生成代码** | `LlrpNet/LlrpNet.Protocol` 与 `LlrpNet/LlrpNet.Protocol.Impinj` (`Messages`, `Parameters`, `Codecs`, `Registry`) | 不手写 C# 代码；通过更新 `definitions/` 下的 XML 定义并调用生成工具更新。高层 `LlrpSdk.Extensions.Impinj` 不存放生成的线协议类型。 |

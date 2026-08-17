@@ -21,12 +21,12 @@ the project.
 - [Protocol Extension Guide](architecture/protocol-extension-guide.md): adding
   protocol or vendor extensions.
 - [Decision Records](adr/README.md): decisions that affect long-term design.
-- [Virtual Reader Core and Manager Decision](adr/0006-preset-driven-virtual-reader-manager.md): preset-driven packet-level virtual readers, exact TCP binding, and future vendor modules.
+- [Historical Virtual Reader Core and Manager Decision](adr/0006-preset-driven-virtual-reader-manager.md): superseded preset/Manager design retained for architectural history.
 
 ## Validate And Reference
 
 - [Reader Interoperability Acceptance](acceptance/reader-interoperability.md):
-  real-device and virtual-reader release checks.
+  real-device and virtual-device release checks.
 - [Protocol References](references/README.md): standards and vendor references.
 - [Protocol Definitions](../definitions/README.md): definition and code
   generation workflow.

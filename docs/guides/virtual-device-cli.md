@@ -1,14 +1,17 @@
 # Virtual Device SDK and CLI
 
-The repository now exposes one virtual LLRP device as a standalone SDK facade
-and a separate command-line consumer. The two primary CLI projects are
-siblings under `src` (the old `LlrpVirtualReader` launchers remain only for
-compatibility):
+The repository exposes one virtual LLRP device as a standalone SDK facade and
+a separate command-line consumer. The two CLI projects are siblings under
+`src`, with deliberately separate responsibilities:
 
 ```text
 src/LlrpCli/                    # client-side LLRP CLI
 src/LlrpVirtualDevice.Cli/      # device-side virtual LLRP CLI
 ```
+
+`LlrpCli` connects to and operates LLRP readers; it does not create or manage
+virtual-device servers. `LlrpVirtualDevice.Cli` hosts one virtual device in the
+foreground and is the only CLI responsible for its server lifecycle.
 
 `LlrpDevice.Virtual.Hosting` is the public single-device SDK facade. It composes
 one `VirtualLlrpDevice` with one `LlrpDeviceServer`; it does not create an
