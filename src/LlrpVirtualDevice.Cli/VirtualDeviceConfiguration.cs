@@ -23,7 +23,10 @@ public sealed record VirtualDevicePreset(
     string Id,
     string Description,
     string ProtocolVersion,
-    bool Strict);
+    bool Strict)
+{
+    public string CapabilityProfileId { get; init; } = VirtualDeviceCapabilityProfiles.Standard101Id;
+}
 
 /// <summary>Built-in presets for one standalone virtual LLRP device.</summary>
 public static class VirtualDevicePresets
@@ -70,18 +73,11 @@ public sealed record VirtualDeviceConfigurationDocument
 {
     public int SchemaVersion { get; init; } = 1;
     public string PresetId { get; init; } = VirtualDevicePresetIds.Standard101Basic;
-    public string Name { get; init; } = "Virtual Reader";
-    public string ListenAddress { get; init; } = "127.0.0.1";
-    public int Port { get; init; } = 5084;
+    public string CapabilityProfileId { get; init; } = VirtualDeviceCapabilityProfiles.Standard101Id;
+    public string? Name { get; init; }
     public string? ProtocolVersion { get; init; }
     public bool? Strict { get; init; }
-    public ulong ReaderId { get; init; } = 1;
-    public uint ManufacturerId { get; init; } = 161;
-    public uint ModelId { get; init; } = 96008;
-    public string FirmwareVersion { get; init; } = "3.32.37.0";
-    public ushort MaxNumberOfAntennas { get; init; } = 4;
-    public int MaximumClientConnections { get; init; } = 1;
-    public int? KeepAliveIntervalMilliseconds { get; init; }
+    public string? InventoryDataSource { get; init; } = VirtualInventoryDataSources.DefaultId;
     public int ReportIntervalMilliseconds { get; init; } = 100;
     public int ReportCount { get; init; }
     public bool Repeat { get; init; } = true;
@@ -91,6 +87,10 @@ public sealed record VirtualDeviceConfigurationDocument
     public int PresenceCycleRounds { get; init; } = 3;
     public int RssiJitterDb { get; init; }
     public int MaxTagsPerRound { get; init; }
+    /// <summary>
+    /// Legacy inline tags are accepted for one migration cycle. New documents
+    /// should put tags in a separate inventory data-source JSON file.
+    /// </summary>
     public IReadOnlyList<VirtualDeviceTagConfiguration> Tags { get; init; } = [];
 }
 
@@ -145,20 +145,15 @@ public static class VirtualDeviceConfiguration
                 $"Unsupported virtual-device configuration schema {document.SchemaVersion}; expected 1.");
         }
 
-        _ = VirtualDevicePresets.Get(document.PresetId);
-        if (string.IsNullOrWhiteSpace(document.Name))
-        {
-            throw new InvalidDataException("A virtual-device name is required.");
-        }
+        VirtualDevicePreset preset = VirtualDevicePresets.Get(document.PresetId);
+        _ = VirtualDeviceCapabilityProfileCatalog.Get(
+            string.IsNullOrWhiteSpace(document.CapabilityProfileId)
+                ? preset.CapabilityProfileId
+                : document.CapabilityProfileId);
 
-        if (!IPAddress.TryParse(document.ListenAddress, out _))
+        if (document.Name is not null && string.IsNullOrWhiteSpace(document.Name))
         {
-            throw new InvalidDataException($"The listen address '{document.ListenAddress}' is invalid.");
-        }
-
-        if (document.Port is <= 0 or > ushort.MaxValue)
-        {
-            throw new InvalidDataException("The virtual-device port must be between 1 and 65535.");
+            throw new InvalidDataException("A virtual-device name cannot be empty.");
         }
 
         if (document.ProtocolVersion is not null)
@@ -166,19 +161,9 @@ public static class VirtualDeviceConfiguration
             _ = ParseProtocolVersion(document.ProtocolVersion);
         }
 
-        if (document.MaxNumberOfAntennas == 0 || document.MaximumClientConnections <= 0)
-        {
-            throw new InvalidDataException("A virtual device must expose at least one antenna and client slot.");
-        }
-
         if (document.ReportIntervalMilliseconds <= 0 || document.ReportCount < 0)
         {
             throw new InvalidDataException("Report interval must be positive and report count cannot be negative.");
-        }
-
-        if (document.KeepAliveIntervalMilliseconds is <= 0)
-        {
-            throw new InvalidDataException("Keepalive interval must be positive when specified.");
         }
 
         if (document.PresenceCycleRounds <= 0 || document.RssiJitterDb < 0 || document.MaxTagsPerRound < 0)
@@ -191,6 +176,12 @@ public static class VirtualDeviceConfiguration
             document.DetectionProbability is < 0 or > 1)
         {
             throw new InvalidDataException("Detection probability must be between 0 and 1.");
+        }
+
+        if (document.InventoryDataSource is not null &&
+            string.IsNullOrWhiteSpace(document.InventoryDataSource))
+        {
+            throw new InvalidDataException("An inventory data source reference cannot be empty.");
         }
 
         ArgumentNullException.ThrowIfNull(document.Tags);
@@ -251,12 +242,33 @@ public static class VirtualDeviceConfiguration
             throw new InvalidDataException($"The {name} value '{value}' is not valid hexadecimal.", exception);
         }
     }
+
+    internal static IReadOnlyList<VirtualTagDefinition> BuildTags(
+        IReadOnlyList<VirtualDeviceTagConfiguration> configuredTags)
+    {
+        ArgumentNullException.ThrowIfNull(configuredTags);
+        return configuredTags.Select(static tag => new VirtualTagDefinition
+        {
+            ElectronicProductCode = ParseHex(tag.Epc, "EPC"),
+            Tid = string.IsNullOrWhiteSpace(tag.Tid)
+                ? ReadOnlyMemory<byte>.Empty
+                : ParseHex(tag.Tid, "TID"),
+            PeakRssi = tag.PeakRssi,
+            AntennaId = tag.AntennaId,
+            ChannelIndex = tag.ChannelIndex,
+            UserMemory = tag.UserMemory,
+            AccessPassword = tag.AccessPassword,
+            KillPassword = tag.KillPassword,
+        }).ToArray();
+    }
 }
 
 internal sealed record VirtualDeviceLaunchOptions
 {
     public string? ConfigPath { get; init; }
     public string? PresetId { get; init; }
+    public string? CapabilityProfileId { get; init; }
+    public string? InventoryDataSource { get; init; }
     public string? ListenAddress { get; init; }
     public int? Port { get; init; }
     public string? ProtocolVersion { get; init; }
@@ -283,20 +295,26 @@ internal static class VirtualDeviceHostOptionsBuilder
     {
         string presetId = launch.PresetId ?? document?.PresetId ?? VirtualDevicePresetIds.Standard101Basic;
         VirtualDevicePreset preset = VirtualDevicePresets.Get(presetId);
-        string name = launch.Name ?? document?.Name ?? "Virtual Reader";
-        string listenText = launch.ListenAddress ?? document?.ListenAddress ?? "127.0.0.1";
+        string profileId = launch.CapabilityProfileId ??
+                           document?.CapabilityProfileId ??
+                           preset.CapabilityProfileId;
+        VirtualDeviceCapabilityProfile profile = VirtualDeviceCapabilityProfileCatalog.Get(profileId);
+        string name = launch.Name ?? document?.Name ?? profile.Identity.Name;
+        string listenText = launch.ListenAddress ?? "127.0.0.1";
         if (!IPAddress.TryParse(listenText, out IPAddress? listenAddress))
         {
             throw new InvalidDataException($"The listen address '{listenText}' is invalid.");
         }
 
-        int port = launch.Port ?? document?.Port ?? 5084;
+        int port = launch.Port ?? 5084;
         if (port is <= 0 or > ushort.MaxValue)
         {
             throw new InvalidDataException("The virtual-device port must be between 1 and 65535.");
         }
 
-        string protocolText = launch.ProtocolVersion ?? document?.ProtocolVersion ?? preset.ProtocolVersion;
+        string protocolText = launch.ProtocolVersion ??
+                              document?.ProtocolVersion ??
+                              preset.ProtocolVersion;
         LlrpProtocolVersion protocolVersion = VirtualDeviceConfiguration.ParseProtocolVersion(protocolText);
         bool strict = launch.Strict ?? document?.Strict ?? preset.Strict;
         int reportInterval = launch.ReportIntervalMilliseconds ?? document?.ReportIntervalMilliseconds ?? 100;
@@ -310,40 +328,39 @@ internal static class VirtualDeviceHostOptionsBuilder
         int rssiJitterDb = launch.RssiJitterDb ?? document?.RssiJitterDb ?? 0;
         int maxTagsPerRound = launch.MaxTagsPerRound ?? document?.MaxTagsPerRound ?? 0;
         int maximumClientConnections =
-            launch.MaximumClientConnections ?? document?.MaximumClientConnections ?? 1;
-        int? keepAliveMilliseconds =
-            launch.KeepAliveIntervalMilliseconds ?? document?.KeepAliveIntervalMilliseconds;
+            launch.MaximumClientConnections ?? 1;
 
-        IReadOnlyList<VirtualTagDefinition> tags = BuildTags(document?.Tags);
-        if (!string.IsNullOrWhiteSpace(launch.Tag))
+        IVirtualInventoryDataSource inventoryDataSource;
+        if (document?.Tags is { Count: > 0 })
         {
-            tags =
-            [
-                new VirtualTagDefinition
-                {
-                    ElectronicProductCode = VirtualDeviceConfiguration.ParseHex(launch.Tag, "EPC"),
-                },
-            ];
+            inventoryDataSource = new InMemoryVirtualInventoryDataSource(
+                "legacy-inline",
+                VirtualDeviceConfiguration.BuildTags(document.Tags));
+        }
+        else
+        {
+            inventoryDataSource = VirtualInventoryDataSourceConfiguration.Resolve(
+                launch.InventoryDataSource ?? document?.InventoryDataSource);
         }
 
-        ushort maxAntennas = document?.MaxNumberOfAntennas ?? 4;
-        var deviceOptions = new VirtualDeviceOptions
+        if (!string.IsNullOrWhiteSpace(launch.Tag))
         {
-            Identity = VirtualDeviceOptions.CreateDefaultIdentity() with
+            inventoryDataSource = new InMemoryVirtualInventoryDataSource(
+                "cli-tag",
+                [
+                    new VirtualTagDefinition
+                    {
+                        ElectronicProductCode = VirtualDeviceConfiguration.ParseHex(launch.Tag, "EPC"),
+                    },
+                ]);
+        }
+
+        VirtualDeviceOptions deviceOptions = profile.CreateDeviceOptions(inventoryDataSource) with
+        {
+            Identity = profile.Identity with
             {
-                ReaderId = document?.ReaderId ?? 1,
                 Name = name,
-                ManufacturerId = document?.ManufacturerId ?? 161,
-                ModelId = document?.ModelId ?? 96008,
-                FirmwareVersion = document?.FirmwareVersion ?? "3.32.37.0",
             },
-            Capabilities = VirtualDeviceOptions.CreateDefaultCapabilities(maxAntennas),
-            Configuration = new LlrpDeviceConfiguration
-            {
-                Antennas = VirtualDeviceOptions.CreateDefaultAntennaConfigurations(maxAntennas),
-                Gpos = [new LlrpDeviceGpoState { PortNumber = 1, State = false }],
-            },
-            Tags = tags,
             RfSimulation = new VirtualRfSimulationOptions
             {
                 Scenario = rfScenario,
@@ -369,7 +386,7 @@ internal static class VirtualDeviceHostOptionsBuilder
             ConnectionLimitPolicy = maximumClientConnections == 1
                 ? LlrpDeviceConnectionLimitPolicy.ReplaceExisting
                 : LlrpDeviceConnectionLimitPolicy.RejectAdditional,
-            KeepAliveInterval = keepAliveMilliseconds is int keepAlive
+            KeepAliveInterval = launch.KeepAliveIntervalMilliseconds is int keepAlive
                 ? TimeSpan.FromMilliseconds(keepAlive)
                 : null,
             Reports = new LlrpDeviceReportOptions
@@ -385,29 +402,7 @@ internal static class VirtualDeviceHostOptionsBuilder
         {
             Server = serverOptions,
             Device = deviceOptions,
+            InventoryDataSource = inventoryDataSource,
         };
-    }
-
-    private static IReadOnlyList<VirtualTagDefinition> BuildTags(
-        IReadOnlyList<VirtualDeviceTagConfiguration>? configuredTags)
-    {
-        if (configuredTags is null || configuredTags.Count == 0)
-        {
-            return new VirtualDeviceOptions().Tags;
-        }
-
-        return configuredTags.Select(static tag => new VirtualTagDefinition
-        {
-            ElectronicProductCode = VirtualDeviceConfiguration.ParseHex(tag.Epc, "EPC"),
-            Tid = string.IsNullOrWhiteSpace(tag.Tid)
-                ? ReadOnlyMemory<byte>.Empty
-                : VirtualDeviceConfiguration.ParseHex(tag.Tid, "TID"),
-            PeakRssi = tag.PeakRssi,
-            AntennaId = tag.AntennaId,
-            ChannelIndex = tag.ChannelIndex,
-            UserMemory = tag.UserMemory,
-            AccessPassword = tag.AccessPassword,
-            KillPassword = tag.KillPassword,
-        }).ToArray();
     }
 }

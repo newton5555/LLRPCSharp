@@ -1,3 +1,4 @@
+using LlrpDevice.Virtual;
 using LlrpDevice.Virtual.Hosting;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -105,6 +106,7 @@ internal sealed class VirtualDeviceShell
                 "destroy" => await ExecuteServerAsync(PrependServer(tokens, "destroy"), cancellationToken).ConfigureAwait(false),
                 "logs" => ExecuteLogs(tokens),
                 "presets" => ExecutePresets(tokens),
+                "caps" or "profiles" => ExecuteCapabilityProfiles(tokens),
                 "validate" => ExecuteValidate(tokens),
                 "clear" or "cls" => ExecuteClear(tokens),
                 "exit" or "quit" or "q" => true,
@@ -155,6 +157,10 @@ internal sealed class VirtualDeviceShell
                     return false;
                 case "logs":
                     PrintLogsHelp();
+                    return false;
+                case "caps":
+                case "profiles":
+                    ExecuteCapabilityProfiles(tokens);
                     return false;
                 default:
                     throw new ArgumentException($"Unknown help topic '{tokens[1]}'.");
@@ -381,6 +387,25 @@ internal sealed class VirtualDeviceShell
         return false;
     }
 
+    private bool ExecuteCapabilityProfiles(string[] tokens)
+    {
+        RequireNoArguments(tokens, 1, "Usage: caps");
+        var table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("[bold]Capability profile[/]");
+        table.AddColumn("[bold]LLRP[/]");
+        table.AddColumn("[bold]Antennas[/]");
+        foreach (VirtualDeviceCapabilityProfile profile in VirtualDeviceCapabilityProfileCatalog.All)
+        {
+            table.AddRow(
+                Markup.Escape(profile.Id),
+                Markup.Escape(profile.ProtocolVersion),
+                profile.Capabilities.MaxNumberOfAntennas.ToString());
+        }
+
+        WriteRenderable(table);
+        return false;
+    }
+
     private bool ExecuteValidate(string[] tokens)
     {
         if (tokens.Length != 3 || !tokens[1].Equals("--config", StringComparison.OrdinalIgnoreCase))
@@ -392,7 +417,8 @@ internal sealed class VirtualDeviceShell
         _ = VirtualDeviceCliApplication.BuildHostOptions(
             new VirtualDeviceLaunchOptions { ConfigPath = tokens[2] });
         WriteCommandLine(
-            $"Configuration is valid: one virtual device, preset '{document.PresetId}', " +
+            $"Configuration is valid: capability profile '{document.CapabilityProfileId}', " +
+            $"inventory source '{document.InventoryDataSource}', " +
             $"LLRP {document.ProtocolVersion ?? VirtualDevicePresets.Get(document.PresetId).ProtocolVersion}.");
         return false;
     }
@@ -430,6 +456,7 @@ internal sealed class VirtualDeviceShell
         table.AddRow("server destroy", "Dispose the current device so another can be created.");
         table.AddRow("logs on|off|status", "Control lifecycle, client, and RX/TX event output.");
         table.AddRow("presets", "List built-in device presets.");
+        table.AddRow("caps", "List capability profiles; currently llrp1.0.1_standard.");
         table.AddRow("validate --config PATH", "Validate one local device configuration.");
         table.AddRow("clear", "Clear the terminal.");
         table.AddRow("exit", "Stop and dispose the device, then leave the shell.");
@@ -442,17 +469,19 @@ internal sealed class VirtualDeviceShell
         _console.MarkupLine($"  [cyan]{Markup.Escape("server create [--start] [options]")}[/]");
         _console.MarkupLine($"  [cyan]{Markup.Escape("server run [options]")}[/]");
         _console.MarkupLine("  [cyan]server start|stop|restart|status|destroy[/]");
-        _console.MarkupLine("[grey]Create options match the run command: --config, --preset, --listen, --port, --llrp, --name, --tag, RF and report options.[/]");
+        _console.MarkupLine("[grey]Create options: --config, --caps, --data-source, --listen, --port, --llrp, --name, --tag, RF and report options.[/]");
     }
 
     private void PrintCreateHelp()
     {
         _console.MarkupLine("[bold deepskyblue1]Usage:[/] server create [--start] [options]");
         _console.MarkupLine("  [cyan]--config PATH[/]   Load one local JSON device configuration.");
-        _console.MarkupLine("  [cyan]--preset ID[/]     Select a built-in preset.");
+        _console.MarkupLine("  [cyan]--caps ID[/]       Select capability profile; default llrp1.0.1_standard.");
+        _console.MarkupLine("  [cyan]--data-source X[/] Use default or a separate inventory JSON path.");
         _console.MarkupLine("  [cyan]--listen IP[/]     Listen address; default is 127.0.0.1.");
         _console.MarkupLine("  [cyan]--port PORT[/]     TCP port; default is 5084.");
         _console.MarkupLine("  [cyan]--llrp VERSION[/]  1.0.1, 1.1, or 2.0.");
+        _console.MarkupLine("[grey]IP/port are creation-time endpoint options and are not stored in the device config.[/]");
     }
 
     private void PrintLogsHelp()
@@ -474,6 +503,8 @@ internal sealed class VirtualDeviceShell
         table.AddColumn("[bold]Value[/]");
         AddStatusRow(table, "State", _host.State.ToString());
         AddStatusRow(table, "Device", _host.Device.Identity.Name);
+        AddStatusRow(table, "Capability profile", _hostOptions!.Device.CapabilityProfileId ?? "direct SDK options");
+        AddStatusRow(table, "Inventory data source", _hostOptions!.InventoryDataSource?.Id ?? "device options");
         AddStatusRow(table, "Listen address", _host.ListenAddress.ToString());
         AddStatusRow(table, "Configured port", _host.ConfiguredPort.ToString());
         AddStatusRow(table, "Bound port", _host.BoundPort.ToString());

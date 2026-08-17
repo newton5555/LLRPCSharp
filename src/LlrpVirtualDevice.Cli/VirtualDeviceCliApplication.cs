@@ -1,4 +1,5 @@
 using System.Net;
+using LlrpDevice.Virtual;
 using LlrpDevice.Virtual.Hosting;
 using LlrpNet.Core.Protocol;
 using Spectre.Console;
@@ -88,6 +89,7 @@ public sealed class VirtualDeviceCliApplication
                     .ConfigureAwait(false),
                 "validate" => ValidateConfiguration(args, optionStart, output),
                 "presets" or "list-presets" => ListPresets(args, optionStart, output),
+                "caps" or "list-caps" => ListCapabilityProfiles(args, optionStart, output),
                 "help" => PrintCommandHelp(args, optionStart, output),
                 _ => throw new ArgumentException($"Unknown command '{command}'."),
             };
@@ -194,6 +196,14 @@ public sealed class VirtualDeviceCliApplication
             {
                 "--config" => options with { ConfigPath = ReadString(args, ref index, option) },
                 "--preset" => options with { PresetId = ReadString(args, ref index, option) },
+                "--caps" or "--profile" => options with
+                {
+                    CapabilityProfileId = ReadString(args, ref index, option),
+                },
+                "--data-source" => options with
+                {
+                    InventoryDataSource = ReadString(args, ref index, option),
+                },
                 "--listen" => options with { ListenAddress = ReadString(args, ref index, option) },
                 "--port" => options with { Port = ReadInt(args, ref index, option) },
                 "--llrp" => options with { ProtocolVersion = ReadString(args, ref index, option) },
@@ -248,7 +258,8 @@ public sealed class VirtualDeviceCliApplication
         VirtualDeviceConfigurationDocument document = VirtualDeviceConfiguration.Load(path);
         _ = VirtualDeviceHostOptionsBuilder.Build(new VirtualDeviceLaunchOptions(), document);
         output.WriteLine(
-            $"Configuration is valid: one virtual device, preset '{document.PresetId}', " +
+            $"Configuration is valid: one virtual device, capability profile '" +
+            $"{document.CapabilityProfileId}', inventory source '{document.InventoryDataSource}', " +
             $"LLRP {document.ProtocolVersion ?? VirtualDevicePresets.Get(document.PresetId).ProtocolVersion}.");
         return 0;
     }
@@ -272,6 +283,32 @@ public sealed class VirtualDeviceCliApplication
         foreach (VirtualDevicePreset preset in VirtualDevicePresets.All)
         {
             output.WriteLine($"{preset.Id} - {preset.Description}");
+        }
+
+        return 0;
+    }
+
+    private static int ListCapabilityProfiles(
+        IReadOnlyList<string> args,
+        int start,
+        TextWriter output)
+    {
+        if (start < args.Count)
+        {
+            if (start + 1 == args.Count && args[start] is "--help" or "-h")
+            {
+                output.WriteLine("Usage: llrp-virtual-device caps");
+                return 0;
+            }
+
+            throw new ArgumentException($"Unknown caps option '{args[start]}'.");
+        }
+
+        foreach (VirtualDeviceCapabilityProfile profile in VirtualDeviceCapabilityProfileCatalog.All)
+        {
+            output.WriteLine(
+                $"{profile.Id} - LLRP {profile.ProtocolVersion}, " +
+                $"{profile.Capabilities.MaxNumberOfAntennas} antennas");
         }
 
         return 0;
@@ -304,6 +341,9 @@ public sealed class VirtualDeviceCliApplication
                 return 0;
             case "presets" or "list-presets":
                 PrintPresetsHelp(output);
+                return 0;
+            case "caps" or "list-caps":
+                output.WriteLine("Usage: llrp-virtual-device caps");
                 return 0;
             default:
                 throw new ArgumentException($"Unknown help topic '{args[start]}'.");
@@ -363,6 +403,7 @@ public sealed class VirtualDeviceCliApplication
         output.WriteLine("  llrp-virtual-device live [options]");
         output.WriteLine("  llrp-virtual-device validate --config <PATH>");
         output.WriteLine("  llrp-virtual-device presets");
+        output.WriteLine("  llrp-virtual-device caps");
         output.WriteLine();
         output.WriteLine("No arguments enter the shell without creating a device.");
         output.WriteLine("The run command stays in the foreground; Ctrl+C stops the device.");
@@ -396,6 +437,8 @@ public sealed class VirtualDeviceCliApplication
         output.WriteLine();
         output.WriteLine("  --config <PATH>                 Load one local JSON device configuration.");
         output.WriteLine("  --preset <ID>                   Built-in preset identifier.");
+        output.WriteLine("  --caps <ID>                     Capability profile (default llrp1.0.1_standard).");
+        output.WriteLine("  --data-source <PATH|default>    Independent inventory tag data source.");
         output.WriteLine("  --listen <IP>                   Exact listen address (default 127.0.0.1).");
         output.WriteLine("  --port <PORT>                   Exact TCP port (default 5084).");
         output.WriteLine("  --llrp <1.0.1|1.1|2.0>          Protocol version.");

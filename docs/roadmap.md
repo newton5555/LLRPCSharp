@@ -90,8 +90,10 @@ LlrpVirtualDevice.Cli / VirtualLlrpDeviceHost
   一台虚拟设备，默认进入交互 Shell，支持 `server create/start/stop/restart/status/destroy`
   生命周期命令、`run`/`start`、自动创建并启动后进入 Shell 的 `live`、单设备 JSON
   `validate` 和 `presets`。
-- `config/virtual-device.example.json` 定义单设备配置格式；本地配置显式加载，不保存或
-  恢复运行中的 ROSpec/AccessSpec 图。
+- `src/LlrpDevice.Virtual/config/virtual-device.example.json` 定义单设备行为配置；
+  `src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json` 定义当前唯一的虚拟设备能力档案，
+  `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json` 定义独立寻卡数据源；设备端点仍由
+  create/run 参数传入，不持久化或恢复运行中的 ROSpec/AccessSpec 图。
 - 旧 `LlrpVirtualReader.*` 兼容层已移除；未来 UI 直接引用 Hosting 门面，客户端 UI
   仍通过 `LlrpSdk` 连接设备端点。
 

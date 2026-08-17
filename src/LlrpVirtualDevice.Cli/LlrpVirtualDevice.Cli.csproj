@@ -15,4 +15,11 @@
     <ProjectReference Include="..\LlrpDevice.Virtual.Hosting\LlrpDevice.Virtual.Hosting.csproj" />
     <ProjectReference Include="..\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\LlrpDevice.Virtual\config\llrp\caps\llrp1.0.1_standard.json"
+                      LogicalName="LlrpVirtualDevice.Cli.Config.llrp.caps.llrp1.0.1_standard.json" />
+    <EmbeddedResource Include="..\LlrpDevice.Virtual\config\llrp\data-sources\default.json"
+                      LogicalName="LlrpVirtualDevice.Cli.Config.llrp.data-sources.default.json" />
+  </ItemGroup>
 </Project>

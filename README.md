@@ -113,9 +113,14 @@ The device-side SDK exposes `IVirtualLlrpDeviceHost` from
 `LlrpDevice.Virtual.Hosting`. It is the public entry point for one virtual
 device and composes one `VirtualLlrpDevice` with one `LlrpDeviceServer`:
 
+The default device is created with `server create --llrp 1.0.1`. This selects
+the `llrp1.0.1_standard` capability manifest and the independent `default`
+inventory source; listen address and port are creation-time options, not persisted
+device configuration.
+
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
-  run --config config/virtual-device.example.json
+  run --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
 The standalone `LlrpVirtualDevice.Cli` is a sibling of the general
@@ -123,15 +128,16 @@ The standalone `LlrpVirtualDevice.Cli` is a sibling of the general
 creating a device. Use `server create`, `server start`, `server status`,
 `server stop`, `server restart`, and `server destroy` to control one device
 host; `logs on|off|status` controls lifecycle, client, and decoded `RX`/`TX`
-events. `validate --config <PATH>` validates the single-device JSON document,
-and `presets` lists built-ins. A future UI can reference the same SDK facade
+events. `validate --config <PATH>` validates the single-device behavior document,
+`presets` lists behavior presets, and `caps` lists capability profiles.
+A future UI can reference the same SDK facade
 directly without depending on the CLI or the compatibility Manager.
 
 Use `live` when the shell should automatically create and start the device:
 
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
-  live --config config/virtual-device.example.json
+  live --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
 `live` then enters the same shell with event output enabled. Use `run` for the

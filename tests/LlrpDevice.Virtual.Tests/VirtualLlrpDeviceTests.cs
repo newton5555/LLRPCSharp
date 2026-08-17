@@ -38,6 +38,39 @@ public sealed class VirtualLlrpDeviceTests
     }
 
     [Fact]
+    public async Task Explicit_inventory_data_source_is_independent_from_device_options()
+    {
+        byte[] sourceEpc = Convert.FromHexString("300833B2DDD9014000000001");
+        var source = new InMemoryVirtualInventoryDataSource(
+            "test-source",
+            [new VirtualTagDefinition { ElectronicProductCode = sourceEpc }]);
+
+        await using var device = new VirtualLlrpDevice(new VirtualDeviceOptions(), source);
+
+        InventoryObservationBatch batch = await ObserveAsync(device, 0);
+
+        Assert.Equal("test-source", source.Id);
+        Assert.Equal("300833B2DDD9014000000001", Convert.ToHexString(Assert.Single(batch.Tags).ElectronicProductCode.Span));
+    }
+
+    [Fact]
+    public void Standard_capability_profile_contains_the_four_antenna_101_shape()
+    {
+        VirtualDeviceCapabilityProfile profile =
+            VirtualDeviceCapabilityProfiles.Get(VirtualDeviceCapabilityProfiles.Standard101Id);
+
+        Assert.Equal("1.0.1", profile.ProtocolVersion);
+        Assert.Equal(0U, profile.Identity.ManufacturerId);
+        Assert.Equal(0U, profile.Identity.ModelId);
+        Assert.Equal("virtual-1.0.1", profile.Identity.FirmwareVersion);
+        Assert.Equal((ushort)4, profile.Capabilities.MaxNumberOfAntennas);
+        LlrpDeviceRegulatoryCapabilities regulatory = Assert.IsType<LlrpDeviceRegulatoryCapabilities>(
+            profile.Capabilities.RegulatoryCapabilities);
+        Assert.Equal(193, regulatory.TransmitPowerLevels.Count);
+        Assert.Equal(41, regulatory.C1G2RfModes.Count);
+    }
+
+    [Fact]
     public async Task Tag_access_supports_read_write_lock_block_erase_and_kill()
     {
         byte[] epc = Convert.FromHexString("E28011710000020D056E9BEE");

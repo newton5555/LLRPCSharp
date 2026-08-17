@@ -29,7 +29,7 @@ dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj
 The shell owns one device host at a time. A normal session is:
 
 ```text
-vdev (empty)> server create --port 5088 --llrp 1.0.1 --name standalone-reader
+vdev (empty)> server create --llrp 1.0.1
 vdev (created)> server start
 vdev (running)> server status
 vdev (running)> logs on
@@ -42,17 +42,30 @@ The lifecycle commands are deliberately single-device commands:
 - `server start`, `server stop`, and `server restart` control its listener;
 - `server status` shows state, endpoint, protocol, and connected clients;
 - `server destroy` disposes the host so another one can be created;
+- `caps` lists the available capability profiles;
 - `logs on|off|status` controls lifecycle, client, and decoded `RX`/`TX` output.
 
 `server run [options]` is a shell shortcut for create plus start. The standalone
 SDK exposes the same lifecycle through `IVirtualLlrpDeviceHost`; the shell does
 not manage a multi-device directory or a separate control service.
 
+For the current standard device, the shortest creation command is:
+
+```text
+server create --llrp 1.0.1
+```
+
+This selects capability profile `llrp1.0.1_standard`; the listen address
+(`127.0.0.1`), port (`5084`), one-client policy, default report settings, and
+default inventory data source are filled in automatically. Use `--listen` and
+`--port` only when this process needs a different endpoint; those values are
+creation-time arguments and are not persisted in the JSON device configuration.
+
 ## Run in live mode
 
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
-  live --config config/virtual-device.example.json
+  live --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
 `live` automatically creates and starts the one configured virtual device, then
@@ -75,7 +88,7 @@ For a quiet, non-interactive foreground service, use `run` instead:
 
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
-  run --config config/virtual-device.example.json
+  run --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
 `shell` is an explicit alias for the no-argument interactive mode. `Ctrl+C`
@@ -85,24 +98,50 @@ leaves the shell and disposes the current host.
 
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
-  validate --config config/virtual-device.example.json
+  validate --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
-  run --config config/virtual-device.example.json
+  run --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
-The document describes exactly one endpoint and one device. It contains the
-device identity, protocol preset, report cadence, deterministic RF-observable
-scenario, and tag/TID/User-memory data. Loading is explicit; the process does
-not scan for configuration files or restore runtime ROSpec/AccessSpec state.
+The document describes one device behavior selection. It contains the
+capability-profile identifier, an independent inventory data-source reference,
+report cadence, and deterministic RF-observable scenario. It deliberately does
+not contain the listen address, port, client limit, or runtime ROSpec/AccessSpec
+state. Loading is explicit; the process does not scan for configuration files
+or restore runtime resources.
 
-The built-in 1.0.1 RF profile is currently code-defined in
-`VirtualDeviceOptions`: the standard virtual device exposes 4 logical antennas
-and uses the captured Zebra 96008 RF tables used by the interop tests (193
-transmit-power entries, one receive-sensitivity entry, 41 RF-mode entries, and
-one 16-channel hop table). The JSON document can override endpoint, identity,
-antenna count, tags, and simulation settings, but does not yet replace those RF
-capability tables.
+The shipped capability manifest is
+`src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json`. It selects the SDK's standard 1.0.1
+profile: 4 logical antennas, a generic virtual-reader identity, and captured
+physical-reader RF capability tables with 193 transmit-power entries, one
+receive-sensitivity entry, 41 RF-mode entries, and one 16-channel hop table. The
+inventory population is a separate source at
+`src/LlrpDevice.Virtual/config/llrp/data-sources/default.json`; another JSON source can be selected
+with `--data-source PATH`.
+
+The SDK composition boundary is explicit:
+
+```csharp
+using LlrpDevice.Virtual;
+using LlrpDevice.Virtual.Hosting;
+
+VirtualDeviceCapabilityProfile profile =
+    VirtualDeviceCapabilityProfiles.Get(VirtualDeviceCapabilityProfiles.Standard101Id);
+IVirtualInventoryDataSource source = VirtualInventoryDataSources.Default;
+
+await using var device = new VirtualLlrpDeviceHost(
+    new VirtualLlrpDeviceHostOptions
+    {
+        Device = profile.CreateDeviceOptions(source),
+        InventoryDataSource = source,
+    });
+```
+
+`VirtualLlrpDevice` consumes the capability/device behavior, while
+`IVirtualInventoryDataSource` supplies the tag population. A future file,
+database, replay, or live RF data source can replace the in-memory source
+without changing the LLRP Server.
 
 When `maximumClientConnections` is `1` (the default), a newly accepted control
 session replaces the previous session. This preserves a single active owner while

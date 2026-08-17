@@ -25,10 +25,20 @@ public sealed record VirtualLlrpDeviceHostOptions
     /// <summary>Gets the virtual device behavior and tag-state options.</summary>
     public VirtualDeviceOptions Device { get; init; } = new();
 
+    /// <summary>
+    /// Gets the independent inventory data source. When omitted, the device
+    /// options' direct tag list is used for SDK compatibility.
+    /// </summary>
+    public IVirtualInventoryDataSource? InventoryDataSource { get; init; }
+
     internal void Validate()
     {
         ArgumentNullException.ThrowIfNull(Server);
         ArgumentNullException.ThrowIfNull(Device);
+        if (InventoryDataSource is not null)
+        {
+            ArgumentNullException.ThrowIfNull(InventoryDataSource.Tags);
+        }
     }
 }
 
@@ -86,7 +96,7 @@ public sealed class VirtualLlrpDeviceHost : IVirtualLlrpDeviceHost
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
         _options = options;
-        _virtualDevice = new VirtualLlrpDevice(options.Device);
+        _virtualDevice = new VirtualLlrpDevice(options.Device, options.InventoryDataSource);
         _server = new LlrpDeviceServer(options.Server, _virtualDevice);
         _server.LifecycleChanged += OnServerLifecycleChanged;
         _server.ClientChanged += OnServerClientChanged;

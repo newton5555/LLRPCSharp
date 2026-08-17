@@ -11,12 +11,16 @@ public sealed class VirtualLlrpDevice : ILlrpDevice
     private LlrpDeviceConfiguration _configuration;
     private int _disposed;
 
-    public VirtualLlrpDevice(VirtualDeviceOptions? options = null)
+    public VirtualLlrpDevice(
+        VirtualDeviceOptions? options = null,
+        IVirtualInventoryDataSource? inventoryDataSource = null)
     {
         _options = options ?? new VirtualDeviceOptions();
         _options.Validate();
         _configuration = _options.Configuration;
-        _tags = new VirtualTagStore(_options.Tags);
+        IVirtualInventoryDataSource source = inventoryDataSource
+            ?? new InMemoryVirtualInventoryDataSource("device-options", _options.Tags);
+        _tags = new VirtualTagStore(source.Tags);
     }
 
     public LlrpDeviceIdentity Identity => _options.Identity;

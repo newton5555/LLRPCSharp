@@ -34,8 +34,8 @@ public sealed record VirtualTagDefinition
 public sealed record VirtualDeviceOptions
 {
     /// <summary>
-    /// Creates the deterministic 1.0.1 RF profile captured from the Zebra reader at
-    /// 192.168.40.88 (manufacturer 161, model 96008, firmware 3.32.37.0).
+    /// Creates the deterministic 1.0.1 RF profile backed by captured physical-reader
+    /// capability data.
     /// These values are a built-in virtual-device profile; they are not a live claim about attached hardware.
     /// </summary>
     public static LlrpDeviceRegulatoryCapabilities CreateDefaultRegulatoryCapabilities() => new()
@@ -129,18 +129,18 @@ public sealed record VirtualDeviceOptions
         StepTariValue = stepTariValue,
     };
 
-    /// <summary>Creates the captured Zebra 96008 identity used by the default virtual profile.</summary>
+    /// <summary>Creates the generic identity used by the standard virtual 1.0.1 profile.</summary>
     public static LlrpDeviceIdentity CreateDefaultIdentity() => new()
     {
         ReaderId = 1,
         Name = "Virtual Reader",
-        ManufacturerId = 161,
-        ModelId = 96008,
-        FirmwareVersion = "3.32.37.0",
+        ManufacturerId = 0,
+        ModelId = 0,
+        FirmwareVersion = "virtual-1.0.1",
     };
 
     /// <summary>
-    /// Creates the standard virtual-device capabilities backed by the captured Zebra 96008 RF tables.
+    /// Creates the standard virtual-device capabilities backed by captured RF capability tables.
     /// The standard virtual device exposes four logical antenna ports by default; callers can pass a
     /// different antenna count when they need a custom or exact physical-reader shape.
     /// </summary>
@@ -186,6 +186,9 @@ public sealed record VirtualDeviceOptions
             .ToArray();
     }
 
+    /// <summary>Gets the selected capability profile identifier, when one was used.</summary>
+    public string? CapabilityProfileId { get; init; }
+
     public LlrpDeviceIdentity Identity { get; init; } = CreateDefaultIdentity();
 
     public LlrpDeviceCapabilities Capabilities { get; init; } = CreateDefaultCapabilities();
@@ -196,14 +199,11 @@ public sealed record VirtualDeviceOptions
         Gpos = [new LlrpDeviceGpoState { PortNumber = 1, State = false }],
     };
 
-    public IReadOnlyList<VirtualTagDefinition> Tags { get; init; } =
-    [
-        new VirtualTagDefinition
-        {
-            ElectronicProductCode = new byte[] { 0xE2, 0x80, 0x11, 0x71, 0x00, 0x00, 0x02, 0x0D, 0x05, 0x6E, 0x9B, 0xEE },
-            Tid = new byte[] { 0xE2, 0x00, 0x34, 0x12, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF },
-        },
-    ];
+    /// <summary>
+    /// Gets the legacy direct-options tag list. New compositions should inject
+    /// <see cref="IVirtualInventoryDataSource"/> through the Host or device constructor.
+    /// </summary>
+    public IReadOnlyList<VirtualTagDefinition> Tags { get; init; } = VirtualInventoryDataSources.Default.Tags;
 
     public VirtualRfSimulationOptions RfSimulation { get; init; } = new();
 

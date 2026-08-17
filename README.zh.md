@@ -113,9 +113,13 @@ dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 `IVirtualLlrpDeviceHost`，这是单台虚拟设备的公开入口，内部组合一台
 `VirtualLlrpDevice` 和一台 `LlrpDeviceServer`：
 
+默认创建设备使用 `server create --llrp 1.0.1`，它选择
+`llrp1.0.1_standard` 能力档案和独立的 `default` 寻卡数据源；
+监听地址和端口只属于创建时参数，不写入设备配置。
+
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
-  run --config config/virtual-device.example.json
+  run --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
 独立的 `LlrpVirtualDevice.Cli` 与通用 `LlrpCli` 在 `src` 下平级。直接启动
@@ -123,14 +127,15 @@ dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
 `server create`、`server start`、`server status`、`server stop`、
 `server restart` 和 `server destroy` 管理一台设备；使用
 `logs on|off|status` 控制生命周期、客户端以及解码后的 `RX`/`TX` 事件输出。
-使用 `validate --config <PATH>` 校验单设备 JSON，或使用 `presets` 查看内置
-预设。未来 UI 可以直接引用同一个 SDK 门面，不依赖 CLI 或兼容 Manager。
+使用 `validate --config <PATH>` 校验单设备行为配置，使用 `presets` 查看行为预设，
+使用 `caps` 查看能力档案。未来 UI 可以直接引用同一个 SDK 门面，
+不依赖 CLI 或兼容 Manager。
 
 如果希望自动创建并启动设备后进入交互 Shell，可以使用 `live`：
 
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
-  live --config config/virtual-device.example.json
+  live --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
 `live` 会进入同一个 Shell，并默认打开事件输出；`run` 则是安静的、非交互

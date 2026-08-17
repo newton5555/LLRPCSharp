@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "default",
+  "tags": [
+    {
+      "epc": "E28011710000020D056E9BEE",
+      "tid": "E20034120123456789ABCDEF",
+      "peakRssi": -42,
+      "antennaId": 1,
+      "channelIndex": 1,
+      "userMemory": [0, 0, 0, 0]
+    }
+  ]
+}

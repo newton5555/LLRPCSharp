@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "presetId": "llrp.standard101.basic",
+  "capabilityProfileId": "llrp1.0.1_standard",
+  "name": "Standalone Virtual Reader",
+  "inventoryDataSource": "default",
+  "reportIntervalMilliseconds": 100,
+  "reportCount": 0,
+  "repeat": true,
+  "rfScenario": "static",
+  "randomSeed": 2026
+}

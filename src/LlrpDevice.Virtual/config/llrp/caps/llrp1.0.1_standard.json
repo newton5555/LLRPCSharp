@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "llrp1.0.1_standard",
+  "baseProfileId": "llrp1.0.1_standard",
+  "protocolVersion": "1.0.1",
+  "name": "Virtual Reader",
+  "readerId": 1,
+  "manufacturerId": 0,
+  "modelId": 0,
+  "firmwareVersion": "virtual-1.0.1",
+  "maxNumberOfAntennas": 4,
+  "canSetAntennaProperties": false
+}

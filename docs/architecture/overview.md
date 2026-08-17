@@ -27,7 +27,7 @@ duplicating the LLRP server or resource state machine.
 | `LlrpDevice.Server` | listener, sessions, version dispatch, resource graph, KeepAlive, reports, status mapping, fault hooks | fake tag state or hardware driver details |
 | `ILlrpDevice` | identity, capabilities, configuration, inventory execution, Tag Access, device events | TCP, protocol-version types, ROSpec/AccessSpec CRUD |
 | `VirtualLlrpDevice` | deterministic tags, memory, lock/kill state, `static`/`moving-tags`/`noisy` observations | LLRP wire handling and Server resource state |
-| local JSON configuration | explicit single-device endpoint/behavior loading in the device CLI | cross-process registry and automatic restart recovery |
+| capability profile + inventory source | fixed reader capability selection and independent tag population | endpoint binding and LLRP runtime resource state |
 
 ```mermaid
 flowchart LR
@@ -43,7 +43,8 @@ flowchart LR
     Host["IVirtualLlrpDeviceHost"] --> Server
     Host --> Virtual
     DeviceCli["LlrpVirtualDevice.Cli"] --> Host
-    Config["Single-device JSON<br/>explicit load"] --> DeviceCli
+    Caps["Capability profile manifest"] --> DeviceCli
+    Data["Inventory data-source JSON"] --> DeviceCli
 ```
 
 The first inbound frame selects the explicit wire version from its LLRP header.
@@ -59,13 +60,15 @@ the abstractions project. This is the migration seam for a future physical
 device implementation.
 
 The standalone CLI uses `VirtualDeviceConfiguration`, a versioned,
-single-device declarative JSON document. It covers endpoint identity and
-repeatable device behavior: tags, TID/User memory, report cadence, and the
-`static`, `moving-tags`, or `noisy` RF-observable scenario. The LLRP client
-still owns wire-level `ADD_ROSPEC`/`START_ROSPEC` messages. Configuration is
-loaded only when a command explicitly supplies `--config`; it is not a
-cross-process instance registry and does not restore active ROSpec/AccessSpec
-state after a restart.
+single-device behavior document. Capability selection is represented by the
+`llrp1.0.1_standard` manifest under `src/LlrpDevice.Virtual/config/llrp/caps`;
+inventory tags are provided by an independent `IVirtualInventoryDataSource` and
+can be loaded from `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json`
+or another source path. The
+configuration does not persist the listen address, port, client limit, or
+runtime ROSpec/AccessSpec graph. The LLRP client still owns wire-level
+`ADD_ROSPEC`/`START_ROSPEC` messages, and endpoint overrides are supplied only
+on the create/run command.
 
 ## Final Project Tree
 

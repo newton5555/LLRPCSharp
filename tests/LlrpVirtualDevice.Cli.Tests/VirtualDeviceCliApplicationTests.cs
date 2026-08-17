@@ -44,6 +44,23 @@ public sealed class VirtualDeviceCliApplicationTests
     }
 
     [Fact]
+    public async Task Capability_list_exposes_the_standard_101_profile()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        int exitCode = await new VirtualDeviceCliApplication().RunAsync(
+            ["caps"],
+            output,
+            error);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("llrp1.0.1_standard", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("1.0.1", output.ToString(), StringComparison.Ordinal);
+        Assert.Empty(error.ToString());
+    }
+
+    [Fact]
     public async Task Default_invocation_enters_the_interactive_shell()
     {
         using var output = new StringWriter();
@@ -60,6 +77,74 @@ public sealed class VirtualDeviceCliApplicationTests
         Assert.Contains("LLRP Virtual Device Shell", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("server create", output.ToString(), StringComparison.Ordinal);
         Assert.Empty(error.ToString());
+    }
+
+    [Fact]
+    public async Task Creating_101_uses_default_endpoint_and_separate_default_source()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        using var input = new StringReader("server create --llrp 1.0.1\nserver status\nexit\n");
+
+        int exitCode = await new VirtualDeviceCliApplication().RunAsync(
+            [],
+            output,
+            error,
+            input);
+
+        string text = output.ToString();
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Capability profile", text, StringComparison.Ordinal);
+        Assert.Contains("llrp1.0.1_standard", text, StringComparison.Ordinal);
+        Assert.Contains("Inventory data source", text, StringComparison.Ordinal);
+        Assert.Contains("default", text, StringComparison.Ordinal);
+        Assert.Contains("Configured port", text, StringComparison.Ordinal);
+        Assert.Contains("5084", text, StringComparison.Ordinal);
+        Assert.Empty(error.ToString());
+    }
+
+    [Fact]
+    public async Task Create_accepts_an_independent_inventory_data_source_file()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"llrpcsharp-source-{Guid.NewGuid():N}.json");
+        try
+        {
+            await File.WriteAllTextAsync(
+                path,
+                """
+                {
+                  "schemaVersion": 1,
+                  "id": "warehouse-source",
+                  "tags": [
+                    { "epc": "300833B2DDD9014000000001" }
+                  ]
+                }
+                """);
+
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            using var input = new StringReader(
+                $"server create --llrp 1.0.1 --data-source \"{path}\"\n" +
+                "server status\n" +
+                "exit\n");
+
+            int exitCode = await new VirtualDeviceCliApplication().RunAsync(
+                [],
+                output,
+                error,
+                input);
+
+            Assert.Equal(0, exitCode);
+            Assert.Contains("warehouse-source", output.ToString(), StringComparison.Ordinal);
+            Assert.Empty(error.ToString());
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
     }
 
     [Fact]

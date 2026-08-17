@@ -13,8 +13,9 @@ internal static class VirtualDeviceShellParser
         char quote = '\0';
         bool escaped = false;
 
-        foreach (char character in line)
+        for (int index = 0; index < line.Length; index++)
         {
+            char character = line[index];
             if (escaped)
             {
                 token.Append(character);
@@ -22,7 +23,10 @@ internal static class VirtualDeviceShellParser
                 continue;
             }
 
-            if (character == '\\' && quote != '\'')
+            if (character == '\\' &&
+                quote != '\'' &&
+                index + 1 < line.Length &&
+                (line[index + 1] is '\\' or '"' or '\'' || char.IsWhiteSpace(line[index + 1])))
             {
                 escaped = true;
                 continue;

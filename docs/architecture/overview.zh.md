@@ -26,7 +26,7 @@
 | `LlrpDevice.Server` | Listener、Session、版本分发、资源图、KeepAlive、报告、状态映射、故障 Hook | 假标签状态或硬件驱动细节 |
 | `ILlrpDevice` | 身份、能力、配置、盘点执行、Tag Access、设备事件 | TCP、协议版本类型、ROSpec/AccessSpec CRUD |
 | `VirtualLlrpDevice` | 确定性标签、内存、锁/销毁状态、`static`/`moving-tags`/`noisy` 观察 | LLRP 报文处理和 Server 资源状态 |
-| 本地 JSON 配置 | 设备 CLI 显式加载单设备端点/行为 | 跨进程注册表与自动重启恢复 |
+| 能力档案 + 寻卡数据源 | 固定读写器能力选择与独立标签数据 | 端点绑定与 LLRP 运行资源状态 |
 
 ```mermaid
 flowchart LR
@@ -42,7 +42,8 @@ flowchart LR
     Host["IVirtualLlrpDeviceHost"] --> Server
     Host --> Virtual
     DeviceCli["LlrpVirtualDevice.Cli"] --> Host
-    Config["单设备 JSON<br/>显式加载"] --> DeviceCli
+    Caps["能力档案清单"] --> DeviceCli
+    Data["寻卡数据源 JSON"] --> DeviceCli
 ```
 
 第一帧从 LLRP Header 选择显式线协议版本。Server 持有版本 Adapter，并将线级
@@ -54,11 +55,12 @@ ROSpec/AccessSpec 转成版本中立的设备请求；TCP 端口不选择设备�
 `ILlrpDevice`；`LlrpDevice.Virtual` 只引用 Abstractions。这就是未来真实设备实现的迁移
 接缝。
 
-独立 CLI 使用 `VirtualDeviceConfiguration` 持久化版本化、单设备声明式 JSON，覆盖端点身份
-和可重复设备行为：标签、TID/User memory、报告节奏，以及 `static`、`moving-tags`、`noisy`
-RF 可观察场景。线级 `ADD_ROSPEC`/`START_ROSPEC` 仍由 LLRP 客户端发送。配置只在命令显式
-提供 `--config` 时加载；它不是跨进程实例注册表，也不会在进程重启后恢复活跃
-ROSpec/AccessSpec。
+独立 CLI 使用 `VirtualDeviceConfiguration` 持久化版本化的单设备行为选择。
+`src/LlrpDevice.Virtual/config/llrp/caps` 下的 `llrp1.0.1_standard` 能力档案负责固定读写器能力；
+标签由独立的 `IVirtualInventoryDataSource` 提供，可使用
+`src/LlrpDevice.Virtual/config/llrp/data-sources/default.json` 或另一个数据源路径。配置不保存监听地址、
+端口、连接数或运行中的 ROSpec/AccessSpec 图；端点改变只通过 create/run 命令参数传入。
+线级 `ADD_ROSPEC`/`START_ROSPEC` 仍由 LLRP 客户端发送，`--config` 仍然只在显式提供时加载。
 
 ## 最终项目结构 Tree
 
