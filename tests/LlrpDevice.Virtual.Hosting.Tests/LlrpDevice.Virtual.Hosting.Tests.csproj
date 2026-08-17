@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LlrpDevice.Abstractions\LlrpDevice.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\LlrpDevice.Server\LlrpDevice.Server.csproj" />
+    <ProjectReference Include="..\..\src\LlrpDevice.Virtual\LlrpDevice.Virtual.csproj" />
+    <ProjectReference Include="..\..\src\LlrpDevice.Virtual.Hosting\LlrpDevice.Virtual.Hosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

@@ -34,6 +34,15 @@ public sealed class VirtualReaderOptionsTests
                 ReaderOptions = new VirtualReaderOptions { MaximumFrameLength = 9 },
             }));
 
+        Assert.Throws<ArgumentOutOfRangeException>(() => new VirtualReaderHost(
+            new VirtualReaderHostOptions
+            {
+                ReaderOptions = new VirtualReaderOptions
+                {
+                    Capabilities = new VirtualReaderCapabilities { MaxNumberOfAntennas = 0 },
+                },
+            }));
+
         Assert.Throws<ArgumentException>(() => new VirtualReaderHost(
             new VirtualReaderHostOptions
             {

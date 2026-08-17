@@ -1,4 +1,5 @@
 using LlrpNet.Core.Protocol;
+using LlrpDevice.Abstractions;
 using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Registry;
 using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
@@ -14,41 +15,41 @@ using V20Messages = LlrpNet.Protocol.Messages.V2_0;
 using V20Parameters = LlrpNet.Protocol.Parameters.V2_0;
 using V20Registry = LlrpNet.Protocol.Registry.V2_0;
 
-namespace LlrpVirtualReader;
+namespace LlrpDevice.Server;
 
-internal sealed class VirtualReaderProtocolDispatcher
+internal sealed class LlrpDeviceProtocolDispatcher
 {
-    private readonly VirtualReaderDeviceState _state;
+    private readonly LlrpDeviceServerState _state;
     private readonly LlrpCodecRegistry _registry;
-    private readonly Dictionary<LlrpProtocolVersion, IVirtualReaderVersionProfile> _profiles;
-    private readonly IReadOnlyList<IVirtualReaderMessageHandler> _handlers;
+    private readonly Dictionary<LlrpProtocolVersion, ILlrpDeviceVersionProfile> _profiles;
+    private readonly IReadOnlyList<ILlrpDeviceMessageHandler> _handlers;
 
-    public VirtualReaderProtocolDispatcher(
-        VirtualReaderDeviceState state,
+    public LlrpDeviceProtocolDispatcher(
+        LlrpDeviceServerState state,
         LlrpCodecRegistry registry,
-        IReadOnlyList<IVirtualReaderProtocolModule> modules)
+        IReadOnlyList<ILlrpDeviceProtocolModule> modules)
     {
         _state = state;
         _registry = registry;
 
-        var standard101 = new VirtualReaderStandard101Handler(state);
-        var standard11 = new VirtualReaderTranslatedStandardHandler(
+        var standard101 = new LlrpStandard101Handler(state);
+        var standard11 = new LlrpTranslatedStandardHandler(
             state,
             registry,
             LlrpProtocolVersion.Version11);
-        var standard20 = new VirtualReaderTranslatedStandardHandler(
+        var standard20 = new LlrpTranslatedStandardHandler(
             state,
             registry,
             LlrpProtocolVersion.Version20);
-        _profiles = new Dictionary<LlrpProtocolVersion, IVirtualReaderVersionProfile>
+        _profiles = new Dictionary<LlrpProtocolVersion, ILlrpDeviceVersionProfile>
         {
             [LlrpProtocolVersion.Version101] = standard101,
             [LlrpProtocolVersion.Version11] = standard11,
             [LlrpProtocolVersion.Version20] = standard20,
         };
 
-        var handlerRegistry = new VirtualReaderHandlerRegistry();
-        foreach (IVirtualReaderProtocolModule module in modules)
+        var handlerRegistry = new LlrpDeviceHandlerRegistry();
+        foreach (ILlrpDeviceProtocolModule module in modules)
         {
             module.RegisterHandlers(handlerRegistry);
         }
@@ -57,13 +58,13 @@ internal sealed class VirtualReaderProtocolDispatcher
     }
 
     public static LlrpCodecRegistry CreateRegistry(
-        IReadOnlyList<IVirtualReaderProtocolModule> modules)
+        IReadOnlyList<ILlrpDeviceProtocolModule> modules)
     {
         var registry = new LlrpCodecRegistry();
         V101Registry.Llrp101StandardModule.Register(registry);
         V11Registry.Llrp11StandardModule.Register(registry);
         V20Registry.Llrp20StandardModule.Register(registry);
-        foreach (IVirtualReaderProtocolModule module in modules)
+        foreach (ILlrpDeviceProtocolModule module in modules)
         {
             module.RegisterCodecs(registry);
         }
@@ -71,30 +72,30 @@ internal sealed class VirtualReaderProtocolDispatcher
         return registry;
     }
 
-    public async ValueTask<VirtualReaderDispatchResult> DispatchAsync(
-        VirtualReaderRequestContext context,
+    public async ValueTask<LlrpDeviceDispatchResult> DispatchAsync(
+        LlrpDeviceRequestContext context,
         ILlrpMessage message,
         CancellationToken cancellationToken)
     {
-        if (TryHandleVersionNegotiation(context, message, out VirtualReaderDispatchResult? negotiation))
+        if (TryHandleVersionNegotiation(context, message, out LlrpDeviceDispatchResult? negotiation))
         {
             return negotiation!;
         }
 
         if (message is RawCustomMessage &&
-            _state.Options.UnknownVendorParameterBehavior == VirtualReaderUnknownVendorParameterBehavior.PreserveAndIgnore)
+            _state.Options.UnknownVendorParameterBehavior == LlrpUnknownVendorParameterBehavior.PreserveAndIgnore)
         {
-            return new VirtualReaderDispatchResult(null, []);
+            return new LlrpDeviceDispatchResult(null, []);
         }
 
-        if (!_profiles.TryGetValue(context.Version, out IVirtualReaderVersionProfile? profile))
+        if (!_profiles.TryGetValue(context.Version, out ILlrpDeviceVersionProfile? profile))
         {
-            return new VirtualReaderDispatchResult(
+            return new LlrpDeviceDispatchResult(
                 CreateUnsupportedVersionError(context.Version, message.MessageId),
                 []);
         }
 
-        foreach (IVirtualReaderMessageHandler handler in _handlers)
+        foreach (ILlrpDeviceMessageHandler handler in _handlers)
         {
             if (!handler.CanHandle(context.Version, message))
             {
@@ -109,20 +110,21 @@ internal sealed class VirtualReaderProtocolDispatcher
             return await profile.HandleAsync(context, message, cancellationToken).ConfigureAwait(false);
         }
 
-        return new VirtualReaderDispatchResult(
+        return new LlrpDeviceDispatchResult(
             profile.CreateError(
                 message.MessageId,
                 (ushort)GetStatusCode(context.Version, "M_UnsupportedMessage"),
-                $"The virtual reader does not implement message type {GetMessageType(message)}."),
+                $"The LLRP device does not implement message type {GetMessageType(message)}."),
             []);
     }
 
     public IReadOnlyList<ILlrpMessage> BuildInventoryReports(
         LlrpProtocolVersion version,
-        uint roSpecId)
+        uint roSpecId,
+        int roundSequence)
     {
-        return _profiles.TryGetValue(version, out IVirtualReaderVersionProfile? profile)
-            ? profile.BuildInventoryReports(roSpecId)
+        return _profiles.TryGetValue(version, out ILlrpDeviceVersionProfile? profile)
+            ? profile.BuildInventoryReports(roSpecId, roundSequence)
             : [];
     }
 
@@ -132,19 +134,36 @@ internal sealed class VirtualReaderProtocolDispatcher
     public ILlrpMessage CreateReaderEventNotification(LlrpProtocolVersion version, uint messageId) =>
         _profiles[version].CreateReaderEventNotification(messageId);
 
+    public ILlrpMessage CreateReaderEventNotification(
+        LlrpProtocolVersion version,
+        uint messageId,
+        LlrpDeviceEvent deviceEvent) =>
+        _profiles[version].CreateReaderEventNotification(messageId, deviceEvent);
+
+    public ILlrpMessage CreateCloseConnection(LlrpProtocolVersion version, uint messageId) =>
+        _profiles[version].CreateCloseConnection(messageId);
+
+    public ILlrpMessage TranslateFromCanonical(
+        LlrpProtocolVersion version,
+        ILlrpMessage message) => version == LlrpProtocolVersion.Version101
+            ? message
+            : _profiles[version] is LlrpTranslatedStandardHandler translated
+                ? translated.TranslateFromCanonical(message)
+                : throw new InvalidOperationException($"Protocol version {version} has no canonical translation profile.");
+
     public ILlrpMessage CreateError(
         LlrpProtocolVersion version,
         uint messageId,
         ushort statusCode,
         string description) =>
-        _profiles.TryGetValue(version, out IVirtualReaderVersionProfile? profile)
+        _profiles.TryGetValue(version, out ILlrpDeviceVersionProfile? profile)
             ? profile.CreateError(messageId, statusCode, description)
             : CreateUnsupportedVersionError(version, messageId);
 
     private bool TryHandleVersionNegotiation(
-        VirtualReaderRequestContext context,
+        LlrpDeviceRequestContext context,
         ILlrpMessage message,
-        out VirtualReaderDispatchResult? result)
+        out LlrpDeviceDispatchResult? result)
     {
         if (message is V11Messages.GET_SUPPORTED_VERSION request)
         {
@@ -174,23 +193,23 @@ internal sealed class VirtualReaderProtocolDispatcher
         return false;
     }
 
-    private VirtualReaderDispatchResult BuildGetSupportedVersionResponse(
+    private LlrpDeviceDispatchResult BuildGetSupportedVersionResponse(
         uint messageId,
         bool useVersion20 = false)
     {
         LlrpProtocolVersion supported = _state.Options.ProtocolVersion;
         if (supported == LlrpProtocolVersion.Version101)
         {
-            return new VirtualReaderDispatchResult(
+            return new LlrpDeviceDispatchResult(
                 CreateV11Error(messageId, V11Enumerations.StatusCode.M_UnsupportedVersion,
-                    "This virtual reader supports LLRP 1.0.1 only."),
+                    "This LLRP device supports LLRP 1.0.1 only."),
                 [],
                 ResponseVersion: LlrpProtocolVersion.Version11);
         }
 
         if (useVersion20)
         {
-            return new VirtualReaderDispatchResult(
+            return new LlrpDeviceDispatchResult(
                 new V20Messages.GET_SUPPORTED_VERSION_RESPONSE(
                     messageId,
                     new V20Parameters.LLRPStatus(V20Enumerations.StatusCode.M_Success, string.Empty, null, null),
@@ -200,7 +219,7 @@ internal sealed class VirtualReaderProtocolDispatcher
                 ResponseVersion: LlrpProtocolVersion.Version20);
         }
 
-        return new VirtualReaderDispatchResult(
+        return new LlrpDeviceDispatchResult(
             new V11Messages.GET_SUPPORTED_VERSION_RESPONSE(
                 messageId,
                 new V11Parameters.LLRPStatus(V11Enumerations.StatusCode.M_Success, string.Empty, null, null),
@@ -210,7 +229,7 @@ internal sealed class VirtualReaderProtocolDispatcher
             ResponseVersion: LlrpProtocolVersion.Version11);
     }
 
-    private VirtualReaderDispatchResult BuildSetProtocolVersionResponse(V11Messages.SET_PROTOCOL_VERSION request)
+    private LlrpDeviceDispatchResult BuildSetProtocolVersionResponse(V11Messages.SET_PROTOCOL_VERSION request)
     {
         LlrpProtocolVersion requested = (LlrpProtocolVersion)request.ProtocolVersion;
         bool supported = requested is LlrpProtocolVersion.Version101 or LlrpProtocolVersion.Version11
@@ -218,14 +237,14 @@ internal sealed class VirtualReaderProtocolDispatcher
             : _state.Options.ProtocolVersion == LlrpProtocolVersion.Version20;
         if (!supported)
         {
-            return new VirtualReaderDispatchResult(
+            return new LlrpDeviceDispatchResult(
                 CreateV11Error(request.MessageId, V11Enumerations.StatusCode.M_UnsupportedVersion,
-                    $"LLRP version {request.ProtocolVersion} is not supported by this virtual reader."),
+                    $"LLRP version {request.ProtocolVersion} is not supported by this LLRP device."),
                 [],
                 ResponseVersion: LlrpProtocolVersion.Version11);
         }
 
-        return new VirtualReaderDispatchResult(
+        return new LlrpDeviceDispatchResult(
             new V11Messages.SET_PROTOCOL_VERSION_RESPONSE(
                 request.MessageId,
                 new V11Parameters.LLRPStatus(V11Enumerations.StatusCode.M_Success, string.Empty, null, null)),
@@ -234,21 +253,21 @@ internal sealed class VirtualReaderProtocolDispatcher
             NextProtocolVersion: requested);
     }
 
-    private VirtualReaderDispatchResult BuildSetProtocolVersionResponse(V20Messages.SET_PROTOCOL_VERSION request)
+    private LlrpDeviceDispatchResult BuildSetProtocolVersionResponse(V20Messages.SET_PROTOCOL_VERSION request)
     {
         LlrpProtocolVersion requested = (LlrpProtocolVersion)request.ProtocolVersion;
         if (_state.Options.ProtocolVersion != LlrpProtocolVersion.Version20 || requested != LlrpProtocolVersion.Version20)
         {
-            return new VirtualReaderDispatchResult(
+            return new LlrpDeviceDispatchResult(
                 new V20Messages.ERROR_MESSAGE(
                     request.MessageId,
                     new V20Parameters.LLRPStatus(V20Enumerations.StatusCode.M_UnsupportedVersion,
-                        "The requested LLRP version is not supported by this virtual reader.", null, null)),
+                        "The requested LLRP version is not supported by this LLRP device.", null, null)),
                 [],
                 ResponseVersion: LlrpProtocolVersion.Version20);
         }
 
-        return new VirtualReaderDispatchResult(
+        return new LlrpDeviceDispatchResult(
             new V20Messages.SET_PROTOCOL_VERSION_RESPONSE(
                 request.MessageId,
                 new V20Parameters.LLRPStatus(V20Enumerations.StatusCode.M_Success, string.Empty, null, null)),
@@ -263,15 +282,15 @@ internal sealed class VirtualReaderProtocolDispatcher
             LlrpProtocolVersion.Version101 => _profiles[version].CreateError(
                 messageId,
                 (ushort)V101Enumerations.StatusCode.M_UnsupportedVersion,
-                "The LLRP protocol version is not supported by this virtual reader."),
+                "The LLRP protocol version is not supported by this LLRP device."),
             LlrpProtocolVersion.Version11 => CreateV11Error(
                 messageId,
                 V11Enumerations.StatusCode.M_UnsupportedVersion,
-                "The LLRP protocol version is not supported by this virtual reader."),
+                "The LLRP protocol version is not supported by this LLRP device."),
             _ => new V20Messages.ERROR_MESSAGE(
                 messageId,
                 new V20Parameters.LLRPStatus(V20Enumerations.StatusCode.M_UnsupportedVersion,
-                    "The LLRP protocol version is not supported by this virtual reader.", null, null)),
+                    "The LLRP protocol version is not supported by this LLRP device.", null, null)),
         };
 
     private static ushort GetMessageType(ILlrpMessage message) =>
@@ -301,13 +320,13 @@ internal sealed class VirtualReaderProtocolDispatcher
 /// <summary>
 /// Translates the shared standard wire model through the LlrpNet registry for LLRP 1.1 or 2.0.
 /// </summary>
-internal sealed class VirtualReaderTranslatedStandardHandler : IVirtualReaderVersionProfile
+internal sealed class LlrpTranslatedStandardHandler : ILlrpDeviceVersionProfile
 {
-    private readonly VirtualReaderStandard101Handler _inner;
+    private readonly LlrpStandard101Handler _inner;
     private readonly LlrpCodecRegistry _registry;
 
-    public VirtualReaderTranslatedStandardHandler(
-        VirtualReaderDeviceState state,
+    public LlrpTranslatedStandardHandler(
+        LlrpDeviceServerState state,
         LlrpCodecRegistry registry,
         LlrpProtocolVersion version)
     {
@@ -316,7 +335,7 @@ internal sealed class VirtualReaderTranslatedStandardHandler : IVirtualReaderVer
             throw new ArgumentOutOfRangeException(nameof(version));
         }
 
-        _inner = new VirtualReaderStandard101Handler(state);
+        _inner = new LlrpStandard101Handler(state);
         _registry = registry;
         Version = version;
     }
@@ -331,24 +350,24 @@ internal sealed class VirtualReaderTranslatedStandardHandler : IVirtualReaderVer
         message is not V20Messages.GET_SUPPORTED_VERSION &&
         message is not V20Messages.SET_PROTOCOL_VERSION;
 
-    public async ValueTask<VirtualReaderDispatchResult> HandleAsync(
-        VirtualReaderRequestContext context,
+    public async ValueTask<LlrpDeviceDispatchResult> HandleAsync(
+        LlrpDeviceRequestContext context,
         ILlrpMessage message,
         CancellationToken cancellationToken)
     {
         try
         {
             ILlrpMessage translatedRequest = TranslateTo101(message);
-            var innerContext = new VirtualReaderRequestContext(
-                context.Host,
-                context.DeviceState,
+            var innerContext = new LlrpDeviceRequestContext(
+                context.Server,
+                context.Device,
                 context.ConnectionId,
                 LlrpProtocolVersion.Version101,
                 message.MessageId);
-            VirtualReaderDispatchResult result = await _inner
+            LlrpDeviceDispatchResult result = await _inner
                 .HandleAsync(innerContext, translatedRequest, cancellationToken)
                 .ConfigureAwait(false);
-            return new VirtualReaderDispatchResult(
+            return new LlrpDeviceDispatchResult(
                 result.Response is null ? null : TranslateFrom101(result.Response),
                 result.AdditionalMessages.Select(TranslateFrom101).ToArray(),
                 result.CloseConnection,
@@ -357,7 +376,7 @@ internal sealed class VirtualReaderTranslatedStandardHandler : IVirtualReaderVer
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or LlrpNet.Core.Protocol.LlrpProtocolException)
         {
-            return new VirtualReaderDispatchResult(
+            return new LlrpDeviceDispatchResult(
                 CreateError(message.MessageId, (ushort)GetUnsupportedMessageStatus(), exception.Message),
                 [],
                 ResponseVersion: Version);
@@ -382,11 +401,16 @@ internal sealed class VirtualReaderTranslatedStandardHandler : IVirtualReaderVer
         _ => throw new InvalidOperationException(),
     };
 
-    public ILlrpMessage CreateReaderEventNotification(uint messageId) =>
-        TranslateFrom101(_inner.CreateReaderEventNotification(messageId));
+    public ILlrpMessage CreateReaderEventNotification(uint messageId, LlrpDeviceEvent? deviceEvent = null) =>
+        TranslateFrom101(_inner.CreateReaderEventNotification(messageId, deviceEvent));
 
-    public IReadOnlyList<ILlrpMessage> BuildInventoryReports(uint roSpecId) =>
-        _inner.BuildInventoryReports(roSpecId).Select(TranslateFrom101).ToArray();
+    public ILlrpMessage CreateCloseConnection(uint messageId) =>
+        TranslateFrom101(_inner.CreateCloseConnection(messageId));
+
+    public IReadOnlyList<ILlrpMessage> BuildInventoryReports(uint roSpecId, int roundSequence) =>
+        _inner.BuildInventoryReports(roSpecId, roundSequence).Select(TranslateFrom101).ToArray();
+
+    internal ILlrpMessage TranslateFromCanonical(ILlrpMessage message) => TranslateFrom101(message);
 
     private ILlrpMessage TranslateTo101(ILlrpMessage message)
     {

@@ -1,17 +1,18 @@
 # ADR 0006：预设驱动的报文级 Virtual Reader Core 与独立 Manager
 
-- 状态：Accepted（实施中：Core、Manager、1.0.1/1.1 标准闭环已交付）
+- 状态：Accepted（Manager/预设决策已交付；设备端实现细节由 [ADR 0007](0007-llrp-device-server-device-abstraction.md) 维护）
 - 日期：2026-08-17
 
 ## 背景
 
-本决策固定报文级虚拟设备的架构边界。Core、独立 Manager、精确端点绑定、注册式
-Preset/Handler 管道和 1.0.1/1.1 标准设备行为已经落地；跨进程持久化和厂商设备端
-profile 仍留在后续范围。
+本决策固定报文级虚拟设备的 Manager、预设、精确端点绑定和显式本地配置边界。
+独立 Manager、注册式 Preset/Handler 管道和 1.0.1/1.1 标准设备行为已经落地；通用
+设备端 Server 与 `ILlrpDevice` 的分层见 [ADR 0007](0007-llrp-device-server-device-abstraction.md)。
+真实 RFID 设备实现、自动恢复和厂商设备端 profile 仍留在后续范围。
 
-当前 `LlrpVirtualReader.Core` 是一个消息级 LLRP 1.0.1/1.1 TCP Server，能支撑 SDK
-互操作测试和标准 ROSpec/AccessSpec/Tag Access 闭环；Manager 已提供多 Host 生命周期
-和稳定预设目录，CLI/独立宿主也可启动普通 TCP Reader。
+当前 `LlrpDevice.Server` 是消息级 LLRP 1.0.1/1.1/2.0 设备端服务，能支撑 SDK
+互操作测试和标准 ROSpec/AccessSpec/Tag Access 闭环；`LlrpDevice.Virtual` 提供确定性
+设备行为，Manager 已提供多实例生命周期和稳定预设目录，CLI/独立宿主也可启动普通 TCP Reader。
 
 报文级虚拟设备需要独立于任何 Reader Studio 运行，使 SDK CLI、WPF、第三方 LLRP
 客户端和抓包工具都能把它当作普通 TCP Reader。相邻 `LlrpReaderPlatform` 的进程内
@@ -46,16 +47,20 @@ GPIO、报告和故障行为全部由经过测试的内置预设决定。
 
 ### 3. Core 与 Manager 分层
 
-目标项目边界：
+当前项目边界：
 
 ```text
 src/
-├── LlrpVirtualReader.Core/
+├── LlrpDevice.Abstractions/
+├── LlrpDevice.Server/
 │   ├── TCP Listener 与连接生命周期
-│   ├── LLRP Frame 解码/编码
-│   ├── 设备资源和标签状态
+│   ├── LLRP Frame/Codec 调用与版本分发
+│   ├── ROSpec/AccessSpec 资源和报告状态
 │   ├── 请求 Handler 管道
 │   └── 故障注入与报告调度
+├── LlrpDevice.Virtual/
+│   ├── 标签/内存状态
+│   └── 确定性 RF 观察与 Tag Access
 ├── LlrpVirtualReader.Manager/
 │   ├── 目标配置与内置 Preset Catalog
 │   ├── 实例目录和端点管理
@@ -63,8 +68,8 @@ src/
 │   ├── restart/delete/list/status
 │   ├── 连接/报文/错误状态
 │   └── 控制台入口；桌面 UI 另按实际需要决策
-├── LlrpVirtualReader.Extensions.Impinj/    （未来）
-└── LlrpVirtualReader.Extensions.Zebra/     （未来）
+├── LlrpVirtualReader.Core/                 （兼容 façade）
+└── LlrpDevice.Server extensions            （未来）
 
 tests/
 ├── LlrpVirtualReader.Core.Tests/
@@ -74,10 +79,10 @@ tests/
 └── Interop.Tests/                              SDK 客户端端到端互操作
 ```
 
-Core 依赖 `LlrpNet.Core`、标准 Protocol 和按需加载的厂商 Protocol Module；设备端实现
-不得依赖客户端门面 `LlrpSdk` 或 `LlrpSdk.Extensions.*`。现有 `VirtualReaderHost` 迁入
-Core，Manager 通过目标配置为每个实例创建一个 `VirtualReaderHost`；Core 不维护实例目录，
-也不负责多 Host 的创建、删除或生命周期编排。
+`LlrpDevice.Server` 依赖 `LlrpNet.Core`、标准 Protocol 和按需加载的厂商 Protocol Module；
+设备端实现不得依赖客户端门面 `LlrpSdk` 或 `LlrpSdk.Extensions.*`。Manager 通过目标配置
+为每个实例组合 `LlrpDeviceServer` 与 `VirtualLlrpDevice`；Server 不维护实例目录，也不负责
+多实例的创建、删除或生命周期编排。旧 `VirtualReaderHost` 仅保留参数/事件兼容 façade。
 
 所有产品项目继续位于顶层 `src/`，所有测试项目继续集中在顶层 `tests/`。测试程序集不得
 放入 `src/LlrpVirtualReader.*` 内部，也不得与 Manager/Core 产品项目处于同一项目目录。
@@ -117,6 +122,22 @@ LlrpVirtualReader.Extensions.Zebra
 原始 TX/RX 帧通过共享 `ILlrpFrameObserver` 和日志管道暴露，不能在网络读写路径同步执行无界 UI 或磁盘工作。
 绑定非回环地址时 Manager 必须提示网络暴露和防火墙风险。
 
+### 6. 本地配置采用显式声明式预设
+
+根据后续需求，Manager 增加版本化本地 JSON 文档，用于保存 Reader 实例端点以及可重复的
+设备/寻卡行为预设：报告节奏、标签、TID/User memory 和确定性 RF 可观察场景。该文档由
+`--validate-config`、`--list-presets` 或显式配置启动命令加载；它不是任意原始 LLRP 报文
+编辑器，也不是跨进程运行时实例注册表。
+
+配置启动不会自动恢复进程重启前的 ROSpec、AccessSpec 或托管盘点状态。LLRP 客户端仍
+负责发送 `ADD_ROSPEC`/`START_ROSPEC`，Server 只根据 `ILlrpDevice` 产生响应和报告。
+
+### 7. 设备行为通过 `ILlrpDevice` 合同隔离
+
+标准版本 Handler 由 `LlrpDevice.Server` 消费 `ILlrpDevice`；当前由
+`VirtualLlrpDevice` 实现。未来真实 RFID 模块可以实现同一合同，不修改 TCP、Session、
+ROSpec/AccessSpec 状态或版本翻译边界；当前实现不宣称模拟真实 RF 波形或已经驱动真实硬件。
+
 ## 替代方案
 
 1. 继续维护单 Host 命令行和代码级 Options：足够单元测试，但不能作为可管理的虚拟设备产品。
@@ -126,8 +147,8 @@ LlrpVirtualReader.Extensions.Zebra
 
 ## 后果
 
-- 需要把当前不可打包 EXE 中的 Host 核心拆成可复用类库和独立 Manager 宿主；
-- `VirtualReaderHost` 的单个请求 `switch` 应逐步拆为标准/版本/厂商 Handler 注册管道；
+- 设备端 Server 与 Virtual 实现拆成可复用类库，Manager 作为组合根保留；
+- `LlrpDevice.Server` 的请求 Handler 通过标准/版本/厂商注册管道扩展；
 - 当前 1.0.1 互操作测试迁移后必须保持行为和故障覆盖；
 - 新增预设必须有稳定 ID、版本、自动化测试和用户可见说明；
 - SDK 包发布不自动包含 Manager；Manager 作为独立工具/产物发布，是否增加桌面 UI 另行决策；

@@ -1,4 +1,7 @@
 using System.Net;
+using LlrpDevice.Abstractions;
+using LlrpDevice.Server;
+using LlrpDevice.Virtual;
 using LlrpNet.Core.Protocol;
 using LlrpVirtualReader;
 
@@ -39,6 +42,9 @@ public sealed record VirtualReaderInstanceOptions
 
     /// <summary>Gets protocol modules contributed by the caller.</summary>
     public IReadOnlyList<IVirtualReaderProtocolModule> ProtocolModules { get; init; } = [];
+
+    /// <summary>Gets protocol modules for the generic device Server.</summary>
+    public IReadOnlyList<ILlrpDeviceProtocolModule> DeviceProtocolModules { get; init; } = [];
 }
 
 /// <summary>Builds one host configuration for a registered Manager preset.</summary>
@@ -52,6 +58,18 @@ public interface IVirtualReaderPresetContributor
 
     /// <summary>Builds the exact single-host options for an instance.</summary>
     public VirtualReaderHostOptions Build(VirtualReaderInstanceOptions options);
+}
+
+/// <summary>
+/// Optional next-generation preset contract used by the Manager's device/server split.
+/// Existing contributors that only implement <see cref="IVirtualReaderPresetContributor"/>
+/// remain supported through the compatibility Host path.
+/// </summary>
+public interface ILlrpDevicePresetContributor
+{
+    public LlrpDeviceServerOptions BuildServerOptions(VirtualReaderInstanceOptions options);
+
+    public VirtualDeviceOptions BuildDeviceOptions(VirtualReaderInstanceOptions options);
 }
 
 /// <summary>Stores the available virtual-reader preset contributors.</summary>
@@ -262,9 +280,15 @@ public sealed class VirtualReaderManager : IAsyncDisposable
             }
 
             IVirtualReaderPresetContributor contributor = _catalog.Get(options.PresetId);
-            VirtualReaderHostOptions hostOptions = contributor.Build(options);
-            var host = new VirtualReaderHost(hostOptions);
-            var managed = new ManagedInstance(instanceId, options, contributor, host);
+            ManagedInstance managed = contributor is ILlrpDevicePresetContributor deviceContributor
+                ? new ManagedInstance(
+                    instanceId,
+                    options,
+                    contributor,
+                    new LlrpDeviceServer(
+                        deviceContributor.BuildServerOptions(options),
+                        new VirtualLlrpDevice(deviceContributor.BuildDeviceOptions(options))))
+                : new ManagedInstance(instanceId, options, contributor, new VirtualReaderHost(contributor.Build(options)));
             AttachHostEvents(managed);
             lock (_gate)
             {
@@ -296,7 +320,7 @@ public sealed class VirtualReaderManager : IAsyncDisposable
     {
         return await RunLifecycleAsync(
             instanceId,
-            static instance => instance.Host.StartAsync,
+            static instance => instance.StartAsync,
             VirtualReaderInstanceChangeKind.Started,
             cancellationToken).ConfigureAwait(false);
     }
@@ -308,7 +332,7 @@ public sealed class VirtualReaderManager : IAsyncDisposable
     {
         return await RunLifecycleAsync(
             instanceId,
-            static instance => instance.Host.StopAsync,
+            static instance => instance.StopAsync,
             VirtualReaderInstanceChangeKind.Stopped,
             cancellationToken).ConfigureAwait(false);
     }
@@ -323,7 +347,7 @@ public sealed class VirtualReaderManager : IAsyncDisposable
         try
         {
             ManagedInstance instance = GetInstance(instanceId);
-            await instance.Host.RestartAsync(cancellationToken).ConfigureAwait(false);
+            await instance.RestartAsync(cancellationToken).ConfigureAwait(false);
             VirtualReaderInstanceInfo info = instance.ToInfo();
             Publish(VirtualReaderInstanceChangeKind.Restarted, info);
             return info;
@@ -349,7 +373,7 @@ public sealed class VirtualReaderManager : IAsyncDisposable
         try
         {
             ManagedInstance instance = GetInstance(instanceId);
-            await instance.Host.DisposeAsync().ConfigureAwait(false);
+            await instance.DisposeAsync().ConfigureAwait(false);
             VirtualReaderInstanceInfo deleted = instance.ToInfo() with { State = VirtualReaderInstanceState.Deleted };
             lock (_gate)
             {
@@ -400,7 +424,7 @@ public sealed class VirtualReaderManager : IAsyncDisposable
 
         foreach (ManagedInstance instance in instances)
         {
-            await instance.Host.DisposeAsync().ConfigureAwait(false);
+            await instance.DisposeAsync().ConfigureAwait(false);
         }
 
         _lifecycleLock.Dispose();
@@ -441,18 +465,36 @@ public sealed class VirtualReaderManager : IAsyncDisposable
 
     private void AttachHostEvents(ManagedInstance instance)
     {
-        instance.Host.LifecycleChanged += (_, args) =>
+        if (instance.DeviceServer is not null)
         {
-            VirtualReaderInstanceChangeKind kind = args.CurrentState == VirtualReaderLifecycleState.Faulted
-                ? VirtualReaderInstanceChangeKind.Faulted
-                : args.CurrentState == VirtualReaderLifecycleState.Running
-                    ? VirtualReaderInstanceChangeKind.Started
-                    : args.CurrentState == VirtualReaderLifecycleState.Stopped
-                        ? VirtualReaderInstanceChangeKind.Stopped
-                        : VirtualReaderInstanceChangeKind.Created;
-            Publish(kind, instance);
-        };
-        instance.Host.ClientChanged += (_, _) => Publish(VirtualReaderInstanceChangeKind.ClientChanged, instance);
+            instance.DeviceServer.LifecycleChanged += (_, args) =>
+            {
+                VirtualReaderInstanceChangeKind kind = args.CurrentState == LlrpDeviceServerLifecycleState.Faulted
+                    ? VirtualReaderInstanceChangeKind.Faulted
+                    : args.CurrentState == LlrpDeviceServerLifecycleState.Running
+                        ? VirtualReaderInstanceChangeKind.Started
+                        : args.CurrentState == LlrpDeviceServerLifecycleState.Stopped
+                            ? VirtualReaderInstanceChangeKind.Stopped
+                            : VirtualReaderInstanceChangeKind.Created;
+                Publish(kind, instance);
+            };
+            instance.DeviceServer.ClientChanged += (_, _) => Publish(VirtualReaderInstanceChangeKind.ClientChanged, instance);
+        }
+        else if (instance.LegacyHost is not null)
+        {
+            instance.LegacyHost.LifecycleChanged += (_, args) =>
+            {
+                VirtualReaderInstanceChangeKind kind = args.CurrentState == VirtualReaderLifecycleState.Faulted
+                    ? VirtualReaderInstanceChangeKind.Faulted
+                    : args.CurrentState == VirtualReaderLifecycleState.Running
+                        ? VirtualReaderInstanceChangeKind.Started
+                        : args.CurrentState == VirtualReaderLifecycleState.Stopped
+                            ? VirtualReaderInstanceChangeKind.Stopped
+                            : VirtualReaderInstanceChangeKind.Created;
+                Publish(kind, instance);
+            };
+            instance.LegacyHost.ClientChanged += (_, _) => Publish(VirtualReaderInstanceChangeKind.ClientChanged, instance);
+        }
     }
 
     private ManagedInstance GetInstance(string instanceId)
@@ -511,7 +553,13 @@ public sealed class VirtualReaderManager : IAsyncDisposable
 
         ArgumentNullException.ThrowIfNull(options.ReaderOptions);
         ArgumentNullException.ThrowIfNull(options.ProtocolModules);
+        ArgumentNullException.ThrowIfNull(options.DeviceProtocolModules);
         foreach (IVirtualReaderProtocolModule module in options.ProtocolModules)
+        {
+            ArgumentNullException.ThrowIfNull(module);
+        }
+
+        foreach (ILlrpDeviceProtocolModule module in options.DeviceProtocolModules)
         {
             ArgumentNullException.ThrowIfNull(module);
         }
@@ -536,25 +584,82 @@ public sealed class VirtualReaderManager : IAsyncDisposable
             InstanceId = instanceId;
             Options = options;
             Contributor = contributor;
-            Host = host;
+            LegacyHost = host;
+        }
+
+        public ManagedInstance(
+            string instanceId,
+            VirtualReaderInstanceOptions options,
+            IVirtualReaderPresetContributor contributor,
+            LlrpDeviceServer server)
+        {
+            InstanceId = instanceId;
+            Options = options;
+            Contributor = contributor;
+            DeviceServer = server;
         }
 
         public string InstanceId { get; }
         public VirtualReaderInstanceOptions Options { get; }
         public IVirtualReaderPresetContributor Contributor { get; }
-        public VirtualReaderHost Host { get; }
+        public VirtualReaderHost? LegacyHost { get; }
+        public LlrpDeviceServer? DeviceServer { get; }
 
-        public VirtualReaderInstanceInfo ToInfo() => new(
-            InstanceId,
-            Options.Name,
-            Contributor.Id,
-            Options.ListenAddress,
-            Options.Port,
-            Host.Port,
-            MapState(Host.State),
-            Host.Options.ProtocolVersion,
-            Host.ConnectedClients.Count,
-            Host.State == VirtualReaderLifecycleState.Faulted ? "The virtual-reader host is faulted." : null);
+        public Task StartAsync(CancellationToken cancellationToken) => DeviceServer is not null
+            ? DeviceServer.StartAsync(cancellationToken)
+            : LegacyHost!.StartAsync(cancellationToken);
+
+        public Task StopAsync(CancellationToken cancellationToken) => DeviceServer is not null
+            ? DeviceServer.StopAsync(cancellationToken)
+            : LegacyHost!.StopAsync(cancellationToken);
+
+        public Task RestartAsync(CancellationToken cancellationToken) => DeviceServer is not null
+            ? DeviceServer.RestartAsync(cancellationToken)
+            : LegacyHost!.RestartAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => DeviceServer is not null
+            ? DeviceServer.DisposeAsync()
+            : LegacyHost!.DisposeAsync();
+
+        public VirtualReaderInstanceInfo ToInfo()
+        {
+            if (DeviceServer is not null)
+            {
+                return new VirtualReaderInstanceInfo(
+                    InstanceId,
+                    Options.Name,
+                    Contributor.Id,
+                    Options.ListenAddress,
+                    Options.Port,
+                    DeviceServer.Port,
+                    MapState(DeviceServer.State),
+                    DeviceServer.Options.ProtocolVersion,
+                    DeviceServer.ConnectedClients.Count,
+                    DeviceServer.State == LlrpDeviceServerLifecycleState.Faulted ? "The device server is faulted." : null);
+            }
+
+            return new VirtualReaderInstanceInfo(
+                InstanceId,
+                Options.Name,
+                Contributor.Id,
+                Options.ListenAddress,
+                Options.Port,
+                LegacyHost!.Port,
+                MapState(LegacyHost.State),
+                LegacyHost.Options.ProtocolVersion,
+                LegacyHost.ConnectedClients.Count,
+                LegacyHost.State == VirtualReaderLifecycleState.Faulted ? "The compatibility virtual-reader host is faulted." : null);
+        }
+
+        private static VirtualReaderInstanceState MapState(LlrpDeviceServerLifecycleState state) => state switch
+        {
+            LlrpDeviceServerLifecycleState.Created => VirtualReaderInstanceState.Created,
+            LlrpDeviceServerLifecycleState.Starting => VirtualReaderInstanceState.Starting,
+            LlrpDeviceServerLifecycleState.Running => VirtualReaderInstanceState.Running,
+            LlrpDeviceServerLifecycleState.Stopping => VirtualReaderInstanceState.Stopping,
+            LlrpDeviceServerLifecycleState.Faulted => VirtualReaderInstanceState.Faulted,
+            _ => VirtualReaderInstanceState.Stopped,
+        };
 
         private static VirtualReaderInstanceState MapState(VirtualReaderLifecycleState state) => state switch
         {
@@ -568,7 +673,7 @@ public sealed class VirtualReaderManager : IAsyncDisposable
     }
 }
 
-internal sealed class StandardVirtualReaderPresetContributor : IVirtualReaderPresetContributor
+internal sealed class StandardVirtualReaderPresetContributor : IVirtualReaderPresetContributor, ILlrpDevicePresetContributor
 {
     private readonly bool _strict;
     private readonly LlrpProtocolVersion _version;
@@ -600,9 +705,15 @@ internal sealed class StandardVirtualReaderPresetContributor : IVirtualReaderPre
             UseStrictStandardInventoryProfile = options.ReaderOptions.UseStrictStandardInventoryProfile || _strict,
         },
     };
+
+    public LlrpDeviceServerOptions BuildServerOptions(VirtualReaderInstanceOptions options) =>
+        VirtualReaderDeviceOptionMapper.BuildServerOptions(options, _version, _strict);
+
+    public VirtualDeviceOptions BuildDeviceOptions(VirtualReaderInstanceOptions options) =>
+        VirtualReaderDeviceOptionMapper.BuildDeviceOptions(options);
 }
 
-internal sealed class FaultVirtualReaderPresetContributor : IVirtualReaderPresetContributor
+internal sealed class FaultVirtualReaderPresetContributor : IVirtualReaderPresetContributor, ILlrpDevicePresetContributor
 {
     private readonly bool _closeConnection;
     private readonly bool _statusError;
@@ -646,6 +757,41 @@ internal sealed class FaultVirtualReaderPresetContributor : IVirtualReaderPreset
         };
     }
 
+    public LlrpDeviceServerOptions BuildServerOptions(VirtualReaderInstanceOptions options)
+    {
+        LlrpDeviceServerOptions serverOptions = VirtualReaderDeviceOptionMapper.BuildServerOptions(
+            options,
+            LlrpProtocolVersion.Version101,
+            strict: false);
+        if (_closeConnection)
+        {
+            return serverOptions with
+            {
+                CloseConnectionAfterRequestMessageTypes = AddMessageType(
+                    serverOptions.CloseConnectionAfterRequestMessageTypes,
+                    LlrpNet.Protocol.Messages.V1_0_1.GET_READER_CONFIG.MessageType),
+            };
+        }
+
+        if (_statusError)
+        {
+            var errors = serverOptions.ErrorResponseForMessageTypes.ToDictionary();
+            errors[LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC.MessageType] =
+                new LlrpDeviceServerErrorResponse(100, "Injected device-server status fault.");
+            return serverOptions with { ErrorResponseForMessageTypes = errors };
+        }
+
+        return serverOptions with
+        {
+            DropResponseForMessageTypes = AddMessageType(
+                serverOptions.DropResponseForMessageTypes,
+                LlrpNet.Protocol.Messages.V1_0_1.ADD_ROSPEC.MessageType),
+        };
+    }
+
+    public VirtualDeviceOptions BuildDeviceOptions(VirtualReaderInstanceOptions options) =>
+        VirtualReaderDeviceOptionMapper.BuildDeviceOptions(options);
+
     private static IReadOnlySet<ushort> AddMessageType(IReadOnlySet<ushort> current, ushort messageType) =>
         current.Append(messageType).ToHashSet();
 
@@ -657,4 +803,125 @@ internal sealed class FaultVirtualReaderPresetContributor : IVirtualReaderPreset
         result[messageType] = new VirtualReaderErrorResponse(100, "Injected virtual-reader status fault.");
         return result;
     }
+}
+
+internal static class VirtualReaderDeviceOptionMapper
+{
+    public static LlrpDeviceServerOptions BuildServerOptions(
+        VirtualReaderInstanceOptions options,
+        LlrpProtocolVersion version,
+        bool strict)
+    {
+        VirtualReaderOptions reader = options.ReaderOptions;
+        return new LlrpDeviceServerOptions
+        {
+            ListenAddress = options.ListenAddress,
+            Port = options.Port,
+            ProtocolVersion = version,
+            MaximumClientConnections = reader.MaximumClientConnections,
+            ConnectionLimitPolicy = reader.ConnectionLimitPolicy switch
+            {
+                VirtualReaderConnectionLimitPolicy.ReplaceExisting => LlrpDeviceConnectionLimitPolicy.ReplaceExisting,
+                _ => LlrpDeviceConnectionLimitPolicy.RejectAdditional,
+            },
+            IdleTimeout = reader.IdleTimeout,
+            FrameAssemblyTimeout = reader.FrameAssemblyTimeout,
+            MaximumFrameLength = reader.MaximumFrameLength,
+            UseTcpKeepAlive = reader.UseTcpKeepAlive,
+            KeepAliveInterval = reader.KeepAliveInterval,
+            Reports = new LlrpDeviceReportOptions
+            {
+                ReportInterval = reader.Reports.ReportInterval,
+                ReportCount = reader.Reports.ReportCount,
+                Repeat = reader.Reports.Repeat,
+            },
+            UnknownVendorParameterBehavior = reader.UnknownVendorParameterBehavior switch
+            {
+                VirtualReaderUnknownVendorParameterBehavior.Reject => LlrpUnknownVendorParameterBehavior.Reject,
+                _ => LlrpUnknownVendorParameterBehavior.PreserveAndIgnore,
+            },
+            UseStrictStandardInventoryProfile = reader.UseStrictStandardInventoryProfile || strict,
+            DropResponseForMessageTypes = reader.DropResponseForMessageTypes,
+            ErrorResponseForMessageTypes = reader.ErrorResponseForMessageTypes.ToDictionary(
+                static pair => pair.Key,
+                static pair => new LlrpDeviceServerErrorResponse(pair.Value.StatusCode, pair.Value.Description)),
+            CloseConnectionAfterRequestMessageTypes = reader.CloseConnectionAfterRequestMessageTypes,
+            TruncateResponseForMessageTypes = reader.TruncateResponseForMessageTypes,
+            ProtocolModules = options.DeviceProtocolModules,
+        };
+    }
+
+    public static VirtualDeviceOptions BuildDeviceOptions(VirtualReaderInstanceOptions options)
+    {
+        VirtualReaderOptions reader = options.ReaderOptions;
+        IReadOnlyList<VirtualTag> oldTags = reader.TagSource.GetTags();
+        if (!reader.ElectronicProductCode.IsEmpty && oldTags.Count > 0)
+        {
+            oldTags = [oldTags[0] with
+            {
+                ElectronicProductCode = reader.ElectronicProductCode,
+                UserMemory = reader.UserMemory.Count > 0 ? reader.UserMemory : oldTags[0].UserMemory,
+            }];
+        }
+
+        return new VirtualDeviceOptions
+        {
+            Identity = new LlrpDeviceIdentity
+            {
+                ReaderId = reader.ReaderId,
+                Name = options.Name,
+                ManufacturerId = reader.Capabilities.ManufacturerId,
+                ModelId = reader.Capabilities.ModelId,
+                FirmwareVersion = reader.Capabilities.FirmwareVersion,
+            },
+            Capabilities = new LlrpDeviceCapabilities
+            {
+                MaxNumberOfAntennas = reader.Capabilities.MaxNumberOfAntennas,
+                CanSetAntennaProperties = reader.Capabilities.CanSetAntennaProperties,
+                HasUtcClockCapability = reader.Capabilities.HasUtcClockCapability,
+            },
+            Configuration = new LlrpDeviceConfiguration
+            {
+                Antennas = reader.AntennaConfigurations.Select(static antenna => new LlrpDeviceAntennaConfiguration
+                {
+                    AntennaId = antenna.AntennaId,
+                    ReceiverSensitivityIndex = antenna.ReceiverSensitivityIndex,
+                    TransmitPowerIndex = antenna.TransmitPowerIndex,
+                    HopTableId = antenna.HopTableId,
+                    ChannelIndex = antenna.ChannelIndex,
+                }).ToArray(),
+                Gpos = reader.GpoStates.Select(static gpo => new LlrpDeviceGpoState
+                {
+                    PortNumber = gpo.PortNumber,
+                    State = gpo.State,
+                }).ToArray(),
+            },
+            Tags = oldTags.Select(static tag => new VirtualTagDefinition
+            {
+                ElectronicProductCode = tag.ElectronicProductCode,
+                Tid = tag.Tid,
+                PeakRssi = tag.PeakRssi,
+                AntennaId = tag.AntennaId,
+                ChannelIndex = tag.ChannelIndex,
+                UserMemory = tag.UserMemory,
+            }).ToArray(),
+            RfSimulation = new VirtualRfSimulationOptions
+            {
+                Scenario = reader.RfSimulation.Scenario switch
+                {
+                    VirtualReaderRfScenario.MovingTags => VirtualRfScenario.MovingTags,
+                    VirtualReaderRfScenario.Noisy => VirtualRfScenario.Noisy,
+                    _ => VirtualRfScenario.Static,
+                },
+                RandomSeed = reader.RfSimulation.RandomSeed,
+                DetectionProbability = reader.RfSimulation.DetectionProbability,
+                PresenceCycleRounds = reader.RfSimulation.PresenceCycleRounds,
+                RssiJitterDb = reader.RfSimulation.RssiJitterDb,
+                MaxTagsPerRound = reader.RfSimulation.MaxTagsPerRound,
+            },
+        };
+    }
+
+    private static IReadOnlySet<ushort> AddMessageType(IReadOnlySet<ushort> current, ushort messageType) =>
+        current.Append(messageType).ToHashSet();
 }

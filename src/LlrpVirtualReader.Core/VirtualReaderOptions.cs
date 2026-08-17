@@ -327,6 +327,36 @@ public sealed record VirtualReaderGpoState
     public bool State { get; init; }
 }
 
+/// <summary>Chooses the observable RF behavior used by a virtual inventory backend.</summary>
+public enum VirtualReaderRfScenario
+{
+    Static,
+    MovingTags,
+    Noisy,
+}
+
+/// <summary>Configures deterministic, RF-observable behavior without simulating an analog waveform.</summary>
+public sealed record VirtualReaderRfSimulationOptions
+{
+    /// <summary>Gets the deterministic scenario.</summary>
+    public VirtualReaderRfScenario Scenario { get; init; } = VirtualReaderRfScenario.Static;
+
+    /// <summary>Gets the seed used for repeatable detection and RSSI decisions.</summary>
+    public int RandomSeed { get; init; } = 2026;
+
+    /// <summary>Gets the probability that a tag is observed in a noisy round.</summary>
+    public double DetectionProbability { get; init; } = 1.0;
+
+    /// <summary>Gets the number of inventory rounds in one moving-tag presence window.</summary>
+    public int PresenceCycleRounds { get; init; } = 3;
+
+    /// <summary>Gets the maximum absolute RSSI jitter in dB for noisy observations.</summary>
+    public int RssiJitterDb { get; init; }
+
+    /// <summary>Gets the maximum number of observations returned by one round; zero means unlimited.</summary>
+    public int MaxTagsPerRound { get; init; }
+}
+
 /// <summary>Configures one virtual reader host's device behavior.</summary>
 public sealed record VirtualReaderOptions
 {
@@ -376,6 +406,9 @@ public sealed record VirtualReaderOptions
 
     /// <summary>Gets report cadence and repetition settings.</summary>
     public VirtualReaderReportOptions Reports { get; init; } = new();
+
+    /// <summary>Gets the deterministic RF-observable simulation settings.</summary>
+    public VirtualReaderRfSimulationOptions RfSimulation { get; init; } = new();
 
     /// <summary>Gets the handling policy for unknown vendor parameters.</summary>
     public VirtualReaderUnknownVendorParameterBehavior UnknownVendorParameterBehavior { get; init; } =
@@ -434,6 +467,7 @@ public sealed record VirtualReaderOptions
         ArgumentNullException.ThrowIfNull(Capabilities);
         ArgumentNullException.ThrowIfNull(TagSource);
         ArgumentNullException.ThrowIfNull(Reports);
+        ArgumentNullException.ThrowIfNull(RfSimulation);
         ArgumentNullException.ThrowIfNull(AntennaConfigurations);
         ArgumentNullException.ThrowIfNull(GpoStates);
         ArgumentNullException.ThrowIfNull(DropResponseForMessageTypes);
@@ -443,6 +477,40 @@ public sealed record VirtualReaderOptions
         if (Reports.ReportCount < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(Reports.ReportCount));
+        }
+
+        if (Capabilities.MaxNumberOfAntennas == 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(Capabilities),
+                "At least one virtual reader antenna must be advertised.");
+        }
+
+        if (!Enum.IsDefined(RfSimulation.Scenario))
+        {
+            throw new ArgumentOutOfRangeException(nameof(RfSimulation.Scenario));
+        }
+
+        if (double.IsNaN(RfSimulation.DetectionProbability) ||
+            double.IsInfinity(RfSimulation.DetectionProbability) ||
+            RfSimulation.DetectionProbability is < 0 or > 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(RfSimulation.DetectionProbability));
+        }
+
+        if (RfSimulation.PresenceCycleRounds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(RfSimulation.PresenceCycleRounds));
+        }
+
+        if (RfSimulation.RssiJitterDb < 0 || RfSimulation.RssiJitterDb > sbyte.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(RfSimulation.RssiJitterDb));
+        }
+
+        if (RfSimulation.MaxTagsPerRound < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(RfSimulation.MaxTagsPerRound));
         }
 
         if (MaximumFrameLength < LlrpMessageHeader.EncodedLength)
@@ -530,6 +598,15 @@ public sealed record VirtualReaderHostOptions
 
     /// <summary>Gets optional protocol modules that contribute codecs and message handlers.</summary>
     public IReadOnlyList<IVirtualReaderProtocolModule> ProtocolModules { get; init; } = [];
+
+    /// <summary>
+    /// Gets an optional device-backend factory. When omitted, the deterministic Virtual backend is used.
+    /// </summary>
+    /// <remarks>
+    /// A device-side host can supply a backend backed by a real RFID module while reusing the LLRP service layer.
+    /// Local JSON configuration intentionally leaves this delegate unset and therefore always uses the Virtual backend.
+    /// </remarks>
+    public Func<VirtualReaderOptions, ILlrpReaderDeviceBackend>? DeviceBackendFactory { get; init; }
 
     internal void Validate()
     {

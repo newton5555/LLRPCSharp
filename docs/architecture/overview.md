@@ -10,43 +10,64 @@ This project is a modern .NET LLRP development kit, not just a binary codec libr
 
 ![LLRPCSharp Architecture Overview](../images/architecture.svg)
 
-## Message-Level Virtual Reader Architecture
+## LLRP Device Server and Virtual Device Architecture
 
-![LLRPCSharp message-level Virtual Reader architecture](../images/llrpcsharp-virtual-reader-architecture.png)
-
-This companion diagram shows the message-level Virtual Reader boundary. `NEW` marks the
-new Core/Manager implementation, `FUTURE` marks vendor-specific virtual-reader extension
-points, and `LlrpReaderPlatform` remains outside this TCP/LLRP scope. The editable Mermaid
-source is [`virtual-reader-architecture.mmd`](virtual-reader-architecture.mmd).
+The message-level endpoint is now split into a generic device-side Server and a
+device behavior contract. `VirtualLlrpDevice` is one implementation of that
+contract; a future real RFID module can implement the same interface without
+duplicating the LLRP server or resource state machine.
 
 ### Runtime ownership and message flow
 
 | Boundary | Owns | Does not own |
 |---|---|---|
-| `VirtualReaderManager` | instance identity, preset lookup, create/start/stop/restart/delete/list/status | wire framing, ROSpec state, tag-memory semantics |
-| `VirtualReaderHost` | one exact TCP endpoint, client limit, lifecycle, accepted sessions, report loops | another instance's resources or SDK client state |
-| `LlrpNet` transport/session/registry | frame assembly, send/receive, transaction-safe session plumbing, versioned codec lookup | device policy and resource transitions |
-| version profile + handlers | status/error mapping, initialization, capabilities/config, ROSpec/AccessSpec transitions, events, reports | Manager instance directory |
+| `LlrpDevice.Virtual.Hosting` | one-device SDK facade, endpoint facts, start/stop/restart lifecycle | multi-device directory and cross-process recovery |
+| `LlrpVirtualDevice.Cli` | one foreground process for one virtual device, single-device JSON validation | multi-device management and automatic restart |
+| `LlrpVirtualReader.Manager` | compatibility multi-instance orchestration and preset lookup | TCP framing, ROSpec/AccessSpec semantics, tag memory |
+| `LlrpDevice.Server` | listener, sessions, version dispatch, resource graph, KeepAlive, reports, status mapping, fault hooks | fake tag state or hardware driver details |
+| `ILlrpDevice` | identity, capabilities, configuration, inventory execution, Tag Access, device events | TCP, protocol-version types, ROSpec/AccessSpec CRUD |
+| `VirtualLlrpDevice` | deterministic tags, memory, lock/kill state, `static`/`moving-tags`/`noisy` observations | LLRP wire handling and Server resource state |
+| `VirtualReaderHost` | legacy option/event mapping and delegation | a second listener, dispatcher, resource state machine, or report loop |
+| local JSON configuration | explicit single-device endpoint/behavior loading in the new CLI; legacy multi-instance loading remains available | cross-process registry and automatic restart recovery |
 
 ```mermaid
 flowchart LR
-    Client["LlrpSdk / CLI / third-party LLRP client"] --> Listener["VirtualReaderHost exact TCP listener"]
-    Listener --> Accepted["LlrpAcceptedTcpTransport"]
-    Accepted --> Session["LlrpNet LlrpSession"]
-    Session --> Registry["Versioned LlrpCodecRegistry"]
-    Registry --> Dispatch["VirtualReaderProtocolDispatcher"]
-    Dispatch --> Module["Registered protocol modules"]
-    Dispatch --> Standard["1.0.1 handler / 1.1 translated profile"]
-    Standard --> State["Canonical device state and tag source"]
-    State --> Reports["Configurable report scheduler"]
-    Manager["VirtualReaderManager"] --> Listener
-    Manager --> Presets["Preset contributors"]
+    Client["LlrpSdk / CLI / third-party LLRP client"] --> Net["LlrpNet TCP / Session / Codec"]
+    Net --> Server["LlrpDevice.Server"]
+    Server --> Protocol["1.0.1 / 1.1 / 2.0 dispatch"]
+    Server --> Resources["ROSpec / AccessSpec resource state"]
+    Server --> Reports["KeepAlive / TagReport / error pipeline"]
+    Server --> Contract["ILlrpDevice"]
+    Contract --> Virtual["VirtualLlrpDevice"]
+    Contract -.-> Physical["Future hardware-backed device"]
+    Host["IVirtualLlrpDeviceHost"] --> Server
+    Host --> Virtual
+    DeviceCli["LlrpVirtualDevice.Cli"] --> Host
+    Manager["Legacy LlrpVirtualReader.Manager"] -.-> Server
+    Config["Single-device JSON<br/>explicit load"] --> DeviceCli
 ```
 
 The first inbound frame selects the explicit wire version from its LLRP header.
-For 1.1, version negotiation is handled before standard dispatch, then shared
-standard messages are translated into one canonical 1.0.1 state and translated
-back only at the wire boundary. The TCP port never selects a protocol profile.
+The Server owns the version adapter and translates wire ROSpec/AccessSpec data
+to version-neutral device requests. The TCP port never selects a device
+implementation or protocol profile.
+
+### Device contract and local preset boundary
+
+`LlrpDevice.Abstractions` contains no generated protocol or SDK references.
+`LlrpDevice.Server` consumes `ILlrpDevice`; `LlrpDevice.Virtual` references only
+the abstractions project. This is the migration seam for a future physical
+device implementation.
+
+The standalone CLI uses `VirtualDeviceConfiguration`, a versioned,
+single-device declarative JSON document. It covers endpoint identity and
+repeatable device behavior: tags, TID/User memory, report cadence, and the
+`static`, `moving-tags`, or `noisy` RF-observable scenario. The LLRP client
+still owns wire-level `ADD_ROSPEC`/`START_ROSPEC` messages. Configuration is
+loaded only when a command explicitly supplies `--config`; it is not a
+cross-process instance registry and does not restore active ROSpec/AccessSpec
+state after a restart. The previous `VirtualReaderConfiguration` format remains
+available to the compatibility Manager.
 
 ## Final Project Tree
 
@@ -58,7 +79,8 @@ same `LlrpNet` communication and protocol layer.
 LLRPCSharp/
 ├── LLRPCSharp.slnx                     [solution]
 ├── /src/
-│   ├── LlrpCli/                         [project directly under src]
+│   ├── LlrpCli/                         [general client CLI, directly under src]
+│   ├── LlrpVirtualDevice.Cli/           [single-device CLI, directly under src]
 │   ├── LlrpNet/                         [solution folder: transport + protocol]
 │   │   ├── LlrpNet.Core/
 │   │   ├── LlrpNet.Protocol/
@@ -73,9 +95,13 @@ LLRPCSharp/
 │   │   ├── LlrpSdk.Extensions.Impinj/
 │   │   ├── LlrpSdk.Extensions.Seuic/
 │   │   └── LlrpSdk.Extensions.Zebra/
+│   ├── LlrpDevice.Abstractions/         [version-neutral device contract]
+│   ├── LlrpDevice.Server/                [generic LLRP device-side service]
+│   ├── LlrpDevice.Virtual/               [deterministic device implementation]
+│   ├── LlrpDevice.Virtual.Hosting/       [single-device SDK facade]
 │   └── LlrpVirtualReader/                [solution folder: message-level device]
-│       ├── LlrpVirtualReader.Core/       [NEW: one virtual reader host]
-│       ├── LlrpVirtualReader.Manager/     [NEW: multi-host lifecycle]
+│       ├── LlrpVirtualReader.Core/       [compatibility façade and legacy contracts]
+│       ├── LlrpVirtualReader.Manager/     [composition root and lifecycle]
 │       └── LlrpVirtualReader/             [compatibility launcher]
 ├── /tests/                               [unit, interop, hardware, and virtual tests]
 └── /tools/                               [smoke and protocol probe tools]
@@ -109,7 +135,7 @@ graph TB
 
     subgraph Devices["Hardware & Simulators"]
         Physical["Physical LLRP Readers"]
-        Virtual["LlrpVirtualReader (Mock/CI)"]
+        Virtual["LlrpDevice.Server + VirtualLlrpDevice (Mock/CI)"]
     end
 
     Layer3 --> Reader
@@ -165,8 +191,13 @@ TCP / LLRP binary protocol / real or virtual readers
 | `LlrpNet.ProtocolModel` | Machine-readable protocol definition model plus XML/YAML import and validation inputs. |
 | `LlrpNet.ProtocolGenerator` | C# type, codec, and registry module generation from protocol definitions. |
 | `LlrpSdk` | `LlrpReader`, state machine, high-level inventory, resource services, version adapters, and extension lifecycle. |
-| `LlrpCli` | Command-line SDK consumer, diagnostics entry point, and regression helper. |
-| `LlrpVirtualReader` | Local virtual reader for hardware-free development, interoperability, and fault-scenario testing. |
+| `LlrpCli` | General client-side command-line SDK consumer, diagnostics entry point, and regression helper. |
+| `LlrpVirtualDevice.Cli` | Single-device command-line consumer of the virtual device SDK facade. |
+| `LlrpDevice.Abstractions` | Version-neutral identity, configuration, inventory, Tag Access, and device-event contracts. |
+| `LlrpDevice.Server` | Generic LLRP device-side TCP service, version dispatch, resource state, reports, and fault hooks. |
+| `LlrpDevice.Virtual` | Deterministic in-memory implementation of `ILlrpDevice`, including RF-observable scenarios. |
+| `LlrpDevice.Virtual.Hosting` | `IVirtualLlrpDeviceHost` facade that composes one Server and one Virtual device. |
+| `LlrpVirtualReader` | Compatibility façade, Manager composition, local preset loading, and legacy public API. |
 
 ## Capability Layers
 

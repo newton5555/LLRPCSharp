@@ -10,41 +10,56 @@
 
 ![LLRPCSharp 架构总览](../images/architecture.svg)
 
-## 报文级 Virtual Reader 架构
+## LLRP Device Server 与 Virtual Device 架构
 
-![LLRPCSharp 报文级 Virtual Reader 架构](../images/llrpcsharp-virtual-reader-architecture.png)
-
-这张补充图展示报文级 Virtual Reader 的边界。`NEW` 表示新增的 Core/Manager 实现，
-`FUTURE` 表示未来的厂商虚拟设备扩展点；`LlrpReaderPlatform` 仍属于平台层，
-不在本 TCP/LLRP 专项范围内。可编辑的 Mermaid 源码见
-[`virtual-reader-architecture.mmd`](virtual-reader-architecture.mmd)。
+报文级设备端现在拆成通用设备端 Server 与设备行为合同。
+`VirtualLlrpDevice` 是该合同的一种实现；未来真实 RFID 模块可以实现同一个接口，
+无需复制 LLRP 服务或资源状态机。
 
 ### 运行时职责与报文流
 
 | 边界 | 负责 | 不负责 |
 |---|---|---|
-| `VirtualReaderManager` | 实例身份、预设查找、create/start/stop/restart/delete/list/status | 线级组帧、ROSpec 状态、标签内存语义 |
-| `VirtualReaderHost` | 一个精确 TCP 端点、连接上限、生命周期、accepted Session、报告循环 | 其他实例的资源或 SDK 客户端状态 |
-| `LlrpNet` transport/session/registry | 帧组装、收发、Session 管道、版本 Codec 查找 | 设备策略和资源状态迁移 |
-| version profile + Handler | 状态/错误映射、初始化、能力/配置、ROSpec/AccessSpec、事件、报告 | Manager 实例目录 |
+| `LlrpDevice.Virtual.Hosting` | 单台设备 SDK 门面、端点信息、启动/停止/重启生命周期 | 多设备目录和跨进程恢复 |
+| `LlrpVirtualDevice.Cli` | 一个前台进程托管一台虚拟设备、单设备 JSON 校验 | 多设备管理和自动重启 |
+| `LlrpVirtualReader.Manager` | 兼容性的多实例编排和预设查找 | TCP 组帧、ROSpec/AccessSpec 语义、标签内存 |
+| `LlrpDevice.Server` | Listener、Session、版本分发、资源图、KeepAlive、报告、状态映射、故障 Hook | 假标签状态或硬件驱动细节 |
+| `ILlrpDevice` | 身份、能力、配置、盘点执行、Tag Access、设备事件 | TCP、协议版本类型、ROSpec/AccessSpec CRUD |
+| `VirtualLlrpDevice` | 确定性标签、内存、锁/销毁状态、`static`/`moving-tags`/`noisy` 观察 | LLRP 报文处理和 Server 资源状态 |
+| `VirtualReaderHost` | 旧选项/事件映射与委托 | 第二套 Listener、Dispatcher、资源状态机或报告循环 |
+| 本地 JSON 配置 | 新 CLI 显式加载单设备端点/行为；旧格式仍由兼容 Manager 支持 | 跨进程注册表与自动重启恢复 |
 
 ```mermaid
 flowchart LR
-    Client["LlrpSdk / CLI / 第三方 LLRP 客户端"] --> Listener["VirtualReaderHost 精确 TCP Listener"]
-    Listener --> Accepted["LlrpAcceptedTcpTransport"]
-    Accepted --> Session["LlrpNet LlrpSession"]
-    Session --> Registry["版本化 LlrpCodecRegistry"]
-    Registry --> Dispatch["VirtualReaderProtocolDispatcher"]
-    Dispatch --> Module["注册式协议模块"]
-    Dispatch --> Standard["1.0.1 Handler / 1.1 翻译 Profile"]
-    Standard --> State["Canonical 设备状态与 TagSource"]
-    State --> Reports["可配置报告调度器"]
-    Manager["VirtualReaderManager"] --> Listener
-    Manager --> Presets["Preset Contributor"]
+    Client["LlrpSdk / CLI / 第三方 LLRP 客户端"] --> Net["LlrpNet TCP / Session / Codec"]
+    Net --> Server["LlrpDevice.Server"]
+    Server --> Protocol["1.0.1 / 1.1 / 2.0 分发"]
+    Server --> Resources["ROSpec / AccessSpec 资源状态"]
+    Server --> Reports["KeepAlive / TagReport / 错误管线"]
+    Server --> Contract["ILlrpDevice"]
+    Contract --> Virtual["VirtualLlrpDevice"]
+    Contract -.-> Physical["未来硬件设备实现"]
+    Host["IVirtualLlrpDeviceHost"] --> Server
+    Host --> Virtual
+    DeviceCli["LlrpVirtualDevice.Cli"] --> Host
+    Manager["兼容 LlrpVirtualReader.Manager"] -.-> Server
+    Config["单设备 JSON<br/>显式加载"] --> DeviceCli
 ```
 
-第一帧从 LLRP Header 选择显式线协议版本。1.1 先完成版本协商，再把标准报文翻译到同一
-canonical 1.0.1 状态，响应只在线路边界翻译回 1.1；TCP 端口不参与版本或设备 Profile 选择。
+第一帧从 LLRP Header 选择显式线协议版本。Server 持有版本 Adapter，并将线级
+ROSpec/AccessSpec 转成版本中立的设备请求；TCP 端口不选择设备实现或协议 Profile。
+
+### 设备合同与本地预设边界
+
+`LlrpDevice.Abstractions` 不引用生成协议或 SDK；`LlrpDevice.Server` 消费
+`ILlrpDevice`；`LlrpDevice.Virtual` 只引用 Abstractions。这就是未来真实设备实现的迁移
+接缝。
+
+独立 CLI 使用 `VirtualDeviceConfiguration` 持久化版本化、单设备声明式 JSON，覆盖端点身份
+和可重复设备行为：标签、TID/User memory、报告节奏，以及 `static`、`moving-tags`、`noisy`
+RF 可观察场景。线级 `ADD_ROSPEC`/`START_ROSPEC` 仍由 LLRP 客户端发送。配置只在命令显式
+提供 `--config` 时加载；它不是跨进程实例注册表，也不会在进程重启后恢复活跃
+ROSpec/AccessSpec。旧的 `VirtualReaderConfiguration` 格式仍由兼容 Manager 支持。
 
 ## 最终项目结构 Tree
 
@@ -55,7 +70,8 @@ Reader 是两个并列的解决方案文件夹，共同复用 `LlrpNet` 通信�
 LLRPCSharp/
 ├── LLRPCSharp.slnx                     [解决方案]
 ├── /src/
-│   ├── LlrpCli/                         [项目直接位于 src 下]
+│   ├── LlrpCli/                         [通用客户端 CLI，项目直接位于 src 下]
+│   ├── LlrpVirtualDevice.Cli/           [单台设备 CLI，项目直接位于 src 下]
 │   ├── LlrpNet/                         [解决方案文件夹：通信层 + 协议层]
 │   │   ├── LlrpNet.Core/
 │   │   ├── LlrpNet.Protocol/
@@ -70,9 +86,13 @@ LLRPCSharp/
 │   │   ├── LlrpSdk.Extensions.Impinj/
 │   │   ├── LlrpSdk.Extensions.Seuic/
 │   │   └── LlrpSdk.Extensions.Zebra/
+│   ├── LlrpDevice.Abstractions/         [版本中立设备合同]
+│   ├── LlrpDevice.Server/               [通用 LLRP 设备端服务]
+│   ├── LlrpDevice.Virtual/              [确定性设备实现]
+│   ├── LlrpDevice.Virtual.Hosting/      [单台设备 SDK 门面]
 │   └── LlrpVirtualReader/                [解决方案文件夹：报文级虚拟设备]
-│       ├── LlrpVirtualReader.Core/       [新增：单个虚拟设备 Host]
-│       ├── LlrpVirtualReader.Manager/     [新增：多 Host 生命周期]
+│       ├── LlrpVirtualReader.Core/       [兼容 façade 与旧合同]
+│       ├── LlrpVirtualReader.Manager/     [组合根与生命周期]
 │       └── LlrpVirtualReader/             [兼容启动入口]
 ├── /tests/                               [单元、互操作、硬件和虚拟设备测试]
 └── /tools/                               [Smoke 与协议探针工具]
@@ -106,7 +126,7 @@ graph TB
 
     subgraph Devices["硬件设备与仿真器"]
         Physical["物理 LLRP 读写器"]
-        Virtual["LlrpVirtualReader 虚拟读写器"]
+        Virtual["LlrpDevice.Server + VirtualLlrpDevice 虚拟设备"]
     end
 
     Layer3 --> Reader
@@ -162,8 +182,13 @@ TCP / LLRP 二进制协议 / 真实或虚拟读写器
 | `LlrpNet.ProtocolModel` | 机器可读协议定义模型、XML/YAML 导入和校验输入。 |
 | `LlrpNet.ProtocolGenerator` | 从协议定义生成 C# 类型、Codec 和 Registry Module。 |
 | `LlrpSdk` | `LlrpReader`、状态机、高级盘点、资源服务、版本 Adapter、扩展生命周期。 |
-| `LlrpCli` | SDK 的命令行使用者、诊断入口和回归辅助工具。 |
-| `LlrpVirtualReader` | 本地虚拟读写器，用于无硬件开发、互操作和故障场景测试。 |
+| `LlrpCli` | 通用客户端 SDK 的命令行使用者、诊断入口和回归辅助工具。 |
+| `LlrpVirtualDevice.Cli` | 单台虚拟设备 SDK 门面的命令行使用者。 |
+| `LlrpDevice.Abstractions` | 版本中立的身份、配置、盘点、Tag Access 与设备事件合同。 |
+| `LlrpDevice.Server` | 通用 LLRP 设备端 TCP 服务、版本分发、资源状态、报告和故障 Hook。 |
+| `LlrpDevice.Virtual` | `ILlrpDevice` 的确定性内存实现，包含 RF 可观察场景。 |
+| `LlrpDevice.Virtual.Hosting` | 组合一台 Server 和一台 Virtual 设备的 `IVirtualLlrpDeviceHost` 门面。 |
+| `LlrpVirtualReader` | 兼容 façade、Manager 组合、本地预设和旧公开 API。 |
 
 ## 能力分层
 

@@ -13,6 +13,7 @@
     <ProjectReference Include="..\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
     <ProjectReference Include="..\LlrpNet\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
     <ProjectReference Include="..\LlrpVirtualReader.Core\LlrpVirtualReader.Core.csproj" />
+    <ProjectReference Include="..\LlrpVirtualReader.Manager\LlrpVirtualReader.Manager.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
     <ProjectReference Include="..\LlrpSdk\LlrpSdk.csproj" />
     <ProjectReference Include="..\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />

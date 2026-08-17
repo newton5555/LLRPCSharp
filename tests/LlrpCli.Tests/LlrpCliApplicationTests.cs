@@ -113,6 +113,74 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
+    public void VirtualReaderHelp_DescribesLocalConfigurationAndRfScenarios()
+    {
+        InvocationResult result = Invoke("virtual-reader", "--help");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("--config", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--validate-config", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--list-presets", result.Output, StringComparison.Ordinal);
+        Assert.Contains("--rf-scenario", result.Output, StringComparison.Ordinal);
+        Assert.Contains("moving-tags", result.Output, StringComparison.Ordinal);
+        Assert.Empty(result.Error);
+    }
+
+    [Fact]
+    public void VirtualReaderConfigValidation_LoadsDocumentWithoutBinding()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"llrpcsharp-cli-vr-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(
+                path,
+                """
+                {
+                  "schemaVersion": 1,
+                  "presets": [
+                    {
+                      "id": "cli.static",
+                      "description": "CLI validation preset",
+                      "protocolVersion": "1.0.1",
+                      "rfScenario": "static",
+                      "tags": [
+                        { "epc": "E28011710000020D056E9BEE", "antennaId": 1 }
+                      ]
+                    }
+                  ],
+                  "instances": [
+                    {
+                      "instanceId": "cli-reader",
+                      "name": "CLI reader",
+                      "presetId": "cli.static",
+                      "listenAddress": "127.0.0.1",
+                      "port": 5085
+                    }
+                  ]
+                }
+                """);
+
+            InvocationResult result = Invoke(
+                "virtual-reader",
+                "--config",
+                path,
+                "--validate-config");
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Contains("Configuration is valid", result.Output, StringComparison.Ordinal);
+            Assert.Contains("1 instance", result.Output, StringComparison.Ordinal);
+            Assert.Empty(result.Error);
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
     public void CommandCatalog_ListsCandidateNamesInsteadOfOnlyACount()
     {
         InputAssist assist = CommandCatalog.Assist("in", cursor: 2, isConnected: true);

@@ -177,6 +177,23 @@ internal sealed class VirtualReaderDeviceState
         }
     }
 
+    public IReadOnlyList<ushort> GetInventoryAntennaIds(uint roSpecId)
+    {
+        lock (_gate)
+        {
+            if (!_roSpecs.TryGetValue(roSpecId, out V101Parameters.ROSpec? roSpec))
+            {
+                return [];
+            }
+
+            return roSpec.SpecParameterItems
+                .OfType<V101Parameters.AISpec>()
+                .SelectMany(static spec => spec.AntennaIDs)
+                .Distinct()
+                .ToArray();
+        }
+    }
+
     public IReadOnlyList<V101Parameters.AntennaConfiguration> GetAntennaConfigurations()
     {
         lock (_gate)

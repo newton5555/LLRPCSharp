@@ -7,6 +7,13 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/LlrpCli/LlrpCli.csproj" />
+    <Project Path="src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj" />
+  </Folder>
+  <Folder Name="/src/LlrpDevice/">
+    <Project Path="src/LlrpDevice.Abstractions/LlrpDevice.Abstractions.csproj" />
+    <Project Path="src/LlrpDevice.Server/LlrpDevice.Server.csproj" />
+    <Project Path="src/LlrpDevice.Virtual/LlrpDevice.Virtual.csproj" />
+    <Project Path="src/LlrpDevice.Virtual.Hosting/LlrpDevice.Virtual.Hosting.csproj" />
   </Folder>
   <Folder Name="/src/LlrpNet/">
     <Project Path="src/LlrpNet/LlrpNet.Core/LlrpNet.Core.csproj" />
@@ -30,6 +37,7 @@
     <Project Path="src/LlrpVirtualReader.Manager/LlrpVirtualReader.Manager.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/LlrpDevice.Abstractions.Tests/LlrpDevice.Abstractions.Tests.csproj" />
     <Project Path="tests/Interop.Tests/Interop.Tests.csproj" />
     <Project Path="tests/LlrpCli.Tests/LlrpCli.Tests.csproj" />
     <Project Path="tests/LlrpNet.Core.Tests/LlrpNet.Core.Tests.csproj" />
@@ -44,6 +52,10 @@
     <Project Path="tests/LlrpSdk.Hardware.Tests/LlrpSdk.Hardware.Tests.csproj" />
     <Project Path="tests/LlrpVirtualReader.Core.Tests/LlrpVirtualReader.Core.Tests.csproj" />
     <Project Path="tests/LlrpVirtualReader.Manager.Tests/LlrpVirtualReader.Manager.Tests.csproj" />
+    <Project Path="tests/LlrpDevice.Virtual.Tests/LlrpDevice.Virtual.Tests.csproj" />
+    <Project Path="tests/LlrpDevice.Server.Tests/LlrpDevice.Server.Tests.csproj" />
+    <Project Path="tests/LlrpDevice.Virtual.Hosting.Tests/LlrpDevice.Virtual.Hosting.Tests.csproj" />
+    <Project Path="tests/LlrpVirtualDevice.Cli.Tests/LlrpVirtualDevice.Cli.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/LlrpSdk.LiveSmoke/LlrpSdk.LiveSmoke.csproj" />
@@ -82,6 +94,8 @@
     <File Path="docs/adr/0004-reader-contributors.md" />
     <File Path="docs/adr/0005-llrp101-reader-first-delivery.md" />
     <File Path="docs/adr/0006-preset-driven-virtual-reader-manager.md" />
+    <File Path="docs/adr/0007-llrp-device-server-device-abstraction.md" />
+    <File Path="docs/adr/0008-single-virtual-device-sdk-and-cli.md" />
     <File Path="docs/adr/README.md" />
   </Folder>
   <Folder Name="/docs/architecture/">

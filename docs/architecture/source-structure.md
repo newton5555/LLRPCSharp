@@ -10,7 +10,8 @@
 LLRPCSharp/
 ├── LLRPCSharp.slnx             [解决方案]
 ├── /src/                       [源代码根目录]
-│   ├── LlrpCli/                [手写] CLI 直接位于 src 根下
+│   ├── LlrpCli/                [手写] 通用客户端 CLI，直接位于 src 根下
+│   ├── LlrpVirtualDevice.Cli/  [手写] 单台虚拟设备 CLI，直接位于 src 根下
 │   │
 │   ├── LlrpNet/                [解决方案文件夹：通信层 + 协议层]
 │   │   ├── LlrpNet.Core/       [手写] Client/accepted TCP、IO、流式帧切分、LlrpSession、FrameObserver
@@ -28,15 +29,24 @@ LLRPCSharp/
 │   │   ├── LlrpSdk.Extensions.Seuic/  [手写] Seuic SDK 扩展入口
 │   │   └── LlrpSdk.Extensions.Zebra/  [手写] Zebra 高层 SDK 映射与 Contributor
 │   │
-│   └── LlrpVirtualReader/      [解决方案文件夹：报文级虚拟设备]
-│       ├── LlrpVirtualReader.Core/ [新增] 单个 VirtualReaderHost、TCP 会话、设备状态与报文 Handler
-│       ├── LlrpVirtualReader.Manager/ [新增] 多 Host 配置与 create/new/start/stop/restart/delete 生命周期
-│       └── LlrpVirtualReader/  [兼容入口] 旧版启动器，转发到 Core/Manager
+│   ├── LlrpDevice.Abstractions/ [手写] 版本中立的设备行为合同
+│   ├── LlrpDevice.Server/       [手写] 通用 LLRP 设备端服务、资源状态与版本分发
+│   ├── LlrpDevice.Virtual/      [手写] 确定性标签、RF 观察和 Tag Access 实现
+│   ├── LlrpDevice.Virtual.Hosting/ [手写] 单台虚拟设备公开 SDK 门面与生命周期
+│   └── LlrpVirtualReader/      [解决方案文件夹：兼容与管理入口]
+│       ├── LlrpVirtualReader.Core/ [兼容 façade] 旧选项/事件映射与 Legacy 适配器
+│       ├── LlrpVirtualReader.Manager/ [组合根] 多实例配置与生命周期
+│       └── LlrpVirtualReader/  [兼容入口] 旧版启动器，转发到 Manager
 │
 ├── /tests/                     [测试项目根目录]
 │   ├── LlrpNet.*.Tests/        [通信层、协议层、生成器与厂商 Wire Codec 测试]
 │   ├── LlrpSdk.*.Tests/        [SDK、扩展与硬件验收测试]
-│   ├── LlrpVirtualReader.Core.Tests/ [虚拟设备 Core 测试]
+│   ├── LlrpDevice.Abstractions.Tests/ [合同与依赖边界测试]
+│   ├── LlrpDevice.Server.Tests/ [通用 Server 与 Scripted Device 测试]
+│   ├── LlrpDevice.Virtual.Tests/ [Virtual RF、Tag Access、隔离测试]
+│   ├── LlrpDevice.Virtual.Hosting.Tests/ [单台设备 SDK 门面与生命周期测试]
+│   ├── LlrpVirtualDevice.Cli.Tests/ [单台设备 CLI 测试]
+│   ├── LlrpVirtualReader.Core.Tests/ [兼容 façade 与旧 API 测试]
 │   ├── LlrpVirtualReader.Manager.Tests/ [Manager 多实例、预设与生命周期测试]
 │   ├── LlrpCli.Tests/          [CLI 测试]
 │   └── Interop.Tests/          [互操作测试]
@@ -46,7 +56,12 @@ LLRPCSharp/
     └── LlrpSdk.Probe.ClientRequestOp/ [协议客户端探针]
 ```
 
-这里的 `LlrpSdk` 与 `LlrpVirtualReader` 是同一解决方案下的两个并列能力域：虚拟设备不嵌套在 `src/LlrpSdk/` 物理目录中，而是通过 `LlrpNet.Core` 和 `LlrpNet.Protocol` 复用 SDK 使用的通信与报文解析/编码能力。`LlrpVirtualReader.Manager` 负责多 Host 的配置和生命周期，`LlrpVirtualReader.Core` 负责单个报文级设备实例。
+这里的 `LlrpSdk`、`LlrpDevice` 与 `LlrpVirtualReader` 是同一解决方案下的并列能力域：
+设备端不嵌套在 `src/LlrpSdk/` 物理目录中，而是由 `LlrpDevice.Server` 通过
+`LlrpNet.Core` 和 `LlrpNet.Protocol` 复用通信与报文解析/编码能力；
+`LlrpDevice.Virtual` 只实现 `ILlrpDevice`，`LlrpDevice.Virtual.Hosting` 负责组合
+单台 Server 与 Virtual 并提供公开生命周期门面；`LlrpVirtualReader.Manager` 只保留
+旧的多实例编排能力，`LlrpVirtualReader.Core` 只保留兼容 façade 和旧合同适配器。
 
 ---
 
@@ -138,13 +153,30 @@ LLRPCSharp/
 ### 3.6 终端诊断工具 (`src/LlrpCli/`) —— [手写]
 - 基于 `Spectre.Console` 和 `Spectre.Console.Cli` 构建的 Live Shell，提供指令补全提示链、灰色 Ghost 后缀、平滑光标控制以及深层 LLRP 报文树状分析器。
 
-### 3.7 虚拟读写器 (`src/LlrpVirtualReader/`) —— [手写]
-- 报文级 1.0.1/1.1 TCP Server，用于本地互操作、回归测试和无硬件开发。
-- Core 复用 `LlrpNet` accepted transport、Session、Codec Registry 和 Frame Observer；支持
-  初始化、能力/配置、ROSpec/AccessSpec、KEEPALIVE、确定性 TagReport、标准 C1G2 读写、
-  TagSource、报告 cadence/count、版本 Profile、注册式 Handler 和故障注入；不模拟真实射频。
-- Manager 负责多 Host 实例身份与生命周期，Preset 通过 Contributor 注册；跨进程持久化和厂商
-  设备端 profile 仍属后续工作。
+### 3.6.1 单台虚拟设备 CLI (`src/LlrpVirtualDevice.Cli/`) —— [手写]
+- 只消费 `LlrpDevice.Virtual.Hosting`，一个进程只托管一台虚拟 LLRP 设备。
+- 提供前台 `run`/`start`、单设备 JSON `validate` 和内置 `presets`；Ctrl+C
+  对应停止，不引入跨进程多设备管理协议。
+
+### 3.7 通用设备端 (`src/LlrpDevice.*`) —— [手写]
+- `LlrpDevice.Abstractions` 定义 `ILlrpDevice`、`IInventoryExecution`、设备身份/能力/配置、
+  版本中立 Tag Access、观察结果和结构化事件；只依赖 BCL。
+- `LlrpDevice.Server` 复用 `LlrpNet` accepted transport、Session、Codec Registry 和
+  Frame Observer；拥有 1.0.1/1.1/2.0 分发、ROSpec/AccessSpec 状态、KEEPALIVE、报告、
+  标准 Tag Access 映射、故障注入和注册式设备端协议模块。
+- `LlrpDevice.Virtual` 只实现 `ILlrpDevice`，维护独立的标签/内存/锁/销毁状态，提供
+  `static`、`moving-tags`、`noisy` 三种确定性 RF 可观察场景，但不模拟真实 RF 波形。
+- `LlrpDevice.Virtual.Hosting` 提供 `IVirtualLlrpDeviceHost` 与
+  `VirtualLlrpDeviceHost`，把一台 `VirtualLlrpDevice` 和一台 `LlrpDeviceServer`
+  组合成上层应用可直接启动/停止/重启的设备端入口。
+
+### 3.8 Virtual Reader 兼容与管理 (`src/LlrpVirtualReader/`) —— [手写]
+- Manager 是旧的上层多实例组合根，负责多实例身份、显式 JSON 配置、Preset
+  Contributor 和生命周期；不属于单台设备 SDK 主入口，也不拥有协议状态机。
+- Core 的 `VirtualReaderHost` 仅做旧选项/事件映射并委托到 `LlrpDeviceServer`；旧
+  Backend/Protocol 类型仅为兼容调用方保留，不再形成第二套主状态机。
+- `VirtualReaderConfiguration` 提供显式加载的版本化本地 JSON 设备/寻卡预设；不自动
+  恢复运行中的 ROSpec/AccessSpec，真实设备端 profile 仍属后续工作。
 
 ---
 
@@ -152,5 +184,5 @@ LLRPCSharp/
 
 | 类别 | 包含模块 / 目录 | 修改与维护原则 |
 |---|---|---|
-| **手写核心逻辑** | `LlrpSdk`, `LlrpNet/LlrpNet.Core`, `LlrpNet/LlrpNet.ProtocolModel`, `LlrpNet/LlrpNet.ProtocolGenerator`, `LlrpCli` | 正常的 C# 逻辑代码，随需求功能演进手写维护。 |
+| **手写核心逻辑** | `LlrpSdk`, `LlrpNet/LlrpNet.Core`, `LlrpNet/LlrpNet.ProtocolModel`, `LlrpNet/LlrpNet.ProtocolGenerator`, `LlrpDevice.*`, `LlrpVirtualReader.*`, `LlrpCli` | 正常的 C# 逻辑代码，随需求功能演进手写维护；本阶段客户端和共享协议产品代码冻结。 |
 | **自动生成代码** | `LlrpNet/LlrpNet.Protocol` 与 `LlrpNet/LlrpNet.Protocol.Impinj` (`Messages`, `Parameters`, `Codecs`, `Registry`) | 不手写 C# 代码；通过更新 `definitions/` 下的 XML 定义并调用生成工具更新。高层 `LlrpSdk.Extensions.Impinj` 不存放生成的线协议类型。 |

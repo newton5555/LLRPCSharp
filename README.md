@@ -116,8 +116,54 @@ dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
   --port 5085 --llrp 1.1 --name ci-reader
 ```
 
+Load a versioned local reader/inventory preset explicitly:
+
+```powershell
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
+  --config config/virtual-readers.example.json --validate-config
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
+  --config config/virtual-readers.example.json --instance reader-local-1
+```
+
+The Virtual Reader is composed from the generic `LlrpDevice.Server` and the
+`VirtualLlrpDevice` implementation of `ILlrpDevice`. It provides deterministic
+`static`, `moving-tags`, and `noisy` tag-observation scenarios. Configuration
+loading is explicit; active LLRP resources are not automatically restored after
+restart.
+
 The standalone Manager also exposes registered presets and in-process
 multi-instance lifecycle APIs. See the [Virtual Reader Manager guide](docs/guides/virtual-reader-manager.md).
+
+### Standalone single-device SDK and CLI
+
+The device-side SDK exposes `IVirtualLlrpDeviceHost` from
+`LlrpDevice.Virtual.Hosting`. It is the public entry point for one virtual
+device and composes one `VirtualLlrpDevice` with one `LlrpDeviceServer`:
+
+```powershell
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
+  run --config config/virtual-device.example.json
+```
+
+The standalone `LlrpVirtualDevice.Cli` is a sibling of the general
+`LlrpCli`. Starting it without arguments enters an interactive shell without
+creating a device. Use `server create`, `server start`, `server status`,
+`server stop`, `server restart`, and `server destroy` to control one device
+host; `logs on|off|status` controls lifecycle, client, and decoded `RX`/`TX`
+events. `validate --config <PATH>` validates the single-device JSON document,
+and `presets` lists built-ins. A future UI can reference the same SDK facade
+directly without depending on the CLI or the compatibility Manager.
+
+Use `live` when the shell should automatically create and start the device:
+
+```powershell
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
+  live --config config/virtual-device.example.json
+```
+
+`live` then enters the same shell with event output enabled. Use `run` for the
+quiet, non-interactive foreground service mode. The device CLI observes traffic
+from an LLRP client; it does not generate client commands on its own.
 
 ---
 
@@ -139,9 +185,10 @@ multi-instance lifecycle APIs. See the [Virtual Reader Manager guide](docs/guide
 src/
   LlrpSdk/    Managed high-level API (Inspired by Impinj Octane SDK)
   LlrpNet/    Protocol codecs & TCP transport (Modernized LTK.NET)
-  LlrpCli/    Command-line tooling & Live Shell
+  LlrpCli/    General client-side command-line tooling & Live Shell
+  LlrpVirtualDevice.Cli/  Single-device virtual LLRP service CLI
 docs/
-  guides/     SDK API Guide and CLI User Guide
+  guides/     SDK, CLI, and Virtual Device guides
 ```
 
 ---

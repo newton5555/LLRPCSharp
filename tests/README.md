@@ -1,12 +1,12 @@
 # LLRPCSharp 全套测试用例与质量规范指南 (`tests`)
 
-本文档是 LLRPCSharp 解决方案中全部 14 个测试项目的**官方测试清单与断言手册**。详细说明了每一个测试项目、测试类（Test Class）及具体测试用例（`[Fact]` / `[Theory]`）的**测试目标、测试场景、输入条件与成功判定标准（Pass Criteria）**。
+本文档是 LLRPCSharp 解决方案中全部 19 个测试项目的**官方测试清单与断言手册**。详细说明了每一个测试项目、测试类（Test Class）及具体测试用例（`[Fact]` / `[Theory]`）的**测试目标、测试场景、输入条件与成功判定标准（Pass Criteria）**。
 
 ---
 
 ## 🏛️ 测试项目全景清单
 
-解决方案包含 14 个专门的测试项目：
+解决方案包含 19 个专门的测试项目：
 
 1. [**`LlrpNet.ProtocolModel.Tests`**](#1-llrpnetprotocolmodeltests-协议模型定义测试)
 2. [**`LlrpNet.ProtocolGenerator.Tests`**](#2-llrpnetprotocolgeneratortests-代码生成器测试)
@@ -20,8 +20,13 @@
 10. [**`LlrpSdk.Hardware.Tests`**](#10-llrpsdkhardwaretests-本地物理真机测试)
 11. [**`LlrpNet.Protocol.Zebra.Tests`**](#11-llrpnetprotocolzebratests-zebra-厂商扩展编解码测试)
 12. [**`LlrpSdk.Extensions.Zebra.Tests`**](#12-llrpsdkextensionszebratests-sdk-zebra-扩展管道测试)
-13. [**`LlrpVirtualReader.Core.Tests`**](#13-llrpvirtualreadercoretests-虚拟读写器核心测试)
-14. [**`LlrpVirtualReader.Manager.Tests`**](#14-llrpvirtualreadermanagertests-虚拟读写器管理器测试)
+13. [**`LlrpDevice.Abstractions.Tests`**](#13-llrpdeviceabstractionstests-设备合同与依赖边界测试)
+14. [**`LlrpDevice.Server.Tests`**](#14-llrpdeviceservertests-通用设备端服务测试)
+15. [**`LlrpDevice.Virtual.Tests`**](#15-llrpdevicevirtualtests-virtual-设备行为测试)
+16. [**`LlrpDevice.Virtual.Hosting.Tests`**](#16-llrpdevicevirtualhostingtests-单台虚拟设备-sdk-门面测试)
+17. [**`LlrpVirtualDevice.Cli.Tests`**](#17-llrpvirtualdeviceclitests-单台虚拟设备-cli-测试)
+18. [**`LlrpVirtualReader.Core.Tests`**](#18-llrpvirtualreadercoretests-兼容虚拟读写器核心测试)
+19. [**`LlrpVirtualReader.Manager.Tests`**](#19-llrpvirtualreadermanagertests-虚拟读写器管理器测试)
 
 ---
 
@@ -243,23 +248,64 @@
 
 验证 `UseZebra()` 的能力、配置和 TagReport 扩展投影，以及扩展缺失时的显式行为。
 
-### 13. `LlrpVirtualReader.Core.Tests` (虚拟读写器核心测试)
+### 13. `LlrpDevice.Abstractions.Tests` (设备合同与依赖边界测试)
+
+- `ILlrpDevice`、Inventory 和 Tag Access 模型的版本中立合同；
+- Abstractions 程序集不引用 `LlrpNet`、`LlrpSdk` 或 Virtual 产品程序集。
+
+### 14. `LlrpDevice.Server.Tests` (通用设备端服务测试)
+
+- 使用 `ScriptedLlrpDevice` 启动 Server，证明 Server 不依赖 Virtual；
+- Server 生命周期、配置状态和多实例/设备状态隔离；
+- 通用协议资源状态与设备行为边界。
+
+### 15. `LlrpDevice.Virtual.Tests` (Virtual 设备行为测试)
+
+- 同 seed/同轮次的 noisy RF 输出确定性；
+- User memory Read/Write/BlockErase、Lock、Kill 状态闭环；
+- 两个 `VirtualLlrpDevice` 的标签与内存状态隔离。
+
+### 16. `LlrpDevice.Virtual.Hosting.Tests` (单台虚拟设备 SDK 门面测试)
+
+- `IVirtualLlrpDeviceHost` 的公开生命周期契约；
+- 单台 Server + Virtual 组合的精确端点、Start/Stop/Restart 和状态事件；
+- 公开 Host 门面转发客户端连接与解码后的 LLRP 报文事件；
+- 设备实例在重启后保持同一设备对象和可变标签状态；
+- Dispose 后拒绝再次启动。
+
+### 17. `LlrpVirtualDevice.Cli.Tests` (单台虚拟设备 CLI 测试)
+
+- 根帮助与 `run --help` 的单设备生命周期说明；
+- 无参数默认进入交互 Shell，以及 `server create/start/status/stop/destroy` 单设备生命周期；
+- 单设备本地 JSON 配置校验，不绑定 TCP 端口；
+- 前台运行启动一台设备，并通过取消信号停止；
+- `live` 自动创建/启动设备，进入交互 Shell，并输出生命周期、客户端和 RX/TX 报文；
+- 内置预设与参数边界由 CLI 应用路径覆盖。
+
+### 18. `LlrpVirtualReader.Core.Tests` (兼容虚拟读写器核心测试)
 
 - 精确 Loopback 地址和端口绑定；
 - 已占用端口启动失败且不自动换端口；
 - Host 生命周期、停止释放和单 Host 设备边界；
-- ReaderOptions 配置校验与确定性 FixedTagSource User-memory 读写。
+- ReaderOptions 配置校验与确定性 FixedTagSource User-memory 读写；
+- 旧 `VirtualReaderHost` façade 的精确端点、生命周期、配置校验和兼容行为；
+- 旧 Backend 合同适配器，以及 `static`、`moving-tags`、`noisy` 三种可重复 RF 观察场景。
 
-### 14. `LlrpVirtualReader.Manager.Tests` (虚拟读写器管理器测试)
+### 19. `LlrpVirtualReader.Manager.Tests` (虚拟读写器管理器测试)
 
 - Preset Catalog 的标准 1.0.1/1.1、Tag Access 和故障预设注册；
 - create/start/stop/restart/delete 身份保持与端口释放；
 - 两个 Host 的端点、协议版本和设备状态隔离；
-- 第三方 `IVirtualReaderPresetContributor` 无需修改 Manager 分支即可注册。
+- 第三方 `IVirtualReaderPresetContributor` 无需修改 Manager 分支即可注册；
+- 本地 JSON Reader/寻卡预设的保存、加载、校验、显式启动和非法引用拒绝。
 
-`Interop.Tests` 还覆盖真实 TCP Host → `LlrpSdk` 的 1.0.1/1.1 版本协商、
-ROSpec/AccessSpec、报告、Tag Access、自动重连、丢响应、错误、主动断开和截断帧，
-以及设备端 `IVirtualReaderMessageHandler` 扩展。
+`Interop.Tests` 还覆盖真实 TCP `LlrpDevice.Server`/公开单台 Host 门面 → `LlrpSdk` 的 1.0.1/1.1
+版本协商、ROSpec/AccessSpec、报告、标准 Tag Access 全操作、自动重连、丢响应、错误、
+主动断开和截断帧；旧 `VirtualReaderHost` 兼容入口与设备端旧/新 Handler 扩展也有回归覆盖。
+
+`LlrpCli.Tests` 还覆盖兼容 Virtual Reader 的本地配置校验入口、帮助选项和 RF 场景 CLI
+参数暴露；独立单设备 CLI 的帮助、配置校验和前台启停由
+`LlrpVirtualDevice.Cli.Tests` 覆盖，旧预设列表入口另有 Manager 命令行冒烟验证。
 
 ## 🏃 运行测试
 

@@ -116,8 +116,51 @@ dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
   --port 5085 --llrp 1.1 --name ci-reader
 ```
 
+显式加载版本化的本地读写器/寻卡预设：
+
+```powershell
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
+  --config config/virtual-readers.example.json --validate-config
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
+  --config config/virtual-readers.example.json --instance reader-local-1
+```
+
+Virtual Reader 由通用 `LlrpDevice.Server` 和实现 `ILlrpDevice` 的
+`VirtualLlrpDevice` 组合而成，提供确定性的 `static`、`moving-tags`、`noisy` 标签观察
+场景。配置只会在显式命令下加载；进程重启后不会自动恢复活跃的 LLRP 资源。
+
 独立 Manager 还提供注册式预设与进程内多实例生命周期 API，详见
 [Virtual Reader Manager 指南](docs/guides/virtual-reader-manager.md)。
+
+### 单台虚拟设备 SDK 与 CLI
+
+设备端 SDK 通过 `LlrpDevice.Virtual.Hosting` 提供
+`IVirtualLlrpDeviceHost`，这是单台虚拟设备的公开入口，内部组合一台
+`VirtualLlrpDevice` 和一台 `LlrpDeviceServer`：
+
+```powershell
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
+  run --config config/virtual-device.example.json
+```
+
+独立的 `LlrpVirtualDevice.Cli` 与通用 `LlrpCli` 在 `src` 下平级。直接启动
+且不带参数时进入交互 Shell，此时不会自动创建设备。使用
+`server create`、`server start`、`server status`、`server stop`、
+`server restart` 和 `server destroy` 管理一台设备；使用
+`logs on|off|status` 控制生命周期、客户端以及解码后的 `RX`/`TX` 事件输出。
+使用 `validate --config <PATH>` 校验单设备 JSON，或使用 `presets` 查看内置
+预设。未来 UI 可以直接引用同一个 SDK 门面，不依赖 CLI 或兼容 Manager。
+
+如果希望自动创建并启动设备后进入交互 Shell，可以使用 `live`：
+
+```powershell
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
+  live --config config/virtual-device.example.json
+```
+
+`live` 会进入同一个 Shell，并默认打开事件输出；`run` 则是安静的、非交互
+前台服务模式。设备 CLI 只观察 LLRP 客户端产生的流量，不会自己充当第二个
+客户端自动生成请求。
 
 ---
 
@@ -139,9 +182,10 @@ dotnet run --project src/LlrpCli/LlrpCli.csproj -- virtual-reader `
 src/
   LlrpSdk/    托管高层 API (参考 Impinj Octane SDK)
   LlrpNet/    协议编解码与 TCP 传输 (LTK.NET 现代化实现)
-  LlrpCli/    命令行调试工具与 Live Shell
+  LlrpCli/    通用客户端命令行工具与 Live Shell
+  LlrpVirtualDevice.Cli/  单台虚拟 LLRP 设备服务 CLI
 docs/
-  guides/     SDK API 指南与 CLI 使用指南
+  guides/     SDK、CLI 与 Virtual Device 指南
 ```
 
 ---

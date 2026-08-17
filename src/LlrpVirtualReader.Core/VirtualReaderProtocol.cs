@@ -42,13 +42,13 @@ public sealed class VirtualReaderRequestContext
 {
     internal VirtualReaderRequestContext(
         VirtualReaderHost host,
-        VirtualReaderDeviceState deviceState,
+        ILlrpReaderDeviceBackend deviceBackend,
         string connectionId,
         LlrpProtocolVersion version,
         uint messageId)
     {
         Host = host;
-        DeviceState = deviceState;
+        DeviceBackend = deviceBackend;
         ConnectionId = connectionId;
         Version = version;
         MessageId = messageId;
@@ -57,8 +57,8 @@ public sealed class VirtualReaderRequestContext
     /// <summary>Gets the owning single-host runtime.</summary>
     public VirtualReaderHost Host { get; }
 
-    /// <summary>Gets the host device state. This is intentionally not a platform Manager instance directory.</summary>
-    internal VirtualReaderDeviceState DeviceState { get; }
+    /// <summary>Gets the host device backend. This is intentionally not a platform Manager instance directory.</summary>
+    internal ILlrpReaderDeviceBackend DeviceBackend { get; }
 
     /// <summary>Gets the transport connection identifier.</summary>
     public string ConnectionId { get; }

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LlrpDevice.Server\LlrpDevice.Server.csproj" />
+    <ProjectReference Include="..\LlrpDevice.Virtual\LlrpDevice.Virtual.csproj" />
+  </ItemGroup>
+</Project>

@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\LlrpDevice.Abstractions\LlrpDevice.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\LlrpDevice.Server\LlrpDevice.Server.csproj" />
+    <ProjectReference Include="..\..\src\LlrpDevice.Virtual\LlrpDevice.Virtual.csproj" />
+    <ProjectReference Include="..\..\src\LlrpDevice.Virtual.Hosting\LlrpDevice.Virtual.Hosting.csproj" />
     <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Core\LlrpNet.Core.csproj" />
     <ProjectReference Include="..\..\src\LlrpNet\LlrpNet.Protocol\LlrpNet.Protocol.csproj" />
     <ProjectReference Include="..\..\src\LlrpSdk.Extensions.Abstractions\LlrpSdk.Extensions.Abstractions.csproj" />
