@@ -534,7 +534,8 @@ public sealed class LlrpCliApplicationTests
             using var output = new StringWriter();
             IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings
             {
-                Out = new AnsiConsoleOutput(output)
+                Out = new AnsiConsoleOutput(output),
+                Ansi = AnsiSupport.No,
             });
 
             LiveProtocolDiagnostics.Decode(["decode", path, "--output", "summary"], console);

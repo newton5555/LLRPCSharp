@@ -30,7 +30,8 @@ public sealed class LlrpCliApplication
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
             Out = new AnsiConsoleOutput(output),
-            Ansi = AnsiSupport.Detect,
+            // Keep interactive terminal colors, but make redirected/script output stable and machine-readable.
+            Ansi = ReferenceEquals(output, Console.Out) ? AnsiSupport.Detect : AnsiSupport.No,
         });
 
         var app = new CommandApp(new TypeRegistrar(console, output));
