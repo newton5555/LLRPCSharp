@@ -76,7 +76,7 @@ public sealed class LlrpDeviceServerSdkInteropTests
             antenna =>
             {
                 Assert.Equal((ushort)1, antenna.ReceiverSensitivityIndex);
-                Assert.Equal((ushort)192, antenna.TransmitPowerIndex);
+                Assert.Equal((ushort)193, antenna.TransmitPowerIndex);
                 Assert.Equal((ushort)1, antenna.HopTableId);
                 Assert.Equal((ushort)1, antenna.ChannelIndex);
             });
