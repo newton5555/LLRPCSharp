@@ -84,9 +84,10 @@ public sealed record VirtualDeviceConfigurationDocument
     public string RfScenario { get; init; } = "static";
     public int RandomSeed { get; init; } = 2026;
     public double DetectionProbability { get; init; } = 1.0;
+    public double SingleTagProbability { get; init; } = 0.85;
     public int PresenceCycleRounds { get; init; } = 3;
     public int RssiJitterDb { get; init; }
-    public int MaxTagsPerRound { get; init; }
+    public int MaxTagsPerRound { get; init; } = 2;
     /// <summary>
     /// Legacy inline tags are accepted for one migration cycle. New documents
     /// should put tags in a separate inventory data-source JSON file.
@@ -173,9 +174,12 @@ public static class VirtualDeviceConfiguration
 
         if (double.IsNaN(document.DetectionProbability) ||
             double.IsInfinity(document.DetectionProbability) ||
-            document.DetectionProbability is < 0 or > 1)
+            document.DetectionProbability is < 0 or > 1 ||
+            double.IsNaN(document.SingleTagProbability) ||
+            double.IsInfinity(document.SingleTagProbability) ||
+            document.SingleTagProbability is < 0 or > 1)
         {
-            throw new InvalidDataException("Detection probability must be between 0 and 1.");
+            throw new InvalidDataException("Detection and single-tag probabilities must be between 0 and 1.");
         }
 
         if (document.InventoryDataSource is not null &&
@@ -279,6 +283,7 @@ internal sealed record VirtualDeviceLaunchOptions
     public string? RfScenario { get; init; }
     public int? RandomSeed { get; init; }
     public double? DetectionProbability { get; init; }
+    public double? SingleTagProbability { get; init; }
     public int? PresenceCycleRounds { get; init; }
     public int? RssiJitterDb { get; init; }
     public int? MaxTagsPerRound { get; init; }
@@ -324,9 +329,10 @@ internal static class VirtualDeviceHostOptionsBuilder
         VirtualRfScenario rfScenario = VirtualDeviceConfiguration.ParseRfScenario(rfScenarioText);
         int randomSeed = launch.RandomSeed ?? document?.RandomSeed ?? 2026;
         double detectionProbability = launch.DetectionProbability ?? document?.DetectionProbability ?? 1.0;
+        double singleTagProbability = launch.SingleTagProbability ?? document?.SingleTagProbability ?? 0.85;
         int presenceCycleRounds = launch.PresenceCycleRounds ?? document?.PresenceCycleRounds ?? 3;
         int rssiJitterDb = launch.RssiJitterDb ?? document?.RssiJitterDb ?? 0;
-        int maxTagsPerRound = launch.MaxTagsPerRound ?? document?.MaxTagsPerRound ?? 0;
+        int maxTagsPerRound = launch.MaxTagsPerRound ?? document?.MaxTagsPerRound ?? 2;
         int maximumClientConnections =
             launch.MaximumClientConnections ?? 1;
 
@@ -366,6 +372,7 @@ internal static class VirtualDeviceHostOptionsBuilder
                 Scenario = rfScenario,
                 RandomSeed = randomSeed,
                 DetectionProbability = detectionProbability,
+                SingleTagProbability = singleTagProbability,
                 PresenceCycleRounds = presenceCycleRounds,
                 RssiJitterDb = rssiJitterDb,
                 MaxTagsPerRound = maxTagsPerRound,

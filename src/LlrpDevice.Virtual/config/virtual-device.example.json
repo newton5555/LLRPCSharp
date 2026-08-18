@@ -8,5 +8,7 @@
   "reportCount": 0,
   "repeat": true,
   "rfScenario": "static",
-  "randomSeed": 2026
+  "randomSeed": 2026,
+  "singleTagProbability": 0.85,
+  "maxTagsPerRound": 2
 }

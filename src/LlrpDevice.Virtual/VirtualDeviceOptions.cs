@@ -14,9 +14,10 @@ public sealed record VirtualRfSimulationOptions
     public VirtualRfScenario Scenario { get; init; } = VirtualRfScenario.Static;
     public int RandomSeed { get; init; } = 2026;
     public double DetectionProbability { get; init; } = 1.0;
+    public double SingleTagProbability { get; init; } = 0.85;
     public int PresenceCycleRounds { get; init; } = 3;
     public int RssiJitterDb { get; init; }
-    public int MaxTagsPerRound { get; init; }
+    public int MaxTagsPerRound { get; init; } = 2;
 }
 
 public sealed record VirtualTagDefinition
@@ -231,7 +232,10 @@ public sealed record VirtualDeviceOptions
 
         if (double.IsNaN(RfSimulation.DetectionProbability) ||
             double.IsInfinity(RfSimulation.DetectionProbability) ||
-            RfSimulation.DetectionProbability is < 0 or > 1)
+            RfSimulation.DetectionProbability is < 0 or > 1 ||
+            double.IsNaN(RfSimulation.SingleTagProbability) ||
+            double.IsInfinity(RfSimulation.SingleTagProbability) ||
+            RfSimulation.SingleTagProbability is < 0 or > 1)
         {
             throw new ArgumentOutOfRangeException(nameof(RfSimulation.DetectionProbability));
         }

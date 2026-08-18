@@ -119,6 +119,12 @@ receive-sensitivity entry, 41 RF-mode entries, and one 16-channel hop table. The
 inventory population is a separate source at
 `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json`; another JSON source can be selected
 with `--data-source PATH`.
+The built-in source contains six deterministic tags distributed across the four
+logical antennas. The default static simulation returns one tag in 85% of
+observation rounds and up to two tags in the remaining rounds; the selected tag
+rotates by seed and round so the same tag is not always returned. Adjust
+`singleTagProbability` and `maxTagsPerRound` in the device configuration, or use
+`--single-tag-probability` and `--max-tags-per-round` for a launch override.
 
 The SDK composition boundary is explicit:
 

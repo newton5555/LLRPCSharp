@@ -330,7 +330,7 @@ public sealed class VirtualInventoryExecution : IInventoryExecution
         ushort[] antennas = round.AntennaIds.Count == 0 || round.AntennaIds.Contains((ushort)0)
             ? []
             : round.AntennaIds.Distinct().ToArray();
-        var observations = new List<TagObservation>();
+        var candidates = new List<TagObservation>();
         IReadOnlyList<TagObservation> tags = _tags.Snapshot();
         for (int index = 0; index < tags.Count; index++)
         {
@@ -366,16 +366,22 @@ public sealed class VirtualInventoryExecution : IInventoryExecution
                 continue;
             }
 
-            tag = _tags.MarkSeen(tag.ElectronicProductCode.Span, round.StartedAtUtc) ?? tag;
-            observations.Add(tag);
+            candidates.Add(tag);
         }
 
         int maxTagsPerRound = Plan.MaxTagsPerRound is int requestedMax && requestedMax > 0
             ? Math.Min(requestedMax, _options.MaxTagsPerRound > 0 ? _options.MaxTagsPerRound : requestedMax)
             : _options.MaxTagsPerRound;
-        if (maxTagsPerRound > 0 && observations.Count > maxTagsPerRound)
+
+        IReadOnlyList<TagObservation> selected = SelectRoundObservations(
+            candidates,
+            round.Sequence,
+            maxTagsPerRound);
+        var observations = new List<TagObservation>(selected.Count);
+        foreach (TagObservation tag in selected)
         {
-            observations.RemoveRange(maxTagsPerRound, observations.Count - maxTagsPerRound);
+            TagObservation marked = _tags.MarkSeen(tag.ElectronicProductCode.Span, round.StartedAtUtc) ?? tag;
+            observations.Add(marked with { PeakRssi = tag.PeakRssi });
         }
 
         return ValueTask.FromResult(new InventoryObservationBatch { Tags = observations });
@@ -409,6 +415,40 @@ public sealed class VirtualInventoryExecution : IInventoryExecution
         }
 
         return StableRange(tagIndex, sequence, 10_000) < _options.DetectionProbability * 10_000;
+    }
+
+    private IReadOnlyList<TagObservation> SelectRoundObservations(
+        IReadOnlyList<TagObservation> candidates,
+        int sequence,
+        int maxTagsPerRound)
+    {
+        if (candidates.Count <= 1)
+        {
+            return candidates;
+        }
+
+        int limit = maxTagsPerRound > 0
+            ? Math.Min(maxTagsPerRound, candidates.Count)
+            : candidates.Count;
+        if (limit <= 1 ||
+            StableRange(-1, sequence, 10_000) < _options.SingleTagProbability * 10_000)
+        {
+            limit = 1;
+        }
+
+        // Keep the first observation compatible with the original deterministic
+        // source ordering; rotate subsequent rounds so one tag is not always
+        // reported when a reader performs repeated inventory rounds.
+        int start = sequence == 0
+            ? 0
+            : StableRange(-2, sequence, candidates.Count);
+        var selected = new List<TagObservation>(limit);
+        for (int offset = 0; offset < limit; offset++)
+        {
+            selected.Add(candidates[(start + offset) % candidates.Count]);
+        }
+
+        return selected;
     }
 
     private int StableRange(int tagIndex, int sequence, int exclusiveMax)

@@ -9,6 +9,46 @@
       "antennaId": 1,
       "channelIndex": 1,
       "userMemory": [0, 0, 0, 0]
+    },
+    {
+      "epc": "E28011710000020D056E9BEF",
+      "tid": "E20034120123456789ABCDE0",
+      "peakRssi": -48,
+      "antennaId": 1,
+      "channelIndex": 2,
+      "userMemory": [0, 0, 0, 0]
+    },
+    {
+      "epc": "E28011710000020D056E9BF0",
+      "tid": "E20034120123456789ABCDE1",
+      "peakRssi": -51,
+      "antennaId": 2,
+      "channelIndex": 1,
+      "userMemory": [0, 0, 0, 0]
+    },
+    {
+      "epc": "E28011710000020D056E9BF1",
+      "tid": "E20034120123456789ABCDE2",
+      "peakRssi": -54,
+      "antennaId": 2,
+      "channelIndex": 2,
+      "userMemory": [0, 0, 0, 0]
+    },
+    {
+      "epc": "E28011710000020D056E9BF2",
+      "tid": "E20034120123456789ABCDE3",
+      "peakRssi": -46,
+      "antennaId": 3,
+      "channelIndex": 1,
+      "userMemory": [0, 0, 0, 0]
+    },
+    {
+      "epc": "E28011710000020D056E9BF3",
+      "tid": "E20034120123456789ABCDE4",
+      "peakRssi": -58,
+      "antennaId": 4,
+      "channelIndex": 1,
+      "userMemory": [0, 0, 0, 0]
     }
   ]
 }

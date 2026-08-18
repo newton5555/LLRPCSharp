@@ -68,7 +68,7 @@ public static class VirtualInventoryDataSources
     /// <summary>Identifier of the deterministic default tag source.</summary>
     public const string DefaultId = "default";
 
-    /// <summary>One deterministic tag used when no source is supplied.</summary>
+    /// <summary>Deterministic multi-tag population used when no source is supplied.</summary>
     public static InMemoryVirtualInventoryDataSource Default { get; } =
         new(
             DefaultId,
@@ -85,6 +85,89 @@ public static class VirtualInventoryDataSources
                         0xE2, 0x00, 0x34, 0x12, 0x01, 0x23,
                         0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
                     },
+                    PeakRssi = -42,
+                    AntennaId = 1,
+                    ChannelIndex = 1,
+                },
+                new VirtualTagDefinition
+                {
+                    ElectronicProductCode = new byte[]
+                    {
+                        0xE2, 0x80, 0x11, 0x71, 0x00, 0x00,
+                        0x02, 0x0D, 0x05, 0x6E, 0x9B, 0xEF,
+                    },
+                    Tid = new byte[]
+                    {
+                        0xE2, 0x00, 0x34, 0x12, 0x01, 0x23,
+                        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xE0,
+                    },
+                    PeakRssi = -48,
+                    AntennaId = 1,
+                    ChannelIndex = 2,
+                },
+                new VirtualTagDefinition
+                {
+                    ElectronicProductCode = new byte[]
+                    {
+                        0xE2, 0x80, 0x11, 0x71, 0x00, 0x00,
+                        0x02, 0x0D, 0x05, 0x6E, 0x9B, 0xF0,
+                    },
+                    Tid = new byte[]
+                    {
+                        0xE2, 0x00, 0x34, 0x12, 0x01, 0x23,
+                        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xE1,
+                    },
+                    PeakRssi = -51,
+                    AntennaId = 2,
+                    ChannelIndex = 1,
+                },
+                new VirtualTagDefinition
+                {
+                    ElectronicProductCode = new byte[]
+                    {
+                        0xE2, 0x80, 0x11, 0x71, 0x00, 0x00,
+                        0x02, 0x0D, 0x05, 0x6E, 0x9B, 0xF1,
+                    },
+                    Tid = new byte[]
+                    {
+                        0xE2, 0x00, 0x34, 0x12, 0x01, 0x23,
+                        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xE2,
+                    },
+                    PeakRssi = -54,
+                    AntennaId = 2,
+                    ChannelIndex = 2,
+                },
+                new VirtualTagDefinition
+                {
+                    ElectronicProductCode = new byte[]
+                    {
+                        0xE2, 0x80, 0x11, 0x71, 0x00, 0x00,
+                        0x02, 0x0D, 0x05, 0x6E, 0x9B, 0xF2,
+                    },
+                    Tid = new byte[]
+                    {
+                        0xE2, 0x00, 0x34, 0x12, 0x01, 0x23,
+                        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xE3,
+                    },
+                    PeakRssi = -46,
+                    AntennaId = 3,
+                    ChannelIndex = 1,
+                },
+                new VirtualTagDefinition
+                {
+                    ElectronicProductCode = new byte[]
+                    {
+                        0xE2, 0x80, 0x11, 0x71, 0x00, 0x00,
+                        0x02, 0x0D, 0x05, 0x6E, 0x9B, 0xF3,
+                    },
+                    Tid = new byte[]
+                    {
+                        0xE2, 0x00, 0x34, 0x12, 0x01, 0x23,
+                        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xE4,
+                    },
+                    PeakRssi = -58,
+                    AntennaId = 4,
+                    ChannelIndex = 1,
                 },
             ]);
 }

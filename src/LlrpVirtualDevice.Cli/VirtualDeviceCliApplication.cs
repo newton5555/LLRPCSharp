@@ -214,6 +214,7 @@ public sealed class VirtualDeviceCliApplication
                 "--rf-scenario" => options with { RfScenario = ReadString(args, ref index, option) },
                 "--seed" => options with { RandomSeed = ReadInt(args, ref index, option) },
                 "--detection-probability" => options with { DetectionProbability = ReadDouble(args, ref index, option) },
+                "--single-tag-probability" => options with { SingleTagProbability = ReadDouble(args, ref index, option) },
                 "--presence-cycle-rounds" => options with { PresenceCycleRounds = ReadInt(args, ref index, option) },
                 "--rssi-jitter-db" => options with { RssiJitterDb = ReadInt(args, ref index, option) },
                 "--max-tags-per-round" => options with { MaxTagsPerRound = ReadInt(args, ref index, option) },
@@ -449,6 +450,7 @@ public sealed class VirtualDeviceCliApplication
         output.WriteLine("  --rf-scenario <static|moving-tags|noisy>");
         output.WriteLine("  --seed <N>                      Deterministic RF simulation seed.");
         output.WriteLine("  --detection-probability <N>     Noisy scenario detection probability.");
+        output.WriteLine("  --single-tag-probability <N>   Probability that a round returns one tag.");
         output.WriteLine("  --presence-cycle-rounds <N>    Moving-tag presence cycle.");
         output.WriteLine("  --rssi-jitter-db <N>            Noisy RSSI jitter.");
         output.WriteLine("  --max-tags-per-round <N>       Per-round observation limit.");

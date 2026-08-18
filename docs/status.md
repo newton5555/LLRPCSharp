@@ -39,7 +39,9 @@ Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard` �
 `default` 寻卡数据源，分别落在 `src/LlrpDevice.Virtual/config/llrp/caps/` 与
 `src/LlrpDevice.Virtual/config/llrp/data-sources/`；
 `src/LlrpDevice.Virtual/config/virtual-device.example.json` 只组合这些对象和行为参数，监听地址、端口、连接数
-仍由 create/run 启动参数提供，不写入配置文件。
+仍由 create/run 启动参数提供，不写入配置文件。默认数据源包含 6 张分布在 4 根逻辑天线上的
+确定性标签；默认静态寻卡每轮以 85% 概率返回 1 张、其余轮次最多返回 2 张，并按 seed/轮次轮换标签。
+`singleTagProbability` 与 `maxTagsPerRound` 可在行为配置或 CLI 启动参数中调整。
 
 标准 `llrp1.0.1_standard` 档案使用通用身份：`ManufacturerId=0`、`ModelId=0`、
 `FirmwareVersion=virtual-1.0.1`；其中的 RF 表只表示虚拟设备的能力数据，不代表

@@ -182,9 +182,56 @@ public sealed class VirtualLlrpDeviceTests
     }
 
     [Fact]
+    public async Task Inventory_samples_one_rotating_tag_per_round_when_configured()
+    {
+        await using var device = new VirtualLlrpDevice(new VirtualDeviceOptions
+        {
+            RfSimulation = new VirtualRfSimulationOptions
+            {
+                SingleTagProbability = 1,
+                MaxTagsPerRound = 2,
+            },
+        });
+
+        var epcs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int sequence = 0; sequence < 6; sequence++)
+        {
+            InventoryObservationBatch batch = await ObserveAsync(device, sequence);
+            Assert.Single(batch.Tags);
+            epcs.Add(Convert.ToHexString(batch.Tags[0].ElectronicProductCode.Span));
+        }
+
+        Assert.Equal(6, VirtualInventoryDataSources.Default.Tags.Count);
+        Assert.True(epcs.Count > 1);
+    }
+
+    [Fact]
+    public async Task Inventory_can_return_two_tags_when_single_tag_probability_is_zero()
+    {
+        await using var device = new VirtualLlrpDevice(new VirtualDeviceOptions
+        {
+            RfSimulation = new VirtualRfSimulationOptions
+            {
+                SingleTagProbability = 0,
+                MaxTagsPerRound = 2,
+            },
+        });
+
+        InventoryObservationBatch batch = await ObserveAsync(device, 0);
+
+        Assert.Equal(2, batch.Tags.Count);
+    }
+
+    [Fact]
     public async Task Inventory_observation_preserves_tag_seen_timestamps_and_count()
     {
-        await using var device = new VirtualLlrpDevice();
+        var source = new InMemoryVirtualInventoryDataSource(
+            "single-tag-source",
+            [new VirtualTagDefinition
+            {
+                ElectronicProductCode = Convert.FromHexString("E28011710000020D056E9BEE"),
+            }]);
+        await using var device = new VirtualLlrpDevice(new VirtualDeviceOptions(), source);
         DateTimeOffset firstRound = DateTimeOffset.UtcNow;
         await using IInventoryExecution firstExecution = await device.StartInventoryAsync(
             new LlrpInventoryPlan { RoSpecId = 1 });
@@ -220,7 +267,7 @@ public sealed class VirtualLlrpDeviceTests
             MemoryBank = LlrpTagMemoryBank.ElectronicProductCode,
             BitPointer = 32,
             BitLength = 96,
-            Mask = epc,
+            Mask = Enumerable.Repeat((byte)0xFF, epc.Length).ToArray(),
             Data = epc,
         },
         Operations = [operation],
