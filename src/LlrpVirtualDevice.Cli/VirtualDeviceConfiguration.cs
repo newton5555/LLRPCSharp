@@ -1,84 +1,65 @@
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using LlrpDevice.Abstractions;
-using LlrpDevice.Server;
-using LlrpDevice.Virtual;
 using LlrpDevice.Virtual.Hosting;
-using LlrpNet.Core.Protocol;
 
 namespace LlrpVirtualDevice.Cli;
 
-/// <summary>Stable identifiers for the standalone single-device CLI presets.</summary>
 public static class VirtualDevicePresetIds
 {
     public const string Standard101Basic = "llrp.standard101.basic";
     public const string Standard101Strict = "llrp.standard101.strict";
     public const string Standard11Basic = "llrp.standard11.basic";
     public const string Standard20Basic = "llrp.standard20.basic";
+    public const string ImpinjR420Basic = "impinj.r420.basic";
 }
 
-/// <summary>Describes one built-in single-device CLI preset.</summary>
 public sealed record VirtualDevicePreset(
     string Id,
     string Description,
     string ProtocolVersion,
     bool Strict)
 {
-    public string CapabilityProfileId { get; init; } = VirtualDeviceCapabilityProfiles.Standard101Id;
+    public string CapabilityProfileId { get; init; } = VirtualDeviceProfiles.Standard101Id;
 }
 
-/// <summary>Built-in presets for one standalone virtual LLRP device.</summary>
 public static class VirtualDevicePresets
 {
     public static IReadOnlyList<VirtualDevicePreset> All { get; } =
     [
-        new(
-            VirtualDevicePresetIds.Standard101Basic,
-            "LLRP 1.0.1 reader with deterministic tag reports.",
+        new(VirtualDevicePresetIds.Standard101Basic, "LLRP 1.0.1 reader with deterministic tag reports.", "1.0.1", false),
+        new(VirtualDevicePresetIds.Standard101Strict, "LLRP 1.0.1 reader with strict standard inventory validation.", "1.0.1", true),
+        new(VirtualDevicePresetIds.Standard11Basic, "LLRP 1.1 reader with explicit version negotiation.", "1.1", false),
+        new(VirtualDevicePresetIds.Standard20Basic, "LLRP 2.0 reader using the current translated device profile.", "2.0", false),
+        new(VirtualDevicePresetIds.ImpinjR420Basic,
+            "Impinj R420-shaped LLRP 1.0.1 reader with extension activation and captured defaults.",
             "1.0.1",
-            false),
-        new(
-            VirtualDevicePresetIds.Standard101Strict,
-            "LLRP 1.0.1 reader with strict standard inventory validation.",
-            "1.0.1",
-            true),
-        new(
-            VirtualDevicePresetIds.Standard11Basic,
-            "LLRP 1.1 reader with explicit version negotiation.",
-            "1.1",
-            false),
-        new(
-            VirtualDevicePresetIds.Standard20Basic,
-            "LLRP 2.0 reader using the current translated device profile.",
-            "2.0",
-            false),
+            false)
+        {
+            CapabilityProfileId = VirtualDeviceProfiles.ImpinjR420Id,
+        },
     ];
 
     public static VirtualDevicePreset Get(string presetId)
     {
-        if (string.IsNullOrWhiteSpace(presetId))
-        {
-            throw new ArgumentException("A virtual-device preset identifier is required.", nameof(presetId));
-        }
-
+        ArgumentException.ThrowIfNullOrWhiteSpace(presetId);
         return All.FirstOrDefault(preset =>
                    string.Equals(preset.Id, presetId, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidDataException($"Unknown virtual-device preset '{presetId}'.");
     }
 }
 
-/// <summary>Versioned local JSON document for exactly one virtual device.</summary>
 public sealed record VirtualDeviceConfigurationDocument
 {
     public int SchemaVersion { get; init; } = 1;
     public string PresetId { get; init; } = VirtualDevicePresetIds.Standard101Basic;
-    public string CapabilityProfileId { get; init; } = VirtualDeviceCapabilityProfiles.Standard101Id;
+    public string CapabilityProfileId { get; init; } = VirtualDeviceProfiles.Standard101Id;
     public string? Name { get; init; }
     public string? ProtocolVersion { get; init; }
     public bool? Strict { get; init; }
+    public bool? RelaxedRoSpecStateChecks { get; init; }
     public bool? AllowImplicitStopOnDisable { get; init; }
-    public string? InventoryDataSource { get; init; } = VirtualInventoryDataSources.DefaultId;
+    public string? InventoryDataSource { get; init; } = VirtualInventoryOptions.DefaultSourceId;
     public int ReportIntervalMilliseconds { get; init; } = 100;
     public int ReportCount { get; init; }
     public bool Repeat { get; init; } = true;
@@ -89,14 +70,9 @@ public sealed record VirtualDeviceConfigurationDocument
     public int PresenceCycleRounds { get; init; } = 3;
     public int RssiJitterDb { get; init; }
     public int MaxTagsPerRound { get; init; } = 2;
-    /// <summary>
-    /// Legacy inline tags are accepted for one migration cycle. New documents
-    /// should put tags in a separate inventory data-source JSON file.
-    /// </summary>
     public IReadOnlyList<VirtualDeviceTagConfiguration> Tags { get; init; } = [];
 }
 
-/// <summary>Describes one tag in a single-device JSON configuration.</summary>
 public sealed record VirtualDeviceTagConfiguration
 {
     public required string Epc { get; init; }
@@ -109,7 +85,6 @@ public sealed record VirtualDeviceTagConfiguration
     public uint KillPassword { get; init; }
 }
 
-/// <summary>Loads and validates the single-device JSON format used by the standalone CLI.</summary>
 public static class VirtualDeviceConfiguration
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -129,10 +104,8 @@ public static class VirtualDeviceConfiguration
             throw new ArgumentException("A virtual-device configuration path is required.", nameof(path));
         }
 
-        string json = File.ReadAllText(path);
         VirtualDeviceConfigurationDocument document = JsonSerializer.Deserialize<VirtualDeviceConfigurationDocument>(
-                json,
-                SerializerOptions)
+                File.ReadAllText(path), SerializerOptions)
             ?? throw new InvalidDataException("The virtual-device configuration document is empty.");
         Validate(document);
         return document;
@@ -143,15 +116,13 @@ public static class VirtualDeviceConfiguration
         ArgumentNullException.ThrowIfNull(document);
         if (document.SchemaVersion != 1)
         {
-            throw new InvalidDataException(
-                $"Unsupported virtual-device configuration schema {document.SchemaVersion}; expected 1.");
+            throw new InvalidDataException($"Unsupported virtual-device configuration schema {document.SchemaVersion}; expected 1.");
         }
 
         VirtualDevicePreset preset = VirtualDevicePresets.Get(document.PresetId);
-        _ = VirtualDeviceCapabilityProfileCatalog.Get(
-            string.IsNullOrWhiteSpace(document.CapabilityProfileId)
-                ? preset.CapabilityProfileId
-                : document.CapabilityProfileId);
+        _ = VirtualDeviceProfiles.Get(string.IsNullOrWhiteSpace(document.CapabilityProfileId)
+            ? preset.CapabilityProfileId
+            : document.CapabilityProfileId);
 
         if (document.Name is not null && string.IsNullOrWhiteSpace(document.Name))
         {
@@ -163,30 +134,17 @@ public static class VirtualDeviceConfiguration
             _ = ParseProtocolVersion(document.ProtocolVersion);
         }
 
-        if (document.ReportIntervalMilliseconds <= 0 || document.ReportCount < 0)
+        if (document.ReportIntervalMilliseconds <= 0 || document.ReportCount < 0 ||
+            document.PresenceCycleRounds <= 0 || document.RssiJitterDb < 0 || document.MaxTagsPerRound < 0)
         {
-            throw new InvalidDataException("Report interval must be positive and report count cannot be negative.");
+            throw new InvalidDataException("Report and RF simulation values are invalid.");
         }
 
-        if (document.PresenceCycleRounds <= 0 || document.RssiJitterDb < 0 || document.MaxTagsPerRound < 0)
-        {
-            throw new InvalidDataException("RF cycle, RSSI jitter, and tag limits are invalid.");
-        }
-
-        if (double.IsNaN(document.DetectionProbability) ||
-            double.IsInfinity(document.DetectionProbability) ||
-            document.DetectionProbability is < 0 or > 1 ||
-            double.IsNaN(document.SingleTagProbability) ||
-            double.IsInfinity(document.SingleTagProbability) ||
-            document.SingleTagProbability is < 0 or > 1)
+        if (document.DetectionProbability is < 0 or > 1 || document.SingleTagProbability is < 0 or > 1 ||
+            double.IsNaN(document.DetectionProbability) || double.IsInfinity(document.DetectionProbability) ||
+            double.IsNaN(document.SingleTagProbability) || double.IsInfinity(document.SingleTagProbability))
         {
             throw new InvalidDataException("Detection and single-tag probabilities must be between 0 and 1.");
-        }
-
-        if (document.InventoryDataSource is not null &&
-            string.IsNullOrWhiteSpace(document.InventoryDataSource))
-        {
-            throw new InvalidDataException("An inventory data source reference cannot be empty.");
         }
 
         ArgumentNullException.ThrowIfNull(document.Tags);
@@ -204,24 +162,22 @@ public static class VirtualDeviceConfiguration
             {
                 _ = ParseHex(tag.Tid, "TID");
             }
-
-            ArgumentNullException.ThrowIfNull(tag.UserMemory);
         }
     }
 
-    internal static LlrpProtocolVersion ParseProtocolVersion(string value) => value.Trim() switch
+    internal static VirtualDeviceProtocolVersion ParseProtocolVersion(string value) => value.Trim() switch
     {
-        "1.0.1" => LlrpProtocolVersion.Version101,
-        "1.1" => LlrpProtocolVersion.Version11,
-        "2.0" => LlrpProtocolVersion.Version20,
+        "1.0.1" => VirtualDeviceProtocolVersion.Llrp101,
+        "1.1" => VirtualDeviceProtocolVersion.Llrp11,
+        "2.0" => VirtualDeviceProtocolVersion.Llrp20,
         _ => throw new InvalidDataException($"Unsupported virtual-device protocol version '{value}'."),
     };
 
-    internal static VirtualRfScenario ParseRfScenario(string value) => value.Trim().ToLowerInvariant() switch
+    internal static VirtualDeviceRfScenario ParseRfScenario(string value) => value.Trim().ToLowerInvariant() switch
     {
-        "static" => VirtualRfScenario.Static,
-        "moving-tags" or "moving" => VirtualRfScenario.MovingTags,
-        "noisy" => VirtualRfScenario.Noisy,
+        "static" => VirtualDeviceRfScenario.Static,
+        "moving-tags" or "moving" => VirtualDeviceRfScenario.MovingTags,
+        "noisy" => VirtualDeviceRfScenario.Noisy,
         _ => throw new InvalidDataException($"Unsupported virtual-device RF scenario '{value}'."),
     };
 
@@ -248,16 +204,12 @@ public static class VirtualDeviceConfiguration
         }
     }
 
-    internal static IReadOnlyList<VirtualTagDefinition> BuildTags(
-        IReadOnlyList<VirtualDeviceTagConfiguration> configuredTags)
-    {
-        ArgumentNullException.ThrowIfNull(configuredTags);
-        return configuredTags.Select(static tag => new VirtualTagDefinition
+    internal static IReadOnlyList<VirtualInventoryTag> BuildTags(
+        IReadOnlyList<VirtualDeviceTagConfiguration> configuredTags) =>
+        configuredTags.Select(static tag => new VirtualInventoryTag
         {
             ElectronicProductCode = ParseHex(tag.Epc, "EPC"),
-            Tid = string.IsNullOrWhiteSpace(tag.Tid)
-                ? ReadOnlyMemory<byte>.Empty
-                : ParseHex(tag.Tid, "TID"),
+            Tid = string.IsNullOrWhiteSpace(tag.Tid) ? ReadOnlyMemory<byte>.Empty : ParseHex(tag.Tid, "TID"),
             PeakRssi = tag.PeakRssi,
             AntennaId = tag.AntennaId,
             ChannelIndex = tag.ChannelIndex,
@@ -265,7 +217,6 @@ public static class VirtualDeviceConfiguration
             AccessPassword = tag.AccessPassword,
             KillPassword = tag.KillPassword,
         }).ToArray();
-    }
 }
 
 internal sealed record VirtualDeviceLaunchOptions
@@ -291,131 +242,76 @@ internal sealed record VirtualDeviceLaunchOptions
     public int? MaximumClientConnections { get; init; }
     public int? KeepAliveIntervalMilliseconds { get; init; }
     public bool? Strict { get; init; }
+    public bool? RelaxedRoSpecStateChecks { get; init; }
     public bool? AllowImplicitStopOnDisable { get; init; }
 }
 
 internal static class VirtualDeviceHostOptionsBuilder
 {
-    public static VirtualLlrpDeviceHostOptions Build(
+    public static VirtualDeviceHostOptions Build(
         VirtualDeviceLaunchOptions launch,
         VirtualDeviceConfigurationDocument? document)
     {
         string presetId = launch.PresetId ?? document?.PresetId ?? VirtualDevicePresetIds.Standard101Basic;
         VirtualDevicePreset preset = VirtualDevicePresets.Get(presetId);
-        string profileId = launch.CapabilityProfileId ??
-                           document?.CapabilityProfileId ??
-                           preset.CapabilityProfileId;
-        VirtualDeviceCapabilityProfile profile = VirtualDeviceCapabilityProfileCatalog.Get(profileId);
-        string name = launch.Name ?? document?.Name ?? profile.Identity.Name;
+        string profileId = launch.CapabilityProfileId ?? document?.CapabilityProfileId ?? preset.CapabilityProfileId;
+        VirtualDeviceProfileInfo profile = VirtualDeviceProfiles.Get(profileId);
+
         string listenText = launch.ListenAddress ?? "127.0.0.1";
         if (!IPAddress.TryParse(listenText, out IPAddress? listenAddress))
         {
             throw new InvalidDataException($"The listen address '{listenText}' is invalid.");
         }
 
-        int port = launch.Port ?? 5084;
-        if (port is <= 0 or > ushort.MaxValue)
-        {
-            throw new InvalidDataException("The virtual-device port must be between 1 and 65535.");
-        }
-
-        string protocolText = launch.ProtocolVersion ??
-                              document?.ProtocolVersion ??
-                              preset.ProtocolVersion;
-        LlrpProtocolVersion protocolVersion = VirtualDeviceConfiguration.ParseProtocolVersion(protocolText);
-        bool strict = launch.Strict ?? document?.Strict ?? preset.Strict;
-        bool allowImplicitStopOnDisable = launch.AllowImplicitStopOnDisable ??
-                                          document?.AllowImplicitStopOnDisable ??
-                                          false;
-        int reportInterval = launch.ReportIntervalMilliseconds ?? document?.ReportIntervalMilliseconds ?? 100;
-        int reportCount = launch.ReportCount ?? document?.ReportCount ?? 0;
-        bool repeat = document?.Repeat ?? true;
-        string rfScenarioText = launch.RfScenario ?? document?.RfScenario ?? "static";
-        VirtualRfScenario rfScenario = VirtualDeviceConfiguration.ParseRfScenario(rfScenarioText);
-        int randomSeed = launch.RandomSeed ?? document?.RandomSeed ?? 2026;
-        double detectionProbability = launch.DetectionProbability ?? document?.DetectionProbability ?? 1.0;
-        double singleTagProbability = launch.SingleTagProbability ?? document?.SingleTagProbability ?? 0.85;
-        int presenceCycleRounds = launch.PresenceCycleRounds ?? document?.PresenceCycleRounds ?? 3;
-        int rssiJitterDb = launch.RssiJitterDb ?? document?.RssiJitterDb ?? 0;
-        int maxTagsPerRound = launch.MaxTagsPerRound ?? document?.MaxTagsPerRound ?? 2;
-        int maximumClientConnections =
-            launch.MaximumClientConnections ?? 1;
-
-        IVirtualInventoryDataSource inventoryDataSource;
-        if (document?.Tags is { Count: > 0 })
-        {
-            inventoryDataSource = new InMemoryVirtualInventoryDataSource(
-                "legacy-inline",
-                VirtualDeviceConfiguration.BuildTags(document.Tags));
-        }
-        else
-        {
-            inventoryDataSource = VirtualInventoryDataSourceConfiguration.Resolve(
-                launch.InventoryDataSource ?? document?.InventoryDataSource);
-        }
+        VirtualInventoryOptions inventory = document?.Tags is { Count: > 0 }
+            ? new VirtualInventoryOptions
+            {
+                SourceId = "legacy-inline",
+                Tags = VirtualDeviceConfiguration.BuildTags(document.Tags),
+            }
+            : VirtualInventoryDataSourceConfiguration.Resolve(launch.InventoryDataSource ?? document?.InventoryDataSource);
 
         if (!string.IsNullOrWhiteSpace(launch.Tag))
         {
-            inventoryDataSource = new InMemoryVirtualInventoryDataSource(
-                "cli-tag",
-                [
-                    new VirtualTagDefinition
-                    {
-                        ElectronicProductCode = VirtualDeviceConfiguration.ParseHex(launch.Tag, "EPC"),
-                    },
-                ]);
+            inventory = new VirtualInventoryOptions
+            {
+                SourceId = "cli-tag",
+                Tags = [new VirtualInventoryTag { ElectronicProductCode = VirtualDeviceConfiguration.ParseHex(launch.Tag, "EPC") }],
+            };
         }
 
-        VirtualDeviceOptions deviceOptions = profile.CreateDeviceOptions(inventoryDataSource) with
+        return new VirtualDeviceHostOptions
         {
-            Identity = profile.Identity with
-            {
-                Name = name,
-            },
-            RfSimulation = new VirtualRfSimulationOptions
-            {
-                Scenario = rfScenario,
-                RandomSeed = randomSeed,
-                DetectionProbability = detectionProbability,
-                SingleTagProbability = singleTagProbability,
-                PresenceCycleRounds = presenceCycleRounds,
-                RssiJitterDb = rssiJitterDb,
-                MaxTagsPerRound = maxTagsPerRound,
-            },
-        };
-
-        var serverOptions = new LlrpDeviceServerOptions
-        {
+            ProfileId = profile.Id,
+            Name = launch.Name ?? document?.Name,
             ListenAddress = listenAddress,
-            Port = port,
-            ProtocolVersion = protocolVersion,
-            MaximumClientConnections = maximumClientConnections,
-            // WPF and other SDK consumers commonly finish a short probe/configuration
-            // lease and reconnect immediately. With a single client slot the server-side
-            // receive loop may still be cleaning up the old socket, so rejecting the new
-            // TCP connection produces a spurious 10054. One-device CLI instances model a
-            // physical single-owner reader: the newest control session takes ownership.
-            ConnectionLimitPolicy = maximumClientConnections == 1
-                ? LlrpDeviceConnectionLimitPolicy.ReplaceExisting
-                : LlrpDeviceConnectionLimitPolicy.RejectAdditional,
+            Port = launch.Port ?? 5084,
+            ProtocolVersion = VirtualDeviceConfiguration.ParseProtocolVersion(
+                launch.ProtocolVersion ?? document?.ProtocolVersion ?? preset.ProtocolVersion),
+            MaximumClientConnections = launch.MaximumClientConnections ?? 1,
+            StrictStandardInventoryProfile = launch.Strict ?? document?.Strict ?? preset.Strict,
+            RelaxedRoSpecStateChecks = launch.RelaxedRoSpecStateChecks ??
+                                        launch.AllowImplicitStopOnDisable ??
+                                        document?.RelaxedRoSpecStateChecks ??
+                                        document?.AllowImplicitStopOnDisable ?? true,
             KeepAliveInterval = launch.KeepAliveIntervalMilliseconds is int keepAlive
                 ? TimeSpan.FromMilliseconds(keepAlive)
                 : null,
-            Reports = new LlrpDeviceReportOptions
+            ReportInterval = TimeSpan.FromMilliseconds(
+                launch.ReportIntervalMilliseconds ?? document?.ReportIntervalMilliseconds ?? 100),
+            ReportCount = launch.ReportCount ?? document?.ReportCount ?? 0,
+            RepeatReports = document?.Repeat ?? true,
+            Inventory = inventory,
+            Simulation = new VirtualDeviceSimulationOptions
             {
-                ReportInterval = TimeSpan.FromMilliseconds(reportInterval),
-                ReportCount = reportCount,
-                Repeat = repeat,
+                Scenario = VirtualDeviceConfiguration.ParseRfScenario(launch.RfScenario ?? document?.RfScenario ?? "static"),
+                RandomSeed = launch.RandomSeed ?? document?.RandomSeed ?? 2026,
+                DetectionProbability = launch.DetectionProbability ?? document?.DetectionProbability ?? 1.0,
+                SingleTagProbability = launch.SingleTagProbability ?? document?.SingleTagProbability ?? 0.85,
+                PresenceCycleRounds = launch.PresenceCycleRounds ?? document?.PresenceCycleRounds ?? 3,
+                RssiJitterDb = launch.RssiJitterDb ?? document?.RssiJitterDb ?? 0,
+                MaxTagsPerRound = launch.MaxTagsPerRound ?? document?.MaxTagsPerRound ?? 2,
             },
-            UseStrictStandardInventoryProfile = strict,
-            AllowImplicitStopOnDisable = allowImplicitStopOnDisable,
-        };
-
-        return new VirtualLlrpDeviceHostOptions
-        {
-            Server = serverOptions,
-            Device = deviceOptions,
-            InventoryDataSource = inventoryDataSource,
         };
     }
 }

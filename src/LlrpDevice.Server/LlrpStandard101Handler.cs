@@ -247,7 +247,7 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             all || request.RequestedData == V101Enumerations.GetReaderCapabilitiesRequestedData.LLRP_Air_Protocol_Capabilities
                 ? BuildC1G2Capabilities()
                 : null,
-            []);
+            _state.GetReaderCapabilitiesCustomItems());
     }
 
     private V101Parameters.GeneralDeviceCapabilities BuildGeneralDeviceCapabilities()
@@ -274,7 +274,9 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             _state.Device.Identity.FirmwareVersion,
             receiveSensitivityTable,
             [],
-            new V101Parameters.GPIOCapabilities(4, 1),
+            new V101Parameters.GPIOCapabilities(
+                capabilities.MaxNumberOfGpis,
+                capabilities.MaxNumberOfGpos),
             Enumerable.Range(1, capabilities.MaxNumberOfAntennas)
                 .Select(static id => new V101Parameters.PerAntennaAirProtocol(
                     checked((ushort)id),
@@ -296,13 +298,13 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             SupportsClientRequestOpSpec: false,
             CanDoTagInventoryStateAwareSingulation: capabilities.SupportsStateAwareSingulation,
             SupportsEventAndReportHolding: capabilities.SupportsEventAndReportHolding,
-            MaxNumPriorityLevelsSupported: 7,
-            ClientRequestOpSpecTimeout: 0,
-            MaxNumROSpecs: 1024,
-            MaxNumSpecsPerROSpec: 256,
-            MaxNumInventoryParameterSpecsPerAISpec: 256,
-            MaxNumAccessSpecs: capabilities.SupportsTagAccess ? 1024u : 0u,
-            MaxNumOpSpecsPerAccessSpec: capabilities.SupportsTagAccess ? 256u : 0u);
+            MaxNumPriorityLevelsSupported: capabilities.MaxNumPriorityLevelsSupported,
+            ClientRequestOpSpecTimeout: capabilities.ClientRequestOpSpecTimeout,
+            MaxNumROSpecs: capabilities.MaxNumROSpecs,
+            MaxNumSpecsPerROSpec: capabilities.MaxNumSpecsPerROSpec,
+            MaxNumInventoryParameterSpecsPerAISpec: capabilities.MaxNumInventoryParameterSpecsPerAISpec,
+            MaxNumAccessSpecs: capabilities.SupportsTagAccess ? capabilities.MaxNumAccessSpecs : 0u,
+            MaxNumOpSpecsPerAccessSpec: capabilities.SupportsTagAccess ? capabilities.MaxNumOpSpecsPerAccessSpec : 0u);
     }
 
     private V101Parameters.C1G2LLRPCapabilities? BuildC1G2Capabilities()
@@ -317,7 +319,7 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             ? new V101Parameters.C1G2LLRPCapabilities(
                 capabilities.SupportsBlockErase,
                 capabilities.SupportsBlockWrite,
-                64)
+                capabilities.MaxNumSelectFiltersPerQuery)
             : null;
     }
 
@@ -461,7 +463,7 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             all || request.RequestedData == V101Enumerations.GetReaderConfigRequestedData.GPIPortCurrentState ? gpis : [],
             all || request.RequestedData == V101Enumerations.GetReaderConfigRequestedData.GPOWriteData ? gpo : [],
             all || request.RequestedData == V101Enumerations.GetReaderConfigRequestedData.EventsAndReports ? _state.GetEventsAndReports() : null,
-            []);
+            _state.GetReaderConfigurationCustomItems());
     }
 
     private V101Messages.SET_READER_CONFIG_RESPONSE SetReaderConfig(V101Messages.SET_READER_CONFIG request)
@@ -474,7 +476,8 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             request.AccessReportSpec,
             request.KeepaliveSpec,
             request.GPOWriteDataItems,
-            request.EventsAndReports);
+            request.EventsAndReports,
+            request.CustomItems);
         if (!result.Succeeded)
         {
             return new V101Messages.SET_READER_CONFIG_RESPONSE(
@@ -630,6 +633,13 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
 
         if (roSpec.CurrentState != V101Enumerations.ROSpecState.Disabled)
         {
+            if (_state.Options.RelaxedRoSpecStateChecks)
+            {
+                return new V101Messages.ENABLE_ROSPEC_RESPONSE(
+                    request.MessageId,
+                    Status(V101Enumerations.StatusCode.M_Success, string.Empty));
+            }
+
             return new V101Messages.ENABLE_ROSPEC_RESPONSE(
                 request.MessageId,
                 Status(V101Enumerations.StatusCode.M_ParameterError, "ROSpec is already enabled."));
@@ -648,7 +658,7 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
     {
         if (request.ROSpecID == 0)
         {
-            if (!_state.Options.AllowImplicitStopOnDisable &&
+            if (!_state.Options.RelaxedRoSpecStateChecks &&
                 _state.GetRoSpecs().Any(static item => item.CurrentState == V101Enumerations.ROSpecState.Active))
             {
                 return new V101Messages.DISABLE_ROSPEC_RESPONSE(
@@ -682,13 +692,21 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
         }
 
         if (roSpec.CurrentState == V101Enumerations.ROSpecState.Active &&
-            _state.Options.AllowImplicitStopOnDisable)
+            _state.Options.RelaxedRoSpecStateChecks)
         {
             _state.TryUpdateRoSpec(
                 request.ROSpecID,
                 static current => current with { CurrentState = V101Enumerations.ROSpecState.Inactive });
             _state.MarkRoSpecStopped(request.ROSpecID);
             roSpec = roSpec with { CurrentState = V101Enumerations.ROSpecState.Inactive };
+        }
+
+        if (roSpec.CurrentState == V101Enumerations.ROSpecState.Disabled &&
+            _state.Options.RelaxedRoSpecStateChecks)
+        {
+            return new V101Messages.DISABLE_ROSPEC_RESPONSE(
+                request.MessageId,
+                Status(V101Enumerations.StatusCode.M_Success, string.Empty));
         }
 
         if (roSpec.CurrentState != V101Enumerations.ROSpecState.Inactive)
@@ -737,6 +755,14 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
         if (!_state.TryGetRoSpec(request.ROSpecID, out V101Parameters.ROSpec? roSpec) || roSpec is null)
         {
             return Response(new V101Messages.START_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID)));
+        }
+
+        if (roSpec.CurrentState == V101Enumerations.ROSpecState.Active &&
+            _state.Options.RelaxedRoSpecStateChecks)
+        {
+            return Response(new V101Messages.START_ROSPEC_RESPONSE(
+                request.MessageId,
+                Status(V101Enumerations.StatusCode.M_Success, string.Empty)));
         }
 
         if (roSpec.CurrentState != V101Enumerations.ROSpecState.Inactive)
@@ -801,7 +827,9 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
 
         if (roSpec.CurrentState != V101Enumerations.ROSpecState.Active)
         {
-            if (roSpec.CurrentState == V101Enumerations.ROSpecState.Inactive)
+            if (roSpec.CurrentState == V101Enumerations.ROSpecState.Inactive ||
+                (roSpec.CurrentState == V101Enumerations.ROSpecState.Disabled &&
+                 _state.Options.RelaxedRoSpecStateChecks))
             {
                 return Response(new V101Messages.STOP_ROSPEC_RESPONSE(
                     request.MessageId,

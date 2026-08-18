@@ -18,6 +18,7 @@ internal sealed class LlrpResourceRegistry
 {
     private readonly object _gate = new();
     private readonly ILlrpDevice _device;
+    private readonly IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> _initialReaderConfigurationCustomItems;
     private readonly Dictionary<uint, V101Parameters.ROSpec> _roSpecs = [];
     private readonly Dictionary<uint, V101Parameters.AccessSpec> _accessSpecs = [];
     private readonly Dictionary<uint, RoSpecRuntime> _roSpecRuntime = [];
@@ -32,11 +33,16 @@ internal sealed class LlrpResourceRegistry
         new(V101Enumerations.KeepaliveTriggerType.Null, 0);
     private bool _keepaliveSpecConfigured;
     private V101Parameters.EventsAndReports? _eventsAndReports;
+    private IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> _readerConfigurationCustomItems;
     private uint _configurationStateValue = 1;
 
-    public LlrpResourceRegistry(ILlrpDevice device)
+    public LlrpResourceRegistry(
+        ILlrpDevice device,
+        IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter>? initialReaderConfigurationCustomItems = null)
     {
         _device = device ?? throw new ArgumentNullException(nameof(device));
+        _initialReaderConfigurationCustomItems = initialReaderConfigurationCustomItems?.ToArray() ?? [];
+        _readerConfigurationCustomItems = _initialReaderConfigurationCustomItems;
         _antennaConfigurations = device.Configuration.Antennas
             .Select(ToWireAntennaConfiguration)
             .ToArray();
@@ -486,6 +492,14 @@ internal sealed class LlrpResourceRegistry
         }
     }
 
+    public IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> GetReaderConfigurationCustomItems()
+    {
+        lock (_gate)
+        {
+            return _readerConfigurationCustomItems.ToArray();
+        }
+    }
+
     public uint GetConfigurationStateValue()
     {
         lock (_gate)
@@ -502,10 +516,12 @@ internal sealed class LlrpResourceRegistry
         V101Parameters.AccessReportSpec? accessReportSpec,
         V101Parameters.KeepaliveSpec? keepaliveSpec,
         IReadOnlyList<V101Parameters.GPOWriteData> gpoWriteData,
-        V101Parameters.EventsAndReports? eventsAndReports)
+        V101Parameters.EventsAndReports? eventsAndReports,
+        IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> customItems)
     {
         ArgumentNullException.ThrowIfNull(antennaConfigurations);
         ArgumentNullException.ThrowIfNull(gpoWriteData);
+        ArgumentNullException.ThrowIfNull(customItems);
         var update = new LlrpDeviceConfigurationUpdate
         {
             ResetToFactoryDefault = resetToFactoryDefault,
@@ -549,6 +565,7 @@ internal sealed class LlrpResourceRegistry
                 _keepaliveSpec = new(V101Enumerations.KeepaliveTriggerType.Null, 0);
                 _keepaliveSpecConfigured = false;
                 _eventsAndReports = null;
+                _readerConfigurationCustomItems = _initialReaderConfigurationCustomItems;
                 _configurationStateValue = unchecked(_configurationStateValue + 1);
                 return result;
             }
@@ -572,6 +589,10 @@ internal sealed class LlrpResourceRegistry
                 _keepaliveSpecConfigured = true;
             }
             _eventsAndReports = eventsAndReports ?? _eventsAndReports;
+            if (customItems.Count > 0)
+            {
+                _readerConfigurationCustomItems = customItems.ToArray();
+            }
             _configurationStateValue = unchecked(_configurationStateValue + 1);
         }
 
@@ -817,7 +838,7 @@ internal sealed class LlrpDeviceServerState
     {
         Device = device ?? throw new ArgumentNullException(nameof(device));
         Options = options ?? throw new ArgumentNullException(nameof(options));
-        Resources = new LlrpResourceRegistry(device);
+        Resources = new LlrpResourceRegistry(device, options.InitialReaderConfigurationCustomItems);
         Inventory = new LlrpDeviceInventoryBridge(device);
     }
 
@@ -861,6 +882,10 @@ internal sealed class LlrpDeviceServerState
     public bool IsKeepaliveSpecConfigured => Resources.IsKeepaliveSpecConfigured;
     public V101Parameters.EventsAndReports? GetEventsAndReports() => Resources.GetEventsAndReports();
     public uint GetConfigurationStateValue() => Resources.GetConfigurationStateValue();
+    public IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> GetReaderConfigurationCustomItems() =>
+        Resources.GetReaderConfigurationCustomItems();
+    public IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> GetReaderCapabilitiesCustomItems() =>
+        Options.InitialReaderCapabilitiesCustomItems;
 
     public bool IsEventEnabled(V101Enumerations.NotificationEventType eventType) =>
         Resources.GetReaderEventNotificationSpec()?.EventNotificationStateItems
@@ -1094,7 +1119,8 @@ internal sealed class LlrpDeviceServerState
         V101Parameters.AccessReportSpec? accessReportSpec,
         V101Parameters.KeepaliveSpec? keepaliveSpec,
         IReadOnlyList<V101Parameters.GPOWriteData> gpoWriteData,
-        V101Parameters.EventsAndReports? eventsAndReports) =>
+        V101Parameters.EventsAndReports? eventsAndReports,
+        IReadOnlyList<LlrpNet.Protocol.Parameters.ILlrpParameter> customItems) =>
         Resources.SetConfiguration(
             resetToFactoryDefault,
             antennaConfigurations,
@@ -1103,7 +1129,8 @@ internal sealed class LlrpDeviceServerState
             accessReportSpec,
             keepaliveSpec,
             gpoWriteData,
-            eventsAndReports);
+            eventsAndReports,
+            customItems);
 }
 
 internal sealed record LlrpDeviceTag

@@ -83,19 +83,41 @@ public interface IVirtualLlrpDeviceHost : IAsyncDisposable
 }
 
 /// <summary>Default one-device SDK facade for a virtual LLRP device.</summary>
-public sealed class VirtualLlrpDeviceHost : IVirtualLlrpDeviceHost
+public sealed class VirtualLlrpDeviceHost : IVirtualLlrpDeviceHost, IVirtualDeviceHost
 {
     private readonly VirtualLlrpDeviceHostOptions _options;
+    private readonly VirtualDeviceHostOptions? _definition;
     private readonly VirtualLlrpDevice _virtualDevice;
     private readonly LlrpDeviceServer _server;
     private int _disposeStarted;
 
+    private event EventHandler<VirtualDeviceHostLifecycleChangedEventArgs>? HighLevelLifecycleChanged;
+    private event EventHandler<VirtualDeviceClientChangedEventArgs>? HighLevelClientChanged;
+    private event EventHandler<VirtualDeviceMessageObservedEventArgs>? HighLevelMessageObserved;
+
+    /// <summary>Creates one Host from Hosting-level configuration.</summary>
+    public VirtualLlrpDeviceHost(VirtualDeviceHostOptions options)
+        : this(VirtualDeviceHostOptionsMapper.Build(options), options)
+    {
+    }
+
+    /// <summary>Creates one Host from Hosting-level configuration.</summary>
+    public static VirtualLlrpDeviceHost Create(VirtualDeviceHostOptions options) => new(options);
+
     /// <summary>Creates one stopped virtual device host.</summary>
     public VirtualLlrpDeviceHost(VirtualLlrpDeviceHostOptions options)
+        : this(options, null)
+    {
+    }
+
+    private VirtualLlrpDeviceHost(
+        VirtualLlrpDeviceHostOptions options,
+        VirtualDeviceHostOptions? definition)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
         _options = options;
+        _definition = definition;
         _virtualDevice = new VirtualLlrpDevice(options.Device, options.InventoryDataSource);
         _server = new LlrpDeviceServer(options.Server, _virtualDevice);
         _server.LifecycleChanged += OnServerLifecycleChanged;
@@ -129,6 +151,29 @@ public sealed class VirtualLlrpDeviceHost : IVirtualLlrpDeviceHost
 
     /// <inheritdoc />
     public int ConnectedClientCount => _server.ConnectedClients.Count;
+
+    /// <summary>Gets the Hosting-level definition when this Host was created from it.</summary>
+    public VirtualDeviceHostOptions Definition =>
+        _definition ?? throw new InvalidOperationException(
+            "This Host was created with the legacy low-level options. Use the Hosting-level constructor.");
+
+    event EventHandler<VirtualDeviceHostLifecycleChangedEventArgs>? IVirtualDeviceHost.LifecycleChanged
+    {
+        add => HighLevelLifecycleChanged += value;
+        remove => HighLevelLifecycleChanged -= value;
+    }
+
+    event EventHandler<VirtualDeviceClientChangedEventArgs>? IVirtualDeviceHost.ClientChanged
+    {
+        add => HighLevelClientChanged += value;
+        remove => HighLevelClientChanged -= value;
+    }
+
+    event EventHandler<VirtualDeviceMessageObservedEventArgs>? IVirtualDeviceHost.MessageObserved
+    {
+        add => HighLevelMessageObserved += value;
+        remove => HighLevelMessageObserved -= value;
+    }
 
     /// <inheritdoc />
     public event EventHandler<VirtualLlrpDeviceHostLifecycleChangedEventArgs>? LifecycleChanged;
@@ -182,11 +227,27 @@ public sealed class VirtualLlrpDeviceHost : IVirtualLlrpDeviceHost
                 MapState(args.PreviousState),
                 MapState(args.CurrentState),
                 args.Error));
+        HighLevelLifecycleChanged?.Invoke(
+            this,
+            new VirtualDeviceHostLifecycleChangedEventArgs(
+                MapState(args.PreviousState),
+                MapState(args.CurrentState),
+                args.Error));
     }
 
     private void OnServerClientChanged(object? sender, LlrpDeviceClientChangedEventArgs args)
     {
         ClientChanged?.Invoke(this, new VirtualLlrpDeviceHostClientChangedEventArgs(args.Client, args.Connected));
+        HighLevelClientChanged?.Invoke(
+            this,
+            new VirtualDeviceClientChangedEventArgs(
+                new VirtualDeviceClientInfo(
+                    args.Client.ConnectionId,
+                    args.Client.RemoteEndPoint,
+                    args.Client.ConnectedAt,
+                    MapProtocolVersion(args.Client.NegotiatedVersion),
+                    args.Client.IsConnected),
+                args.Connected));
     }
 
     private void OnServerMessageObserved(object? sender, LlrpDeviceMessageEventArgs args)
@@ -198,7 +259,25 @@ public sealed class VirtualLlrpDeviceHost : IVirtualLlrpDeviceHost
             args.MessageId,
             args.Incoming,
             args.Detail));
+        HighLevelMessageObserved?.Invoke(this, new VirtualDeviceMessageObservedEventArgs(
+            args.ConnectionId,
+            MapProtocolVersion(args.Version),
+            args.MessageType,
+            args.MessageId,
+            args.Incoming,
+            args.Detail));
     }
+
+    private static VirtualDeviceProtocolVersion MapProtocolVersion(LlrpNet.Core.Protocol.LlrpProtocolVersion version) => version switch
+    {
+        LlrpNet.Core.Protocol.LlrpProtocolVersion.Version101 => VirtualDeviceProtocolVersion.Llrp101,
+        LlrpNet.Core.Protocol.LlrpProtocolVersion.Version11 => VirtualDeviceProtocolVersion.Llrp11,
+        LlrpNet.Core.Protocol.LlrpProtocolVersion.Version20 => VirtualDeviceProtocolVersion.Llrp20,
+        _ => throw new ArgumentOutOfRangeException(nameof(version)),
+    };
+
+    private static VirtualDeviceProtocolVersion? MapProtocolVersion(LlrpNet.Core.Protocol.LlrpProtocolVersion? version) =>
+        version is null ? null : MapProtocolVersion(version.Value);
 
     private static VirtualLlrpDeviceHostState MapState(LlrpDeviceServerLifecycleState state) => state switch
     {

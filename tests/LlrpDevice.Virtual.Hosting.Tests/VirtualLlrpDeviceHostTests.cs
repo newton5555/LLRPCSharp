@@ -67,4 +67,44 @@ public sealed class VirtualLlrpDeviceHostTests
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => host.StartAsync());
     }
+
+    [Fact]
+    public async Task Hosting_options_configure_profile_and_initial_tags_without_low_level_options()
+    {
+        await using IVirtualDeviceHost host = VirtualLlrpDeviceHost.Create(
+            new VirtualDeviceHostOptions
+            {
+                ProfileId = VirtualDeviceProfiles.Standard101Id,
+                Port = 0,
+                Name = "Configured Reader",
+                Inventory = new VirtualInventoryOptions
+                {
+                    SourceId = "test-tags",
+                    Tags =
+                    [
+                        new VirtualInventoryTag
+                        {
+                            ElectronicProductCode = Convert.FromHexString("300833B2DDD9014000000001"),
+                        },
+                    ],
+                },
+            });
+
+        Assert.Equal("Configured Reader", host.Definition.Name);
+        Assert.Equal("test-tags", host.Definition.Inventory.SourceId);
+        await host.StartAsync();
+        Assert.Equal(VirtualLlrpDeviceHostState.Running, host.State);
+        await host.StopAsync();
+    }
+
+    [Fact]
+    public void Hosting_exposes_the_captured_impinj_profile()
+    {
+        VirtualDeviceProfileInfo profile = VirtualDeviceProfiles.Get("impinj.r420.llrp-1.0.1");
+
+        Assert.Equal("Impinj R420 (Virtual)", profile.Name);
+        Assert.Equal((uint)25_882, profile.ManufacturerId);
+        Assert.Equal((uint)2_001_002, profile.ModelId);
+        Assert.Equal((ushort)4, profile.MaxNumberOfAntennas);
+    }
 }

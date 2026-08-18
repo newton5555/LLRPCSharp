@@ -1,7 +1,5 @@
 using System.Net;
-using LlrpDevice.Virtual;
 using LlrpDevice.Virtual.Hosting;
-using LlrpNet.Core.Protocol;
 using Spectre.Console;
 
 namespace LlrpVirtualDevice.Cli;
@@ -117,8 +115,8 @@ public sealed class VirtualDeviceCliApplication
         TextWriter output,
         CancellationToken cancellationToken)
     {
-        VirtualLlrpDeviceHostOptions hostOptions = BuildHostOptions(launch);
-        await using IVirtualLlrpDeviceHost host = new VirtualLlrpDeviceHost(hostOptions);
+        VirtualDeviceHostOptions hostOptions = BuildHostOptions(launch);
+        await using IVirtualDeviceHost host = VirtualLlrpDeviceHost.Create(hostOptions);
         using var stopSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
         {
@@ -131,9 +129,9 @@ public sealed class VirtualDeviceCliApplication
         {
             await host.StartAsync(stopSource.Token).ConfigureAwait(false);
             await output.WriteLineAsync(
-                    $"Virtual LLRP device '{host.Device.Identity.Name}' listening on " +
+                    $"Virtual LLRP device '{hostOptions.Name ?? VirtualDeviceProfiles.Get(hostOptions.ProfileId).Name}' listening on " +
                     $"{FormatEndpoint(host.ListenAddress, host.BoundPort)} using LLRP " +
-                    $"{hostOptions.Server.ProtocolVersion}.")
+                    $"{FormatProtocolVersion(hostOptions.ProtocolVersion)}.")
                 .ConfigureAwait(false);
             await output.WriteLineAsync("Press Ctrl+C to stop.").ConfigureAwait(false);
 
@@ -175,7 +173,7 @@ public sealed class VirtualDeviceCliApplication
         return await shell.RunAsync(initialLaunch, autoStart, cancellationToken).ConfigureAwait(false);
     }
 
-    internal static VirtualLlrpDeviceHostOptions BuildHostOptions(VirtualDeviceLaunchOptions launch)
+    internal static VirtualDeviceHostOptions BuildHostOptions(VirtualDeviceLaunchOptions launch)
     {
         VirtualDeviceConfigurationDocument? document = launch.ConfigPath is null
             ? null
@@ -306,11 +304,11 @@ public sealed class VirtualDeviceCliApplication
             throw new ArgumentException($"Unknown caps option '{args[start]}'.");
         }
 
-        foreach (VirtualDeviceCapabilityProfile profile in VirtualDeviceCapabilityProfileCatalog.All)
+        foreach (VirtualDeviceProfileInfo profile in VirtualDeviceProfiles.All)
         {
             output.WriteLine(
                 $"{profile.Id} - LLRP {profile.ProtocolVersion}, " +
-                $"{profile.Capabilities.MaxNumberOfAntennas} antennas");
+                $"{profile.MaxNumberOfAntennas} antennas");
         }
 
         return 0;
@@ -386,11 +384,11 @@ public sealed class VirtualDeviceCliApplication
             ? $"[{address}]:{port}"
             : $"{address}:{port}";
 
-    internal static string FormatProtocolVersion(LlrpProtocolVersion version) => version switch
+    internal static string FormatProtocolVersion(VirtualDeviceProtocolVersion version) => version switch
     {
-        LlrpProtocolVersion.Version101 => "1.0.1",
-        LlrpProtocolVersion.Version11 => "1.1",
-        LlrpProtocolVersion.Version20 => "2.0",
+        VirtualDeviceProtocolVersion.Llrp101 => "1.0.1",
+        VirtualDeviceProtocolVersion.Llrp11 => "1.1",
+        VirtualDeviceProtocolVersion.Llrp20 => "2.0",
         _ => version.ToString(),
     };
 

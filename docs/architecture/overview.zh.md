@@ -39,7 +39,7 @@ flowchart LR
     Server --> Contract["ILlrpDevice"]
     Contract --> Virtual["VirtualLlrpDevice"]
     Contract -.-> Physical["未来硬件设备实现"]
-    Host["IVirtualLlrpDeviceHost"] --> Server
+    Host["IVirtualDeviceHost / VirtualDeviceHostOptions"] --> Server
     Host --> Virtual
     DeviceCli["LlrpVirtualDevice.Cli"] --> Host
     Caps["能力档案清单"] --> DeviceCli
@@ -184,7 +184,7 @@ TCP / LLRP 二进制协议 / 真实或虚拟读写器
 | `LlrpDevice.Abstractions` | 版本中立的身份、配置、盘点、Tag Access 与设备事件合同。 |
 | `LlrpDevice.Server` | 通用 LLRP 设备端 TCP 服务、版本分发、资源状态、报告和故障 Hook。 |
 | `LlrpDevice.Virtual` | `ILlrpDevice` 的确定性内存实现，包含 RF 可观察场景。 |
-| `LlrpDevice.Virtual.Hosting` | 组合一台 Server 和一台 Virtual 设备的 `IVirtualLlrpDeviceHost` 门面。 |
+| `LlrpDevice.Virtual.Hosting` | 组合一台 Server 和一台 Virtual 设备的 `IVirtualDeviceHost`/`VirtualDeviceHostOptions` 门面，支持启动前注入标签和 Impinj R420 profile。 |
 
 ## 能力分层
 

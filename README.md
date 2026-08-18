@@ -109,14 +109,16 @@ dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
 
 ### Standalone single-device SDK and CLI
 
-The device-side SDK exposes `IVirtualLlrpDeviceHost` from
-`LlrpDevice.Virtual.Hosting`. It is the public entry point for one virtual
-device and composes one `VirtualLlrpDevice` with one `LlrpDeviceServer`:
+The device-side SDK exposes `IVirtualDeviceHost` and
+`VirtualDeviceHostOptions` from `LlrpDevice.Virtual.Hosting`. They are the
+public entry point for one virtual device and compose one `VirtualLlrpDevice`
+with one `LlrpDeviceServer`; tags can be supplied before the host starts:
 
 The default device is created with `server create --llrp 1.0.1`. This selects
-the `llrp1.0.1_standard` capability manifest and the independent `default`
-inventory source; listen address and port are creation-time options, not persisted
-device configuration.
+the `llrp1.0.1_standard` capability profile and the independent `default`
+inventory source. The Hosting facade also supports the
+`impinj.r420.llrp-1.0.1` profile. Listen address and port are creation-time
+options, not persisted device configuration.
 
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- `
@@ -130,8 +132,9 @@ creating a device. Use `server create`, `server start`, `server status`,
 host; `logs on|off|status` controls lifecycle, client, and decoded `RX`/`TX`
 events. `validate --config <PATH>` validates the single-device behavior document,
 `presets` lists behavior presets, and `caps` lists capability profiles.
-A future UI can reference the same SDK facade
-directly without depending on the CLI or the compatibility Manager.
+A WPF or other UI can reference the same Hosting facade directly, configure
+`VirtualDeviceHostOptions.Inventory`, and start the host without depending on
+the CLI or the compatibility Manager.
 
 Use `live` when the shell should automatically create and start the device:
 

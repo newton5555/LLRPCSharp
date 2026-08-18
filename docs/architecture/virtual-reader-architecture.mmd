@@ -16,7 +16,7 @@ flowchart TB
     end
 
     subgraph DEVICE["Generic device-side runtime"]
-        HOST["LlrpDevice.Virtual.Hosting<br/>IVirtualLlrpDeviceHost"]
+        HOST["LlrpDevice.Virtual.Hosting<br/>IVirtualDeviceHost + options"]
         SERVER["LlrpDevice.Server<br/>listener / dispatch / resources / reports"]
         CONTRACT["LlrpDevice.Abstractions<br/>ILlrpDevice"]
         VIRTUAL["LlrpDevice.Virtual<br/>VirtualLlrpDevice + deterministic RF"]

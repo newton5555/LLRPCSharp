@@ -1,4 +1,3 @@
-using LlrpDevice.Virtual;
 using LlrpDevice.Virtual.Hosting;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -10,8 +9,8 @@ internal sealed class VirtualDeviceShell
     private readonly IAnsiConsole _console;
     private readonly TextReader _input;
     private readonly object _writeGate = new();
-    private IVirtualLlrpDeviceHost? _host;
-    private VirtualLlrpDeviceHostOptions? _hostOptions;
+    private IVirtualDeviceHost? _host;
+    private VirtualDeviceHostOptions? _hostOptions;
     private bool _logsEnabled = true;
 
     public VirtualDeviceShell(IAnsiConsole console, TextReader input)
@@ -259,14 +258,14 @@ internal sealed class VirtualDeviceShell
                 "A virtual device already exists. Stop and destroy it before creating another one.");
         }
 
-        VirtualLlrpDeviceHostOptions hostOptions = VirtualDeviceCliApplication.BuildHostOptions(launch);
-        var host = new VirtualLlrpDeviceHost(hostOptions);
+        VirtualDeviceHostOptions hostOptions = VirtualDeviceCliApplication.BuildHostOptions(launch);
+        IVirtualDeviceHost host = VirtualLlrpDeviceHost.Create(hostOptions);
         _host = host;
         _hostOptions = hostOptions;
         AttachHostEvents(host);
 
         WriteCommandLine(
-            $"Created virtual device '{host.Device.Identity.Name}' in state {host.State}. " +
+            $"Created virtual device '{hostOptions.Name ?? VirtualDeviceProfiles.Get(hostOptions.ProfileId).Name}' in state {host.State}. " +
             "Use 'server start' to bind the LLRP listener.");
 
         if (start)
@@ -277,7 +276,7 @@ internal sealed class VirtualDeviceShell
 
     private async Task StartServerAsync(CancellationToken cancellationToken)
     {
-        IVirtualLlrpDeviceHost host = RequireHost();
+        IVirtualDeviceHost host = RequireHost();
         if (host.State is VirtualLlrpDeviceHostState.Running or VirtualLlrpDeviceHostState.Starting)
         {
             throw new InvalidOperationException("The virtual LLRP server is already running or starting.");
@@ -286,12 +285,12 @@ internal sealed class VirtualDeviceShell
         await host.StartAsync(cancellationToken).ConfigureAwait(false);
         WriteCommandLine(
             $"Listening on {VirtualDeviceCliApplication.FormatEndpoint(host.ListenAddress, host.BoundPort)} " +
-            $"using LLRP {VirtualDeviceCliApplication.FormatProtocolVersion(_hostOptions!.Server.ProtocolVersion)}.");
+            $"using LLRP {VirtualDeviceCliApplication.FormatProtocolVersion(_hostOptions!.ProtocolVersion)}.");
     }
 
     private async Task StopServerAsync(CancellationToken cancellationToken)
     {
-        IVirtualLlrpDeviceHost host = RequireHost();
+        IVirtualDeviceHost host = RequireHost();
         if (host.State is VirtualLlrpDeviceHostState.Created or VirtualLlrpDeviceHostState.Stopped)
         {
             WriteCommandLine($"Server is already {host.State.ToString().ToLowerInvariant()}.");
@@ -304,7 +303,7 @@ internal sealed class VirtualDeviceShell
 
     private async Task RestartServerAsync(CancellationToken cancellationToken)
     {
-        IVirtualLlrpDeviceHost host = RequireHost();
+        IVirtualDeviceHost host = RequireHost();
         if (host.State == VirtualLlrpDeviceHostState.Created)
         {
             await StartServerAsync(cancellationToken).ConfigureAwait(false);
@@ -318,7 +317,7 @@ internal sealed class VirtualDeviceShell
 
     private async Task DisposeServerAsync(CancellationToken cancellationToken = default)
     {
-        IVirtualLlrpDeviceHost? host = _host;
+        IVirtualDeviceHost? host = _host;
         if (host is null)
         {
             return;
@@ -394,12 +393,12 @@ internal sealed class VirtualDeviceShell
         table.AddColumn("[bold]Capability profile[/]");
         table.AddColumn("[bold]LLRP[/]");
         table.AddColumn("[bold]Antennas[/]");
-        foreach (VirtualDeviceCapabilityProfile profile in VirtualDeviceCapabilityProfileCatalog.All)
+        foreach (VirtualDeviceProfileInfo profile in VirtualDeviceProfiles.All)
         {
             table.AddRow(
                 Markup.Escape(profile.Id),
                 Markup.Escape(profile.ProtocolVersion),
-                profile.Capabilities.MaxNumberOfAntennas.ToString());
+                profile.MaxNumberOfAntennas.ToString());
         }
 
         WriteRenderable(table);
@@ -502,13 +501,14 @@ internal sealed class VirtualDeviceShell
         table.AddColumn("[bold]Property[/]");
         table.AddColumn("[bold]Value[/]");
         AddStatusRow(table, "State", _host.State.ToString());
-        AddStatusRow(table, "Device", _host.Device.Identity.Name);
-        AddStatusRow(table, "Capability profile", _hostOptions!.Device.CapabilityProfileId ?? "direct SDK options");
-        AddStatusRow(table, "Inventory data source", _hostOptions!.InventoryDataSource?.Id ?? "device options");
+        AddStatusRow(table, "Device", _hostOptions!.Name ?? VirtualDeviceProfiles.Get(_hostOptions.ProfileId).Name);
+        AddStatusRow(table, "Capability profile", _hostOptions.ProfileId);
+        AddStatusRow(table, "Inventory data source", _hostOptions.Inventory.SourceId);
         AddStatusRow(table, "Listen address", _host.ListenAddress.ToString());
         AddStatusRow(table, "Configured port", _host.ConfiguredPort.ToString());
         AddStatusRow(table, "Bound port", _host.BoundPort.ToString());
-        AddStatusRow(table, "Protocol", VirtualDeviceCliApplication.FormatProtocolVersion(_hostOptions!.Server.ProtocolVersion));
+        AddStatusRow(table, "Protocol", VirtualDeviceCliApplication.FormatProtocolVersion(_hostOptions!.ProtocolVersion));
+        AddStatusRow(table, "ROSpec state checks", _hostOptions.RelaxedRoSpecStateChecks ? "relaxed" : "strict");
         AddStatusRow(table, "Connected clients", _host.ConnectedClientCount.ToString());
         AddStatusRow(table, "Event logs", _logsEnabled ? "on" : "off");
         WriteRenderable(new Panel(table).Header("[bold deepskyblue1] SERVER STATUS [/]"));
@@ -576,21 +576,21 @@ internal sealed class VirtualDeviceShell
         }
     }
 
-    private void AttachHostEvents(IVirtualLlrpDeviceHost host)
+    private void AttachHostEvents(IVirtualDeviceHost host)
     {
         host.LifecycleChanged += OnLifecycleChanged;
         host.ClientChanged += OnClientChanged;
         host.MessageObserved += OnMessageObserved;
     }
 
-    private void DetachHostEvents(IVirtualLlrpDeviceHost host)
+    private void DetachHostEvents(IVirtualDeviceHost host)
     {
         host.LifecycleChanged -= OnLifecycleChanged;
         host.ClientChanged -= OnClientChanged;
         host.MessageObserved -= OnMessageObserved;
     }
 
-    private void OnLifecycleChanged(object? sender, VirtualLlrpDeviceHostLifecycleChangedEventArgs args)
+    private void OnLifecycleChanged(object? sender, VirtualDeviceHostLifecycleChangedEventArgs args)
     {
         string detail = $"{args.PreviousState} -> {args.CurrentState}";
         if (args.CurrentState == VirtualLlrpDeviceHostState.Running && _host is not null)
@@ -606,7 +606,7 @@ internal sealed class VirtualDeviceShell
         WriteEvent("server", detail);
     }
 
-    private void OnClientChanged(object? sender, VirtualLlrpDeviceHostClientChangedEventArgs args)
+    private void OnClientChanged(object? sender, VirtualDeviceClientChangedEventArgs args)
     {
         WriteEvent(
             "client",
@@ -614,7 +614,7 @@ internal sealed class VirtualDeviceShell
             $"remote={args.Client.RemoteEndPoint?.ToString() ?? "unknown"}");
     }
 
-    private void OnMessageObserved(object? sender, VirtualLlrpDeviceHostMessageObservedEventArgs args)
+    private void OnMessageObserved(object? sender, VirtualDeviceMessageObservedEventArgs args)
     {
         WriteEvent(
             args.Incoming ? "RX" : "TX",
@@ -623,7 +623,7 @@ internal sealed class VirtualDeviceShell
             $"type={args.MessageType} id={args.MessageId} connection={args.ConnectionId}");
     }
 
-    private IVirtualLlrpDeviceHost RequireHost() =>
+    private IVirtualDeviceHost RequireHost() =>
         _host ?? throw new InvalidOperationException(
             "No virtual device has been created. Run 'server create' first.");
 

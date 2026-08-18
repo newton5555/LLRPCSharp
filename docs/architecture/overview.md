@@ -40,7 +40,7 @@ flowchart LR
     Server --> Contract["ILlrpDevice"]
     Contract --> Virtual["VirtualLlrpDevice"]
     Contract -.-> Physical["Future hardware-backed device"]
-    Host["IVirtualLlrpDeviceHost"] --> Server
+    Host["IVirtualDeviceHost / VirtualDeviceHostOptions"] --> Server
     Host --> Virtual
     DeviceCli["LlrpVirtualDevice.Cli"] --> Host
     Caps["Capability profile manifest"] --> DeviceCli
@@ -194,7 +194,7 @@ TCP / LLRP binary protocol / real or virtual readers
 | `LlrpDevice.Abstractions` | Version-neutral identity, configuration, inventory, Tag Access, and device-event contracts. |
 | `LlrpDevice.Server` | Generic LLRP device-side TCP service, version dispatch, resource state, reports, and fault hooks. |
 | `LlrpDevice.Virtual` | Deterministic in-memory implementation of `ILlrpDevice`, including RF-observable scenarios. |
-| `LlrpDevice.Virtual.Hosting` | `IVirtualLlrpDeviceHost` facade that composes one Server and one Virtual device. |
+| `LlrpDevice.Virtual.Hosting` | `IVirtualDeviceHost` and `VirtualDeviceHostOptions` facade that composes one Server and one Virtual device; supports pre-start tag injection and the Impinj R420 profile. |
 
 ## Capability Layers
 

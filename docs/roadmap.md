@@ -1,6 +1,6 @@
 # 路线图
 
-> 基准日期：2026-08-17
+> 基准日期：2026-08-18
 
 本文档只保留未完成事项；当前实现事实见 [status.md](status.md)。
 
@@ -11,7 +11,8 @@
 - 通用设备端架构：`LlrpDevice.Abstractions` 定义 `ILlrpDevice`，`LlrpDevice.Server`
   承载通用 LLRP 服务与资源状态，`LlrpDevice.Virtual` 提供确定性内存、Tag Access 和
   `static` / `moving-tags` / `noisy` RF 可观察场景，`LlrpDevice.Virtual.Hosting` 提供
-  单台设备的 SDK 生命周期门面。
+  单台设备的 SDK 生命周期门面；Hosting 的高层选项还支持启动前注入标签和 Impinj R420
+  profile。
 - 客户端 1.0.1 设备端对齐：Server/Virtual 已覆盖客户端使用的 Capabilities、Config、
   ROSpec/AccessSpec、Null/Immediate/Periodic/GPI/Duration 触发、Select/状态感知
   Singulation、报告 selector/缓冲/GET_REPORT、Hold/Release、Reader Event、附加数据和
@@ -30,8 +31,8 @@
    TagReport 和 Tag Access，并记录具体型号/固件证据。
 3. 体系化扩充 `LlrpSdk.Hardware.Tests`：多天线配置、真实标签 Memory Bank 读写、高并发稳定性
    和厂商扩展字段校验。
-4. 根据真实设备证据扩充 Impinj/Zebra 及其他型号/固件能力目录；继续标定 Zebra 定义中与
-   固件抓包不一致的 reserved 位和字段宽度。
+4. 根据真实设备证据继续扩充 Impinj/Zebra 及其他型号/固件能力目录；当前已交付 Impinj
+   R420 虚拟 profile，仍需继续标定 Zebra 定义中与固件抓包不一致的 reserved 位和字段宽度。
 5. 继续完善 CLI Settings 编辑器和 Agent 输出能力，保持已有命令语义稳定。
 6. 继续完善 2.0 Adapter，并对支持的真实设备做互操作验收。
 
@@ -75,23 +76,26 @@ LlrpVirtualDevice.Cli / VirtualLlrpDeviceHost
 - 真实 RFID 模块驱动和真实 RF 波形模拟；当前 `ILlrpDevice` 定义设备行为接缝，Virtual
   实现只在标签观察边界产生确定性数据。
 - 延迟、吞吐、连接重置等更多一次性故障预设，以及设备端 CLI 的帧日志导出和运行摘要。
-- `LlrpDevice.Server` 的 Impinj/Zebra 等厂商设备端模块；接口已经落地，但必须有协议资料
-  或真机抓包证据后才能发布预设。
+- 更多 `LlrpDevice.Virtual.Impinj`/厂商设备端模块；接口已经落地，但必须有协议资料或
+  真机抓包证据后才能发布新的 profile 预设。
 - LLRP 2.0 Virtual Device 的独立协议验收；通用 Server 与新的单台 CLI 已可选择 2.0
   基线，但真实设备/完整设备端互操作仍待验收。
 - Reader Studio 图形化项目；不是当前 SDK 仓库阶段目标。
 
 ### 已交付：单台 Virtual Device SDK 与 CLI
 
-- `LlrpDevice.Virtual.Hosting` 提供公开的 `IVirtualLlrpDeviceHost` 和
-  `VirtualLlrpDeviceHost`，把一台 `VirtualLlrpDevice` 与一台 `LlrpDeviceServer`
-  组合成 Start/Stop/Restart 生命周期入口。
+- `LlrpDevice.Virtual.Hosting` 提供公开的 `IVirtualDeviceHost`、
+  `VirtualDeviceHostOptions` 和 `VirtualLlrpDeviceHost.Create(...)`，把一台
+  `VirtualLlrpDevice` 与一台 `LlrpDeviceServer` 组合成 Start/Stop/Restart 生命周期入口；
+  `VirtualInventoryOptions` 可在启动前注入标签。旧 `IVirtualLlrpDeviceHost` 保留为迁移兼容
+  路径，新的 CLI/WPF 代码只依赖 Hosting 高层接口。
 - `src/LlrpVirtualDevice.Cli` 与 `src/LlrpCli` 平级；前者是设备端 CLI，一个进程只运行
   一台虚拟设备，默认进入交互 Shell，支持 `server create/start/stop/restart/status/destroy`
   生命周期命令、`run`/`start`、自动创建并启动后进入 Shell 的 `live`、单设备 JSON
   `validate` 和 `presets`。
 - `src/LlrpDevice.Virtual/config/virtual-device.example.json` 定义单设备行为配置；
-  `src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json` 定义当前唯一的虚拟设备能力档案，
+  `src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json` 定义标准能力档案，
+  `src/LlrpDevice.Virtual.Impinj` 提供 `impinj.r420.llrp-1.0.1` profile，
   `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json` 定义独立寻卡数据源；设备端点仍由
   create/run 参数传入，不持久化或恢复运行中的 ROSpec/AccessSpec 图。
 - 旧 `LlrpVirtualReader.*` 兼容层已移除；未来 UI 直接引用 Hosting 门面，客户端 UI

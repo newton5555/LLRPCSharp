@@ -5,7 +5,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LlrpDevice.Server\LlrpDevice.Server.csproj" />
-    <ProjectReference Include="..\LlrpDevice.Virtual\LlrpDevice.Virtual.csproj" />
-    <ProjectReference Include="..\LlrpDevice.Virtual.Impinj\LlrpDevice.Virtual.Impinj.csproj" />
+    <ProjectReference Include="..\LlrpNet\LlrpNet.Protocol.Impinj\LlrpNet.Protocol.Impinj.csproj" />
   </ItemGroup>
 </Project>

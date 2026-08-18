@@ -160,9 +160,10 @@ LLRPCSharp/
   标准 Tag Access 映射、故障注入和注册式设备端协议模块。
 - `LlrpDevice.Virtual` 只实现 `ILlrpDevice`，维护独立的标签/内存/锁/销毁状态，提供
   `static`、`moving-tags`、`noisy` 三种确定性 RF 可观察场景，但不模拟真实 RF 波形。
-- `LlrpDevice.Virtual.Hosting` 提供 `IVirtualLlrpDeviceHost` 与
-  `VirtualLlrpDeviceHost`，把一台 `VirtualLlrpDevice` 和一台 `LlrpDeviceServer`
-  组合成上层应用可直接启动/停止/重启的设备端入口。
+- `LlrpDevice.Virtual.Hosting` 提供 `IVirtualDeviceHost`、
+  `VirtualDeviceHostOptions` 与 `VirtualLlrpDeviceHost.Create(...)`，把一台
+  `VirtualLlrpDevice` 和一台 `LlrpDeviceServer` 组合成上层应用可直接启动/停止/重启的
+  设备端入口，并允许启动前注入标签；旧接口仅作为迁移兼容路径保留。
 
 ---
 

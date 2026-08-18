@@ -169,6 +169,39 @@ public sealed record VirtualDeviceOptions
         };
     }
 
+    /// <summary>Creates the captured Impinj Speedway R420 capability tables.</summary>
+    public static LlrpDeviceCapabilities CreateImpinjR420Capabilities(ushort maxNumberOfAntennas = 4)
+    {
+        if (maxNumberOfAntennas == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxNumberOfAntennas));
+        }
+
+        return CreateDefaultCapabilities(maxNumberOfAntennas) with
+        {
+            MaxNumberOfGpos = 4,
+            SupportsStateAwareSingulation = false,
+            SupportsBlockErase = false,
+            MaxNumPriorityLevelsSupported = 1,
+            MaxNumROSpecs = 1,
+            MaxNumSpecsPerROSpec = 32,
+            MaxNumInventoryParameterSpecsPerAISpec = 1,
+            MaxNumAccessSpecs = 1508,
+            MaxNumOpSpecsPerAccessSpec = 8,
+            MaxNumSelectFiltersPerQuery = 5,
+            ReceiveSensitivityLevels =
+            [
+                new LlrpDeviceReceiveSensitivityLevel(1, 0),
+                new LlrpDeviceReceiveSensitivityLevel(2, 10),
+                ..Enumerable.Range(3, 40)
+                    .Select(static index => new LlrpDeviceReceiveSensitivityLevel(
+                        checked((ushort)index),
+                        checked((short)(index + 8)))),
+            ],
+            RegulatoryCapabilities = CreateImpinjR420RegulatoryCapabilities(),
+        };
+    }
+
     /// <summary>Creates one captured RF configuration for every standard virtual antenna.</summary>
     public static IReadOnlyList<LlrpDeviceAntennaConfiguration> CreateDefaultAntennaConfigurations(
         ushort maxNumberOfAntennas = 4)
@@ -190,6 +223,83 @@ public sealed record VirtualDeviceOptions
             })
             .ToArray();
     }
+
+    /// <summary>Creates the R420 antenna configuration using its highest TX index.</summary>
+    public static IReadOnlyList<LlrpDeviceAntennaConfiguration> CreateImpinjR420AntennaConfigurations(
+        ushort maxNumberOfAntennas = 4)
+    {
+        if (maxNumberOfAntennas == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxNumberOfAntennas));
+        }
+
+        return Enumerable
+            .Range(1, maxNumberOfAntennas)
+            .Select(static id => new LlrpDeviceAntennaConfiguration
+            {
+                AntennaId = checked((ushort)id),
+                ReceiverSensitivityIndex = 1,
+                TransmitPowerIndex = 87,
+                HopTableId = 1,
+                ChannelIndex = 1,
+            })
+            .ToArray();
+    }
+
+    private static LlrpDeviceRegulatoryCapabilities CreateImpinjR420RegulatoryCapabilities() => new()
+    {
+        CountryCode = 156,
+        CommunicationsStandard = LlrpCommunicationsStandard.Unspecified,
+        TransmitPowerLevels = Enumerable
+            .Range(1, 87)
+            .Select(static index => new LlrpDeviceTransmitPowerLevel(
+                checked((ushort)index),
+                checked((short)(1_000 + ((index - 1) * 25)))))
+            .ToArray(),
+        Hopping = false,
+        FixedFrequencies =
+        [
+            920_625, 920_875, 921_125, 921_375,
+            921_625, 921_875, 922_125, 922_375,
+            922_625, 922_875, 923_125, 923_375,
+            923_625, 923_875, 924_125, 924_375,
+        ],
+        C1G2RfModes =
+        [
+            CreateImpinjRfMode(0, LlrpC1G2MValue.Fm0, LlrpC1G2SpectralMaskIndicator.Mi, 436_000, 2_000, 14_290),
+            CreateImpinjRfMode(1, LlrpC1G2MValue.M2, LlrpC1G2SpectralMaskIndicator.Mi, 436_000, 2_000, 14_290),
+            CreateImpinjRfMode(2, LlrpC1G2MValue.M4, LlrpC1G2SpectralMaskIndicator.Di, 320_000, 2_000, 20_000),
+            CreateImpinjRfMode(3, LlrpC1G2MValue.M8, LlrpC1G2SpectralMaskIndicator.Di, 320_000, 2_000, 20_000),
+            CreateImpinjRfMode(5, LlrpC1G2MValue.M4, LlrpC1G2SpectralMaskIndicator.Mi, 320_000, 2_000, 14_290),
+            CreateImpinjRfMode(1_000, LlrpC1G2MValue.Fm0, LlrpC1G2SpectralMaskIndicator.Unknown, 40_000, 1_500, 6_250, LlrpC1G2DrValue.Dr8),
+            CreateImpinjRfMode(1_002, LlrpC1G2MValue.Fm0, LlrpC1G2SpectralMaskIndicator.Unknown, 40_000, 1_500, 6_250, LlrpC1G2DrValue.Dr8),
+            CreateImpinjRfMode(1_003, LlrpC1G2MValue.Fm0, LlrpC1G2SpectralMaskIndicator.Unknown, 40_000, 1_500, 6_250, LlrpC1G2DrValue.Dr8),
+            CreateImpinjRfMode(1_004, LlrpC1G2MValue.Fm0, LlrpC1G2SpectralMaskIndicator.Unknown, 40_000, 1_500, 6_250, LlrpC1G2DrValue.Dr8),
+            CreateImpinjRfMode(1_005, LlrpC1G2MValue.Fm0, LlrpC1G2SpectralMaskIndicator.Unknown, 40_000, 1_500, 6_250, LlrpC1G2DrValue.Dr8),
+        ],
+    };
+
+    private static LlrpDeviceC1G2RfMode CreateImpinjRfMode(
+        uint modeIdentifier,
+        LlrpC1G2MValue mValue,
+        LlrpC1G2SpectralMaskIndicator spectralMaskIndicator,
+        uint bdrValue,
+        uint pieValue,
+        uint tariValue,
+        LlrpC1G2DrValue drValue = LlrpC1G2DrValue.Dr64_3) => new()
+    {
+        ModeIdentifier = modeIdentifier,
+        DrValue = drValue,
+        EpcHagTcConformance = false,
+        MValue = mValue,
+        ForwardLinkModulation = LlrpC1G2ForwardLinkModulation.PrAsk,
+        SpectralMaskIndicator = spectralMaskIndicator,
+        BdrValue = bdrValue,
+        PieValue = pieValue,
+        MinTariValue = tariValue,
+        MaxTariValue = tariValue,
+        StepTariValue = 0,
+    };
 
     /// <summary>Gets the selected capability profile identifier, when one was used.</summary>
     public string? CapabilityProfileId { get; init; }

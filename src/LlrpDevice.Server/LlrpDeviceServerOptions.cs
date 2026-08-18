@@ -2,6 +2,7 @@ using System.Net;
 using LlrpDevice.Abstractions;
 using LlrpNet.Core.Diagnostics;
 using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Parameters;
 using Microsoft.Extensions.Logging;
 
 namespace LlrpDevice.Server;
@@ -53,12 +54,15 @@ public sealed record LlrpDeviceServerOptions
     public LlrpUnknownVendorParameterBehavior UnknownVendorParameterBehavior { get; init; } =
         LlrpUnknownVendorParameterBehavior.PreserveAndIgnore;
     public bool UseStrictStandardInventoryProfile { get; init; }
-    /// <summary>
-    /// Allows <c>DISABLE_ROSPEC</c> to implicitly stop an Active ROSpec before moving it to Disabled.
-    /// This is a compatibility mode for readers that accept the shortcut; it is disabled by default so
-    /// protocol tests continue to catch clients that omit <c>STOP_ROSPEC</c>.
-    /// </summary>
-    public bool AllowImplicitStopOnDisable { get; init; }
+    /// <summary>Allows common idempotent ROSpec lifecycle commands.</summary>
+    public bool RelaxedRoSpecStateChecks { get; init; }
+
+    /// <summary>Compatibility alias for <see cref="RelaxedRoSpecStateChecks"/>.</summary>
+    public bool AllowImplicitStopOnDisable
+    {
+        get => RelaxedRoSpecStateChecks;
+        init => RelaxedRoSpecStateChecks = value;
+    }
     public IReadOnlySet<ushort> DropResponseForMessageTypes { get; init; } = new HashSet<ushort>();
     public IReadOnlyDictionary<ushort, LlrpDeviceServerErrorResponse> ErrorResponseForMessageTypes { get; init; } =
         new Dictionary<ushort, LlrpDeviceServerErrorResponse>();
@@ -67,6 +71,8 @@ public sealed record LlrpDeviceServerOptions
     public ILoggerFactory? LoggerFactory { get; init; }
     public ILlrpFrameObserver? FrameObserver { get; init; }
     public IReadOnlyList<ILlrpDeviceProtocolModule> ProtocolModules { get; init; } = [];
+    public IReadOnlyList<ILlrpParameter> InitialReaderCapabilitiesCustomItems { get; init; } = [];
+    public IReadOnlyList<ILlrpParameter> InitialReaderConfigurationCustomItems { get; init; } = [];
 
     internal void Validate()
     {
@@ -77,6 +83,8 @@ public sealed record LlrpDeviceServerOptions
         ArgumentNullException.ThrowIfNull(CloseConnectionAfterRequestMessageTypes);
         ArgumentNullException.ThrowIfNull(TruncateResponseForMessageTypes);
         ArgumentNullException.ThrowIfNull(ProtocolModules);
+        ArgumentNullException.ThrowIfNull(InitialReaderCapabilitiesCustomItems);
+        ArgumentNullException.ThrowIfNull(InitialReaderConfigurationCustomItems);
         if (Port is < 0 or > ushort.MaxValue)
         {
             throw new ArgumentOutOfRangeException(nameof(Port));

@@ -12,8 +12,9 @@
   <Folder Name="/src/LlrpDevice/">
     <Project Path="src/LlrpDevice.Abstractions/LlrpDevice.Abstractions.csproj" />
     <Project Path="src/LlrpDevice.Server/LlrpDevice.Server.csproj" />
-    <Project Path="src/LlrpDevice.Virtual/LlrpDevice.Virtual.csproj" />
-    <Project Path="src/LlrpDevice.Virtual.Hosting/LlrpDevice.Virtual.Hosting.csproj" />
+      <Project Path="src/LlrpDevice.Virtual/LlrpDevice.Virtual.csproj" />
+      <Project Path="src/LlrpDevice.Virtual.Impinj/LlrpDevice.Virtual.Impinj.csproj" />
+      <Project Path="src/LlrpDevice.Virtual.Hosting/LlrpDevice.Virtual.Hosting.csproj" />
   </Folder>
   <Folder Name="/src/LlrpNet/">
     <Project Path="src/LlrpNet/LlrpNet.Core/LlrpNet.Core.csproj" />

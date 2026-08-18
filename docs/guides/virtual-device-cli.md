@@ -46,14 +46,15 @@ The lifecycle commands are deliberately single-device commands:
 - `logs on|off|status` controls lifecycle, client, and decoded `RX`/`TX` output.
 
 `server run [options]` is a shell shortcut for create plus start. The standalone
-SDK exposes the same lifecycle through `IVirtualLlrpDeviceHost`; the shell does
-not manage a multi-device directory or a separate control service.
+SDK exposes the same lifecycle through `IVirtualDeviceHost`; the shell does not
+manage a multi-device directory or a separate control service.
 
-The virtual device uses strict ROSpec state transitions by default. To model a
-vendor reader that accepts `DISABLE_ROSPEC` while the ROSpec is still Active,
-start it with `--allow-implicit-stop-on-disable`; the device will transition the
-ROSpec through Inactive before disabling it. The same behavior can be persisted
-in a versioned JSON configuration with `"allowImplicitStopOnDisable": true`.
+The Hosting facade defaults to relaxed ROSpec state checks. This matches common
+vendor-reader behavior and lets clients repeat `ENABLE`, `START`, `STOP`, and
+`DISABLE` during setup. Use `--strict` (or
+`"relaxedRoSpecStateChecks": false`) when a test needs strict LLRP state
+transitions. The legacy low-level server options remain strict unless explicitly
+configured.
 
 For the current standard device, the shortest creation command is:
 
@@ -117,13 +118,18 @@ not contain the listen address, port, client limit, or runtime ROSpec/AccessSpec
 state. Loading is explicit; the process does not scan for configuration files
 or restore runtime resources.
 
-The shipped capability manifest is
-`src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json`. It selects the SDK's standard 1.0.1
-profile: 4 logical antennas, a generic virtual-reader identity, and captured
-physical-reader RF capability tables with 193 transmit-power entries (indexes 1 through 193), two
-receive-sensitivity entries (indexes 1 and 2), 41 RF-mode entries, and one
-16-channel hop table. The
-inventory population is a separate source at
+The shipped standard capability manifest is
+`src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json`. The Hosting
+facade also includes the `impinj.r420.llrp-1.0.1` profile, which supplies the
+R420 identity, Impinj capability/configuration extensions, and captured RF
+tables. Select it with `--profile impinj.r420.llrp-1.0.1` or
+`"profile": "impinj.r420.llrp-1.0.1"`.
+
+The standard profile has 4 logical antennas, a generic virtual-reader identity,
+and captured physical-reader RF capability tables with 193 transmit-power
+entries (indexes 1 through 193), two receive-sensitivity entries (indexes 1 and
+2), 41 RF-mode entries, and one 16-channel hop table. The inventory population
+is a separate source at
 `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json`; another JSON source can be selected
 with `--data-source PATH`.
 The built-in source contains six deterministic tags distributed across the four
@@ -133,28 +139,40 @@ rotates by seed and round so the same tag is not always returned. Adjust
 `singleTagProbability` and `maxTagsPerRound` in the device configuration, or use
 `--single-tag-probability` and `--max-tags-per-round` for a launch override.
 
-The SDK composition boundary is explicit:
+The public SDK boundary is the Hosting package. Tags can be supplied before the
+host starts; the CLI and WPF can use the same model without referencing Server,
+Virtual, or protocol implementation types:
 
 ```csharp
-using LlrpDevice.Virtual;
 using LlrpDevice.Virtual.Hosting;
 
-VirtualDeviceCapabilityProfile profile =
-    VirtualDeviceCapabilityProfiles.Get(VirtualDeviceCapabilityProfiles.Standard101Id);
-IVirtualInventoryDataSource source = VirtualInventoryDataSources.Default;
-
-await using var device = new VirtualLlrpDeviceHost(
-    new VirtualLlrpDeviceHostOptions
+await using IVirtualDeviceHost device = VirtualLlrpDeviceHost.Create(
+    new VirtualDeviceHostOptions
     {
-        Device = profile.CreateDeviceOptions(source),
-        InventoryDataSource = source,
+        ProfileId = VirtualDeviceProfiles.ImpinjR420Id,
+        Port = 0,
+        Inventory = new VirtualInventoryOptions
+        {
+            Tags =
+            [
+                new VirtualInventoryTag
+                {
+                    ElectronicProductCode = Convert.FromHexString("300833B2DDD9014000000001"),
+                    AntennaId = 1,
+                    PeakRssi = -42,
+                },
+            ],
+        },
     });
+
+await device.StartAsync();
 ```
 
-`VirtualLlrpDevice` consumes the capability/device behavior, while
-`IVirtualInventoryDataSource` supplies the tag population. A future file,
-database, replay, or live RF data source can replace the in-memory source
-without changing the LLRP Server.
+`VirtualDeviceHostOptions` is the stable configuration model. The mapper inside
+Hosting composes the lower-level Server and Virtual runtime and registers the
+selected vendor profile. The built-in default inventory source is used when no
+explicit tags are supplied; file/replay sources remain a CLI concern and are
+converted to this same model before host creation.
 
 When `maximumClientConnections` is `1` (the default), a newly accepted control
 session replaces the previous session. This preserves a single active owner while
@@ -165,19 +183,13 @@ reject clients beyond the limit.
 ## Use the SDK facade
 
 ```csharp
-using System.Net;
-using LlrpDevice.Server;
 using LlrpDevice.Virtual.Hosting;
 
-await using IVirtualLlrpDeviceHost device = new VirtualLlrpDeviceHost(
-    new VirtualLlrpDeviceHostOptions
+await using IVirtualDeviceHost device = VirtualLlrpDeviceHost.Create(
+    new VirtualDeviceHostOptions
     {
-        Server = new LlrpDeviceServerOptions
-        {
-            ListenAddress = IPAddress.Loopback,
-            Port = 0, // useful for in-process tests
-            ProtocolVersion = LlrpNet.Core.Protocol.LlrpProtocolVersion.Version101,
-        },
+        ProtocolVersion = VirtualDeviceProtocolVersion.Llrp101,
+        Port = 0, // useful for in-process tests
     });
 
 await device.StartAsync();
@@ -189,9 +201,10 @@ await device.StopAsync();
 
 The interface exposes the device-side lifecycle, stable endpoint facts, client
 changes, and decoded message observations.
-Advanced integrations can use the concrete `VirtualLlrpDeviceHost.Server` and
-`.VirtualDevice` properties, while normal applications should depend on
-`IVirtualLlrpDeviceHost`.
+Normal applications should depend only on `IVirtualDeviceHost` and
+`VirtualDeviceHostOptions`. The older concrete Server/Virtual properties and
+`IVirtualLlrpDeviceHost` remain as a source-compatible transition path for
+existing integrations; the CLI no longer references them directly.
 
 ## Scope
 

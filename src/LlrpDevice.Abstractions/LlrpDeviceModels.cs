@@ -16,6 +16,8 @@ public sealed record LlrpDeviceIdentity
 public sealed record LlrpDeviceCapabilities
 {
     public ushort MaxNumberOfAntennas { get; init; } = 1;
+    public ushort MaxNumberOfGpis { get; init; } = 4;
+    public ushort MaxNumberOfGpos { get; init; } = 1;
     public bool CanSetAntennaProperties { get; init; } = true;
     public bool HasUtcClockCapability { get; init; } = true;
     public bool SupportsEpcGlobalClass1Gen2 { get; init; } = true;
@@ -25,6 +27,14 @@ public sealed record LlrpDeviceCapabilities
     public bool SupportsStateAwareSingulation { get; init; }
     public bool SupportsReportBuffer { get; init; } = true;
     public bool SupportsEventAndReportHolding { get; init; } = true;
+    public byte MaxNumPriorityLevelsSupported { get; init; } = 7;
+    public ushort ClientRequestOpSpecTimeout { get; init; }
+    public uint MaxNumROSpecs { get; init; } = 1024;
+    public uint MaxNumSpecsPerROSpec { get; init; } = 256;
+    public uint MaxNumInventoryParameterSpecsPerAISpec { get; init; } = 256;
+    public uint MaxNumAccessSpecs { get; init; } = 1024;
+    public uint MaxNumOpSpecsPerAccessSpec { get; init; } = 256;
+    public ushort MaxNumSelectFiltersPerQuery { get; init; } = 64;
     public IReadOnlyList<LlrpDeviceReceiveSensitivityLevel> ReceiveSensitivityLevels { get; init; } = [];
     public LlrpDeviceRegulatoryCapabilities? RegulatoryCapabilities { get; init; }
 }
