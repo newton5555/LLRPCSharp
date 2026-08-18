@@ -20,8 +20,8 @@ RF Survey 仍按客户端能力门控保持不接线，因为当前客户端实�
 | 客户端 1.0.1 功能 | Server / Virtual 对齐实现 | 验收状态 |
 |---|---|---|
 | TCP 连接、初始化 Reader Event | `LlrpDeviceServer` accepted TCP、Session、ConnectionAttemptEvent、客户端隔离 | ✅ |
-| GET_READER_CAPABILITIES | General、LLRP、设备配置的 Regulatory（193 项 Tx 功率、16 个跳频点、41 项 C1G2 RF Mode）、C1G2 能力；按 RequestedData 筛选；General Rx 表为真实 profile 的 Index 0 / 0 dB | ✅ |
-| GET/SET_READER_CONFIG | 天线、GPO、GPI 当前状态、事件通知、RO/Access ReportSpec、Keepalive、EventsAndReports、配置状态值、Factory Reset；Virtual 标准默认 4 根天线均返回 Rx=0、Tx=192（29.2 dBm）、HopTable=1、Channel=1 | ✅ |
+| GET_READER_CAPABILITIES | General、LLRP、设备配置的 Regulatory（Tx 功率 Index 1..193、16 个跳频点、41 项 C1G2 RF Mode）、C1G2 能力；按 RequestedData 筛选；General Rx 表为默认 profile 的 Index 1..2（0/10 dB offset） | ✅ |
+| GET/SET_READER_CONFIG | 天线、GPO、GPI 当前状态、事件通知、RO/Access ReportSpec、Keepalive、EventsAndReports、配置状态值、Factory Reset；Virtual 标准默认 4 根天线均返回 Rx=1、Tx=193（29.2 dBm）、HopTable=1、Channel=1 | ✅ |
 | ROSpec CRUD 与状态机 | Add/Get/Delete/Enable/Disable/Start/Stop；ID=0 批量语义；Disabled/Inactive/Active | ✅ |
 | ROSpec Start Trigger | Null/Immediate、Periodic（Offset/Period/UTC）、GPI 电平触发 | ✅ |
 | ROSpec Stop Trigger | Null、Duration、GPI With Timeout；结束事件和尾报告 | ✅ |

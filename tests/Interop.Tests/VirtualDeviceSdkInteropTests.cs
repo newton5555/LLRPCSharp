@@ -22,6 +22,13 @@ public sealed class VirtualDeviceSdkInteropTests
             Device = deviceOptions ?? new VirtualDeviceOptions(),
         });
 
+    private static LlrpReader CreateReader(int port) => LlrpReader.CreateBuilder("127.0.0.1")
+        .WithPort(port)
+        .WithConnectTimeout(TimeSpan.FromSeconds(2))
+        .WithRequestTimeout(TimeSpan.FromSeconds(2))
+        .WithProtocolVersionPolicy(LlrpProtocolVersionPolicy.Force101)
+        .Build();
+
     [Fact]
     public async Task Unknown_message_receives_correlated_unsupported_message_error()
     {
@@ -52,6 +59,48 @@ public sealed class VirtualDeviceSdkInteropTests
             reader.Registry.DecodeMessage(responseFrame.Span));
         Assert.Equal(messageId, response.MessageId);
         Assert.Equal(StatusCode.M_UnsupportedMessage, response.LLRPStatus.StatusCode);
+    }
+
+    [Fact]
+    public async Task DisableActiveRoSpec_is_strict_by_default_and_can_be_relaxed_for_compatibility()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        await using (var strictHost = CreateHost())
+        {
+            await strictHost.StartAsync(timeout.Token);
+            await using var reader = CreateReader(strictHost.BoundPort);
+            await reader.ConnectAsync(timeout.Token);
+            _ = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+
+            V101Messages.DISABLE_ROSPEC_RESPONSE strictResponse = await reader.Protocol.TransactAsync<V101Messages.DISABLE_ROSPEC_RESPONSE>(
+                new V101Messages.DISABLE_ROSPEC(reader.Protocol.NextMessageId(), 14150),
+                cancellationToken: timeout.Token);
+            Assert.Equal(StatusCode.M_ParameterError, strictResponse.LLRPStatus.StatusCode);
+            Assert.Contains("active", strictResponse.LLRPStatus.ErrorDescription, StringComparison.OrdinalIgnoreCase);
+        }
+
+        await using (var compatibilityHost = CreateHost(
+            new LlrpDeviceServerOptions
+            {
+                Port = 0,
+                AllowImplicitStopOnDisable = true,
+            }))
+        {
+            await compatibilityHost.StartAsync(timeout.Token);
+            await using var reader = CreateReader(compatibilityHost.BoundPort);
+            await reader.ConnectAsync(timeout.Token);
+            _ = await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
+
+            _ = await reader.Protocol.TransactAsync<V101Messages.DISABLE_ROSPEC_RESPONSE>(
+                new V101Messages.DISABLE_ROSPEC(reader.Protocol.NextMessageId(), 14150),
+                cancellationToken: timeout.Token);
+            V101Messages.GET_ROSPECS_RESPONSE response = await reader.Protocol.TransactAsync<V101Messages.GET_ROSPECS_RESPONSE>(
+                new V101Messages.GET_ROSPECS(reader.Protocol.NextMessageId()),
+                cancellationToken: timeout.Token);
+
+            Assert.Equal(ROSpecState.Disabled, Assert.Single(response.ROSpecItems).CurrentState);
+        }
     }
 
     [Fact]

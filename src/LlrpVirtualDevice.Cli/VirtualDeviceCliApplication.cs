@@ -221,6 +221,7 @@ public sealed class VirtualDeviceCliApplication
                 "--max-client-connections" => options with { MaximumClientConnections = ReadInt(args, ref index, option) },
                 "--keepalive-ms" => options with { KeepAliveIntervalMilliseconds = ReadInt(args, ref index, option) },
                 "--strict" => options with { Strict = true },
+                "--allow-implicit-stop-on-disable" => options with { AllowImplicitStopOnDisable = true },
                 "--help" or "-h" => throw new ArgumentException($"--help must be used immediately after the {command} command."),
                 _ => throw new ArgumentException($"Unknown {command} option '{option}'."),
             };
@@ -457,6 +458,7 @@ public sealed class VirtualDeviceCliApplication
         output.WriteLine("  --max-client-connections <N>   Maximum connected LLRP clients.");
         output.WriteLine("  --keepalive-ms <N>              Device KEEPALIVE interval.");
         output.WriteLine("  --strict                        Enable strict standard inventory checks.");
+        output.WriteLine("  --allow-implicit-stop-on-disable  Allow DISABLE_ROSPEC to stop Active ROSpecs implicitly.");
     }
 
     private static void PrintValidateHelp(TextWriter output) =>

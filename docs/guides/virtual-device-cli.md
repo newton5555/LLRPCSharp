@@ -49,6 +49,12 @@ The lifecycle commands are deliberately single-device commands:
 SDK exposes the same lifecycle through `IVirtualLlrpDeviceHost`; the shell does
 not manage a multi-device directory or a separate control service.
 
+The virtual device uses strict ROSpec state transitions by default. To model a
+vendor reader that accepts `DISABLE_ROSPEC` while the ROSpec is still Active,
+start it with `--allow-implicit-stop-on-disable`; the device will transition the
+ROSpec through Inactive before disabling it. The same behavior can be persisted
+in a versioned JSON configuration with `"allowImplicitStopOnDisable": true`.
+
 For the current standard device, the shortest creation command is:
 
 ```text
@@ -114,8 +120,9 @@ or restore runtime resources.
 The shipped capability manifest is
 `src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json`. It selects the SDK's standard 1.0.1
 profile: 4 logical antennas, a generic virtual-reader identity, and captured
-physical-reader RF capability tables with 193 transmit-power entries, one
-receive-sensitivity entry, 41 RF-mode entries, and one 16-channel hop table. The
+physical-reader RF capability tables with 193 transmit-power entries (indexes 1 through 193), two
+receive-sensitivity entries (indexes 1 and 2), 41 RF-mode entries, and one
+16-channel hop table. The
 inventory population is a separate source at
 `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json`; another JSON source can be selected
 with `--data-source PATH`.

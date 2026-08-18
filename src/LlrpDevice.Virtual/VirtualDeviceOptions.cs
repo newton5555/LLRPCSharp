@@ -44,10 +44,10 @@ public sealed record VirtualDeviceOptions
         CountryCode = 156,
         CommunicationsStandard = LlrpCommunicationsStandard.Unspecified,
         TransmitPowerLevels = Enumerable
-            .Range(0, 193)
+            .Range(1, 193)
             .Select(static index => new LlrpDeviceTransmitPowerLevel(
                 checked((ushort)index),
-                checked((short)(1_000 + (index * 10)))))
+                checked((short)(1_000 + ((index - 1) * 10)))))
             .ToArray(),
         Hopping = true,
         FrequencyHopTables =
@@ -160,7 +160,11 @@ public sealed record VirtualDeviceOptions
             SupportsStateAwareSingulation = true,
             SupportsReportBuffer = true,
             SupportsEventAndReportHolding = true,
-            ReceiveSensitivityLevels = [new LlrpDeviceReceiveSensitivityLevel(0, 0)],
+            ReceiveSensitivityLevels =
+            [
+                new LlrpDeviceReceiveSensitivityLevel(1, 0),
+                new LlrpDeviceReceiveSensitivityLevel(2, 10),
+            ],
             RegulatoryCapabilities = CreateDefaultRegulatoryCapabilities(),
         };
     }
@@ -179,8 +183,8 @@ public sealed record VirtualDeviceOptions
             .Select(static id => new LlrpDeviceAntennaConfiguration
             {
                 AntennaId = checked((ushort)id),
-                ReceiverSensitivityIndex = 0,
-                TransmitPowerIndex = 192,
+                ReceiverSensitivityIndex = 1,
+                TransmitPowerIndex = 193,
                 HopTableId = 1,
                 ChannelIndex = 1,
             })

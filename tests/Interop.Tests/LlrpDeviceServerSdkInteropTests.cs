@@ -34,16 +34,20 @@ public sealed class LlrpDeviceServerSdkInteropTests
 
         Assert.Equal(193, capabilities.TxPowers.Count);
         TxPowerEntry firstPower = Assert.IsType<TxPowerEntry>(capabilities.TxPowers[0]);
-        Assert.Equal((ushort)0, firstPower.Index);
+        Assert.Equal((ushort)1, firstPower.Index);
         Assert.Equal((short)1000, firstPower.TransmitPowerValue);
         TxPowerEntry lastPower = Assert.IsType<TxPowerEntry>(capabilities.TxPowers[^1]);
-        Assert.Equal((ushort)192, lastPower.Index);
+        Assert.Equal((ushort)193, lastPower.Index);
         Assert.Equal((short)2920, lastPower.TransmitPowerValue);
         Assert.Equal(29.2, lastPower.TransmitPowerDbm);
 
-        RxSensitivityEntry sensitivity = Assert.Single(capabilities.RxSensitivities);
-        Assert.Equal((ushort)0, sensitivity.Index);
-        Assert.Equal((short)0, sensitivity.ReceiveSensitivityValue);
+        Assert.Equal(2, capabilities.RxSensitivities.Count);
+        Assert.Equal(
+            [(ushort)1, (ushort)2],
+            capabilities.RxSensitivities.Select(static sensitivity => sensitivity.Index).ToArray());
+        Assert.Equal(
+            [(short)0, (short)10],
+            capabilities.RxSensitivities.Select(static sensitivity => sensitivity.ReceiveSensitivityValue).ToArray());
 
         FrequencyHopTableEntry hopTable = Assert.Single(capabilities.HopTables);
         Assert.Equal((byte)1, hopTable.HopTableId);
@@ -71,7 +75,7 @@ public sealed class LlrpDeviceServerSdkInteropTests
             settings.Settings.Configuration.Antennas,
             antenna =>
             {
-                Assert.Equal((ushort)0, antenna.ReceiverSensitivityIndex);
+                Assert.Equal((ushort)1, antenna.ReceiverSensitivityIndex);
                 Assert.Equal((ushort)192, antenna.TransmitPowerIndex);
                 Assert.Equal((ushort)1, antenna.HopTableId);
                 Assert.Equal((ushort)1, antenna.ChannelIndex);

@@ -77,6 +77,7 @@ public sealed record VirtualDeviceConfigurationDocument
     public string? Name { get; init; }
     public string? ProtocolVersion { get; init; }
     public bool? Strict { get; init; }
+    public bool? AllowImplicitStopOnDisable { get; init; }
     public string? InventoryDataSource { get; init; } = VirtualInventoryDataSources.DefaultId;
     public int ReportIntervalMilliseconds { get; init; } = 100;
     public int ReportCount { get; init; }
@@ -290,6 +291,7 @@ internal sealed record VirtualDeviceLaunchOptions
     public int? MaximumClientConnections { get; init; }
     public int? KeepAliveIntervalMilliseconds { get; init; }
     public bool? Strict { get; init; }
+    public bool? AllowImplicitStopOnDisable { get; init; }
 }
 
 internal static class VirtualDeviceHostOptionsBuilder
@@ -322,6 +324,9 @@ internal static class VirtualDeviceHostOptionsBuilder
                               preset.ProtocolVersion;
         LlrpProtocolVersion protocolVersion = VirtualDeviceConfiguration.ParseProtocolVersion(protocolText);
         bool strict = launch.Strict ?? document?.Strict ?? preset.Strict;
+        bool allowImplicitStopOnDisable = launch.AllowImplicitStopOnDisable ??
+                                          document?.AllowImplicitStopOnDisable ??
+                                          false;
         int reportInterval = launch.ReportIntervalMilliseconds ?? document?.ReportIntervalMilliseconds ?? 100;
         int reportCount = launch.ReportCount ?? document?.ReportCount ?? 0;
         bool repeat = document?.Repeat ?? true;
@@ -403,6 +408,7 @@ internal static class VirtualDeviceHostOptionsBuilder
                 Repeat = repeat,
             },
             UseStrictStandardInventoryProfile = strict,
+            AllowImplicitStopOnDisable = allowImplicitStopOnDisable,
         };
 
         return new VirtualLlrpDeviceHostOptions

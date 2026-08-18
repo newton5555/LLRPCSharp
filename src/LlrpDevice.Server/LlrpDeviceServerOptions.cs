@@ -53,6 +53,12 @@ public sealed record LlrpDeviceServerOptions
     public LlrpUnknownVendorParameterBehavior UnknownVendorParameterBehavior { get; init; } =
         LlrpUnknownVendorParameterBehavior.PreserveAndIgnore;
     public bool UseStrictStandardInventoryProfile { get; init; }
+    /// <summary>
+    /// Allows <c>DISABLE_ROSPEC</c> to implicitly stop an Active ROSpec before moving it to Disabled.
+    /// This is a compatibility mode for readers that accept the shortcut; it is disabled by default so
+    /// protocol tests continue to catch clients that omit <c>STOP_ROSPEC</c>.
+    /// </summary>
+    public bool AllowImplicitStopOnDisable { get; init; }
     public IReadOnlySet<ushort> DropResponseForMessageTypes { get; init; } = new HashSet<ushort>();
     public IReadOnlyDictionary<ushort, LlrpDeviceServerErrorResponse> ErrorResponseForMessageTypes { get; init; } =
         new Dictionary<ushort, LlrpDeviceServerErrorResponse>();

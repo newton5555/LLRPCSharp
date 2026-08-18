@@ -648,7 +648,8 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
     {
         if (request.ROSpecID == 0)
         {
-            if (_state.GetRoSpecs().Any(static item => item.CurrentState == V101Enumerations.ROSpecState.Active))
+            if (!_state.Options.AllowImplicitStopOnDisable &&
+                _state.GetRoSpecs().Any(static item => item.CurrentState == V101Enumerations.ROSpecState.Active))
             {
                 return new V101Messages.DISABLE_ROSPEC_RESPONSE(
                     request.MessageId,
@@ -657,6 +658,15 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
 
             foreach (uint roSpecId in _state.GetRoSpecIds())
             {
+                if (_state.TryGetRoSpec(roSpecId, out V101Parameters.ROSpec? allRoSpec) &&
+                    allRoSpec?.CurrentState == V101Enumerations.ROSpecState.Active)
+                {
+                    _state.TryUpdateRoSpec(
+                        roSpecId,
+                        static current => current with { CurrentState = V101Enumerations.ROSpecState.Inactive });
+                    _state.MarkRoSpecStopped(roSpecId);
+                }
+
                 _state.TryUpdateRoSpec(roSpecId, static current => current with { CurrentState = V101Enumerations.ROSpecState.Disabled });
                 _state.MarkRoSpecStopped(roSpecId);
             }
@@ -669,6 +679,16 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
         if (!_state.TryGetRoSpec(request.ROSpecID, out V101Parameters.ROSpec? roSpec) || roSpec is null)
         {
             return new V101Messages.DISABLE_ROSPEC_RESPONSE(request.MessageId, MissingRoSpec(request.ROSpecID));
+        }
+
+        if (roSpec.CurrentState == V101Enumerations.ROSpecState.Active &&
+            _state.Options.AllowImplicitStopOnDisable)
+        {
+            _state.TryUpdateRoSpec(
+                request.ROSpecID,
+                static current => current with { CurrentState = V101Enumerations.ROSpecState.Inactive });
+            _state.MarkRoSpecStopped(request.ROSpecID);
+            roSpec = roSpec with { CurrentState = V101Enumerations.ROSpecState.Inactive };
         }
 
         if (roSpec.CurrentState != V101Enumerations.ROSpecState.Inactive)
