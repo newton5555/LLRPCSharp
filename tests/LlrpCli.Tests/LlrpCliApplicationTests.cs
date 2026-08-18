@@ -508,7 +508,7 @@ public sealed class LlrpCliApplicationTests
             InvocationResult result = Invoke("decode", path, "--output", "summary", "--message-type", "14");
 
             Assert.Equal(0, result.ExitCode);
-            Assert.Contains("1/2 LLRP message", result.Output, StringComparison.Ordinal);
+            Assert.Contains("Decoded 1/2 LLRP message(s)", result.Output, StringComparison.Ordinal);
             Assert.Contains("CLOSE_CONNECTION", result.Output, StringComparison.Ordinal);
             Assert.DoesNotContain("KEEPALIVE", result.Output, StringComparison.Ordinal);
         }
@@ -534,12 +534,13 @@ public sealed class LlrpCliApplicationTests
             using var output = new StringWriter();
             IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings
             {
-                Out = new AnsiConsoleOutput(output)
+                Out = new AnsiConsoleOutput(output),
+                Ansi = AnsiSupport.No,
             });
 
             LiveProtocolDiagnostics.Decode(["decode", path, "--output", "summary"], console);
 
-            Assert.Contains("1 LLRP message", output.ToString(), StringComparison.Ordinal);
+            Assert.Contains("Decoded 1 LLRP message(s)", output.ToString(), StringComparison.Ordinal);
             Assert.Contains("KEEPALIVE", output.ToString(), StringComparison.Ordinal);
         }
         finally

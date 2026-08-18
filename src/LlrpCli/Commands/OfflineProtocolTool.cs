@@ -107,9 +107,10 @@ internal static class OfflineProtocolTool
             return;
         }
 
-        console.MarkupLine(matching.Length == messages.Count
-            ? $"[grey]Decoded [bold]{matching.Length}[/] LLRP message(s) from [bold]{Markup.Escape(fileName)}[/] ([bold]{segments.Count}[/] TCP segments)[/]"
-            : $"[grey]Decoded [bold]{matching.Length}[/]/{messages.Count} LLRP message(s) from [bold]{Markup.Escape(fileName)}[/] ([bold]{segments.Count}[/] TCP segments, filter message type {messageTypeFilter})[/]");
+        // Keep the summary line plain so redirected and CI output remains machine-readable.
+        console.WriteLine(matching.Length == messages.Count
+            ? $"Decoded {matching.Length} LLRP message(s) from {fileName} ({segments.Count} TCP segments)"
+            : $"Decoded {matching.Length}/{messages.Count} LLRP message(s) from {fileName} ({segments.Count} TCP segments, filter message type {messageTypeFilter})");
         foreach (LlrpCapturedMessage message in matching)
         {
             string dirBadge = message.Direction == LlrpFrameDirection.Receive
