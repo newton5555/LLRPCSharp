@@ -1,16 +1,16 @@
 # LlrpDevice.Virtual
 
-`LlrpDevice.Virtual` provides a deterministic, in-process virtual RFID device
-implementation for LLRP integration tests and simulations. It exposes the
+`LlrpDevice.Virtual` is the deterministic, in-process implementation used by
+the public `LlrpDevice.Virtual.Hosting` facade. It exposes the
 version-neutral `ILlrpDevice` contract together with deterministic inventory,
 RF-observable scenarios, tag memory operations, and device events.
 
-Install the package with:
+Applications that need a TCP/LLRP virtual device should install the Hosting
+package instead:
 
 ```powershell
-dotnet add package LlrpDevice.Virtual --version 1.5.0
+dotnet add package LlrpDevice.Virtual.Hosting --version 2.0.0
 ```
 
-The package includes `LlrpDevice.Abstractions`. TCP hosting is provided by the
-separate `LlrpDevice.Virtual.Hosting` source project and is not part of this
-core package.
+`LlrpDevice.Virtual.Hosting` is the 2.0.0 public entry point and bundles the
+server, virtual-device, Impinj profile, and protocol runtime needed by the host.

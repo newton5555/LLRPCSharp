@@ -1,11 +1,60 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <IsPackable>false</IsPackable>
+    <IsPackable>true</IsPackable>
+    <PackageId>LlrpDevice.Virtual.Hosting</PackageId>
+    <Title>LLRPCSharp Virtual Device Hosting</Title>
+    <Description>Public high-level hosting facade for deterministic TCP/LLRP virtual devices, including the standard and Impinj R420 profiles.</Description>
+    <PackageTags>llrp;rfid;virtual-device;hosting;simulation;testing</PackageTags>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeReferencedProjectOutputs</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LlrpDevice.Server\LlrpDevice.Server.csproj" />
-    <ProjectReference Include="..\LlrpDevice.Virtual\LlrpDevice.Virtual.csproj" />
-    <ProjectReference Include="..\LlrpDevice.Virtual.Impinj\LlrpDevice.Virtual.Impinj.csproj" />
+    <ProjectReference Include="..\LlrpDevice.Server\LlrpDevice.Server.csproj"
+                      PrivateAssets="all"
+                      IncludeAssets="compile;runtime" />
+    <ProjectReference Include="..\LlrpDevice.Virtual\LlrpDevice.Virtual.csproj"
+                      PrivateAssets="all"
+                      IncludeAssets="compile;runtime" />
+    <ProjectReference Include="..\LlrpDevice.Virtual.Impinj\LlrpDevice.Virtual.Impinj.csproj"
+                      PrivateAssets="all"
+                      IncludeAssets="compile;runtime" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <Target Name="IncludeReferencedProjectOutputs">
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Abstractions.dll"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Abstractions.dll')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Abstractions.pdb"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Abstractions.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Server.dll"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Server.dll')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Server.pdb"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Server.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Virtual.dll"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Virtual.dll')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Virtual.pdb"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Virtual.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Virtual.Impinj.dll"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Virtual.Impinj.dll')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Virtual.Impinj.pdb"
+                            Condition="Exists('$(OutputPath)LlrpDevice.Virtual.Impinj.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Core.dll"
+                            Condition="Exists('$(OutputPath)LlrpNet.Core.dll')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Core.pdb"
+                            Condition="Exists('$(OutputPath)LlrpNet.Core.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.dll"
+                            Condition="Exists('$(OutputPath)LlrpNet.Protocol.dll')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.pdb"
+                            Condition="Exists('$(OutputPath)LlrpNet.Protocol.pdb')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.Impinj.dll"
+                            Condition="Exists('$(OutputPath)LlrpNet.Protocol.Impinj.dll')" />
+      <BuildOutputInPackage Include="$(OutputPath)LlrpNet.Protocol.Impinj.pdb"
+                            Condition="Exists('$(OutputPath)LlrpNet.Protocol.Impinj.pdb')" />
+    </ItemGroup>
+  </Target>
 </Project>

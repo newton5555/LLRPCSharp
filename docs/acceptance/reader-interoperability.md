@@ -43,6 +43,7 @@ dotnet run --project tools/LlrpSdk.LiveSmoke -- <reader-host>
 ## 已记录证据
 
 | 日期 | 设备 | 结果 |
+| 2026-08-19 | Impinj R420 `192.168.40.87`，LLRP 1.0.1，Manufacturer `25882`、Model `2001002`、Firmware `6.4.1.240`，4 天线 | SDK 2.0.0 Release 冒烟：首次 `LiveSmoke --inventory` 正确拒绝替换已有 SDK-managed ROSpec；随后使用显式 `--clear-managed --yes` 清理托管资源，再独立连接执行 `--inventory`，协商 `Version101`、Impinj 扩展和能力/配置读取成功，收到 EPC `E28011710000020D056E9D0E`（天线 2、RSSI -22）。工具完成 Stop/Clear 清理；未写标签或设备配置。 |
 | 2026-08-14 | 标准 LLRP 设备 `192.168.40.88`，LLRP 1.0.1，Manufacturer `161`、Model `96008`、Firmware `3.32.37.0`，8 天线 | `LlrpSdk.Hardware.Tests` 真机执行 **6/6 通过**（`StandardReaderHardwareTests` 4 项 + `PhysicalReaderConformanceTests` 2 项，标准路径 Force101）：连接/能力初始化、默认配置与查询、天线配置原值回写不丢失 `RFTransmitter` 字段、盘点收到标签并完成 Stop/Clear 清理。本次运行验证适配器边界重构后的反向路径：`QuerySettingsAsync`/`SynchronizeStateAsync` 经 `ILlrpProtocolAdapter.ParseManagedRoSpec` 反解析真实设备 ROSpec。未写标签；配置仅原值回写。 |
 | 2026-08-14 | Impinj R420 `192.168.40.87`，LLRP 1.0.1，Manufacturer `25882`、Model `2001002`、Firmware `6.4.1.240`，4 天线，区域 China 920–925 MHz | `LlrpSdk.Hardware.Tests` 真机全量 **12/12 通过**（串行执行）：托管一段式/两段式盘点并收到标签、Tag Access 非破坏读 User Memory、`HoldEventsAndReportsUponReconnect` 重连后报告恢复、`ImpinjSerializedTid` 投影、`QuerySettingsAsync` 反解析托管 ROSpec、标准路径用例（强制 1.0.1 无扩展）、物理一致性用例（`UseImpinj()` 扩展激活）。未写标签或设备配置。 |
 |---|---|---|

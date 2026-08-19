@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Sockets;
-using LlrpNet.Core.Protocol;
 using LlrpSdk;
 using LlrpVirtualDevice.Cli;
 

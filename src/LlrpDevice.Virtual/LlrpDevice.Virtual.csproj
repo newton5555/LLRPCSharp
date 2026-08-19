@@ -1,13 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <IsPackable>true</IsPackable>
-    <PackageId>LlrpDevice.Virtual</PackageId>
-    <Title>LLRPCSharp Virtual Device</Title>
-    <Description>Deterministic virtual RFID device implementation for LLRP integration tests and simulations.</Description>
-    <PackageTags>llrp;rfid;virtual-device;simulation;testing</PackageTags>
-    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
-    <NoPackageAnalysis>true</NoPackageAnalysis>
-    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeReferencedProjectOutputs</TargetsForTfmSpecificBuildOutput>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,11 +9,4 @@
                       IncludeAssets="compile;runtime" />
   </ItemGroup>
 
-  <Target Name="IncludeReferencedProjectOutputs">
-    <ItemGroup>
-      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Abstractions.dll" />
-      <BuildOutputInPackage Include="$(OutputPath)LlrpDevice.Abstractions.pdb"
-                            Condition="Exists('$(OutputPath)LlrpDevice.Abstractions.pdb')" />
-    </ItemGroup>
-  </Target>
 </Project>
