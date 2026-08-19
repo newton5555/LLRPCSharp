@@ -17,13 +17,28 @@ device behavior contract. `VirtualLlrpDevice` is one implementation of that
 contract; a future real RFID module can implement the same interface without
 duplicating the LLRP server or resource state machine.
 
+The `LlrpDevice.*` projects are the device-side virtual-reader boundary. They
+accept ordinary LLRP client traffic over TCP; they do not call `LlrpSdk` and do
+not replace the client SDK. `LlrpDevice.Server` implements the protocol/session
+and resource/report behavior, `VirtualLlrpDevice` implements deterministic
+reader behavior, and `LlrpDevice.Virtual.Hosting` exposes the composition to a
+host application. Consequently, `LlrpSdk`, `LlrpCli`, and
+external tools can exercise the virtual endpoint through the same LLRP wire
+contract as a physical reader.
+
+The Impinj R420 virtual profile has been validated with an Impinj ItemTest
+2.10.0 LLRP client: the client connects over LLRP 1.0.1 and reaches inventory
+start. This evidence covers the LLRP client path only; ItemTest services outside
+LLRP (for example mDNS discovery and rshell/SSH) are not part of the virtual
+device contract.
+
 ### Runtime ownership and message flow
 
 | Boundary | Owns | Does not own |
 |---|---|---|
 | `LlrpSdk` / `LlrpCli` / WPF or third-party client | client connection, protocol operations, reader workflows, and client-side diagnostics | device listener lifecycle or virtual-device composition |
-| `LlrpDevice.Virtual.Hosting` | one-device SDK facade, endpoint facts, start/stop/restart lifecycle | multi-device directory and cross-process recovery |
-| `LlrpVirtualDevice.Cli` | one foreground process for one virtual device, single-device JSON validation | multi-device management and automatic restart |
+| `LlrpDevice.Virtual.Hosting` | virtual-device SDK facade, endpoint facts, start/stop/restart lifecycle | multi-device directory and cross-process recovery |
+| `LlrpVirtualDevice.Cli` | foreground virtual-device process, JSON validation | multi-device management and automatic restart |
 | `LlrpDevice.Server` | listener, sessions, version dispatch, resource graph, KeepAlive, reports, status mapping, fault hooks | fake tag state or hardware driver details |
 | `ILlrpDevice` | identity, capabilities, configuration, inventory execution, Tag Access, device events | TCP, protocol-version types, ROSpec/AccessSpec CRUD |
 | `VirtualLlrpDevice` | deterministic tags, memory, lock/kill state, `static`/`moving-tags`/`noisy` observations | LLRP wire handling and Server resource state |
@@ -60,7 +75,7 @@ the abstractions project. This is the migration seam for a future physical
 device implementation.
 
 The standalone CLI uses `VirtualDeviceConfiguration`, a versioned,
-single-device behavior document. Capability selection is represented by the
+device behavior document. Capability selection is represented by the
 `llrp1.0.1_standard` manifest under `src/LlrpDevice.Virtual/config/llrp/caps`;
 inventory tags are provided by an independent `IVirtualInventoryDataSource` and
 can be loaded from `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json`
@@ -82,7 +97,7 @@ LLRPCSharp/
 ├── LLRPCSharp.slnx                     [solution]
 ├── /src/
 │   ├── LlrpCli/                         [general client CLI, directly under src]
-│   ├── LlrpVirtualDevice.Cli/           [single-device CLI, directly under src]
+│   ├── LlrpVirtualDevice.Cli/           [virtual-device CLI, directly under src]
 │   ├── LlrpNet/                         [solution folder: transport + protocol]
 │   │   ├── LlrpNet.Core/
 │   │   ├── LlrpNet.Protocol/
@@ -100,7 +115,7 @@ LLRPCSharp/
 │   ├── LlrpDevice.Abstractions/         [version-neutral device contract]
 │   ├── LlrpDevice.Server/                [generic LLRP device-side service]
 │   ├── LlrpDevice.Virtual/               [deterministic device implementation]
-│   └── LlrpDevice.Virtual.Hosting/       [single-device SDK facade]
+│   └── LlrpDevice.Virtual.Hosting/       [virtual-device SDK facade]
 ├── /tests/                               [unit, interop, hardware, and virtual tests]
 └── /tools/                               [smoke and protocol probe tools]
 ```
@@ -176,7 +191,7 @@ TCP / LLRP binary protocol / real or virtual readers
 - Common application code uses version-neutral high-level models. Versioned Message/Parameter types belong to the protocol layer, advanced resource layer, and diagnostics.
 - The CLI is a real SDK consumer. Online device operations reuse `LlrpReader`; offline encode/decode/inspect operations use the protocol layer.
 - Handwritten core logic is separated from generated protocol assets. Generated assets are committed but not manually maintained.
-- Standard domain models cleanly separate device hardware configuration (`ReaderConfiguration`) from inventory intent (`InventorySettings`). Unlike Impinj Octane SDK which bundles hardware configuration and ROSpec parameters into a single monolithic `Settings` class, `LLRPCSharp` maintains explicit decoupling while supporting vendor extension contributors. An Impinj-Octane-style facade helper wrapper is planned for future evaluation.
+- Standard domain models keep device hardware configuration (`ReaderConfiguration`) and inventory intent (`InventorySettings`) as explicit subdomains of the public `ReaderSettings` entry point. This preserves a stable, version-neutral contract while allowing vendor extension contributors; an additional monolithic Octane-style wrapper is not part of the current scope.
 - Unknown standard or custom wire types should be preserved as Raw/Unknown where possible, instead of breaking standard message parsing.
 - Vendor capabilities enter through two stages: Protocol Modules and Reader Extensions. The core SDK must not depend backward on a specific vendor.
 
@@ -190,11 +205,11 @@ TCP / LLRP binary protocol / real or virtual readers
 | `LlrpNet.ProtocolGenerator` | C# type, codec, and registry module generation from protocol definitions. |
 | `LlrpSdk` | `LlrpReader`, state machine, high-level inventory, resource services, version adapters, and extension lifecycle. |
 | `LlrpCli` | General client-side command-line SDK consumer, diagnostics entry point, and regression helper. |
-| `LlrpVirtualDevice.Cli` | Single-device command-line consumer of the virtual device SDK facade. |
+| `LlrpVirtualDevice.Cli` | Command-line consumer of the virtual-device SDK facade. |
 | `LlrpDevice.Abstractions` | Version-neutral identity, configuration, inventory, Tag Access, and device-event contracts. |
 | `LlrpDevice.Server` | Generic LLRP device-side TCP service, version dispatch, resource state, reports, and fault hooks. |
 | `LlrpDevice.Virtual` | Deterministic in-memory implementation of `ILlrpDevice`, including RF-observable scenarios. |
-| `LlrpDevice.Virtual.Hosting` | `IVirtualDeviceHost` and `VirtualDeviceHostOptions` facade that composes one Server and one Virtual device; supports pre-start tag injection and the Impinj R420 profile. |
+| `LlrpDevice.Virtual.Hosting` | `IVirtualDeviceHost` and `VirtualDeviceHostOptions` facade that composes Server and Virtual device behavior; supports pre-start tag injection and the Impinj R420 profile. |
 
 ## Capability Layers
 

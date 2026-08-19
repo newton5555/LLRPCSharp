@@ -1,8 +1,9 @@
-# Zebra FX9600 LLRP 1.0.1 厂商扩展清单
+# Zebra FX9600 LLRP 1.0.1 厂商扩展参考与验证状态
 
-> 用途：为后续 `definitions/extensions/zebra.yml` 建模提供经过 PDF 核对的输入。
+> 用途：记录 `definitions/extensions/zebra.yml`、生成协议模块和 SDK 映射的 PDF 核对依据。
 > **偏差与验证状态**见 [llrp-1.0.1-definition-drift.md](llrp-1.0.1-definition-drift.md)：官方 ICG `reserved` 位数与固件字节系统性偏移，仅部分参数经实机字节级标定。
-> 本文不是生成后的协议定义，也不表示当前 SDK 已经实现 Zebra 扩展。
+> 本文不是生成后的协议定义；当前 SDK 已提供 Zebra 协议模块和最小设置/报告扩展，
+> 但未验证的字段仍按下文的实机证据状态处理。
 >
 > 资料：`docs/references/zebra/interface-control-guide-en.pdf`，Zebra *RFID Reader Software Interface Control Guide*，Part 72E-131718-13EN，Revision A，2025-03。
 > PDF 第 19 页明确写明 FX 系列读写器支持 EPCglobal LLRP **v1.0.1**，同时支持 LLRP custom extensions。
@@ -15,7 +16,9 @@
 - 下面的扩展是“1.0.1 标准报文 + Zebra 自定义消息/参数”，不能当作 LLRP 1.1 的版本增量。
 - 扩展定义应生成到 `V1_0_1` 版本命名空间，并与现有 1.0.1 标准模型组合。
 - PDF 的产品矩阵同时列出 FX7400、FX7500、FX9500、FX9600、ATR7000 和 MC3000/MC9000；本文的 `Y/N` 只解释 **FX9600 列**。
-- 当前仓库没有 Zebra LTK `def.xml`，也没有 Zebra 协议模块；已先落下手工维护的 `definitions/extensions/zebra.yml` 草稿，生成后仍需补协议测试和 SDK 映射。
+- 当前仓库没有 Zebra LTK `def.xml`；协议模块已由 `definitions/extensions/zebra.yml`
+  生成，`LlrpSdk.Extensions.Zebra` 已提供最小 SDK 映射。官方 PDF 与固件抓包仍有
+  `reserved` 位宽偏差，未标定字段不得视为已完成。
 
 ### 1.2 公共线格式
 

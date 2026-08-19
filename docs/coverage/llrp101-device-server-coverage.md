@@ -1,6 +1,6 @@
 # LLRP 1.0.1 设备端对齐完成度
 
-> 基准日期：2026-08-17
+> 基准日期：2026-08-19
 >
 > 本表以现有 `LlrpSdk` 客户端 1.0.1 的实际业务路径为对齐基线，覆盖通用
 > `LlrpDevice.Server` 与 `VirtualLlrpDevice`。客户端、`LlrpNet`、协议定义和生成代码
@@ -12,6 +12,10 @@
 能力/配置、ROSpec、AccessSpec、寻卡触发、报告、事件、标准 C1G2 Tag Access、主动关闭
 和故障边界均由通用 Server 承担；Virtual 只提供确定性标签、内存和 RF 可观察行为。
 
+Impinj R420 虚拟 profile 另已使用 Impinj ItemTest 2.10.0 作为外部 LLRP 客户端验证，
+可以在 LLRP 1.0.1 下完成客户端连接并进入盘点启动流程。该验证只覆盖 LLRP 客户端路径，
+不覆盖 ItemTest 的 mDNS、rshell/SSH 等非 LLRP 服务。
+
 这不是对真实 RFID 芯片、电磁波形、区域法规或厂商扩展的仿真。`CLIENT_REQUEST_OP` 与
 RF Survey 仍按客户端能力门控保持不接线，因为当前客户端实现和已验证设备均不使用它们。
 
@@ -20,6 +24,7 @@ RF Survey 仍按客户端能力门控保持不接线，因为当前客户端实�
 | 客户端 1.0.1 功能 | Server / Virtual 对齐实现 | 验收状态 |
 |---|---|---|
 | TCP 连接、初始化 Reader Event | `LlrpDeviceServer` accepted TCP、Session、ConnectionAttemptEvent、客户端隔离 | ✅ |
+| 外部 ItemTest 2.10.0 LLRP 客户端 | Impinj R420 profile 接受 LLRP 1.0.1 连接并进入盘点启动流程 | ✅（LLRP 路径） |
 | GET_READER_CAPABILITIES | General、LLRP、设备配置的 Regulatory（Tx 功率 Index 1..193、16 个跳频点、41 项 C1G2 RF Mode）、C1G2 能力；按 RequestedData 筛选；General Rx 表为默认 profile 的 Index 1..2（0/10 dB offset） | ✅ |
 | GET/SET_READER_CONFIG | 天线、GPO、GPI 当前状态、事件通知、RO/Access ReportSpec、Keepalive、EventsAndReports、配置状态值、Factory Reset；Virtual 标准默认 4 根天线均返回 Rx=1、Tx=193（29.2 dBm）、HopTable=1、Channel=1 | ✅ |
 | ROSpec CRUD 与状态机 | Add/Get/Delete/Enable/Disable/Start/Stop；ID=0 批量语义；Disabled/Inactive/Active | ✅ |
@@ -58,14 +63,14 @@ LlrpDevice.Server
 
 ## 进程边界
 
-本专项只实现单台设备 SDK/Host 和单台 CLI 生命周期。配置文件保存设备声明式预设，
+本专项只实现设备 SDK/Host 和设备 CLI 生命周期。配置文件保存设备声明式预设，
 不保存运行中的 ROSpec/AccessSpec，也不在进程重启后自动恢复；多设备服务、跨进程控制、
 UI 和持久化运行态属于后续独立阶段。
 
 ## 验收
 
 - 解决方案构建：0 warning / 0 error。
-- 全量自动化测试：511 passed、0 failed、0 skipped。
+- 全量自动化测试：523 passed、0 failed、0 skipped（截至 2026-08-19）。
 - `Interop.Tests`：33 passed，包含 1.0.1 能力表（功率、频点、RF Mode）、报告缓冲、报告触发尾部、状态感知过滤、
   附加数据、GPI 事件、主动关闭、标准 Tag Access，以及 1.0.1/1.1/2.0 Server 基线。
 - 冻结边界：`src/LlrpNet`、`src/LlrpSdk`、`definitions` 和生成 `.g.cs` 无修改。

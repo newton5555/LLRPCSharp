@@ -1,7 +1,7 @@
 # LLRP Device Server 与 Virtual Device 下一阶段实施计划
 
-- 状态：Implemented（本计划已完整实施并通过最终自动化验收）
-- 基准日期：2026-08-17
+- 状态：已完成（归档；本计划已完整实施并通过自动化验收）
+- 基准日期：2026-08-19
 - 实施前基线：496 项测试通过，构建 0 warning / 0 error
 - 架构迁移阶段验收：508 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error；
   后续 1.0.1 设备端对齐与兼容层清理验收：511 项测试通过，0 failure / 0 skipped，构建 0 warning / 0 error

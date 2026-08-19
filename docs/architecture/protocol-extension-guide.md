@@ -4,7 +4,10 @@
 
 > **Path**: `docs/architecture/protocol-extension-guide.md`  
 > **Audience**: project developers, integrators, and customer technical teams  
-> **Core rule**: XML is the fixed historical baseline. The SDK already has 1.0.1 / 1.1 support, while 2.0 has YAML delta definitions and still needs an adapter. Customers only need YAML deltas for vendor extensions and future protocol versions.
+> **Core rule**: XML is the fixed historical baseline. The SDK has 1.0.1 / 1.1 / 2.0
+> versioned protocol assets and a V2 adapter/negotiation baseline. 2.0 real-device
+> interoperability remains an acceptance item. Customers only need YAML deltas for
+> vendor extensions and future protocol versions.
 
 ## 1. XML Baseline And YAML Deltas
 
@@ -29,12 +32,14 @@ In `LLRPCSharp`, protocol definition ownership is intentionally strict: legacy X
 
 ## 2. Scenario Guide
 
-### Scenario 1: Standard 1.0.1 / 1.1 Readers, Or Impinj 1.0.1 Readers
+### Scenario 1: Standard 1.0.1 / 1.1 / 2.0 Readers, Or Impinj 1.0.1 Readers
 
 - **Customer input**: no files are required.
 - **SDK behavior**:
   - LLRP 1.0.1 standard support and Impinj 1.0.1 extensions are precompiled from local XML inputs. The current Impinj input is LTK Definition Files 10.58.0 with 4 custom messages, 104 custom parameters, and 49 custom enumerations. The original XML is not redistributed; generated wire models and codecs live in the SDK-independent `LlrpNet.Protocol.Impinj`, while high-level mappings live in `LlrpSdk.Extensions.Impinj`.
-  - LLRP 1.1 is generated from the SDK-provided `llrp-1.1.yaml`. LLRP 2.0 has `llrp-2.0-delta.yaml` in the repository, but it becomes a usable SDK protocol version only after the V2 adapter and negotiation path are implemented.
+  - LLRP 1.1 is generated from the SDK-provided `llrp-1.1.yaml`. LLRP 2.0 uses
+    `llrp-2.0-delta.yaml` plus the checked-in V2 adapter and negotiation path; it is
+    available as a protocol/SDK baseline while real-device acceptance is pending.
 
 ### Scenario 2: Integrating A New Third-Party Vendor Reader
 
@@ -94,7 +99,7 @@ The generation pipeline is the same regardless of which scenario produced the YA
 | 1.0.1 standard reader | XML | Provided by this project | No |
 | Impinj 1.0.1 reader | Local XML | Precompiled extension DLL | No |
 | LLRP 1.1 standard | YAML delta | Provided by the SDK | No |
-| LLRP 2.0 standard | YAML delta | Provided by the SDK, adapter pending | No, once implemented |
+| LLRP 2.0 standard | YAML delta | Provided by the SDK; V2 adapter is implemented | Standard path available; real-device acceptance pending |
 | New vendor reader | YAML delta | Customer or integrator | Yes |
 | Project-specific messages | YAML delta | Customer project team | Yes |
 | Future standard | YAML delta | Developer or integrator | Yes |

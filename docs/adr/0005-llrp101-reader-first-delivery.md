@@ -1,11 +1,12 @@
 # ADR 0005：以 LLRP 1.0.1 Reader 能力为当前交付主线
 
-- 状态：Accepted（实施中）
+- 状态：Superseded（历史决策；SDK 资源边界仍有效，CLI 草稿流程已由后续版本收敛）
 - 日期：2026-07-27
 
 > 实施说明：本文保留决策形成时的历史模型名称。当前托管配置 API 是
-> `QuerySettingsAsync()` / `ApplySettingsAsync()`，CLI 使用 `settings` 草稿
-> 与 `inventory start|stop|status`，不再提供 `config` 命令组。
+> `QuerySettingsAsync()` / `ApplySettingsAsync()`，CLI 使用无持久化草稿的
+> `settings show|edit|validate|apply|save` 与 `inventory start|stop|status`，不再提供
+> `config` 命令组。当前实现事实见 [`docs/status.md`](../status.md)。
 
 ## 背景
 

@@ -16,13 +16,24 @@
 `VirtualLlrpDevice` 是该合同的一种实现；未来真实 RFID 模块可以实现同一个接口，
 无需复制 LLRP 服务或资源状态机。
 
+`LlrpDevice.*` 项目属于设备端虚拟读写器边界。它们通过 TCP 接受普通 LLRP 客户端
+流量，不调用 `LlrpSdk`，也不替代客户端 SDK。`LlrpDevice.Server` 实现协议/会话、
+资源和报告行为，`VirtualLlrpDevice` 实现确定性的读写器行为，
+`LlrpDevice.Virtual.Hosting` 向宿主应用公开设备组合。因此，`LlrpSdk`、
+`LlrpCli` 和外部工具都可以通过同一套 LLRP 线协议使用虚拟端点，就像使用真实读写器
+一样。
+
+Impinj R420 虚拟 profile 已使用 Impinj ItemTest 2.10.0 LLRP 客户端验证：客户端可在
+LLRP 1.0.1 下连接并进入盘点启动流程。该证据只覆盖 LLRP 客户端路径；ItemTest 的
+非 LLRP 服务（例如 mDNS 发现和 rshell/SSH）不属于虚拟设备合同。
+
 ### 运行时职责与报文流
 
 | 边界 | 负责 | 不负责 |
 |---|---|---|
 | `LlrpSdk` / `LlrpCli` / WPF 或第三方客户端 | 客户端连接、协议操作、Reader 工作流和客户端诊断 | 设备监听器生命周期或虚拟设备组合 |
-| `LlrpDevice.Virtual.Hosting` | 单台设备 SDK 门面、端点信息、启动/停止/重启生命周期 | 多设备目录和跨进程恢复 |
-| `LlrpVirtualDevice.Cli` | 一个前台进程托管一台虚拟设备、单设备 JSON 校验 | 多设备管理和自动重启 |
+| `LlrpDevice.Virtual.Hosting` | 虚拟设备 SDK 门面、端点信息、启动/停止/重启生命周期 | 多设备目录和跨进程恢复 |
+| `LlrpVirtualDevice.Cli` | 前台虚拟设备进程、JSON 校验 | 多设备管理和自动重启 |
 | `LlrpDevice.Server` | Listener、Session、版本分发、资源图、KeepAlive、报告、状态映射、故障 Hook | 假标签状态或硬件驱动细节 |
 | `ILlrpDevice` | 身份、能力、配置、盘点执行、Tag Access、设备事件 | TCP、协议版本类型、ROSpec/AccessSpec CRUD |
 | `VirtualLlrpDevice` | 确定性标签、内存、锁/销毁状态、`static`/`moving-tags`/`noisy` 观察 | LLRP 报文处理和 Server 资源状态 |
@@ -55,7 +66,7 @@ ROSpec/AccessSpec 转成版本中立的设备请求；TCP 端口不选择设备�
 `ILlrpDevice`；`LlrpDevice.Virtual` 只引用 Abstractions。这就是未来真实设备实现的迁移
 接缝。
 
-独立 CLI 使用 `VirtualDeviceConfiguration` 持久化版本化的单设备行为选择。
+独立 CLI 使用 `VirtualDeviceConfiguration` 持久化版本化的设备行为选择。
 `src/LlrpDevice.Virtual/config/llrp/caps` 下的 `llrp1.0.1_standard` 能力档案负责固定读写器能力；
 标签由独立的 `IVirtualInventoryDataSource` 提供，可使用
 `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json` 或另一个数据源路径。配置不保存监听地址、
@@ -72,7 +83,7 @@ LLRPCSharp/
 ├── LLRPCSharp.slnx                     [解决方案]
 ├── /src/
 │   ├── LlrpCli/                         [通用客户端 CLI，项目直接位于 src 下]
-│   ├── LlrpVirtualDevice.Cli/           [单台设备 CLI，项目直接位于 src 下]
+│   ├── LlrpVirtualDevice.Cli/           [虚拟设备 CLI，项目直接位于 src 下]
 │   ├── LlrpNet/                         [解决方案文件夹：通信层 + 协议层]
 │   │   ├── LlrpNet.Core/
 │   │   ├── LlrpNet.Protocol/
@@ -90,7 +101,7 @@ LLRPCSharp/
 │   ├── LlrpDevice.Abstractions/         [版本中立设备合同]
 │   ├── LlrpDevice.Server/               [通用 LLRP 设备端服务]
 │   ├── LlrpDevice.Virtual/              [确定性设备实现]
-│   └── LlrpDevice.Virtual.Hosting/      [单台设备 SDK 门面]
+│   └── LlrpDevice.Virtual.Hosting/      [虚拟设备 SDK 门面]
 ├── /tests/                               [单元、互操作、硬件和虚拟设备测试]
 └── /tools/                               [Smoke 与协议探针工具]
 ```
@@ -166,7 +177,9 @@ TCP / LLRP 二进制协议 / 真实或虚拟读写器
 - 普通业务面对版本无关的高级模型；版本化 Message/Parameter 只属于协议层、进阶资源层和诊断场景。
 - CLI 是 SDK 的真实消费方。在线设备操作复用 `LlrpReader`，离线 encode/decode/inspect 使用协议层。
 - 手写核心逻辑与生成协议资产分离。生成资产提交到仓库，但不手工维护。
-- 标准领域模型严格解耦设备硬件配置 (`ReaderConfiguration`) 与单次盘点意图 (`InventorySettings`)。相比 Impinj Octane SDK 将硬件配置与 ROSpec 参数打包在单一 `Settings` 大对象中的做法，`LLRPCSharp` 保持显式解耦并支持厂商扩展管道，未来保留对 Impinj Octane 式 Facade 快捷包装包的规划评估。
+- 标准领域模型把设备硬件配置 (`ReaderConfiguration`) 与盘点意图 (`InventorySettings`) 作为公开
+  `ReaderSettings` 的两个明确子域。这样既保持版本无关的稳定契约，也支持厂商扩展贡献者；当前
+  不再另行规划一个单体式的 Octane 风格 Facade 包装层。
 - 未知标准类型或 Custom 类型应尽量保留为 Raw/Unknown，不能轻易破坏标准报文解析。
 - 厂商能力通过 Protocol Module 和 Reader Extension 两阶段接入，避免核心 SDK 反向依赖具体厂商。
 
@@ -180,11 +193,11 @@ TCP / LLRP 二进制协议 / 真实或虚拟读写器
 | `LlrpNet.ProtocolGenerator` | 从协议定义生成 C# 类型、Codec 和 Registry Module。 |
 | `LlrpSdk` | `LlrpReader`、状态机、高级盘点、资源服务、版本 Adapter、扩展生命周期。 |
 | `LlrpCli` | 通用客户端 SDK 的命令行使用者、诊断入口和回归辅助工具。 |
-| `LlrpVirtualDevice.Cli` | 单台虚拟设备 SDK 门面的命令行使用者。 |
+| `LlrpVirtualDevice.Cli` | 虚拟设备 SDK 门面的命令行使用者。 |
 | `LlrpDevice.Abstractions` | 版本中立的身份、配置、盘点、Tag Access 与设备事件合同。 |
 | `LlrpDevice.Server` | 通用 LLRP 设备端 TCP 服务、版本分发、资源状态、报告和故障 Hook。 |
 | `LlrpDevice.Virtual` | `ILlrpDevice` 的确定性内存实现，包含 RF 可观察场景。 |
-| `LlrpDevice.Virtual.Hosting` | 组合一台 Server 和一台 Virtual 设备的 `IVirtualDeviceHost`/`VirtualDeviceHostOptions` 门面，支持启动前注入标签和 Impinj R420 profile。 |
+| `LlrpDevice.Virtual.Hosting` | 组合 Server 与 Virtual 设备行为的 `IVirtualDeviceHost`/`VirtualDeviceHostOptions` 门面，支持启动前注入标签和 Impinj R420 profile。 |
 
 ## 能力分层
 

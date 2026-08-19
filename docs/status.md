@@ -1,25 +1,26 @@
 # 当前状态
 
-> 基准日期：2026-08-18
+> 基准日期：2026-08-19
 
 本文档只记录当前实现事实。开发计划见 [roadmap.md](roadmap.md)，用户入口见
 根目录 [README](../README.zh.md)。
 
 ## 总结
 
-项目当前提供三层能力：
+项目当前提供四个相互协作的能力域：
 
-- `LlrpNet`：LLRP 1.0.1/1.1 的协议模型、编解码、传输和扩展基础。
+- `LlrpNet`：LLRP 1.0.1/1.1/2.0 的协议模型、编解码、传输和扩展基础；2.0
+  已有独立版本类型、Codec 和 Adapter 基线，真实设备互操作仍单列验收。
 - `LlrpSdk`：面向应用的托管 `LlrpReader`，包含连接、Settings、Inventory、
   TagReport 和标准 Tag Access。
 - `LlrpDevice.Abstractions`、`LlrpDevice.Server`、`LlrpDevice.Virtual`、
   `LlrpDevice.Virtual.Hosting`：版本中立设备合同、通用 LLRP 设备端服务、确定性 Virtual
-  设备实现和单台设备公开生命周期门面。
+  设备实现和公开生命周期门面。
 - `LlrpCli`：通用客户端 Live Shell、一次性 `inventory`、标签操作和离线协议工具；
-  `LlrpVirtualDevice.Cli`：单台虚拟设备的独立服务 CLI。
+  `LlrpVirtualDevice.Cli`：虚拟设备的独立服务 CLI。
 
-当前主线是 LLRP 1.0.1 与 Impinj 扩展的设备闭环完善；构建和自动化测试通过
-不等同于所有型号的实机验收。
+当前已完成 LLRP 1.0.1 与 Impinj 扩展的设备闭环，并提供 1.1/2.0 与 Zebra 的可用基线；
+构建和自动化测试通过不等同于所有型号和协议版本的实机验收。
 
 ## 支持矩阵
 
@@ -32,8 +33,8 @@
 | 托管 Reader SDK | 可用 | `ReaderSettings`、校验、应用、托管盘点和报告流已接入。 |
 | 标准 Tag Access | 可用 | 支持读、写、锁、销毁和块擦除。 |
 | Impinj 扩展 | 主线可用 | 已有扩展注册、Settings/Inventory/TagReport 管道；消息级 4/4、参数级 47/104 有 SDK 路径，R420 实测通过核心能力。详见 [coverage/impinj-extension-coverage.md](coverage/impinj-extension-coverage.md)。 |
-| CLI | 可用 | Live Shell、一次性 `inventory`、简化 Settings 应用流程和离线 Codec 已稳定；实时命令可经 SDK 使用 1.0.1/1.1，离线标准 Codec 当前仅注册 1.0.1。 |
-| Virtual Device | 单台 SDK 门面 + 独立设备端 CLI 已可用 | `LlrpDevice.Virtual.Hosting` 提供稳定的 `IVirtualDeviceHost`、`VirtualDeviceHostOptions` 和 `VirtualLlrpDeviceHost.Create(...)`，组合一台 `LlrpDevice.Server` 与一台 `VirtualLlrpDevice`，支持 Start/Stop/Restart、端点、客户端状态、解码报文事件，以及启动前注入标签。旧 `IVirtualLlrpDeviceHost`/底层属性保留为迁移兼容路径。内置 `llrp1.0.1_standard` 与 `impinj.r420.llrp-1.0.1` profile；后者由 `LlrpDevice.Virtual.Impinj` 提供 Impinj 能力/配置扩展。`LlrpVirtualDevice.Cli` 位于 `src` 根下，与客户端 `LlrpCli` 平级，支持默认交互 Shell、单设备 `server create/start/stop/restart/status/destroy` 生命周期命令、`run`/`live`/`validate`/`presets`、1.0.1/1.1/2.0、版本化单设备 JSON、确定性 RF 和标准 Tag Access。Hosting/CLI 默认采用宽松 ROSpec 状态检查，`--strict` 可切换严格校验。1.0.1 标准默认设备暴露 4 根逻辑天线，RF capability tables 基于实机采集（Tx Index 1..193、Rx Index 1..2、41 项 RF Mode、16 个跳频点）。`live` 会自动创建/启动设备并进入 Shell，默认输出生命周期、客户端和 `RX/TX` 报文，但不会自己生成 LLRP 客户端指令。旧 `LlrpCli virtual-reader` 命令已移除。真实 RFID 模块/真实 RF 波形模拟、运行态重启自动恢复仍未交付。详见 [设备端对齐表](coverage/llrp101-device-server-coverage.md)。 |
+| CLI | 可用 | Live Shell、一次性 `inventory`、Settings 应用流程和离线 Codec 已稳定；实时与离线命令均按显式版本支持 1.0.1/1.1/2.0，离线注册表还包含 Impinj 与 Zebra 扩展。 |
+| Virtual Device | SDK 门面 + 独立设备端 CLI 已可用 | `LlrpDevice.Virtual.Hosting` 提供稳定的 `IVirtualDeviceHost`、`VirtualDeviceHostOptions` 和 `VirtualLlrpDeviceHost.Create(...)`，组合 `LlrpDevice.Server` 与 `VirtualLlrpDevice`，支持 Start/Stop/Restart、端点、客户端状态、解码报文事件，以及启动前注入标签。旧 `IVirtualLlrpDeviceHost`/底层属性保留为迁移兼容路径。内置 `llrp1.0.1_standard` 与 `impinj.r420.llrp-1.0.1` profile；后者由 `LlrpDevice.Virtual.Impinj` 提供 Impinj 能力/配置扩展。`LlrpVirtualDevice.Cli` 位于 `src` 根下，与客户端 `LlrpCli` 平级，支持默认交互 Shell、`server create/start/stop/restart/status/destroy` 生命周期命令、`run`/`live`/`validate`/`presets`、1.0.1/1.1/2.0、版本化 JSON、确定性 RF 和标准 Tag Access。Hosting/CLI 默认采用宽松 ROSpec 状态检查，`--strict` 可切换严格校验。1.0.1 标准默认设备暴露 4 根逻辑天线，RF capability tables 基于实机采集（Tx Index 1..193、Rx Index 1..2、41 项 RF Mode、16 个跳频点）。`live` 会自动创建/启动设备并进入 Shell，默认输出生命周期、客户端和 `RX/TX` 报文，但不会自己生成 LLRP 客户端指令。旧 `LlrpCli virtual-reader` 命令已移除。真实 RFID 模块/真实 RF 波形模拟、运行态重启自动恢复仍未交付。详见 [设备端对齐表](coverage/llrp101-device-server-coverage.md)。 |
 
 Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard`、Impinj R420
 档案 `impinj.r420.llrp-1.0.1` 和独立的 `default` 寻卡数据源；标准档案落在
@@ -48,6 +49,11 @@ Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard`�
 标准 `llrp1.0.1_standard` 档案使用通用身份：`ManufacturerId=0`、`ModelId=0`、
 `FirmwareVersion=virtual-1.0.1`；其中的 RF 表只表示虚拟设备的能力数据，不代表
 虚拟设备属于某个厂商。
+
+虚拟设备的外部 LLRP 互操作已补充验证：Impinj R420 profile 可以接受 Impinj
+ItemTest 2.10.0 的 LLRP 客户端连接，并在 LLRP 1.0.1 下进入盘点启动流程。该结论
+只覆盖 LLRP 连接与盘点路径，不代表实现 ItemTest 的 mDNS、rshell/SSH 或其他非
+LLRP 服务。
 
 ## 已实现的应用能力
 
@@ -95,7 +101,7 @@ Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard`�
 - `settings show|edit|validate|apply|save` 提供简化的设置查看、编辑、校验和写入；
   `apply --defaults --yes` 吸收原 `settings defaults`，`validate` 承担原 `settings load`
  的"载入+校验"（`defaults`/`load` 子命令已移除，不保留别名）。`settings apply [--defaults|<file>] --yes`
-  是唯一显式批量应用入口，不维护 CLI 草稿状态。Raw/手工资源操作后的 CLI 链路为：
+  是唯一显式批量应用入口，不维护 CLI 草稿状态。Raw/手工资源操作后，先用 `sync` 采用设备现状，或用带 Inventory 的 `settings apply` 强制接管；不会隐式恢复旧草稿。
 - Live Shell 的 `status` 默认只显示连接和托管生命周期状态；`status --full` 会刷新
   Settings、ROSpec 和 AccessSpec 并展示参数树。`caps` 会重新执行
   `GET_READER_CAPABILITIES(All)`，默认展示归一化能力表，`--raw` 展示完整响应参数树，
@@ -130,15 +136,18 @@ Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard`�
   生成协议类型或 Virtual 项目。
 - `LlrpDevice.Server` 是独立设备端 TCP 服务，复用 `LlrpNet` 的 accepted-TCP transport、
   `LlrpSession`、`LlrpCodecRegistry` 和 Frame Observer；不引用 `LlrpDevice.Virtual`，
-  负责 1.0.1/1.1/2.0 dispatch、初始化、Capabilities、GET/SET_CONFIG、完整
+  负责 1.0.1/1.1/2.0 dispatch、初始化、Capabilities、GET/SET_READER_CONFIG、完整
   ROSpec/AccessSpec 状态迁移、KEEPALIVE/ACK、CLOSE_CONNECTION、RO_ACCESS_REPORT、
-  标准 C1G2 Read/Write/BlockWrite/Lock/Kill/BlockErase 和故障注入。
+  标准 C1G2 Read/Write/BlockWrite/Lock/Kill/BlockErase 和故障注入。ROSpec 中的
+  `ROReportSpec`、`TagReportContentSelector`、ROBoundarySpec 触发器、报告 Hold/Release、
+  `GET_REPORT` 和 `ENABLE_EVENTS_AND_REPORTS` 已接入；虚拟 Host 的报告间隔/次数只是
+  测试调度参数，不替代 LLRP 报告字段。
 - `LlrpDevice.Virtual` 只实现 `ILlrpDevice`，提供确定性标签/内存/锁/销毁状态、
   `static`/`moving-tags`/`noisy` 观察策略、天线过滤、RSSI 抖动和多实例隔离；不拥有
   LLRP 资源状态机或协议版本类型。
 - `LlrpDevice.Virtual.Hosting` 提供 `IVirtualDeviceHost`、
   `VirtualDeviceHostOptions` 和 `VirtualLlrpDeviceHost.Create(...)`，是上层应用启动、停止、
-  重启单台虚拟 LLRP 设备并在启动前注入标签的稳定入口；它不维护多设备目录或跨进程恢复。
+  重启虚拟 LLRP 设备并在启动前注入标签的稳定入口；它不维护多设备目录或跨进程恢复。
 - `ILlrpDeviceProtocolModule` 和 `ILlrpDeviceMessageHandler` 是设备端扩展边界；模块在
   接受连接前注册 Codec 和 Handler，Handler 先于标准 profile 处理匹配报文。
 - `VirtualDeviceConfiguration` 读取版本化本地 JSON，保存能力档案选择、独立寻卡数据源引用
@@ -146,7 +155,7 @@ Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard`�
   监听地址、端口和连接数只接受 create/run 的启动参数，不落入配置文件；配置只在显式
   `--config` 启动或校验时加载，不自动扫描文件，也不保存运行中的 ROSpec/AccessSpec 图。
   当前内置能力档案为 `llrp1.0.1_standard` 与 `impinj.r420.llrp-1.0.1`，默认寻卡数据源为
-  `default`。单台 SDK/CLI 详见 [Virtual Device SDK and CLI guide](guides/virtual-device-cli.md)。
+  `default`。SDK/CLI 详见 [Virtual Device SDK and CLI guide](guides/virtual-device-cli.md)。
 
 ### LLRP 1.1 Reader 连接边界
 
@@ -177,10 +186,10 @@ Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard`�
 
 ## 当前缺口
 
-独立虚拟设备 CLI 现在默认进入单台设备交互 Shell：可以显式执行
+独立虚拟设备 CLI 现在默认进入设备交互 Shell：可以显式执行
 `server create`、`server start`、`server stop`、`server restart`、
 `server status` 和 `server destroy`，并用 `logs on|off|status` 控制生命周期、
-客户端连接和解码后的 RX/TX LLRP 报文输出。`live` 会自动创建并启动一台虚拟
+客户端连接和解码后的 RX/TX LLRP 报文输出。`live` 会自动创建并启动虚拟
 设备后进入同一个 Shell；它观察外部 LLRP 客户端产生的流量，不会自己生成
 客户端指令；`run` 仍是安静的前台服务模式。
 单客户端默认配置采用“新会话替换旧会话”，因此 WPF/SDK 的 Probe、Activate、
@@ -195,6 +204,9 @@ Settings 短连接可以在断开后立即重连，而不会被旧会话的异�
   Regulatory/RF Mode 能力表）、配置、
   ROSpec/AccessSpec、触发器、过滤器、报告 selector/缓冲、事件、Hold/Release、标准
   C1G2 Tag Access 和主动关闭；未接线的 CLIENT_REQUEST_OP/RF Survey 保持明确门控。
+  报告字段和触发控制来自 LLRP ROSpec/Reader Config；Simulation 只生成每轮可观察标签。
+  `AISpecStopTrigger` 的独立时间线、SET_READER_CONFIG 级 ROReportSpec 作为新 ROSpec 默认值、
+  以及基于 Tx/Rx/RF Mode/Tari/信道的物理 RF 计算仍未实现。
   详见 [llrp101-device-server-coverage.md](coverage/llrp101-device-server-coverage.md)。
 - 2.0 适配器已实现(编译/反解析/事件投影/协商),但没有实机互操作闭环。
 - Zebra SDK 扩展已实现(最小子集);FX9600(161/96008,固件 3.32.37.0,LLRP 1.0.1)真机已验证:8 个能力参数强类型解码、
@@ -209,7 +221,7 @@ Settings 短连接可以在断开后立即重连，而不会被旧会话的异�
 - 其他厂商/型号/固件的扩展能力目录仍需按实测证据补充。
 - Virtual Device 当前不驱动真实 RFID 模块、不模拟真实 RF 波形，也不自动恢复进程重启前的
   ROSpec/AccessSpec/托管盘点状态；这些不是本轮本地 JSON 预设的目标。通用
-  `LlrpDevice.Server`、`ILlrpDevice` 合同、确定性 RF/Tag Access、单台 Host 生命周期和
+  `LlrpDevice.Server`、`ILlrpDevice` 合同、确定性 RF/Tag Access、Host 生命周期和
   独立设备端 CLI 已经交付；厂商设备端 profile、完整原始 LLRP 配方编辑和更多故障预设仍属
   后续工作，边界见 [ADR 0007](adr/0007-llrp-device-server-device-abstraction.md) 与
   [ADR 0008](adr/0008-single-virtual-device-sdk-and-cli.md)。
@@ -217,11 +229,11 @@ Settings 短连接可以在断开后立即重连，而不会被旧会话的异�
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，共 516 项自动化测试全部通过；其中
+截至基准日期，解决方案构建为零警告、零错误，共 523 项自动化测试全部通过；其中
 `LlrpDevice.Abstractions.Tests` 覆盖合同模型和依赖边界，`LlrpDevice.Server.Tests` 覆盖
   非 Virtual Scripted Device、生命周期和配置隔离，`LlrpDevice.Virtual.Tests` 覆盖确定性
-  RF、Tag Access 和实例隔离，`LlrpDevice.Virtual.Hosting.Tests` 覆盖单台 SDK 门面生命周期，
-  `LlrpVirtualDevice.Cli.Tests` 覆盖独立 CLI 的帮助、默认交互 Shell、单设备配置校验、
+  RF、Tag Access 和实例隔离，`LlrpDevice.Virtual.Hosting.Tests` 覆盖 SDK 门面生命周期，
+`LlrpVirtualDevice.Cli.Tests` 覆盖独立 CLI 的帮助、默认交互 Shell、设备配置校验、
   server 生命周期和前台启停，
   `LlrpCli.Tests` 覆盖客户端 CLI 的帮助、解析和诊断入口，
 `Interop.Tests` 覆盖通用 Server/Virtual Device Host 的 1.0.1/1.1/2.0 SDK 端到端能力（含 Regulatory/RF Mode 表）、盘点与标准 Tag Access、

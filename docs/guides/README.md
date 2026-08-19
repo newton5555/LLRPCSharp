@@ -8,5 +8,5 @@ the architecture and protocol reference sections.
   .NET application.
 - [CLI User Guide](cli-user-guide.md): operate a reader with the Live Shell or
   an agent-friendly one-shot command.
-- [Virtual Device SDK and CLI](virtual-device-cli.md): host one virtual LLRP
+- [Virtual Device SDK and CLI](virtual-device-cli.md): host a virtual LLRP
   device through the public SDK facade or the standalone device-side CLI.

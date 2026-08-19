@@ -4,7 +4,9 @@
 
 > **文档路径**：`docs/architecture/protocol-extension-guide.zh.md`  
 > **适用对象**：项目开发者、集成商、客户技术团队  
-> **核心原则**：XML 是固定历史基线；SDK 已内置支持 1.0.1 / 1.1，2.0 已提供 YAML 增量定义、待 Adapter 接入；客户仅需为厂商扩展及未来新协议编写 YAML 增量。
+> **核心原则**：XML 是固定历史基线；SDK 已内置 1.0.1 / 1.1 / 2.0 的版本化协议资产，
+> 2.0 的 V2 Adapter 与协商基线已经接入，真实设备互操作仍单列验收；客户仅需为厂商扩展
+> 及未来新协议编写 YAML 增量。
 
 ## 1. XML 基线与 YAML 增量
 
@@ -29,12 +31,14 @@
 
 ## 2. 场景指南
 
-### 场景 1：标准 1.0.1 / 1.1 读写器，或 Impinj 1.0.1 读写器
+### 场景 1：标准 1.0.1 / 1.1 / 2.0 读写器，或 Impinj 1.0.1 读写器
 
 - **客户需要准备什么**：无需准备任何文件。
 - **项目处理机制**：
   - 1.0.1 标准与 Impinj 1.0.1 扩展已基于本地 XML 预编译。当前 Impinj 输入为 LTK Definition Files 10.58.0，包含 4 条 Custom Message、104 个 Custom Parameter、49 个 Custom Enumeration。原始 XML 不随包分发；生成模型和 Codec 位于不依赖 SDK 的 `LlrpNet.Protocol.Impinj`，高层映射位于 `LlrpSdk.Extensions.Impinj`。
-  - LLRP 1.1 已由 SDK 内置 `llrp-1.1.yaml` 并生成代码；LLRP 2.0 的 `llrp-2.0-delta.yaml` 已入库，待完成 V2 Adapter 与协商后才成为可用 SDK 协议版本。
+  - LLRP 1.1 已由 SDK 内置 `llrp-1.1.yaml` 并生成代码；LLRP 2.0 使用入库的
+    `llrp-2.0-delta.yaml`，V2 Adapter 与协商路径已经接入，可作为协议/SDK 基线使用，
+    但真实设备互操作仍待验收。
 
 ### 场景 2：接入第三方新厂商设备
 
@@ -94,7 +98,7 @@ parameter_extensions:
 | 1.0.1 标准设备 | XML | 本项目提供 | 否 |
 | Impinj 1.0.1 设备 | 本地 XML | 本项目提供已编译扩展 DLL | 否 |
 | LLRP 1.1 标准 | YAML 差量 | 本 SDK 提供 | 否 |
-| LLRP 2.0 标准 | YAML 差量 | 本 SDK 提供，待 Adapter | 否，待完成后开箱即用 |
+| LLRP 2.0 标准 | YAML 差量 | 本 SDK 提供，V2 Adapter 已接入 | 标准路径可用，真实设备互操作待验收 |
 | 新厂商设备 | YAML 增量 | 客户或集成商 | 是 |
 | 项目私有报文 | YAML 增量 | 客户项目团队 | 是 |
 | 未来新协议标准 | YAML 差量 | 开发者或集成商 | 是 |

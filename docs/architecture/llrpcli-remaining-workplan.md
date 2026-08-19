@@ -1,8 +1,9 @@
 # LlrpCli 剩余工作详细实施计划 (WP4 收尾 + WP7)
 
-> 状态:大部分已实施。承接 docs/architecture/llrpcli-optimization-plan.md。
+> 状态：已完成（归档）。承接的 WP4 收尾、Settings 编辑器和 WP7 诊断工作均已实施；
+> 本文只保留实施锚点和验收历史。
 > 目标读者:接手的编码模型。本文件给出到函数/行/字段级的实施锚点,不重复父计划的差距分析。
-> 基线:LlrpCli.Tests 32/32 通过,全解决方案绿色。
+> 当前命令行为以 [CLI 用户指南](../guides/cli-user-guide.md) 和 `docs/status.md` 为准。
 
 ## 实施进度速览
 

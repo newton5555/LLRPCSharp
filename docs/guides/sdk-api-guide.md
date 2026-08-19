@@ -4,6 +4,8 @@
 
 如需使用底层的编解码和原始消息（**LTK.NET** 的现代化替代），请直接查阅 `LlrpNet` 协议层架构说明。
 
+当前客户端验收边界：标准 LLRP 1.0.1 Reader 与 Impinj R420 的 SDK 连接、能力/设置读取、盘点和非破坏性 Tag Access 路径已通过；LLRP 1.1 是可用的 SDK 基线，真实型号/固件覆盖仍需单独验收。设备端虚拟读写器不在 `LlrpSdk` 内部实现，见 [Virtual Device SDK and CLI 指南](virtual-device-cli.md)。
+
 ---
 
 ## 1. 基础建立与盘点

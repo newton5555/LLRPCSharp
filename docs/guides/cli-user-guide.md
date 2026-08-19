@@ -59,7 +59,7 @@ Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周
 每根天线的 Rx/Tx/Hop/Channel 只输入一次，CLI 会把相同值同时写入 Reader 级天线默认配置和
 托管 Inventory ROSpec；Inventory 的 RF 配置因此不会与 Reader 默认值产生意外差异。
 编辑菜单可随时预览或按已连接设备的能力校验当前内容；选择应用后还会显示影响范围并进行
-二次确认。`settings load` 只读取并校验文件，不接受 `--apply`；写入统一使用
+二次确认。`settings validate <file>` 只读取并校验文件，不写入设备；写入统一使用
 `settings apply [--defaults|<file>] --yes`。
 
 Raw 或手工 ROSpec/AccessSpec 操作后，SDK 托管状态会变为未知：
@@ -227,7 +227,7 @@ dotnet run --project src/LlrpCli -- encode get-reader-capabilities --requested-d
 | `--requested-data <DATA>` | GetReaderCapabilities 请求的数据类型(随版本校验) | `All` |
 ---
 
-## 🌐 7. 协议版本支持 (LLRP 1.0.1 / 1.1)
+## 🌐 7. 协议版本支持 (LLRP 1.0.1 / 1.1 / 2.0)
 
 CLI 的协议版本能力取决于命令的实现层。实时 Reader 命令走 `LlrpReader`，
 离线协议工具则直接使用 CLI 自己创建的 Codec 注册表，因此两者的覆盖范围不同。
@@ -273,14 +273,13 @@ CLI 的协议版本能力取决于命令的实现层。实时 Reader 命令走 `
 ### 7.3 为什么两层能力不同
 
 ```
-实时命令 → LlrpReader(SDK 版本协商) → LlrpNet(1.0.1 + 1.1 双模块)
-离线工具 → LlrpNet.Protocol 直连(注册表只挂了 1.0.1)
+实时命令 → LlrpReader(SDK 版本协商) → LlrpNet(1.0.1 + 1.1 + 2.0 模块)
+离线工具 → LlrpNet.Protocol 直连(注册表挂载 1.0.1 + 1.1 + 2.0 及厂商模块)
 ```
 
-`LlrpNet` 已具备 1.0.1/1.1 的协议模型和编解码基础，`LlrpSdk` 已具备两套对应
-Adapter 和自动协商能力；CLI 实时命令可以使用两种版本，而离线工具目前只注册了
-标准 1.0.1 编解码模块。补齐离线注册表和版本化消息构造后，离线工具才能获得更
-完整的 1.1 能力。
+`LlrpNet` 已具备 1.0.1/1.1/2.0 的协议模型和编解码基础，`LlrpSdk` 已具备对应
+Adapter 和自动协商能力；CLI 实时与离线命令都按显式版本选择协议模块，离线注册表
+同时包含 Impinj 与 Zebra 扩展。2.0 的真实设备互操作仍需单独验收。
 
 ### 7.4 SDK 连接真实 1.1 Reader 时会发生什么
 

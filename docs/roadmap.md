@@ -1,6 +1,6 @@
 # 路线图
 
-> 基准日期：2026-08-18
+> 基准日期：2026-08-19
 
 本文档只保留未完成事项；当前实现事实见 [status.md](status.md)。
 
@@ -11,18 +11,34 @@
 - 通用设备端架构：`LlrpDevice.Abstractions` 定义 `ILlrpDevice`，`LlrpDevice.Server`
   承载通用 LLRP 服务与资源状态，`LlrpDevice.Virtual` 提供确定性内存、Tag Access 和
   `static` / `moving-tags` / `noisy` RF 可观察场景，`LlrpDevice.Virtual.Hosting` 提供
-  单台设备的 SDK 生命周期门面；Hosting 的高层选项还支持启动前注入标签和 Impinj R420
+  设备的 SDK 生命周期门面；Hosting 的高层选项还支持启动前注入标签和 Impinj R420
   profile。
 - 客户端 1.0.1 设备端对齐：Server/Virtual 已覆盖客户端使用的 Capabilities、Config、
   ROSpec/AccessSpec、Null/Immediate/Periodic/GPI/Duration 触发、Select/状态感知
   Singulation、报告 selector/缓冲/GET_REPORT、Hold/Release、Reader Event、附加数据和
   标准 C1G2 Tag Access；未接线的 CLIENT_REQUEST_OP/RF Survey 保持能力门控。
-- 版本化单设备 JSON 配置：设备端点、标签/TID/User memory、报告节奏和寻卡行为预设可通过
+- 版本化设备 JSON 配置：设备端点、标签/TID/User memory、报告节奏和寻卡行为预设可通过
   设备端 CLI 的 `validate`、`presets` 与显式配置启动加载；不自动恢复进程状态。
-- `LlrpVirtualDevice.Cli` 与 `LlrpCli` 平级，前者只负责单台设备端生命周期，后者只负责
+- `LlrpVirtualDevice.Cli` 与 `LlrpCli` 平级，前者只负责设备端生命周期，后者只负责
   客户端连接与操作；旧 `LlrpVirtualReader.*` 兼容层和 `virtual-reader` 命令已移除。
 - `LlrpDevice.Virtual.Hosting.Tests`、`LlrpVirtualDevice.Cli.Tests` 和 `Interop.Tests`
-  覆盖单台设备端点、生命周期、版本协商、报告、扩展 Handler、SDK 端到端和故障场景。
+  覆盖设备端点、生命周期、版本协商、报告、扩展 Handler、SDK 端到端和故障场景。
+- Impinj R420 虚拟 profile 已通过 Impinj ItemTest 2.10.0 的 LLRP 1.0.1 客户端连接并
+  进入盘点启动流程；该证据不包含 ItemTest 的 mDNS、rshell/SSH 等非 LLRP 服务。
+
+## 已完成计划（归档）
+
+以下计划对应的实现已经合入当前主线，文档保留为设计决策和验收历史；当前事实以
+[status.md](status.md) 及用户指南为准：
+
+- `llrpcli-optimization-plan.md`：CLI WP1-WP8 优化已完成。
+- `llrpcli-remaining-workplan.md`：CLI WP4 收尾、Settings 编辑器和 WP7 诊断工作已完成。
+- `cli-dedup-d1-d3-plan.md`：离线命令共享核与死代码清理已完成。
+- `llrpcli-target-commands.md`：目标命令面已落地，作为命令目录历史基线。
+- `llrp-device-server-virtual-device-migration-plan.md`：设备端 Server/Virtual/Hosting
+  架构迁移已完成。
+
+这些文件不再作为待执行清单，不应与本节之后的开放工作混读。
 
 ## 近期
 
@@ -33,7 +49,8 @@
    和厂商扩展字段校验。
 4. 根据真实设备证据继续扩充 Impinj/Zebra 及其他型号/固件能力目录；当前已交付 Impinj
    R420 虚拟 profile，仍需继续标定 Zebra 定义中与固件抓包不一致的 reserved 位和字段宽度。
-5. 继续完善 CLI Settings 编辑器和 Agent 输出能力，保持已有命令语义稳定。
+5. 在已交付 Settings 编辑器的基础上继续优化 Spectre.Console 提示、Tree 展示和
+   Agent/脚本输出兼容性，保持已有命令语义稳定。
 6. 继续完善 2.0 Adapter，并对支持的真实设备做互操作验收。
 
 ## LLRP Device Server / Virtual Device 下一阶段
@@ -63,12 +80,12 @@ LlrpVirtualDevice.Cli / VirtualLlrpDeviceHost
 ```
 
 `LlrpDevice.Server` 维护协议资源状态和报文行为，`VirtualLlrpDevice` 只维护设备行为；
-`VirtualLlrpDeviceHost` 负责一台 Server/Device 组合和显式本地配置加载。端口只表示监听
+`VirtualLlrpDeviceHost` 负责 Server/Device 组合和显式本地配置加载。端口只表示监听
 位置，绑定失败不会自动换端口。普通客户端不需要虚拟设备专用分支。
 
 ### 后续工作
 
-- 如果未来 UI 需要管理独立后台进程，再单独设计跨进程注册、控制和守护服务；当前单台
+- 如果未来 UI 需要管理独立后台进程，再单独设计跨进程注册、控制和守护服务；当前
   CLI 不引入多设备服务、跨进程 `status/stop/restart` 或自动恢复。
 - 更完整的 Reader 配置快照、原始寻卡报文配方编辑、RF Survey/CLIENT_REQUEST_OP
   以及全部厂商消息覆盖；当前本地预设覆盖 Reader 端点、报告节奏、标签内存和 RF
@@ -78,22 +95,22 @@ LlrpVirtualDevice.Cli / VirtualLlrpDeviceHost
 - 延迟、吞吐、连接重置等更多一次性故障预设，以及设备端 CLI 的帧日志导出和运行摘要。
 - 更多 `LlrpDevice.Virtual.Impinj`/厂商设备端模块；接口已经落地，但必须有协议资料或
   真机抓包证据后才能发布新的 profile 预设。
-- LLRP 2.0 Virtual Device 的独立协议验收；通用 Server 与新的单台 CLI 已可选择 2.0
+- LLRP 2.0 Virtual Device 的独立协议验收；通用 Server 与新的 CLI 已可选择 2.0
   基线，但真实设备/完整设备端互操作仍待验收。
 - Reader Studio 图形化项目；不是当前 SDK 仓库阶段目标。
 
-### 已交付：单台 Virtual Device SDK 与 CLI
+### 已交付：Virtual Device SDK 与 CLI
 
 - `LlrpDevice.Virtual.Hosting` 提供公开的 `IVirtualDeviceHost`、
-  `VirtualDeviceHostOptions` 和 `VirtualLlrpDeviceHost.Create(...)`，把一台
-  `VirtualLlrpDevice` 与一台 `LlrpDeviceServer` 组合成 Start/Stop/Restart 生命周期入口；
+  `VirtualDeviceHostOptions` 和 `VirtualLlrpDeviceHost.Create(...)`，把
+  `VirtualLlrpDevice` 与 `LlrpDeviceServer` 组合成 Start/Stop/Restart 生命周期入口；
   `VirtualInventoryOptions` 可在启动前注入标签。旧 `IVirtualLlrpDeviceHost` 保留为迁移兼容
   路径，新的 CLI/WPF 代码只依赖 Hosting 高层接口。
 - `src/LlrpVirtualDevice.Cli` 与 `src/LlrpCli` 平级；前者是设备端 CLI，一个进程只运行
-  一台虚拟设备，默认进入交互 Shell，支持 `server create/start/stop/restart/status/destroy`
-  生命周期命令、`run`/`start`、自动创建并启动后进入 Shell 的 `live`、单设备 JSON
+  虚拟设备，默认进入交互 Shell，支持 `server create/start/stop/restart/status/destroy`
+  生命周期命令、`run`/`start`、自动创建并启动后进入 Shell 的 `live`、设备 JSON
   `validate` 和 `presets`。
-- `src/LlrpDevice.Virtual/config/virtual-device.example.json` 定义单设备行为配置；
+- `src/LlrpDevice.Virtual/config/virtual-device.example.json` 定义设备行为配置；
   `src/LlrpDevice.Virtual/config/llrp/caps/llrp1.0.1_standard.json` 定义标准能力档案，
   `src/LlrpDevice.Virtual.Impinj` 提供 `impinj.r420.llrp-1.0.1` profile，
   `src/LlrpDevice.Virtual/config/llrp/data-sources/default.json` 定义独立寻卡数据源；设备端点仍由
@@ -103,9 +120,9 @@ LlrpVirtualDevice.Cli / VirtualLlrpDeviceHost
 
 ### 约束
 
-- 新的客户端托管能力进入 `LlrpSdk`；设备端单台生命周期能力进入
+- 新的客户端托管能力进入 `LlrpSdk`；设备端生命周期能力进入
   `LlrpDevice.Virtual.Hosting`，CLI 只负责输入、展示和前台进程编排。
-- 单台 Virtual Device 的 SDK 门面不维护实例目录；多 Host 编排属于未来单独的上层 UI/服务，
+- Virtual Device 的 SDK 门面不维护实例目录；多 Host 编排属于未来单独的上层 UI/服务，
   不进入 Server/Virtual 核心。
 - 本地 JSON 只在显式命令下加载；不得把配置加载误解为进程重启后的自动恢复机制。
 - 报文设备端 Server 不依赖客户端 `LlrpSdk`；Virtual 与未来厂商设备模块不依赖客户端

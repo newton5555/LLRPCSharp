@@ -11,7 +11,7 @@ LLRPCSharp/
 ├── LLRPCSharp.slnx             [解决方案]
 ├── /src/                       [源代码根目录]
 │   ├── LlrpCli/                [手写] 通用客户端 CLI，直接位于 src 根下
-│   ├── LlrpVirtualDevice.Cli/  [手写] 单台虚拟设备 CLI，直接位于 src 根下
+│   ├── LlrpVirtualDevice.Cli/  [手写] 虚拟设备 CLI，直接位于 src 根下
 │   │
 │   ├── LlrpNet/                [解决方案文件夹：通信层 + 协议层]
 │   │   ├── LlrpNet.Core/       [手写] Client/accepted TCP、IO、流式帧切分、LlrpSession、FrameObserver
@@ -32,7 +32,7 @@ LLRPCSharp/
 │   ├── LlrpDevice.Abstractions/ [手写] 版本中立的设备行为合同
 │   ├── LlrpDevice.Server/       [手写] 通用 LLRP 设备端服务、资源状态与版本分发
 │   ├── LlrpDevice.Virtual/      [手写] 确定性标签、RF 观察和 Tag Access 实现
-│   └── LlrpDevice.Virtual.Hosting/ [手写] 单台虚拟设备公开 SDK 门面与生命周期
+│   └── LlrpDevice.Virtual.Hosting/ [手写] 虚拟设备公开 SDK 门面与生命周期
 │
 ├── /tests/                     [测试项目根目录]
 │   ├── LlrpNet.*.Tests/        [通信层、协议层、生成器与厂商 Wire Codec 测试]
@@ -40,8 +40,8 @@ LLRPCSharp/
 │   ├── LlrpDevice.Abstractions.Tests/ [合同与依赖边界测试]
 │   ├── LlrpDevice.Server.Tests/ [通用 Server 与 Scripted Device 测试]
 │   ├── LlrpDevice.Virtual.Tests/ [Virtual RF、Tag Access、隔离测试]
-│   ├── LlrpDevice.Virtual.Hosting.Tests/ [单台设备 SDK 门面与生命周期测试]
-│   ├── LlrpVirtualDevice.Cli.Tests/ [单台设备 CLI 测试]
+│   ├── LlrpDevice.Virtual.Hosting.Tests/ [设备 SDK 门面与生命周期测试]
+│   ├── LlrpVirtualDevice.Cli.Tests/ [设备 CLI 测试]
 │   ├── LlrpCli.Tests/          [CLI 测试]
 │   └── Interop.Tests/          [互操作测试]
 │
@@ -54,7 +54,7 @@ LLRPCSharp/
 嵌套在 `src/LlrpSdk/` 物理目录中，而是由 `LlrpDevice.Server` 通过
 `LlrpNet.Core` 和 `LlrpNet.Protocol` 复用通信与报文解析/编码能力；
 `LlrpDevice.Virtual` 只实现 `ILlrpDevice`，`LlrpDevice.Virtual.Hosting` 负责组合
-单台 Server 与 Virtual 并提供公开生命周期门面；`LlrpCli` 只消费客户端 SDK，
+Server 与 Virtual 并提供公开生命周期门面；`LlrpCli` 只消费客户端 SDK，
 `LlrpVirtualDevice.Cli` 只消费设备端 Hosting 门面。
 
 ---
@@ -147,9 +147,9 @@ LLRPCSharp/
 ### 3.6 终端诊断工具 (`src/LlrpCli/`) —— [手写]
 - 基于 `Spectre.Console` 和 `Spectre.Console.Cli` 构建的 Live Shell，提供指令补全提示链、灰色 Ghost 后缀、平滑光标控制以及深层 LLRP 报文树状分析器。
 
-### 3.6.1 单台虚拟设备 CLI (`src/LlrpVirtualDevice.Cli/`) —— [手写]
-- 只消费 `LlrpDevice.Virtual.Hosting`，一个进程只托管一台虚拟 LLRP 设备。
-- 提供前台 `run`/`start`、单设备 JSON `validate` 和内置 `presets`；Ctrl+C
+### 3.6.1 虚拟设备 CLI (`src/LlrpVirtualDevice.Cli/`) —— [手写]
+- 只消费 `LlrpDevice.Virtual.Hosting`，负责前台虚拟 LLRP 设备生命周期。
+- 提供前台 `run`/`start`、设备 JSON `validate` 和内置 `presets`；Ctrl+C
   对应停止，不引入跨进程多设备管理协议。
 
 ### 3.7 通用设备端 (`src/LlrpDevice.*`) —— [手写]
@@ -161,8 +161,8 @@ LLRPCSharp/
 - `LlrpDevice.Virtual` 只实现 `ILlrpDevice`，维护独立的标签/内存/锁/销毁状态，提供
   `static`、`moving-tags`、`noisy` 三种确定性 RF 可观察场景，但不模拟真实 RF 波形。
 - `LlrpDevice.Virtual.Hosting` 提供 `IVirtualDeviceHost`、
-  `VirtualDeviceHostOptions` 与 `VirtualLlrpDeviceHost.Create(...)`，把一台
-  `VirtualLlrpDevice` 和一台 `LlrpDeviceServer` 组合成上层应用可直接启动/停止/重启的
+  `VirtualDeviceHostOptions` 与 `VirtualLlrpDeviceHost.Create(...)`，把
+  `VirtualLlrpDevice` 和 `LlrpDeviceServer` 组合成上层应用可直接启动/停止/重启的
   设备端入口，并允许启动前注入标签；旧接口仅作为迁移兼容路径保留。
 
 ---

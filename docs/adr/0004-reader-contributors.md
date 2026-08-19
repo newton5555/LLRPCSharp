@@ -1,6 +1,6 @@
 # ADR 0004：读写器扩展 Contributor 管道
 
-- 状态：Accepted（部分实施）
+- 状态：Accepted（已实施；未标定的厂商字段仍按能力门控拒绝）
 - 日期：2026-07-27
 
 > 实施说明：本文中的 `QueryConfigurationAsync` / `ApplyConfigurationAsync`
@@ -55,9 +55,10 @@ ApplySettingsAsync
 ## 后果
 
 - `LlrpReader` 继续是跨厂商统一入口，不需要 `ImpinjReader : LlrpReader` 继承体系。
-- `LlrpSdk.Extensions.Impinj` 可以先提供协议激活，后续再独立增加 Impinj Settings、Inventory 和 TagReport Contributor。
+- `LlrpSdk.Extensions.Impinj` 已提供协议激活以及 Impinj Settings、Inventory 和 TagReport Contributor。
 - `LlrpSdk.Extensions.Zebra` 可以复用同一模型。
-- `ReaderConfigurationPatch`、默认 Profile 和厂商私有 Settings 继续遵循 ADR 0003，不进入生成的协议代码。
+- 默认 Profile 和厂商私有 Settings 继续遵循 ADR 0003，不进入生成的协议代码；历史
+  `ReaderConfigurationPatch` 不属于当前公开 API。
 
 ## 实施顺序
 
@@ -67,4 +68,4 @@ ApplySettingsAsync
 4. 已在 Impinj 扩展中实现首个只读 Settings Contributor；
 5. `IInventoryContributor` 的 ROReportSpec 管线已建立，并向 Contributor 提供初始化后的身份、能力与协商版本；Impinj 已接入首个报告选择器门控。所有厂商参数默认拒绝，只有型号/固件目录明确验证后才会写入 ROSpec。
 6. R420 Model `2001002` Firmware `6.4.1.x` 的 ItemTest 抓包已验证支持 `ImpinjTagReportContentSelector`，条件是该 Custom 参数作为 `ROReportSpec` 的子项；SDK 已修正此前误放到 `AISpec` 的编译错误。
-7. R420 已在空闲 ROSpec 槽位完成 SDK 端到端 Serialized TID、RF Phase Angle 与 Peak RSSI 报告验收，且停止后确认临时 ROSpec 清理；后续扩充经实机验证的型号/固件目录。厂商 Profile 与受控 Settings 写入仍待完成。
+7. R420 已在空闲 ROSpec 槽位完成 SDK 端到端 Serialized TID、RF Phase Angle 与 Peak RSSI 报告验收，且停止后确认临时 ROSpec 清理；Impinj Settings/Inventory/TagReport 映射已接入，后续继续扩充经实机验证的型号/固件目录。

@@ -1,12 +1,13 @@
 # ADR 0003：读写器默认配置 Profile 与厂商型号适配
 
-- 状态：Accepted（第一阶段已实施）
+- 状态：Superseded（默认 Settings 决策已落地；Patch 设计由 ReaderSettings 收敛取代）
 - 日期：2026-07-27
 
 > 实施说明：本文记录设计决策时使用的早期 API 名称。当前实现统一使用
 > `ReaderSettingsDefaults`、`GetDefaultSettingsAsync()`、`QuerySettingsAsync()`
 > 和 `ApplySettingsAsync()`；`ReaderConfigurationPatch` 与旧的
-> `*ConfigurationAsync` 名称不属于当前公开 API。
+> `*ConfigurationAsync` 名称不属于当前公开 API。本文第 5 项 Patch 步骤是历史原型，
+> 已由完整 `ReaderSettings` 文档/序列化/校验流程取代。
 
 ## 背景
 
@@ -148,7 +149,8 @@ LLRP 通用安全默认值
 3. 已增加 `LlrpReader.GetDefaultSettingsAsync()`；该 API 仅依赖已初始化的身份、能力和激活扩展，不发送 LLRP 请求；
    `ReaderSettingsDefaults` 可同时返回选中的 Provider/Profile 来源；
 4. 在 Impinj 扩展包中增加厂商/型号 Profile；仅在厂商资料或实测能证明具体安全值时实施，当前不得猜测 R420/R700 的功率、信道或私有设置；
-5. 已增加 `ReaderConfigurationPatch`、`ResolveConfigurationPatchAsync()` 与 `ApplyConfigurationPatchAsync()`；前者仅查询并合并，后者才明确写入；
+5. （历史原型，已移除）`ReaderConfigurationPatch`、`ResolveConfigurationPatchAsync()` 与
+   `ApplyConfigurationPatchAsync()` 后续被完整 `ReaderSettings` 应用流程取代；
 6. 增加 Profile 冲突、未知型号和安全范围测试；
 7. 最后接入 CLI、Live Shell 和 Inventory Compiler。
 

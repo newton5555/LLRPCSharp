@@ -1,6 +1,7 @@
-# LlrpCli 目标指令集(设计稿)
+# LlrpCli 目标指令集（已实现基线）
 
-> 配套:`docs/architecture/llrpcli-optimization-plan.md`(差距/痛点/路线)。本文是**设计后的完整指令形态**,逐命令给出语法与行为;标注"(决定,可推翻)"处是我暂定的决策,实施前可改。
+> 状态：已实现（归档）。本文保留设计阶段的完整命令目录和行为决策；当前可用命令以
+> [CLI 用户指南](../guides/cli-user-guide.md)、`LlrpCli` 命令目录和测试为准。
 
 ## 0. 设计原则
 

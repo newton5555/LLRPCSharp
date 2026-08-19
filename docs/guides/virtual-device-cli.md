@@ -1,6 +1,6 @@
 # Virtual Device SDK and CLI
 
-The repository exposes one virtual LLRP device as a standalone SDK facade and
+The repository exposes a virtual LLRP device as a standalone SDK facade and
 a separate command-line consumer. The two CLI projects are siblings under
 `src`, with deliberately separate responsibilities:
 
@@ -10,11 +10,11 @@ src/LlrpVirtualDevice.Cli/      # device-side virtual LLRP CLI
 ```
 
 `LlrpCli` connects to and operates LLRP readers; it does not create or manage
-virtual-device servers. `LlrpVirtualDevice.Cli` hosts one virtual device in the
+virtual-device servers. `LlrpVirtualDevice.Cli` hosts a virtual device in the
 foreground and is the only CLI responsible for its server lifecycle.
 
-`LlrpDevice.Virtual.Hosting` is the public single-device SDK facade. It composes
-one `VirtualLlrpDevice` with one `LlrpDeviceServer`; it does not create an
+`LlrpDevice.Virtual.Hosting` is the public SDK facade. It composes
+`VirtualLlrpDevice` with `LlrpDeviceServer`; it does not create an
 instance directory or manage other devices.
 
 ## Use the interactive shell
@@ -26,7 +26,7 @@ not create a device yet:
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj
 ```
 
-The shell owns one device host at a time. A normal session is:
+The shell owns the device host. A normal session is:
 
 ```text
 vdev (empty)> server create --llrp 1.0.1
@@ -36,12 +36,12 @@ vdev (running)> logs on
 vdev (running)> exit
 ```
 
-The lifecycle commands are deliberately single-device commands:
+The lifecycle commands are deliberately host lifecycle commands:
 
-- `server create [options]` creates one host without binding TCP;
+- `server create [options]` creates the host without binding TCP;
 - `server start`, `server stop`, and `server restart` control its listener;
 - `server status` shows state, endpoint, protocol, and connected clients;
-- `server destroy` disposes the host so another one can be created;
+- `server destroy` disposes the host so it can be recreated;
 - `caps` lists the available capability profiles;
 - `logs on|off|status` controls lifecycle, client, and decoded `RX`/`TX` output.
 
@@ -75,7 +75,7 @@ dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
   live --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
-`live` automatically creates and starts the one configured virtual device, then
+`live` automatically creates and starts the configured virtual device, then
 enters the same interactive shell with event output enabled. The message lines
 include `RX`/`TX`, protocol version, message type name, message type number,
 message ID, and connection ID:
@@ -101,7 +101,7 @@ dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
 `shell` is an explicit alias for the no-argument interactive mode. `Ctrl+C`
 leaves the shell and disposes the current host.
 
-## Load one local configuration
+## Load a local configuration
 
 ```powershell
 dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
@@ -111,7 +111,7 @@ dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- \
   run --config src/LlrpDevice.Virtual/config/virtual-device.example.json
 ```
 
-The document describes one device behavior selection. It contains the
+The document describes a device behavior selection. It contains the
 capability-profile identifier, an independent inventory data-source reference,
 report cadence, and deterministic RF-observable scenario. It deliberately does
 not contain the listen address, port, client limit, or runtime ROSpec/AccessSpec
@@ -206,9 +206,57 @@ Normal applications should depend only on `IVirtualDeviceHost` and
 `IVirtualLlrpDeviceHost` remain as a source-compatible transition path for
 existing integrations; the CLI no longer references them directly.
 
+## External LLRP client compatibility
+
+The Hosting facade exposes a normal TCP/LLRP device endpoint. It does not
+generate client commands, and it does not require the client-side `LlrpSdk` in
+the virtual-device process. A client connects and sends the ordinary
+`GET_READER_CAPABILITIES`, `GET_READER_CONFIG`, ROSpec, AccessSpec, and inventory
+messages just as it would for a physical reader.
+
+The `impinj.r420.llrp-1.0.1` profile has been validated with Impinj ItemTest
+2.10.0 as an external LLRP client: it accepts the LLRP 1.0.1 connection and
+reaches inventory start. This is a compatibility statement for the LLRP path,
+not a claim that the virtual device implements ItemTest's non-LLRP services
+such as mDNS discovery or rshell/SSH.
+
+## Report behavior: LLRP messages versus RF simulation
+
+The virtual device has two separate layers. The `Simulation` options decide
+which tags are observed during one inventory round. The LLRP messages decide
+how those observations become wire reports:
+
+| Concern | Controlling input | Current behavior |
+|---|---|---|
+| Tags visible in a round | `VirtualDeviceSimulationOptions` plus the injected tag list | Static, moving-tags, or noisy deterministic observations; antenna, Select, and state-aware filters still apply. |
+| Report fields | ROSpec `ROReportSpec.TagReportContentSelector` | Controls ROSpec ID, spec index, inventory parameter ID, antenna, channel, RSSI, timestamps, tag count, EPC/CRC/PC fields, and AccessSpec ID. |
+| Report trigger and `N` | ROSpec `ROReportSpec.ROReportTrigger` and `N` | Supports none, N-tags/end-of-AISpec, and N-tags/end-of-ROSpec paths; end-of-ROSpec data is accumulated and flushed on stop. |
+| ROSpec execution | `ROBoundarySpec` start/stop triggers | Immediate, periodic, GPI start, duration stop, and GPI-with-timeout stop are processed by the Server trigger loop. |
+| Held/buffered output | `SET_READER_CONFIG.EventsAndReports`, `GET_REPORT`, `ENABLE_EVENTS_AND_REPORTS` | Reports and enabled events can be held, buffered, queried, and released through standard LLRP messages. |
+| Test scheduler | `VirtualDeviceHostOptions.ReportInterval`, `ReportCount`, `RepeatReports` | Limits how often and how long the virtual Server runs observation rounds; these are host test controls, not LLRP report fields. |
+
+For example, a ROSpec can request only EPC and RSSI in its selector, while
+`Simulation` independently decides whether one or two tags are visible in the
+round. The resulting `RO_ACCESS_REPORT` contains only the selector-requested
+fields.
+
+The current virtual implementation intentionally remains deterministic and
+does not calculate RF results from Tx power, receiver sensitivity, RF mode,
+Tari, channel, distance, or collision physics. Those values are parsed into the
+version-neutral inventory plan for protocol and filter behavior, but they do
+not yet drive a physical RF model.
+
+There are also two deliberate scope limits to keep in mind:
+
+- `AISpecStopTrigger` is not modeled as an independent execution timeline; the
+  report loop represents repeated observation batches for the active ROSpec.
+- A `SET_READER_CONFIG`-level `ROReportSpec` is retained for configuration
+  queries, while report generation currently uses the `ROReportSpec` embedded in
+  each ROSpec.
+
 ## Scope
 
-The single-device path currently covers LLRP 1.0.1, 1.1, and the existing 2.0
+The virtual-device path currently covers LLRP 1.0.1, 1.1, and the existing 2.0
 translated baseline; capabilities/configuration, ROSpec/AccessSpec lifecycle,
 KEEPALIVE, reports, standard C1G2 Read/Write/BlockWrite/Lock/Kill/BlockErase,
 deterministic `static`/`moving-tags`/`noisy` observations, and deterministic
@@ -217,4 +265,4 @@ fault hooks in the underlying Server are available.
 It does not drive a real RFID module, simulate analog RF waveforms, or restore
 runtime state after a process restart. A future UI can reference the same SDK
 facade and create one or more hosts in its own process. A separate multi-device
-control service is intentionally outside this single-device CLI boundary.
+control service is intentionally outside this CLI boundary.
