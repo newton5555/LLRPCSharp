@@ -463,7 +463,7 @@ internal sealed class LlrpStandard101Handler : ILlrpDeviceVersionProfile
             all || request.RequestedData == V101Enumerations.GetReaderConfigRequestedData.GPIPortCurrentState ? gpis : [],
             all || request.RequestedData == V101Enumerations.GetReaderConfigRequestedData.GPOWriteData ? gpo : [],
             all || request.RequestedData == V101Enumerations.GetReaderConfigRequestedData.EventsAndReports ? _state.GetEventsAndReports() : null,
-            _state.GetReaderConfigurationCustomItems());
+            request.CustomItems.Count != 0 || all ? _state.GetReaderConfigurationCustomItems() : []);
     }
 
     private V101Messages.SET_READER_CONFIG_RESPONSE SetReaderConfig(V101Messages.SET_READER_CONFIG request)
