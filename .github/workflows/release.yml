@@ -97,7 +97,7 @@ jobs:
         dotnet pack src/LlrpSdk/LlrpSdk.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
         dotnet pack src/LlrpSdk.Extensions.Impinj/LlrpSdk.Extensions.Impinj.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
         dotnet pack src/LlrpSdk.Extensions.Zebra/LlrpSdk.Extensions.Zebra.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
-        dotnet pack src/LlrpDevice.Virtual/LlrpDevice.Virtual.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
+        dotnet pack src/LlrpDevice.Virtual.Hosting/LlrpDevice.Virtual.Hosting.csproj --no-build --configuration Release -p:EnableWindowsTargeting=true --output ./artifacts/nupkgs
 
     - name: Publish LlrpCli (win-x64)
       run: dotnet publish src/LlrpCli/LlrpCli.csproj --configuration Release --runtime win-x64 --self-contained true --output ./artifacts/cli-win-x64
