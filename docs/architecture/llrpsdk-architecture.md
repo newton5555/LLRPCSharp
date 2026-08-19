@@ -249,7 +249,10 @@ TagFilterVerification 改变标准 Select 的应用方式等:标准参数仍在�
 | `IReaderSettingsContributor`(三个方法) | 门面配置管道 | `BuildQueryParameters` → 把 `ImpinjRequestedData(All_Configuration)` 塞进 `GET_READER_CONFIG` 的 CustomItems;`ContributeQuery` → 从响应 CustomItems 还原 `ImpinjReaderConfiguration`/`ImpinjReaderFacts` 到 `ReaderConfiguration.Extensions`;`BuildApplyParameters` → 反向把配置编译成 `ImpinjGPIDebounceConfiguration` 等塞进 `SET_READER_CONFIG` | 双向 |
 | `IReaderSettingsSerializationContributor` | `ReaderSettingsSerializer` | `CanHandle(scope,key)` 认领 4 个键(按 Configuration/Inventory scope);`Serialize` 产出 `{version:1, value:<typed JsonNode>}`;`Deserialize` 按 (scope,key) 反序列化回强类型,保证厂商值随 Settings JSON 无损持久化 | 双向 |
 
-(另有 `IReaderSettingsDefaultsContributor`——连接后产出 Reader 默认档案;当前 Impinj 扩展未实现,Seuic 扩展实现了它。)
+(另有 `IReaderSettingsDefaultsContributor`——连接后产出 Reader 默认档案。核心先按设备
+`Capabilities` 解析标准 RF 基线（第一 RF Mode/最小合法 Tari、第一接收灵敏度、最高发射功率值、
+第一跳频表），Impinj、Zebra、Seuic 扩展再叠加型号/固件相关的强类型默认值；未知 profile 只保留
+可验证的标准值，不虚构厂商参数。)
 
 ### 4.4 同一功能的两种机制:协调责任在哪一层(架构判定)
 

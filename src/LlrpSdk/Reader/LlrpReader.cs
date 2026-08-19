@@ -1210,7 +1210,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 result ??= candidate;
             }
 
-            return result ?? ReaderSettingsDefaults.CreateGeneric();
+            return result ?? ReaderSettingsDefaults.CreateForReader(context);
         }
         finally
         {

@@ -141,6 +141,55 @@ public sealed class ImpinjExtensionTests
     }
 
     [Fact]
+    public void ImpinjDefaults_UseCapabilityResolvedStandardValuesAndTypedVendorDefaults()
+    {
+        var capabilities = new ReaderCapabilities(
+            maxNumberOfAntennas: 4,
+            canSetAntennaProperties: true,
+            hasUtcClockCapability: true,
+            generalDeviceParameters: [],
+            rawResponse: new LlrpNet.Protocol.Messages.V1_0_1.ENABLE_EVENTS_AND_REPORTS(1),
+            additionalParameters: [],
+            txPowers: [new TxPowerEntry(87, 3000), new TxPowerEntry(12, 2500)],
+            rxSensitivities: [new RxSensitivityEntry(1, 0), new RxSensitivityEntry(2, 10)],
+            txFrequencies: [920_625, 920_875],
+            rfModes:
+            [
+                new C1G2RfModeEntry(0, "DR", true, 0, "FM0", "MI", 436_000, 2_000, 14_290, 14_290, 0),
+            ]);
+        var context = new ReaderSettingsDefaultContext(
+            new ReaderIdentity(ImpinjReaderExtension.ManufacturerId, 2_001_002, "6.4.1.240"),
+            capabilities,
+            LlrpProtocolVersion.Version101);
+
+        ReaderSettingsDefaults defaults = Assert.IsType<ReaderSettingsDefaults>(
+            ImpinjReaderExtension.Instance.GetDefaultSettings(context));
+        ReaderSettings settings = defaults.Settings;
+        ImpinjReaderConfiguration configuration = Assert.IsType<ImpinjReaderConfiguration>(
+            settings.Configuration.Extensions[ImpinjReaderConfiguration.ExtensionKey]);
+        InventorySettings inventory = Assert.IsType<InventorySettings>(settings.Inventory);
+        ImpinjInventoryReportOptions report = Assert.IsType<ImpinjInventoryReportOptions>(
+            inventory.Extensions[ImpinjInventoryReportOptions.ExtensionKey]);
+        Assert.IsType<ImpinjInventoryControlOptions>(
+            inventory.Extensions[ImpinjInventoryControlOptions.ExtensionKey]);
+
+        Assert.Equal("impinj.r420.llrp-1.0.1", defaults.ProfileId);
+        Assert.Equal((ushort)0, inventory.ModeIndex);
+        Assert.Equal((ushort)14_290, inventory.Tari);
+        InventoryAntennaConfiguration antenna = Assert.Single(
+            inventory.AntennaConfigurations,
+            static item => item.AntennaId == 1);
+        Assert.Equal((ushort)87, antenna.TransmitPowerIndex);
+        Assert.Equal((ushort)1, antenna.ReceiverSensitivityIndex);
+        Assert.True(report.IncludeSerializedTid);
+        Assert.True(report.IncludeRfPhaseAngle);
+        Assert.True(report.IncludePeakRssi);
+        Assert.Equal(ImpinjReportBufferMode.Normal, configuration.ReportBufferMode);
+        Assert.Equal((ushort)1, configuration.AccessSpec!.BlockWriteWordCount);
+        Assert.Equal(ImpinjAccessSpecOrderingMode.FIFO, configuration.AccessSpec.OrderingMode);
+    }
+
+    [Fact]
     public void InventoryReportOptions_R420RejectsUnverifiedReportField()
     {
         var context = new ReaderExtensionMatchContext(

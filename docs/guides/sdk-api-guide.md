@@ -18,9 +18,11 @@ await using var reader = LlrpReader.CreateBuilder("192.168.1.100").Build();
 await reader.ConnectAsync();
 
 // 2. 查询设备推荐默认配置，打印配置信息并下发到读写器
+//    该 API 仅在已连接且能力已初始化的 Reader 上生成设备相关基线；它不是
+//    GET_READER_CONFIG 的当前事实快照。需要读取事实时使用 QuerySettingsAsync()。
 ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
 Console.WriteLine($"已加载设备默认配置 Profile: {defaults.ProfileId}");
-Console.WriteLine($"默认盘点天线列表: {string.Join(", ", defaults.Settings.Inventory.AntennaIds)} (0代表全部天线)");
+Console.WriteLine($"默认盘点天线列表: {string.Join(", ", defaults.Settings.Inventory?.AntennaIds ?? Array.Empty<ushort>())}");
 
 await reader.ApplySettingsAsync(defaults.Settings);
 

@@ -33,17 +33,142 @@ public sealed record ReaderSettingsDefaults
     /// <summary>Gets human-readable decisions and caveats made while resolving the baseline.</summary>
     public IReadOnlyList<string> Notes { get; init; } = Array.Empty<string>();
 
-    /// <summary>Creates the portable standard LLRP baseline usable before a reader is connected.</summary>
+    /// <summary>
+    /// Creates the portable standard LLRP baseline usable before a reader is connected.
+    /// This method deliberately does not invent model-specific RF indexes.
+    /// </summary>
     public static ReaderSettingsDefaults CreateGeneric() => new();
+
+    /// <summary>
+    /// Creates the generic high-level baseline after a connected reader's identity and capabilities have been
+    /// initialized.
+    /// </summary>
+    /// <remarks>
+    /// This factory never invents a reader-specific index. It selects the first advertised RF mode and receive
+    /// sensitivity, the highest advertised transmit-power value (using its index as a tie-breaker), and the first
+    /// advertised hop table when those tables are available. The returned settings are still a recommendation: an active vendor defaults
+    /// contributor may replace them with a verified model/firmware profile.
+    /// </remarks>
+    public static ReaderSettingsDefaults CreateForReader(ReaderSettingsDefaultContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        ReaderCapabilities capabilities = context.Capabilities;
+        var notes = new List<string>();
+        ushort[] antennaIds = capabilities.MaxNumberOfAntennas == 0
+            ? []
+            : Enumerable.Range(1, capabilities.MaxNumberOfAntennas)
+                .Select(static antennaId => checked((ushort)antennaId))
+                .ToArray();
+
+        C1G2RfModeEntry? firstRfMode = capabilities.RfModes.FirstOrDefault();
+        ushort modeIndex = 0;
+        ushort tari = 0;
+        if (firstRfMode is not null &&
+            firstRfMode.ModeIdentifier <= ushort.MaxValue &&
+            firstRfMode.MinTariValue <= ushort.MaxValue &&
+            firstRfMode.MaxTariValue >= firstRfMode.MinTariValue)
+        {
+            modeIndex = checked((ushort)firstRfMode.ModeIdentifier);
+            tari = checked((ushort)firstRfMode.MinTariValue);
+            notes.Add($"RF mode uses the first advertised mode ({modeIndex}) and its minimum valid Tari ({tari}).");
+        }
+        else if (capabilities.RfModes.Count != 0)
+        {
+            notes.Add("The first advertised RF mode cannot be represented by the version-independent settings model; RF mode and Tari remain reader-selected.");
+        }
+
+        RxSensitivityEntry? firstRxSensitivity = capabilities.RxSensitivities.FirstOrDefault();
+        TxPowerEntry? maximumTxPower = capabilities.TxPowers
+            .OrderByDescending(static entry => entry.TransmitPowerValue)
+            .ThenByDescending(static entry => entry.Index)
+            .FirstOrDefault();
+        FrequencyHopTableEntry? firstHopTable = capabilities.HopTables.FirstOrDefault();
+        ushort hopTableId = firstHopTable?.HopTableId ?? 1;
+        ushort channelIndex = 1;
+
+        if (firstRxSensitivity is not null)
+        {
+            notes.Add($"Receive sensitivity uses the first advertised index ({firstRxSensitivity.Index}).");
+        }
+        if (maximumTxPower is not null)
+        {
+            notes.Add($"Transmit power uses the highest advertised value ({maximumTxPower.TransmitPowerDbm:F2} dBm, index {maximumTxPower.Index}).");
+        }
+        if (capabilities.HopTables.Count != 0)
+        {
+            notes.Add($"RF channel uses the first advertised hop table ({hopTableId}) and channel index 1.");
+        }
+        else if (capabilities.TxFrequencies.Count != 0)
+        {
+            notes.Add("RF channel uses channel index 1 from the advertised fixed-frequency table.");
+        }
+
+        AntennaConfigurationSettings[] configurationAntennas = antennaIds
+            .Select(antennaId => new AntennaConfigurationSettings
+            {
+                AntennaId = antennaId,
+                ReceiverSensitivityIndex = firstRxSensitivity?.Index,
+                TransmitPowerIndex = maximumTxPower?.Index,
+                HopTableId = maximumTxPower is null ? null : hopTableId,
+                ChannelIndex = maximumTxPower is null ? null : channelIndex,
+            })
+            .ToArray();
+        InventoryAntennaConfiguration[] inventoryAntennas = antennaIds
+            .Select(antennaId => new InventoryAntennaConfiguration
+            {
+                AntennaId = antennaId,
+                ReceiverSensitivityIndex = firstRxSensitivity?.Index,
+                TransmitPowerIndex = maximumTxPower?.Index,
+                HopTableId = maximumTxPower is null ? null : hopTableId,
+                ChannelIndex = maximumTxPower is null ? null : channelIndex,
+            })
+            .ToArray();
+
+        InventorySettings? inventory = antennaIds.Length == 0
+            ? null
+            : new InventorySettings
+            {
+                AntennaIds = antennaIds,
+                AntennaConfigurations = inventoryAntennas,
+                ModeIndex = modeIndex,
+                Tari = tari,
+            };
+
+        if (antennaIds.Length == 0)
+        {
+            notes.Add("The reader advertised no usable antenna count; Inventory is omitted until capabilities are available.");
+        }
+
+        return new ReaderSettingsDefaults
+        {
+            ProfileId = "llrp.generic",
+            Source = ReaderSettingsDefaultSource.Generic,
+            Notes = notes,
+            Settings = new ReaderSettings
+            {
+                Configuration = new ReaderConfiguration { Antennas = configurationAntennas },
+                Inventory = inventory,
+            },
+        };
+    }
 }
 
-/// <summary>Supplies initialized reader facts to a model-specific settings-default contributor.</summary>
+/// <summary>
+/// Supplies initialized reader facts to a model-specific settings-default contributor.
+/// The capabilities are the same snapshot used by the core capability-aware baseline;
+/// contributors should add only verified model/firmware defaults and leave unknown
+/// optional vendor values conservative.
+/// </summary>
 public sealed record ReaderSettingsDefaultContext(
     ReaderIdentity Identity,
     ReaderCapabilities Capabilities,
     LlrpProtocolVersion ProtocolVersion);
 
-/// <summary>Generates an editable high-level settings baseline for a recognized connected reader.</summary>
+/// <summary>
+/// Generates an editable high-level settings baseline for a recognized connected reader.
+/// The SDK invokes contributors after the core capability-aware baseline has been built.
+/// </summary>
 public interface IReaderSettingsDefaultsContributor
 {
     /// <summary>Gets the stable contributor identifier used for duplicate detection.</summary>

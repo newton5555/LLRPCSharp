@@ -480,6 +480,47 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
+    public void ReaderDefaults_SelectFirstModeAndReceiveSensitivityAndHighestTransmitPower()
+    {
+        var capabilities = new ReaderCapabilities(
+            maxNumberOfAntennas: 2,
+            canSetAntennaProperties: true,
+            hasUtcClockCapability: true,
+            generalDeviceParameters: [],
+            rawResponse: new ENABLE_EVENTS_AND_REPORTS(1),
+            additionalParameters: [],
+            txPowers: [new TxPowerEntry(8, 2500), new TxPowerEntry(3, 3000)],
+            rxSensitivities: [new RxSensitivityEntry(5, 0), new RxSensitivityEntry(1, 10)],
+            txFrequencies: [920_625, 920_875],
+            hopTables: [new FrequencyHopTableEntry(7, [920_625, 920_875])],
+            rfModes:
+            [
+                new C1G2RfModeEntry(22, "DR", true, 4, "PR-ASK", "DI", 80_000, 2_000, 12_500, 23_000, 2_100),
+                new C1G2RfModeEntry(1, "DR", true, 2, "FM0", "DI", 640_000, 1_500, 6_250, 6_250, 0),
+            ]);
+        var context = new ReaderSettingsDefaultContext(
+            new ReaderIdentity(1_000, 2_000, "test-fw"),
+            capabilities,
+            LlrpProtocolVersion.Version101);
+
+        ReaderSettingsDefaults defaults = ReaderSettingsDefaults.CreateForReader(context);
+        Assert.NotNull(defaults.Settings.Inventory);
+        InventorySettings inventory = defaults.Settings.Inventory!;
+        InventoryAntennaConfiguration antenna = Assert.Single(inventory.AntennaConfigurations, item => item.AntennaId == 1);
+        AntennaConfigurationSettings configurationAntenna = Assert.Single(defaults.Settings.Configuration.Antennas, item => item.AntennaId == 1);
+
+        Assert.Equal([(ushort)1, 2], inventory.AntennaIds);
+        Assert.Equal((ushort)22, inventory.ModeIndex);
+        Assert.Equal((ushort)12_500, inventory.Tari);
+        Assert.Equal((ushort)5, antenna.ReceiverSensitivityIndex);
+        Assert.Equal((ushort)3, antenna.TransmitPowerIndex);
+        Assert.Equal((ushort)7, antenna.HopTableId);
+        Assert.Equal((ushort)1, antenna.ChannelIndex);
+        Assert.Equal(antenna.TransmitPowerIndex, configurationAntenna.TransmitPowerIndex);
+        Assert.Equal(antenna.ReceiverSensitivityIndex, configurationAntenna.ReceiverSensitivityIndex);
+    }
+
+    [Fact]
     public void ReaderSettings_DefaultStartTrigger_CompilesToNull()
     {
         ROSpec roSpec = Llrp101InventoryCompiler.Compile(new InventorySettings { AntennaIds = [1] }, []);

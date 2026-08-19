@@ -36,6 +36,10 @@
 | CLI | 可用 | Live Shell、一次性 `inventory`、Settings 应用流程和离线 Codec 已稳定；实时与离线命令均按显式版本支持 1.0.1/1.1/2.0，离线注册表还包含 Impinj 与 Zebra 扩展。 |
 | Virtual Device | SDK 门面 + 独立设备端 CLI 已可用 | `LlrpDevice.Virtual.Hosting` 提供稳定的 `IVirtualDeviceHost`、`VirtualDeviceHostOptions` 和 `VirtualLlrpDeviceHost.Create(...)`，组合 `LlrpDevice.Server` 与 `VirtualLlrpDevice`，支持 Start/Stop/Restart、端点、客户端状态、解码报文事件，以及启动前注入标签。旧 `IVirtualLlrpDeviceHost`/底层属性保留为迁移兼容路径。内置 `llrp1.0.1_standard` 与 `impinj.r420.llrp-1.0.1` profile；后者由 `LlrpDevice.Virtual.Impinj` 提供 Impinj 能力/配置扩展。`LlrpVirtualDevice.Cli` 位于 `src` 根下，与客户端 `LlrpCli` 平级，支持默认交互 Shell、`server create/start/stop/restart/status/destroy` 生命周期命令、`run`/`live`/`validate`/`presets`、1.0.1/1.1/2.0、版本化 JSON、确定性 RF 和标准 Tag Access。Hosting/CLI 默认采用宽松 ROSpec 状态检查，`--strict` 可切换严格校验。1.0.1 标准默认设备暴露 4 根逻辑天线，RF capability tables 基于实机采集（Tx Index 1..193、Rx Index 1..2、41 项 RF Mode、16 个跳频点）。`live` 会自动创建/启动设备并进入 Shell，默认输出生命周期、客户端和 `RX/TX` 报文，但不会自己生成 LLRP 客户端指令。旧 `LlrpCli virtual-reader` 命令已移除。真实 RFID 模块/真实 RF 波形模拟、运行态重启自动恢复仍未交付。详见 [设备端对齐表](coverage/llrp101-device-server-coverage.md)。 |
 
+默认值补充：已识别的 Impinj R420 6.4.1、Zebra FX9600 3.32.37.0 和 Seuic profile
+均可在核心能力基线之上提供强类型厂商默认扩展；未知型号只保留能力可验证的标准值，
+不会由 UI 或 CLI 猜测厂商频点、报告字段或设备参数。
+
 Virtual Device 的当前默认组合还包括能力档案 `llrp1.0.1_standard`、Impinj R420
 档案 `impinj.r420.llrp-1.0.1` 和独立的 `default` 寻卡数据源；标准档案落在
 `src/LlrpDevice.Virtual/config/llrp/caps/`，Impinj 设备端扩展落在
@@ -71,7 +75,13 @@ LLRP 服务。
 - `TagReport.PcBits` 暴露标签 PC 字（C1G2_PC）:EPC 长度/编码类型信息,
   变长 EPC 场景必须依赖它;配合 `InventoryReportSettings.IncludePcBits` 请求。
 - `ReaderSettings` 是托管配置模型；支持 Reader Defaults、Generic Defaults、
-  查询事实、编辑、校验、应用、序列化和清理。
+  查询事实、编辑、校验、应用、序列化和清理。连接后的
+  `GetDefaultSettingsAsync()` 使用当前 `Identity`、协商版本和 `Capabilities`
+  生成设备相关基线：RF Mode/Tari 取能力表第一项、接收灵敏度取第一项、发射功率取
+  最高功率值对应的索引，并将解析出的天线与 RF 参数同时写入 Reader 配置和 Inventory 意图。
+  Impinj、Zebra、Seuic 扩展可继续通过默认值 contributor 加入型号/固件相关的强类型
+  厂商参数；未知型号只返回保守的标准值，不伪造厂商能力。未连接时的
+  `ReaderSettingsDefaults.CreateGeneric()` 仍是离线、非设备特定的便携基线。
 - Reader 级 `AntennaConfiguration` 查询和应用会完整保留 `RFTransmitter` 的
   `HopTableID`、`ChannelIndex` 与 `TransmitPower`，避免查询快照回写时把跳频表
   ID 降为零。

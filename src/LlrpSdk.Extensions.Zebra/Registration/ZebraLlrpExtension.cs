@@ -31,6 +31,7 @@ public sealed class ZebraProtocolModule : ILlrpProtocolModule
 public sealed class ZebraReaderExtension :
     IReaderExtension,
     IReaderSettingsContributor,
+    IReaderSettingsDefaultsContributor,
     IInventoryContributor,
     IInventorySettingsContributor,
     IReaderSettingsSerializationContributor,
@@ -54,6 +55,53 @@ public sealed class ZebraReaderExtension :
         ArgumentNullException.ThrowIfNull(context);
         return context.ManufacturerId == ManufacturerId &&
             context.ProtocolVersion == LlrpProtocolVersion.Version101;
+    }
+
+    /// <inheritdoc />
+    public ReaderSettingsDefaults? GetDefaultSettings(ReaderSettingsDefaultContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        ReaderSettingsDefaults generic = ReaderSettingsDefaults.CreateForReader(context);
+        bool isVerifiedFx9600 = context.Identity.ModelId == 96_008 &&
+            context.Identity.FirmwareVersion.StartsWith("3.32.37.0", StringComparison.Ordinal);
+        var configurationExtensions = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [ZebraReaderConfiguration.ExtensionKey] = isVerifiedFx9600
+                ? new ZebraReaderConfiguration
+                {
+                    RadioPowerState = true,
+                    RadioTransmitDelay = 0,
+                    AutonomousModeState = false,
+                }
+                : new ZebraReaderConfiguration(),
+        };
+        var inventoryExtensions = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [ZebraInventoryReportOptions.ExtensionKey] = new ZebraInventoryReportOptions(),
+        };
+        ReaderSettings settings = generic.Settings with
+        {
+            Configuration = generic.Settings.Configuration with
+            {
+                Extensions = configurationExtensions,
+            },
+            Inventory = generic.Settings.Inventory is { } inventory
+                ? inventory with { Extensions = inventoryExtensions }
+                : null,
+        };
+
+        return generic with
+        {
+            ProfileId = isVerifiedFx9600
+                ? "zebra.fx9600.llrp-1.0.1"
+                : "zebra.generic.llrp-1.0.1",
+            Source = ReaderSettingsDefaultSource.ReaderProfile,
+            Notes = generic.Notes.Append(isVerifiedFx9600
+                ? "Applied the verified Zebra FX9600 3.32.37.0 baseline; unverified report extensions remain disabled."
+                : "No verified Zebra model/firmware profile matched; vendor optional controls remain disabled and the reader remains authoritative.").ToArray(),
+            Settings = settings,
+        };
     }
     // Zebra extensions require no enable message; InitializeConnectionAsync keeps its no-op default.
 
@@ -203,9 +251,14 @@ public sealed class ZebraReaderExtension :
     /// <inheritdoc />
     public bool CanHandle(ReaderSettingsExtensionScope scope, string key, object? value)
     {
-        return scope == ReaderSettingsExtensionScope.Configuration &&
-            key == ZebraReaderConfiguration.ExtensionKey &&
-            (value is null or ZebraReaderConfiguration);
+        return (scope, key) switch
+        {
+            (ReaderSettingsExtensionScope.Configuration, ZebraReaderConfiguration.ExtensionKey) =>
+                value is null or ZebraReaderConfiguration,
+            (ReaderSettingsExtensionScope.Inventory, ZebraInventoryReportOptions.ExtensionKey) =>
+                value is null or ZebraInventoryReportOptions,
+            _ => false,
+        };
     }
 
     /// <inheritdoc />
@@ -216,6 +269,8 @@ public sealed class ZebraReaderExtension :
         {
             (ReaderSettingsExtensionScope.Configuration, ZebraReaderConfiguration.ExtensionKey)
                 when value is ZebraReaderConfiguration configuration => configuration,
+            (ReaderSettingsExtensionScope.Inventory, ZebraInventoryReportOptions.ExtensionKey)
+                when value is ZebraInventoryReportOptions report => report,
             _ => throw new NotSupportedException($"Zebra does not own settings extension '{key}' at {scope}."),
         };
         return new JsonObject
@@ -239,6 +294,9 @@ public sealed class ZebraReaderExtension :
             (ReaderSettingsExtensionScope.Configuration, ZebraReaderConfiguration.ExtensionKey) =>
                 document["value"]!.Deserialize<ZebraReaderConfiguration>(JsonOptions)
                     ?? throw new JsonException("Zebra configuration cannot be null."),
+            (ReaderSettingsExtensionScope.Inventory, ZebraInventoryReportOptions.ExtensionKey) =>
+                document["value"]!.Deserialize<ZebraInventoryReportOptions>(JsonOptions)
+                    ?? throw new JsonException("Zebra inventory report options cannot be null."),
             _ => throw new NotSupportedException($"Zebra does not own settings extension '{key}' at {scope}."),
         };
     }

@@ -89,6 +89,47 @@ public sealed class ZebraExtensionTests
     }
 
     [Fact]
+    public void ZebraDefaults_IncludeCapabilityResolvedStandardValuesAndTypedVendorDefaults()
+    {
+        var capabilities = new ReaderCapabilities(
+            maxNumberOfAntennas: 4,
+            canSetAntennaProperties: true,
+            hasUtcClockCapability: true,
+            generalDeviceParameters: [],
+            rawResponse: new LlrpNet.Protocol.Messages.V1_0_1.ENABLE_EVENTS_AND_REPORTS(1),
+            additionalParameters: [],
+            txPowers: [new TxPowerEntry(10, 3000), new TxPowerEntry(2, 2500)],
+            rxSensitivities: [new RxSensitivityEntry(1, 0)],
+            rfModes:
+            [
+                new C1G2RfModeEntry(3, "DR", true, 2, "FM0", "DI", 120_000, 1_500, 25_000, 25_000, 0),
+            ]);
+        var context = new ReaderSettingsDefaultContext(
+            new ReaderIdentity(ZebraReaderExtension.ManufacturerId, 96_008, "3.32.37.0"),
+            capabilities,
+            LlrpProtocolVersion.Version101);
+
+        ReaderSettingsDefaults defaults = Assert.IsType<ReaderSettingsDefaults>(
+            ZebraReaderExtension.Instance.GetDefaultSettings(context));
+        ZebraReaderConfiguration configuration = Assert.IsType<ZebraReaderConfiguration>(
+            defaults.Settings.Configuration.Extensions[ZebraReaderConfiguration.ExtensionKey]);
+        InventorySettings inventory = Assert.IsType<InventorySettings>(defaults.Settings.Inventory);
+        ZebraInventoryReportOptions report = Assert.IsType<ZebraInventoryReportOptions>(
+            inventory.Extensions[ZebraInventoryReportOptions.ExtensionKey]);
+
+        Assert.Equal("zebra.fx9600.llrp-1.0.1", defaults.ProfileId);
+        Assert.True(configuration.RadioPowerState);
+        Assert.Equal((byte)0, configuration.RadioTransmitDelay);
+        Assert.False(configuration.AutonomousModeState);
+        Assert.False(report.IncludePhase);
+
+        string json = ReaderSettingsSerializer.SerializeToJson(defaults.Settings, [ZebraReaderExtension.Instance]);
+        ReaderSettings restored = ReaderSettingsSerializer.DeserializeFromJson(json, [ZebraReaderExtension.Instance]);
+        Assert.IsType<ZebraInventoryReportOptions>(
+            restored.Inventory!.Extensions[ZebraInventoryReportOptions.ExtensionKey]);
+    }
+
+    [Fact]
     public void TagReportContributor_ProjectsPhaseGpsAndXpc()
     {
         var extension = ZebraReaderExtension.Instance;

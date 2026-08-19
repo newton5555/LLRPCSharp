@@ -32,6 +32,7 @@ public sealed class ImpinjProtocolModule : ILlrpProtocolModule
 public sealed class ImpinjReaderExtension :
     IReaderExtension,
     IReaderSettingsContributor,
+    IReaderSettingsDefaultsContributor,
     IInventoryContributor,
     IInventorySettingsContributor,
     IReaderSettingsSerializationContributor,
@@ -55,6 +56,88 @@ public sealed class ImpinjReaderExtension :
         ArgumentNullException.ThrowIfNull(context);
         return context.ManufacturerId == ManufacturerId &&
             context.ProtocolVersion == LlrpProtocolVersion.Version101;
+    }
+
+    /// <inheritdoc />
+    public ReaderSettingsDefaults? GetDefaultSettings(ReaderSettingsDefaultContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        ReaderSettingsDefaults generic = ReaderSettingsDefaults.CreateForReader(context);
+        ReaderExtensionMatchContext reader = new(
+            context.Identity.ManufacturerId,
+            context.Identity.ModelId,
+            context.Identity.FirmwareVersion,
+            context.ProtocolVersion);
+        bool isVerifiedR420 = context.Identity.ModelId == 2_001_002 &&
+            context.Identity.FirmwareVersion.StartsWith("6.4.1.", StringComparison.Ordinal);
+
+        var configurationExtensions = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [ImpinjReaderConfiguration.ExtensionKey] = CreateDefaultReaderConfiguration(isVerifiedR420),
+        };
+        var inventoryExtensions = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            // Keep the typed extension present in the returned document even when every optional control is
+            // disabled. This makes the vendor settings surface discoverable without emitting unsupported items.
+            [ImpinjInventoryReportOptions.ExtensionKey] = CreateDefaultReportOptions(reader),
+            [ImpinjInventoryControlOptions.ExtensionKey] = new ImpinjInventoryControlOptions(),
+        };
+
+        ReaderSettings settings = generic.Settings with
+        {
+            Configuration = generic.Settings.Configuration with
+            {
+                Extensions = configurationExtensions,
+            },
+            Inventory = generic.Settings.Inventory is { } inventory
+                ? inventory with { Extensions = inventoryExtensions }
+                : null,
+        };
+
+        string profileId = isVerifiedR420
+            ? "impinj.r420.llrp-1.0.1"
+            : "impinj.generic.llrp-1.0.1";
+        string profileNote = isVerifiedR420
+            ? "Applied the verified Impinj Speedway R420 6.4.1.x defaults; optional report fields are enabled only when the capability catalog confirms them."
+            : "No verified Impinj model/firmware profile matched; vendor optional controls remain disabled and the reader remains authoritative.";
+
+        return generic with
+        {
+            ProfileId = profileId,
+            Source = ReaderSettingsDefaultSource.ReaderProfile,
+            Notes = generic.Notes.Append(profileNote).ToArray(),
+            Settings = settings,
+        };
+    }
+
+    private static ImpinjReaderConfiguration CreateDefaultReaderConfiguration(bool isVerifiedR420)
+    {
+        if (!isVerifiedR420)
+        {
+            return new ImpinjReaderConfiguration();
+        }
+
+        return new ImpinjReaderConfiguration
+        {
+            GpiDebounce = Enumerable.Range(1, 4)
+                .Select(static port => new ImpinjGpiDebounceSetting(checked((ushort)port), 0))
+                .ToArray(),
+            LinkMonitor = new ImpinjLinkMonitorSettings(false, 0),
+            ReportBufferMode = ImpinjReportBufferMode.Normal,
+            AccessSpec = new ImpinjAccessSpecSettings(1, 0, ImpinjAccessSpecOrderingMode.FIFO),
+        };
+    }
+
+    private static ImpinjInventoryReportOptions CreateDefaultReportOptions(ReaderExtensionMatchContext reader)
+    {
+        ImpinjInventoryCapabilities capabilities = ImpinjInventoryCapabilityCatalog.Get(reader);
+        return new ImpinjInventoryReportOptions
+        {
+            IncludeSerializedTid = capabilities.SupportsSerializedTid,
+            IncludeRfPhaseAngle = capabilities.SupportsRfPhaseAngle,
+            IncludePeakRssi = capabilities.SupportsPeakRssi,
+        };
     }
 
     /// <inheritdoc />

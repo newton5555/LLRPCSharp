@@ -34,6 +34,16 @@ await foreach (TagReport report in session.ReadReportsAsync())
 }
 ```
 
+`GetDefaultSettingsAsync()` uses the connected reader's identity and capability
+tables. The core baseline selects the first advertised RF mode and receive
+sensitivity, the highest transmit-power value and its index, and the first usable RF channel;
+the Impinj contributor then adds typed model/firmware settings. The verified
+R420 profile enables only the optional report fields covered by the capability
+catalog. Unknown Impinj models retain the standard capability-derived values
+and an explicit, conservative vendor extension object rather than invented
+vendor defaults. For a disconnected, portable baseline use
+`ReaderSettingsDefaults.CreateGeneric()` instead.
+
 Common report options can be expressed with the typed inventory builder:
 
 ```csharp

@@ -26,50 +26,28 @@ public sealed class SeuicReaderExtension :
     public ReaderSettingsDefaults? GetDefaultSettings(ReaderSettingsDefaultContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        IReadOnlyList<InventoryAntennaConfiguration>? antennaConfigurations = ResolveAntennaConfigurations(context.Capabilities);
-        if (antennaConfigurations is null)
+        ReaderSettingsDefaults generic = ReaderSettingsDefaults.CreateForReader(context);
+        if (generic.Settings.Inventory is null)
         {
-            return null;
+            return generic with
+            {
+                ProfileId = "seuic.uf40.llrp-1.0.1",
+                Source = ReaderSettingsDefaultSource.ReaderProfile,
+                Notes = generic.Notes.Append("Seuic UF40 profile could not resolve an inventory because the reader advertised no antennas.").ToArray(),
+            };
         }
+
         return new ReaderSettingsDefaults
         {
             ProfileId = "seuic.uf40.llrp-1.0.1",
             Source = ReaderSettingsDefaultSource.ReaderProfile,
-            Notes =
+            Notes = generic.Notes.Concat(
             [
                 "Resolved all installed antennas and explicit standard AISpec RF values from this reader's capabilities.",
-                "Transmit power uses the highest advertised index; receive sensitivity prefers index 1 and otherwise the lowest advertised index."
-            ],
-            Settings = new ReaderSettings
-            {
-                Inventory = new InventorySettings
-                {
-                    AntennaIds = antennaConfigurations.Select(static configuration => configuration.AntennaId).ToArray(),
-                    AntennaConfigurations = antennaConfigurations
-                }
-            }
+                "Transmit power uses the highest advertised power value; receive sensitivity uses the first advertised index."
+            ]).ToArray(),
+            Settings = generic.Settings,
         };
-    }
-
-    private static IReadOnlyList<InventoryAntennaConfiguration>? ResolveAntennaConfigurations(ReaderCapabilities capabilities)
-    {
-        ushort[] antennas = Enumerable.Range(1, capabilities.MaxNumberOfAntennas)
-            .Select(static antenna => (ushort)antenna)
-            .ToArray();
-        TxPowerEntry? maximumTxPower = capabilities.TxPowers.OrderBy(static entry => entry.Index).LastOrDefault();
-        RxSensitivityEntry? defaultRxSensitivity = capabilities.RxSensitivities.FirstOrDefault(static entry => entry.Index == 1)
-            ?? capabilities.RxSensitivities.OrderBy(static entry => entry.Index).FirstOrDefault();
-
-        return antennas.Length == 0 || maximumTxPower is null || defaultRxSensitivity is null
-            ? null
-            : antennas.Select(antennaId => new InventoryAntennaConfiguration
-            {
-                AntennaId = antennaId,
-                ReceiverSensitivityIndex = defaultRxSensitivity.Index,
-                TransmitPowerIndex = maximumTxPower.Index,
-                HopTableId = 1,
-                ChannelIndex = 1,
-            }).ToArray();
     }
 }
 
