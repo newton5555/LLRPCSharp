@@ -9,8 +9,8 @@ Applications that need a TCP/LLRP virtual device should install the Hosting
 package instead:
 
 ```powershell
-dotnet add package LlrpDevice.Virtual.Hosting --version 2.0.0
+dotnet add package LlrpDevice.Virtual.Hosting --version 2.0.1
 ```
 
-`LlrpDevice.Virtual.Hosting` is the 2.0.0 public entry point and bundles the
+`LlrpDevice.Virtual.Hosting` is the 2.0.1 public entry point and bundles the
 server, virtual-device, Impinj profile, and protocol runtime needed by the host.
