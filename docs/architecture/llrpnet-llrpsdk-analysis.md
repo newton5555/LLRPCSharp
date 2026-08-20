@@ -75,12 +75,12 @@ V1_0_1.KEEPALIVE 和 V1_1.KEEPALIVE 是两个完全独立的 class
 1. **LLRP 1.1 是 1.0.1 的增量修订**——大部分消息相同,但新增了
    `GET_SUPPORTED_VERSION`、`C1G2XPCW1` 等,部分参数结构有调整。若共用一套
    类型,1.0.1 设备会"看到"不存在的字段。
-2. **类型安全优先**:同一概念在两版中可能是不同结构,强类型系统下必须分开。
-3. **版本可扩展**:2.0 再来一套 `V2_0` 即可,不碰已有代码(见 AGENTS.md 约定)。
+2. **类型安全优先**:同一概念在不同版本中可能是不同结构,强类型系统下必须分开。
+3. **版本可扩展**:后续版本再来一套对应的 `Vx_y` 类型即可,不共享已有版本类型(见 AGENTS.md 约定)。
 
-代价与对策:相同的概念(`KEEPALIVE`)在类型系统里是两个 class——对策是
-**注册中心按版本分派**(见 1.3),公共代码用 `is V101Messages.X or V11Messages.X`
-双查(见第二章消息泵)。
+代价与对策:相同的概念(`KEEPALIVE`)在类型系统里按版本各有一个 class——对策是
+**注册中心按版本分派**(见 1.3),公共边界组件显式检查已支持版本的消息类型
+(`V101Messages.X` / `V11Messages.X` / `V20Messages.X`)。
 
 ### 生成类型的形态(以消息为例)
 
@@ -256,7 +256,8 @@ else
 │ 适配层(版本相关,唯一版本边界)                     │
 │   ILlrpProtocolAdapter                           │
 │   ├─ Llrp101ProtocolAdapter(编译/翻译 1.0.1)     │
-│   └─ Llrp11ProtocolAdapter(编译/翻译 1.1)        │
+│   ├─ Llrp11ProtocolAdapter(编译/翻译 1.1)        │
+│   └─ Llrp20ProtocolAdapter(编译/翻译 2.0)        │
 ├────────────────────────────────────────────────┤
 │ 门面层(公共 API)                                 │
 │   LlrpReader(连接/配置/盘点/标签操作/事件)         │
@@ -268,11 +269,12 @@ else
 - 领域类型**零协议引用**(审计确认:公共属性/枚举全部是 SDK 自有类型)——设备
   版本差异不泄漏到业务代码
 - 适配器是**唯一的版本翻译点**:领域→协议(编译)与协议→领域(翻译)全部收敛于此。
-  反向翻译(反解析 `ParseManagedRoSpec`)、事件投影(`Llrp101/11EventProjector`)、
+  反向翻译(反解析 `ParseManagedRoSpec`)、事件投影(`Llrp101/11/20EventProjector`)、
   标准消息构造与分类(`LlrpProtocolMessageFactory`)和连接前版本协商
   (`LlrpVersionNegotiator`)都住在版本边界内;`LlrpReader` 源码零版本类型引用,
   由 `ArchitectureGuardTests` 机器强制
-- 加新版本(2.0)= 加一个新适配器 + 配套反解析/投影组件 + 注册模块,门面零改动
+- 加新版本(例如 3.0)= 加一个新适配器 + 配套反解析/投影组件 + 注册模块,门面业务逻辑零改动；
+  仅需在显式适配器注册接线点加入新适配器
 
 ### 2.1.1 领域模型演进:新属性从哪来
 
@@ -420,8 +422,8 @@ await reader.ConnectAsync(cts.Token);
 ```
 
 `LlrpProtocolVersionPolicy`:
-- `Auto`(默认):先以 1.0.1 连接,设备支持 1.1 则自动升级
-- `Force101` / `Force11`:锁定版本;强制版本不可用时连接失败(不静默回退)
+- `Auto`(默认):通过 `GET_SUPPORTED_VERSION` 探测,优先选择 2.0,其次 1.1;设备拒绝探测时保留 1.0.1
+- `Force101` / `Force11` / `Force20`:锁定版本;强制版本不可用时连接失败(不静默回退)
 
 ### 事件订阅(11 个)
 
@@ -679,22 +681,24 @@ internal interface ILlrpProtocolAdapter
 
 - `Llrp101InventoryCompiler` / `Llrp11InventoryCompiler`:
   `InventorySettings` → 对应版本的 ROSpec 参数
-- `Llrp101TagAccessCompiler` / `Llrp11TagAccessCompiler`:Tag Access → AccessSpec
+- `Llrp20InventoryCompiler`: `InventorySettings` → 2.0 ROSpec 参数
+- `Llrp101TagAccessCompiler` / `Llrp11TagAccessCompiler` / `Llrp20TagAccessCompiler`:Tag Access → AccessSpec
 - `Llrp101TagReportTranslator` / `Llrp11TagReportTranslator`:
   `RO_ACCESS_REPORT` → `TranslatedTagReport`(两版逻辑逐行等价——1.1 在 SDK
   关心的报告结构上无改动,已 diff 验证,并新增双版本等价测试机器守护)
+- `Llrp20TagReportTranslator`:2.0 `RO_ACCESS_REPORT` → `TranslatedTagReport`
 
 反向侧(版本切片内的组件,同样经适配器/版本边界访问):
 
 - `Llrp101ManagedRoSpecParser` / `Llrp11ManagedRoSpecParser`:设备上的 SDK 托管
   ROSpec → `ParsedManagedRoSpec`(反编译);`ManagedInventoryStateAssembler`
   (中立,唯一一份)运行扩展 contributor 管道并产出 `ManagedRoSpecSnapshot`
-- `Llrp101EventProjector` / `Llrp11EventProjector` + `ReaderEventProjector`
+- `Llrp101EventProjector` / `Llrp11EventProjector` / `Llrp20EventProjector` + `ReaderEventProjector`
   (分派):`READER_EVENT_NOTIFICATION` → 中立事件投影记录,门面统一发布
 - `LlrpProtocolMessageFactory`:`KEEPALIVE_ACK` / `CLOSE_CONNECTION_RESPONSE` /
   `ENABLE_EVENTS_AND_REPORTS` 按协商版本构造,`ERROR_MESSAGE` 响应分类
-- `LlrpVersionNegotiator`:连接前 1.1 探测(`GET_SUPPORTED_VERSION` /
-  `SET_PROTOCOL_VERSION`)——适配器边界建立前唯一的版本感知组件
+- `LlrpVersionNegotiator`:连接前版本探测与协商(`GET_SUPPORTED_VERSION` /
+  `SET_PROTOCOL_VERSION`)，Auto 按 2.0 → 1.1 → 1.0.1 选择——适配器边界建立前唯一的版本感知组件
 - 适配器按**协商版本**选择,`LlrpReader` 永远用当前版本的适配器翻译/编译
 
 ## 2.5 核心机制(读代码前先懂这些)
@@ -705,10 +709,11 @@ internal interface ILlrpProtocolAdapter
 ConnectAsync:
   默认选 1.0.1 适配器 → TCP 连接
   → 版本协商(NegotiateProtocolVersionAsync):
-     默认/Force101 → 保持 1.0.1
-     Auto/Force11  → 发 GET_SUPPORTED_VERSION 询问
-        设备支持 1.1 → SET_PROTOCOL_VERSION(1.1) → 切换 1.1 适配器
-        不支持且 Auto → 回退 1.0.1;Force11 → 连接失败
+      Force101 → 保持 1.0.1
+      Auto/Force11/Force20 → 发 GET_SUPPORTED_VERSION 询问
+         设备支持 2.0 → SET_PROTOCOL_VERSION(2.0) → 切换 2.0 适配器
+         否则设备支持 1.1 且目标不是 Force20 → SET_PROTOCOL_VERSION(1.1) → 切换 1.1 适配器
+         仅支持 1.0.1 且 Auto → 保持 1.0.1;强制高版本 → 连接失败
   → InitializeReaderAsync(能力/身份/默认配置)
 ```
 
@@ -721,10 +726,10 @@ ConnectAsync:
 _session.UnsolicitedFrames(帧队列)
   → registry.DecodeMessage(帧头 Version 自动解出正确版本类型)
   → 分发:
-     ① KEEPALIVE(is V101Messages.KEEPALIVE or V11Messages.KEEPALIVE)
+      ① KEEPALIVE(is V101Messages.KEEPALIVE or V11Messages.KEEPALIVE or V20Messages.KEEPALIVE)
          → 触发 KeepaliveReceived 事件
          → 按协商版本回 KEEPALIVE_ACK(MessageId 透传)
-     ② READER_EVENT_NOTIFICATION → 两个版本重载,提取:
+      ② READER_EVENT_NOTIFICATION → 各版本 projector,提取:
          ROSpecEvent(盘点运行状态)/ GPIEvent / AntennaEvent / Buffer 事件
      ③ 报告翻译:GetProtocolAdapter().TranslateTagReports(message)
          → Contributor 管道(2.6)→ 写入连接级通道 + TagsReported 事件

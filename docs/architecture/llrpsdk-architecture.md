@@ -1,7 +1,7 @@
 # LlrpSdk 项目架构
 
 > 范围:仅 `src/LlrpSdk` 项目;协议层(`LlrpNet.Protocol` 生成代码、`LlrpNet.Core` 传输)只在 §2 作为依赖说明。
-> 标记:`①中立` = 零版本类型引用;`②切片` = 单版本文件(`Llrp101*`/`Llrp11*`);`③边界` = 跨版本接线组件;`④契约` = 接口/抽象。
+> 标记:`①中立` = 零版本类型引用;`②切片` = 单版本文件(`Llrp101*`/`Llrp11*`/`Llrp20*`);`③边界` = 跨版本接线组件;`④契约` = 接口/抽象。
 > 本文 §5 中的 3.0 **仅作示例,不是规划中的版本**。
 ## 1. 项目本身的结构
 
@@ -28,7 +28,7 @@ src/LlrpSdk/
 │   ├── IReaderSettingsContributor.cs  ④契约  配置 contributor(查询/应用自定义参数)
 │   ├── IReaderSettingsSerializationContributor.cs  ④契约  序列化 contributor
 │   └── TranslatedReaderConfiguration.cs  适配器配置翻译产物(配置 + 厂商自定义参数)
-├── Inventory/                ①中立(模型/会话/组装)+ ②切片(两个编译器)
+├── Inventory/                ①中立(模型/会话/组装)+ ②切片(三个编译器)
 │   ├── InventorySettings.cs   盘点意图模型:天线/过滤器/触发器/报告/singulation/attached-data(版本无关核心)
 │   ├── InventorySettingsBuilder.cs / InventorySettingsSerializer.cs  流式助手 / JSON(仅标准字段)
 │   ├── InventorySettingsNormalizer.cs  天线 ID 0 → 按能力展开
@@ -39,35 +39,41 @@ src/LlrpSdk/
 │   ├── ParsedManagedRoSpec.cs  反解析中间产物(版本解析器 → 组装器)
 │   ├── ManagedInventoryStateAssembler.cs  中立组装器:contributor 查询管道唯一实现 + FromUtcMicroseconds
 │   ├── Llrp101InventoryCompiler.cs  ②切片  InventorySettings → 1.0.1 ROSpec
-│   └── Llrp11InventoryCompiler.cs   ②切片  InventorySettings → 1.1 ROSpec
+│   ├── Llrp11InventoryCompiler.cs   ②切片  InventorySettings → 1.1 ROSpec
+│   └── Llrp20InventoryCompiler.cs   ②切片  InventorySettings → 2.0 ROSpec
 ├── Resources/                ①中立 —— ROSpec/AccessSpec 专家服务(手动资源模式用)
 │   ├── IRoSpecService.cs / RoSpecService.cs
 │   └── IAccessSpecService.cs / AccessSpecService.cs
-├── TagAccess/                ①中立(模型)+ ②切片(两个编译器)
+├── TagAccess/                ①中立(模型)+ ②切片(三个编译器)
 │   ├── TagAccess.cs           请求/结果模型:Read/Write/Lock/Kill/BlockErase/Sequence + TagSelection
 │   ├── Llrp101TagAccessCompiler.cs  ②切片  TagAccessRequest → 1.0.1 AccessSpec
-│   └── Llrp11TagAccessCompiler.cs   ②切片  TagAccessRequest → 1.1 AccessSpec
-├── Reports/                  ①中立(模型)+ ②切片(两个翻译器)
+│   ├── Llrp11TagAccessCompiler.cs   ②切片  TagAccessRequest → 1.1 AccessSpec
+│   └── Llrp20TagAccessCompiler.cs   ②切片  TagAccessRequest → 2.0 AccessSpec
+├── Reports/                  ①中立(模型)+ ②切片(三个翻译器)
 │   ├── TagReport.cs           标签观测(中立 record,含 EpcHex/PcBits/Extensions)
 │   ├── TagTimestamp.cs / TagReportEventArgs.cs
 │   ├── ITagReportContributor.cs  ④契约  报告 contributor
 │   ├── TranslatedTagReport.cs   翻译产物(中立报告 + 厂商自定义参数)
 │   ├── Llrp101TagReportTranslator.cs  ②切片  RO_ACCESS_REPORT → TranslatedTagReport
-│   └── Llrp11TagReportTranslator.cs   ②切片  同上
+│   ├── Llrp11TagReportTranslator.cs   ②切片  同上
+│   └── Llrp20TagReportTranslator.cs   ②切片  同上
 ├── Protocol/                 版本边界总部(②切片 + ③边界 + ④契约)
 │   ├── ILlrpProtocolAdapter.cs  ④契约  26 成员:版本切片的唯一出口(前向编译/翻译 + 反向解析 + CRUD + 配置)
 │   ├── Llrp101ProtocolAdapter.cs  ②切片  1.0.1 全向实现
 │   ├── Llrp11ProtocolAdapter.cs   ②切片  1.1 全向实现
+│   ├── Llrp20ProtocolAdapter.cs    ②切片  2.0 全向实现
 │   ├── Llrp101ManagedRoSpecParser.cs  ②切片  反向读线:1.0.1 ROSpec → ParsedManagedRoSpec
 │   ├── Llrp11ManagedRoSpecParser.cs   ②切片  反向读线:1.1 ROSpec → ParsedManagedRoSpec
+│   ├── Llrp20ManagedRoSpecParser.cs   ②切片  反向读线:2.0 ROSpec → ParsedManagedRoSpec
 │   ├── Llrp101EventProjector.cs  ②切片  1.0.1 READER_EVENT_NOTIFICATION → 中立投影记录
 │   ├── Llrp11EventProjector.cs   ②切片  1.1 同上
+│   ├── Llrp20EventProjector.cs    ②切片  2.0 同上
 │   ├── ReaderEventProjector.cs   ③边界  事件分派(门面唯一入口;按消息版本选投影器)
 │   ├── LlrpProtocolMessageFactory.cs  ③边界  KEEPALIVE_ACK/CLOSE_CONNECTION_RESPONSE/ENABLE_EVENTS_AND_REPORTS 构造 + ERROR_MESSAGE 分类(按版本枚举 switch)
-│   ├── LlrpVersionNegotiator.cs  ③边界  连接前 1.1 探测(GET_SUPPORTED_VERSION / SET_PROTOCOL_VERSION)
+│   ├── LlrpVersionNegotiator.cs  ③边界  连接前版本探测与协商(1.1/2.0)
 │   ├── LlrpWireBits.cs        ①中立  位向量双向转换(ToBits / BitsToBytes 唯一实现)
 │   ├── ReaderProtocolAccess.cs / IReaderProtocolAccess.cs  raw 协议入口(发送/收发原始帧)
-│   └── LlrpProtocolVersionPolicy.cs  Auto / Force101 / Force11
+│   └── LlrpProtocolVersionPolicy.cs  Auto / Force101 / Force11 / Force20
 └── Extensions/
     └── ReaderExtensionCollection.cs  ①中立  连接后激活的 Reader 扩展集合
 ```
@@ -86,12 +92,12 @@ src/LlrpSdk/
 
 ```text
 正向(编译部署):StartInventoryAsync → 门面 CompileDefaultInventoryRoSpec(中立)
-  → GetProtocolAdapter().CompileInventory → Llrp101/11InventoryCompiler → 生成 ROSpec → Codec → TCP
+  → GetProtocolAdapter().CompileInventory → Llrp101/11/20InventoryCompiler → 生成 ROSpec → Codec → TCP
 反向(反解析):QuerySettingsAsync → RoSpecs/AccessSpecs 拉取(中立列表)
-  → GetProtocolAdapter().ParseManagedRoSpec → Llrp101/11ManagedRoSpecParser(读线 → ParsedManagedRoSpec)
+  → GetProtocolAdapter().ParseManagedRoSpec → Llrp101/11/20ManagedRoSpecParser(读线 → ParsedManagedRoSpec)
   → ManagedInventoryStateAssembler(中立,contributor 管道) → ManagedRoSpecSnapshot
 事件(推送):泵解码(中立 ILlrpMessage) → ReaderEventProjector.Project(分派)
-  → Llrp101/11EventProjector(版本消息 → 中立投影记录) → 门面 HandleEventProjection → Publish* 事件
+  → Llrp101/11/20EventProjector(版本消息 → 中立投影记录) → 门面 HandleEventProjection → Publish* 事件
 ```
 
 ## 2. 与协议层(LlrpNet)的关系
@@ -107,7 +113,7 @@ LlrpSdk
 
 | 协议层资产 | 谁在用 | 怎么用/约束 |
 |---|---|---|
-| 生成的版本类型(`LlrpNet.Protocol.{Messages,Parameters,Enumerations,Choices}.V1_0_1/V1_1`) | 仅 ②切片 与 ③边界组件 | ①中立文件一律禁止(守护测试扫 LlrpReader.cs) |
+| 生成的版本类型(`LlrpNet.Protocol.{Messages,Parameters,Enumerations,Choices}.V1_0_1/V1_1/V2_0`) | 仅 ②切片 与 ③边界组件 | ①中立文件一律禁止(守护测试扫 LlrpReader.cs) |
 | `LlrpCodecRegistry` | 门面持有;对外仅暴露只读视图 `ILlrpCodecRegistryReader`;连接时各适配器 `RegisterStandardCodecs` 注册本版本 Codec;厂商模块经 `UseProtocolModule` 注册 | 解码按帧头 Version 自动分派;编码必须显式传版本 |
 | `LlrpSession` / `ILlrpTransport` / 帧解码 / `LlrpMessageIdGenerator` | 门面(收发、事务、未请求帧泵) | 中立,无版本概念 |
 | `LlrpProtocolVersion` 枚举 | ①中立核心唯一允许的版本概念 | 加版本先在此加成员(协议层项目) |
@@ -168,8 +174,8 @@ LlrpSdk
   `StartInventoryAsync()` = 仅启动"已部署未运行"的托管盘点(两段式第二段,配合 `ApplySettingsAsync`)。
   两个重载共用动词 Start 是"激活"语义统一,不是过设计;参数类型不同故编译期消歧,无已部署配置时无参版抛
   `InvalidOperationException`(不会静默做错)。场景选择见 `docs/guides/sdk-api-guide.md` 的盘点入口决策表。
-- **版本在连接时锁定**:`Auto`(默认)先探测 1.1(`GET_SUPPORTED_VERSION`),支持则 `SET_PROTOCOL_VERSION` 后切换 1.1 适配器;
-  `Force101` 不探测;`Force11` 失败即连接失败不静默回退。
+- **版本在连接时锁定**:`Auto`(默认)通过 `GET_SUPPORTED_VERSION` 探测并优先选择最高支持版本(2.0 → 1.1)，设备拒绝探测时保留 1.0.1;
+  需要切换到高版本时发送 `SET_PROTOCOL_VERSION`。`Force101` 不探测;`Force11` / `Force20` 在目标版本不可用时连接失败，不静默回退。
 
 ### 3.3 公开属性分类(常量 / 快照 / 派生)
 
@@ -322,7 +328,7 @@ src/LlrpSdk/
 - **新增 6 个文件 = 6 个 ②切片**,全部从 `Llrp11*` 同名模板改写:适配器管“全向翻译”,解析器管“读线”,投影器管“事件”,
   编译器/翻译器管“域内正向”。接口契约(`ILlrpProtocolAdapter`)是唯一硬约束,抄模板即可满足。
 - **修改点全部集中在 5 个接线点**(§1.2 的 ③边界):门面 1 行注册、分派器 1 行、消息工厂 6 处 switch、
-  协商器按需、领域模型按需。**门面逻辑、1.0.1/1.1 切片、中立核心零改动。**
+  协商器按需、领域模型按需。**门面逻辑、1.0.1/1.1/2.0 切片、中立核心零改动。**
 - **新旧版本永不互相引用**:3.0 的差异只写在自己的 6 个文件里;若某处两版逻辑必须相同,靠等价测试钉住,
   而不是靠共享基类(1.1 已证明“新版不是旧版超集”——BlockPermalock/Recommission 只存在于 1.1)。
 
@@ -332,5 +338,5 @@ src/LlrpSdk/
 - [ ] `Translate_30` / `ProjectEvent_30` 等价测试(与既有版本同结构时)
 - [ ] `Compile_30And11_ProduceIdenticalRospecWireBytes`(线字节等价,若结构相同)
 - [ ] 守护测试自动生效(LlrpReader.cs 出现版本类型即失败)
-- [ ] 1.0.1/1.1 全部既有测试零改动通过;真机验收记录进 [../acceptance/reader-interoperability.md](../acceptance/reader-interoperability.md)
+- [ ] 1.0.1/1.1/2.0 全部既有测试零改动通过;真机验收记录进 [../acceptance/reader-interoperability.md](../acceptance/reader-interoperability.md)
 - [ ] 文档同步:`../status.md` 支持矩阵、本文件 §1.1 树、覆盖率文档

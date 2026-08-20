@@ -3,7 +3,7 @@ namespace LlrpSdk;
 /// <summary>Controls how a reader connection selects its LLRP protocol version.</summary>
 public enum LlrpProtocolVersionPolicy
 {
-    /// <summary>Probe for LLRP 1.1 and retain LLRP 1.0.1 when the reader rejects the probe.</summary>
+    /// <summary>Probe for the highest supported LLRP version (2.0, then 1.1) and retain LLRP 1.0.1 when the reader rejects negotiation.</summary>
     Auto = 0,
 
     /// <summary>Use LLRP 1.0.1 without sending a higher-version negotiation probe.</summary>
