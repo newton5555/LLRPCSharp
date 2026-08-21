@@ -2,161 +2,238 @@
 
 [中文](README.zh.md)
 
-![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
-![C# 14](https://img.shields.io/badge/C%23-14.0-239120?style=flat-square&logo=c-sharp)
-![Build & Tests](https://img.shields.io/badge/Build%20%26%20Tests-523%20Passed-10b981?style=flat-square)
-![Protocol](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-3b82f6?style=flat-square)
+![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet)
+![LLRP](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-2563eb?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-16a34a?style=flat-square)
 
-**LLRPCSharp** is a .NET 10 / C# 14 RFID reader toolkit. The primary product is the client-side LlrpSdk: a managed API for connecting to LLRP readers, reading capabilities and settings, configuring inventory, receiving tag reports, and performing standard C1G2 Tag Access operations.
+LLRPCSharp is a modern .NET toolkit for building applications that communicate with RFID readers over LLRP. Its main product is **LlrpSdk**, a managed reader API for connection lifecycle, capability discovery, settings, inventory, tag reports, and standard C1G2 Tag Access.
 
-The repository also contains the protocol foundation and a separate device-side virtual reader runtime. The virtual device is described in the final section.
+The repository also contains the lower-level protocol stack, optional vendor extensions, client and device-side command-line tools, and a deterministic TCP/LLRP virtual reader. These parts share one protocol foundation but keep client and device responsibilities separate.
 
-## Client SDK
+## Choose the right entry point
 
-* **LlrpSdk** is the normal application surface. LlrpReader exposes connection state, ReaderCapabilities, ReaderSettings, InventorySession, tag reports, and Tag Access without requiring applications to build ROSpec or AccessSpec messages.
-* **Vendor extension projects** add strongly typed behavior. The Impinj extension provides UseImpinj(), typed capability mappings, inventory extensions, and report projections.
-* **LlrpNet** is the protocol layer with generated LLRP 1.0.1/1.1/2.0 types, codecs, registries, and asynchronous TCP transport. Exact wire control is available through reader.Protocol or direct LlrpNet use.
-* **LlrpCli** is the first client application built on this SDK and follows the same connection, settings, inventory, Tag Access, and raw-protocol workflows.
+| You want to… | Use |
+|---|---|
+| Build an application that controls a physical LLRP reader | **LlrpSdk** |
+| Enable typed Impinj or Zebra features | **LlrpSdk.Extensions.Impinj** or **LlrpSdk.Extensions.Zebra** |
+| Send exact messages, inspect frames, or work with generated protocol types | **LlrpNet.Core** and **LlrpNet.Protocol** |
+| Operate or diagnose a reader from a terminal | **LlrpCli** |
+| Host a deterministic reader endpoint for tests or UI development | **LlrpDevice.Virtual.Hosting** |
+| Run that virtual endpoint as a standalone process | **LlrpVirtualDevice.Cli** |
 
-The normal client workflow is: connect and negotiate a version; read capabilities and settings; obtain and edit a ReaderSettings default; apply it; start an InventorySession; consume ReadReportsAsync; then use high-level Tag Access methods when needed.
+## What the SDK provides
 
-High-level inventory owns the SDK-reserved ROSpec/AccessSpec resource domain. Exact resource IDs, manual resources, and unsupported vendor messages belong to the expert RoSpecs, AccessSpecs, and Protocol surfaces. Raw or expert writes invalidate the managed-state assumption; synchronize or explicitly perform a new managed takeover before returning to high-level control.
+### Managed reader API
 
-### Public SDK example: LlrpSdk
+One **LlrpReader** represents one reader connection. It owns protocol negotiation, initialization, the underlying session, keepalive handling, unsolicited-message processing, and extension activation.
 
-```csharp
-await using var reader = LlrpReader.CreateBuilder("192.168.1.100").Build();
+Applications normally work with version-neutral models:
+
+- **ReaderCapabilities** and **ReaderIdentity** for device facts;
+- **ReaderSettings** and **InventorySettings** for configuration intent;
+- **InventorySession** and **TagReport** for streamed observations;
+- high-level read, write, lock, kill, and block-erase requests for standard Tag Access;
+- connection, operation, resource, error, GPI, antenna, and buffer events.
+
+LLRP 1.0.1, 1.1, and 2.0 differences are contained behind protocol adapters. Ordinary application code does not need generated version-specific message or parameter types.
+
+### Three levels of control
+
+LLRPCSharp exposes progressively lower-level surfaces:
+
+1. **High-level operations** — settings, managed inventory, reports, and Tag Access using SDK domain models.
+2. **Advanced resources** — explicit ROSpec and AccessSpec operations through **reader.RoSpecs** and **reader.AccessSpecs**.
+3. **Raw protocol** — typed or exact-frame transactions through **reader.Protocol**, or direct use of LlrpNet.
+
+Managed inventory owns the SDK resource domain. Manual resource writes require explicit manual mode. Raw protocol access invalidates the SDK's managed-state assumption, so the application must synchronize state or perform an explicit managed takeover before returning to high-level operations.
+
+## Quick start
+
+Requirements:
+
+- .NET 10 SDK;
+- an LLRP reader reachable over TCP, normally on port 5084.
+
+Install the core package:
+
+~~~powershell
+dotnet add package LlrpSdk
+~~~
+
+Connect, start inventory, read one report, and stop:
+
+~~~csharp
+using LlrpSdk;
+
+await using LlrpReader reader = LlrpReader
+    .CreateBuilder("192.168.1.100")
+    .Build();
+
 await reader.ConnectAsync();
+
+InventorySettings settings = new InventorySettingsBuilder()
+    .Antennas(1)
+    .ReportEvery(1)
+    .Build();
+
+await using InventorySession inventory =
+    await reader.StartInventoryAsync(settings);
+
+await foreach (TagReport report in inventory.ReadReportsAsync())
+{
+    Console.WriteLine(
+        $"EPC={report.EpcHex} Antenna={report.AntennaId} RSSI={report.PeakRssi}");
+    break;
+}
+
+await reader.StopAsync();
+~~~
+
+For device-derived defaults and a two-stage deploy/start workflow:
+
+~~~csharp
 ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
-await reader.ApplySettingsAsync(defaults.Settings); // deploys, does not start
-await using InventorySession session = await reader.StartInventoryAsync();
-await foreach (TagReport tag in session.ReadReportsAsync())
-    Console.WriteLine(tag.EpcHex);
-```
+await reader.ApplySettingsAsync(defaults.Settings); // deploy, do not start
 
-### Settings and reports
+await using InventorySession inventory = await reader.StartInventoryAsync();
+~~~
 
-* QuerySettingsAsync recognizes the SDK-reserved ROSpec (14150) when present; other manual resources remain expert data.
-* InventorySession.ReadReportsAsync is the isolated session stream. The connection-level TagsReported/ReadTagReportsAsync observer is an alternative and conflicting consumers are rejected.
-* StopAsync removes SDK-managed inventory resources. Application-held Settings can be applied again; the reader does not persist an application draft.
-* ApplySettingsAsync with Inventory = null changes reader-global configuration only. With Inventory, it takes over the managed resource domain, rebuilds the SDK ROSpec and optional AttachedData AccessSpec, and leaves the ROSpec disabled. StartInventoryAsync(settings) is the one-call deployment-and-start form.
+Use **QuerySettingsAsync** when you need the reader's current configuration rather than an SDK-generated default profile.
 
----
+### Impinj extension
 
-## System architecture
+~~~powershell
+dotnet add package LlrpSdk.Extensions.Impinj
+~~~
 
-![LLRPCSharp System Architecture](docs/images/architecture.svg)
+~~~csharp
+using LlrpSdk;
+using LlrpSdk.Extensions.Impinj;
 
-The client side is the primary SDK surface. The device side is a separate in-process virtual reader used by tests, demos, UI development, and external-client interoperability.
+await using LlrpReader reader = LlrpReader
+    .CreateBuilder("192.168.1.100")
+    .UseImpinj()
+    .Build();
+~~~
 
-    Client side
-      LlrpSdk + LlrpSdk.Extensions.*  managed reader SDK
-      LlrpNet                        protocol codecs and transport
-      LlrpCli                        client-side CLI
+The extension registers Impinj codecs before connection, activates only when the connected reader identity matches, and contributes typed settings, inventory options, and report fields without adding vendor types to the core SDK.
 
-    Device side
-      LlrpDevice.Virtual.Hosting     virtual-device SDK facade
-      LlrpVirtualDevice.Cli          virtual-device CLI
+## Protocol and device support
 
----
+Support is separated from hardware acceptance. Generated types and passing virtual-device tests prove a software path; they do not prove interoperability with every reader model and firmware.
 
-## Client CLI (LlrpCli)
+| Area | Current state |
+|---|---|
+| **LLRP 1.0.1** | Mainline client and virtual-device path; physical-reader workflows are accepted on the maintained baseline devices. |
+| **LLRP 1.1** | Generated protocol, SDK adapter, negotiation, CLI, virtual server, and automated interoperability baseline; broader physical-reader coverage remains device-specific. |
+| **LLRP 2.0** | Generated protocol and codecs, SDK adapter, Auto/Force20 negotiation, CLI, virtual server, and automated round-trip coverage; physical-reader interoperability is not yet accepted. |
+| **Impinj** | Mainline extension path. The R420 baseline covers connection, capabilities/settings, inventory, report extensions, and non-destructive Tag Access workflows. |
+| **Zebra** | Wire package and SDK extension baseline. Selected FX9600 capability/configuration and report mappings have physical evidence; remaining custom parameters still require byte-level validation. |
+| **Seuic** | Device-profile/defaults extension over the standard protocol path; there is no separate custom wire package. |
+| **Virtual device** | Deterministic LLRP 1.0.1/1.1/2.0 endpoint with resource lifecycle, reports, standard Tag Access, fault hooks, and standard/Impinj profiles. It is not a physical RF simulator. |
 
-LlrpCli is the reference client application, not a virtual-device server. Start it with dotnet run --project src/LlrpCli. Typical commands are connect HOST, caps, settings show, settings edit --from defaults, settings apply --defaults --yes, inventory start --monitor live, inventory stop, and raw send. The client CLI follows the same resource ownership and report-stream rules as LlrpSdk.
+See [current implementation status](docs/status.md) and the [reader interoperability record](docs/acceptance/reader-interoperability.md) for the authoritative boundary.
 
----
+## Architecture
 
-## Protocol and vendor compatibility
+![LLRPCSharp architecture](docs/images/architecture.svg)
 
-| Capability / Vendor | Support | Details |
-| :--- | :--- | :--- |
-| **LLRP 1.0.1** | Available | Primary client SDK and standard virtual-device path |
-| **LLRP 1.1** | SDK baseline | Explicit adapter and generated types; broader real-reader coverage pending |
-| **LLRP 2.0** | Protocol baseline | Generated V2_0 assets and adapter; real-device verification pending |
-| **Impinj extensions** | Mainline | UseImpinj() pipeline, typed capabilities, inventory/report extensions, R420 path |
-| **Zebra extensions** | Baseline | Wire package and UseZebra() pipeline; selected projections verified |
+The repository is divided into two product sides:
 
----
+~~~text
+Client applications
+  -> LlrpSdk + LlrpSdk.Extensions.*
+  -> LlrpNet.Core + LlrpNet.Protocol
+  -> physical or virtual LLRP endpoint
 
-## Repository layout
+Device-side tools
+  -> LlrpDevice.Virtual.Hosting
+  -> LlrpDevice.Server + LlrpDevice.Virtual
+  -> TCP/LLRP clients
+~~~
 
-The tree emphasizes the client SDK. Virtual-device SDK and CLI are separate device-side consumers:
+Key boundaries:
 
-    src/
-      LlrpSdk/                    primary managed client SDK
-      LlrpSdk.Extensions.Impinj/  Impinj client extension
-      LlrpSdk.Extensions.Zebra/   Zebra client extension
-      LlrpNet/                    protocol model, codecs, registry, and TCP transport
-      LlrpCli/                    client-side interactive/scriptable CLI
+- **LlrpNet.Core** owns TCP transport, framing, transactions, timeout/cancellation, and frame observation.
+- **LlrpNet.Protocol** owns generated versioned messages, parameters, enums, codecs, registries, and raw/unknown wire values.
+- **LlrpSdk** owns the application-facing reader lifecycle and version-neutral workflows.
+- **LlrpSdk.Extensions.\*** adds vendor behavior through protocol modules and reader extensions.
+- **LlrpDevice.Server** owns device-side LLRP session and resource behavior.
+- **LlrpDevice.Virtual** implements deterministic device behavior behind a version-neutral device contract.
 
-      LlrpDevice.Abstractions/    device-side contract
-      LlrpDevice.Server/           generic LLRP device-side server
-      LlrpDevice.Virtual/          deterministic virtual reader
-      LlrpDevice.Virtual.Hosting/  public virtual-device SDK facade
-      LlrpVirtualDevice.Cli/       virtual-device server CLI
+Generated protocol files are committed build assets, but their source of truth is under **definitions/** together with the importer and generator. Do not hand-edit generated **.g.cs** files.
 
-    docs/                         SDK, CLI, and virtual-device guides
-    tests/                        protocol, SDK, virtual-device, interop, and hardware tests
+## Command-line tools
 
----
+Run the client CLI:
 
-## Virtual Device SDK and CLI (device-side)
+~~~powershell
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- --help
+~~~
 
-The virtual device creates an LLRP endpoint that behaves like a reader. It is intended for SDK development, CI, protocol inspection, UI development, and external-client interoperability. It is not a second client API, does not replace a physical reader, and does not simulate real RF waveforms.
+LlrpCli provides an interactive live shell, one-shot inventory and Tag Access commands, settings workflows, and offline encode/decode/inspect tools.
 
-The public entry point is LlrpDevice.Virtual.Hosting:
+Run a virtual reader in interactive live mode:
 
-* IVirtualDeviceHost owns one endpoint and exposes start/stop/restart, endpoint facts, connected clients, lifecycle events, and decoded message events.
-* VirtualDeviceHostOptions selects protocol/profile, listener, report cadence, deterministic inventory data, RF-observable scenario, and relaxed or strict ROSpec lifecycle checks.
-* VirtualLlrpDevice supplies deterministic tag memory, standard Tag Access, GPI/GPO state, and static/moving/noisy observable behavior.
-* LlrpDevice.Server implements TCP, LLRP version dispatch, ROSpec/AccessSpec state, events, and report delivery.
+~~~powershell
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- live --config src/LlrpDevice.Virtual/config/virtual-device.example.json
+~~~
 
-The default profile is llrp1.0.1_standard. The built-in impinj.r420.llrp-1.0.1 profile adds captured Impinj capability/configuration parameters and the Impinj control-message module. Tags can be supplied through VirtualDeviceHostOptions.Inventory before start.
+The virtual-device CLI hosts a reader endpoint. It does not generate client requests; connect with LlrpSdk, LlrpCli, or another LLRP client to drive it.
 
-### Public SDK example: LlrpDevice.Virtual.Hosting
+## Repository map
 
-This is the device-side SDK. It creates an LLRP endpoint; an external LlrpSdk, LlrpCli, ItemTest, or other LLRP client connects to that endpoint.
+~~~text
+src/
+  LlrpNet/                         transport, protocol model, generator, and codecs
+  LlrpSdk/                         managed client SDK
+  LlrpSdk.Extensions.Abstractions/ extension contracts
+  LlrpSdk.Extensions.Impinj/       Impinj SDK extension
+  LlrpSdk.Extensions.Zebra/        Zebra SDK extension
+  LlrpSdk.Extensions.Seuic/        Seuic profile/defaults extension
+  LlrpCli/                         client CLI
 
-```csharp
-using LlrpDevice.Virtual.Hosting;
+  LlrpDevice.Abstractions/         version-neutral device contract
+  LlrpDevice.Server/               generic device-side LLRP server
+  LlrpDevice.Virtual/              deterministic device implementation
+  LlrpDevice.Virtual.Hosting/      public virtual-device facade
+  LlrpDevice.Virtual.Impinj/       Impinj virtual-device profile
+  LlrpVirtualDevice.Cli/           standalone virtual-device CLI
 
-await using IVirtualDeviceHost host = VirtualLlrpDeviceHost.Create(
-    new VirtualDeviceHostOptions
-    {
-        ProfileId = VirtualDeviceProfiles.Standard101Id,
-        Port = 0,
-        Inventory = new VirtualInventoryOptions
-        {
-            Tags =
-            [
-                new VirtualInventoryTag
-                {
-                    ElectronicProductCode = Convert.FromHexString("E28011710000020D056E9BEE")
-                }
-            ]
-        }
-    });
+definitions/                       protocol definitions and generation inputs
+docs/                              status, architecture, guides, and acceptance
+tests/                             unit, architecture, interop, virtual, and hardware tests
+tools/                             live smoke and protocol probes
+~~~
 
-await host.StartAsync();
-Console.WriteLine($"LLRP endpoint: 127.0.0.1:{host.BoundPort}");
-// Connect a client to host.BoundPort, then stop the virtual reader when finished.
-await host.StopAsync();
-```
+## Build and test
 
-The standalone device-side CLI uses the same facade. Its lifecycle commands are server create --llrp 1.0.1, server start, server status, logs on, server stop, and server destroy. The run command starts a configured foreground service; live starts the configured device and enters the interactive shell.
+~~~powershell
+dotnet restore LLRPCSharp.slnx
+dotnet build LLRPCSharp.slnx --no-restore
+dotnet test LLRPCSharp.slnx --no-build
+~~~
 
-The virtual-device CLI observes requests generated by an external LLRP client. Its Impinj R420 profile has been validated to accept an Impinj ItemTest 2.10.0 LLRP client connection and reach the LLRP 1.0.1 inventory-start path. ItemTest features outside LLRP, including mDNS discovery and rshell/SSH services, are outside this project scope.
+Physical-reader acceptance is separate from automated tests:
 
-See docs/guides/virtual-device-cli.md and docs/architecture/overview.md for implementation details.
+~~~powershell
+dotnet test tests/LlrpSdk.Hardware.Tests/LlrpSdk.Hardware.Tests.csproj
+~~~
 
----
+Hardware tests may skip when no configured reader is reachable. A release acceptance record must confirm that the intended tests actually ran and must be entered in the interoperability document.
 
-## User guides
+## Documentation
 
-* SDK API Guide: docs/guides/sdk-api-guide.md
-* Client CLI User Guide: docs/guides/cli-user-guide.md
-* Virtual Device SDK and CLI: docs/guides/virtual-device-cli.md
+- [Documentation index](docs/README.md)
+- [SDK API guide](docs/guides/sdk-api-guide.md)
+- [Client CLI guide](docs/guides/cli-user-guide.md)
+- [Virtual Device SDK and CLI](docs/guides/virtual-device-cli.md)
+- [Architecture overview](docs/architecture/overview.md)
+- [Protocol extension guide](docs/architecture/protocol-extension-guide.md)
+- [Current status](docs/status.md)
+- [Roadmap](docs/roadmap.md)
+- [Test architecture and hardware acceptance](tests/README.md)
 
 ## License
 
-[MIT License](LICENSE)
+[MIT](LICENSE)
