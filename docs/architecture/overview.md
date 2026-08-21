@@ -237,5 +237,5 @@ Codec conflicts for the same wire identity must fail rather than silently overwr
 - A graphical reader management application is not a current-phase goal.
 - Planned APIs must not be described as current APIs; `docs/status.md` is the source of truth for current capabilities.
 - Do not hand-edit generated `.g.cs` files.
-- High-level inventory and tag-access operations exclusively own reader ROSpec and AccessSpec resources: they clear existing resources before compiling their single managed ROSpec. Expert resource writes require explicit manual resource mode and are mutually exclusive with managed inventory.
-- Raw Protocol operations must not silently corrupt managed state. If a raw operation changes device state, managed caches must be invalidated and synchronization required.
+- High-level inventory and tag-access operations own their SDK-reserved ROSpec/AccessSpec IDs while keeping desired settings separate from the observed device snapshot. The default `PreserveForeign` policy reconciles SDK-owned resources and preserves foreign resources; only explicit `ReplaceAll` uses LLRP ID zero to delete all standard resources. Expert writes are serialized with managed operations and may be followed immediately by a managed call.
+- Raw Protocol operations must not silently corrupt managed intent. Read-only `GET_*` messages leave observation current; writes and exact frames mark observation stale without clearing DesiredState. `SynchronizeStateAsync()` refreshes the snapshot for inspection and is not a prerequisite for managed APIs.

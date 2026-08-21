@@ -52,8 +52,17 @@ internal interface ILlrpProtocolAdapter
     /// <summary>Returns whether the supplied ROSpec parameter is the SDK-managed inventory ROSpec.</summary>
     public bool IsManagedRoSpec(ILlrpParameter item);
 
+    /// <summary>Returns the standard ROSpec identifier from a version-specific parameter.</summary>
+    public uint GetRoSpecId(ILlrpParameter item);
+
+    /// <summary>Returns the current runtime state from a version-specific ROSpec parameter.</summary>
+    public InventoryRuntimeState GetRoSpecRuntimeState(ILlrpParameter item);
+
     /// <summary>Returns whether the supplied AccessSpec list contains the SDK-managed attached-data AccessSpec.</summary>
     public bool HasAttachedDataAccessSpec(IReadOnlyList<ILlrpParameter> accessSpecs);
+
+    /// <summary>Returns the standard AccessSpec identifier from a version-specific parameter.</summary>
+    public uint GetAccessSpecId(ILlrpParameter item);
 
     public Task AddRoSpecAsync(
         LlrpReader reader,

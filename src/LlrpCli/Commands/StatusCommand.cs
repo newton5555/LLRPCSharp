@@ -81,7 +81,9 @@ public sealed class StatusCommand : AsyncCommand<StatusCommandSettings>
                 negotiatedVersion = reader.NegotiatedVersion.ToString(),
                 operationState = reader.OperationState.ToString(),
                 resourceMode = reader.ResourceMode.ToString(),
+                observedState = reader.ObservedState.ToString(),
                 managedStateSynchronized = reader.IsManagedStateSynchronized,
+                hasForeignResources = reader.HasForeignResources,
                 manufacturerId = reader.Identity?.ManufacturerId,
                 modelId = reader.Identity?.ModelId,
                 firmware = reader.Identity?.FirmwareVersion,
@@ -102,6 +104,8 @@ public sealed class StatusCommand : AsyncCommand<StatusCommandSettings>
                 table.AddRow("Model", reader.Identity?.ModelId.ToString() ?? "-");
                 table.AddRow("Firmware", reader.Identity?.FirmwareVersion ?? "-");
                 table.AddRow("Extensions", string.Join(", ", reader.Extensions.Select(static ext => ext.Id)));
+                table.AddRow("Observed Resources", reader.ObservedState.ToString());
+                table.AddRow("Foreign Resources", reader.HasForeignResources ? "yes" : "no");
                 console.Write(table);
             }
             return 0;

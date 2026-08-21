@@ -18,6 +18,12 @@ public enum ReaderResourceMode
     /// <summary>The application explicitly owns resource-level ROSpec and AccessSpec operations.</summary>
     ManualResources,
 
+    /// <summary>
+    /// A high-level report session is attached to an ROSpec that was created outside the managed compiler.
+    /// The SDK controls the session lifecycle but does not own the ROSpec definition.
+    /// </summary>
+    AttachedInventory,
+
     /// <summary>Raw protocol or a failed resource transition made resource state unknown.</summary>
     StateUnknown,
 }

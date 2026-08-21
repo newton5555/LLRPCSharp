@@ -225,4 +225,4 @@ LLRP 版本差异由 `ILlrpProtocolAdapter` 屏蔽。业务层面对统一的 `L
 - 不建设图形化上位机作为当前阶段目标。
 - 不把规划中的 API 当作当前 API；当前能力以 `docs/status.md` 为准。
 - 不手写生成目录下的 `.g.cs`。
-- 不让 Raw Protocol 操作悄悄污染 Managed 状态；Raw 改变设备状态后必须失效缓存并要求同步。
+- 不让 Raw Protocol 操作悄悄污染 Managed 意图：只读 `GET_*` 保持观测有效，写入和精确帧只把设备观测标为 Stale/Unknown，不清空 DesiredState。默认 `PreserveForeign` 只协调 SDK 保留资源并保留外部 ROSpec/AccessSpec，只有显式 `ReplaceAll` 才用 LLRP ID=0 全量删除；`SynchronizeStateAsync()` 刷新快照供检查，但不是托管 API 前置条件。

@@ -42,11 +42,15 @@ not send protocol messages. `ApplySettingsAsync()` deploys managed settings in
 a stopped state; `StartInventoryAsync()` starts the deployed inventory and
 returns an isolated report stream.
 
-When raw or manual resource operations have invalidated local state, pass the
-desired inventory settings to `StartInventoryAsync(settings)` or include
-`Inventory` in `ApplySettingsAsync(...)` to explicitly delete standard reader
-resources and rebuild SDK-managed state. A parameterless `StartInventoryAsync()`
-still requires synchronized, previously deployed managed state.
+When a resource write or exact raw frame makes the device observation stale, the
+desired inventory settings remain available. High-level APIs can reconcile the
+SDK-reserved resources immediately; the default `PreserveForeign` policy leaves
+foreign ROSpecs and AccessSpecs untouched. Use the overload accepting
+`ResourceTakeoverPolicy.ReplaceAll` only when deleting every standard resource is
+intentional. `SynchronizeStateAsync()` refreshes the observed resource snapshot
+and is useful for inspection, but it is not required before a managed operation.
+`StartExistingRoSpecAsync(id)` can attach a report session to an expert/raw-created
+ROSpec without compiling, replacing, or deleting it.
 
 For connection-wide observation, use `TagsReported` or `ReadTagReportsAsync()`;
 these observer outlets are mutually exclusive with the session stream during an

@@ -35,10 +35,8 @@ public interface IRoSpecService
         ILlrpParameter roSpec,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Deletes one ROSpec, or all ROSpecs when <paramref name="roSpecId"/> is zero.
-    /// </summary>
-    /// <param name="roSpecId">The ROSpec identifier; zero selects all ROSpecs.</param>
+    /// <summary>Deletes one ROSpec.</summary>
+    /// <param name="roSpecId">The non-zero ROSpec identifier.</param>
     /// <param name="cancellationToken">Cancels the send or pending response transaction.</param>
     /// <returns>A task representing the reader operation.</returns>
     public Task DeleteAsync(
@@ -46,19 +44,23 @@ public interface IRoSpecService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Enables one ROSpec, or all ROSpecs when <paramref name="roSpecId"/> is zero.
+    /// Explicitly deletes all standard ROSpec resources.
     /// </summary>
-    /// <param name="roSpecId">The ROSpec identifier; zero selects all ROSpecs.</param>
+    /// <param name="policy">Must be <see cref="ResourceTakeoverPolicy.ReplaceAll"/>.</param>
+    public Task DeleteAllAsync(
+        ResourceTakeoverPolicy policy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Enables one ROSpec.</summary>
+    /// <param name="roSpecId">The non-zero ROSpec identifier.</param>
     /// <param name="cancellationToken">Cancels the send or pending response transaction.</param>
     /// <returns>A task representing the reader operation.</returns>
     public Task EnableAsync(
         uint roSpecId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Disables one ROSpec, or all ROSpecs when <paramref name="roSpecId"/> is zero.
-    /// </summary>
-    /// <param name="roSpecId">The ROSpec identifier; zero selects all ROSpecs.</param>
+    /// <summary>Disables one ROSpec.</summary>
+    /// <param name="roSpecId">The non-zero ROSpec identifier.</param>
     /// <param name="cancellationToken">Cancels the send or pending response transaction.</param>
     /// <returns>A task representing the reader operation.</returns>
     public Task DisableAsync(

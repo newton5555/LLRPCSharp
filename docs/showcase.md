@@ -41,7 +41,7 @@ coupling them to one application stack.
 
 - **Connection and version negotiation**: Supports automatic protocol version negotiation (1.0.1 / 1.1 / 2.0), with policy-based forcing of 1.0.1, 1.1, or 2.0.
 - **Limited automatic reconnect**: Provides `LlrpAutomaticReconnectOptions` and `WithAutomaticReconnect(...)` as a reconnect baseline after unexpected disconnects. After a successful reconnect the SDK queries the device's current ROSpec/AccessSpec state and realigns its internal state (observing reality rather than re-applying the previous desired configuration).
-- **Managed state synchronization**: Raw Protocol operations invalidate managed state. Use `SynchronizeStateAsync()` to inspect and adopt existing resources, or pass the desired inventory settings to `StartInventoryAsync(settings)` / `ApplySettingsAsync(...)` to explicitly delete standard resources and rebuild SDK-managed state without a prior synchronization call.
+- **Managed state synchronization**: The SDK keeps desired managed settings separate from the observed device snapshot. Read-only `GET_*` Raw messages do not invalidate observation; writes and exact frames mark observation stale without erasing desired settings. `SynchronizeStateAsync()` refreshes the snapshot for inspection and is not required before managed APIs. The default `PreserveForeign` policy reconciles SDK-owned IDs while preserving foreign resources; `ReplaceAll` is the explicit full-delete policy. `StartExistingRoSpecAsync(id)` can expose an expert/raw-created ROSpec through the normal report session without replacing it.
 
 ### 2. Advanced Resource Control
 

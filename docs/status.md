@@ -93,12 +93,14 @@ LLRP 服务。
   内部等待器，不会抢占公开回调。
 - SDK 管理保留的 ROSpec/AccessSpec 资源；应用设置后保持停止，显式启动后才
   开始盘点。
-- 部署契约：带 Inventory 意图的 `ApplySettingsAsync` 或
-  `StartInventoryAsync(settings)` 会先删除设备上全部 ROSpec/AccessSpec
-  （LLRP id=0 语义）再部署，即 SDK 完全接管设备资源配置；共享设备请用
-  两段式（先部署，后 `StartInventoryAsync()` 仅启动）。Raw Protocol 或手工资源
-  操作后，带配置的上述入口也是显式强制接管入口，无需先调用
-  `SynchronizeStateAsync()`；无参启动仍要求已有托管状态已同步。
+- 部署契约：持久 DesiredState 与设备 Observed 快照分离。带 Inventory 意图的
+  `ApplySettingsAsync` 或 `StartInventoryAsync(settings)` 默认使用
+  `ResourceTakeoverPolicy.PreserveForeign`，只替换 SDK 自有 ROSpec 14150、
+  AccessSpec 14151 和可追踪临时资源；Raw/专家写入只使观测 Stale/Unknown，
+  不清空 DesiredState。显式 `ReplaceAll` 才使用 LLRP id=0 删除全部标准资源。
+  `SynchronizeStateAsync()` 只刷新设备快照，不是托管 API 的前置条件。
+- `StartExistingRoSpecAsync(roSpecId)` 可将 Raw/专家创建的 ROSpec 接入独立
+  `InventorySession`，复用报告、停止和生命周期逻辑，停止时保留调用者资源。
 - 标签访问 API 复用同一资源生命周期，不要求应用手写 AccessSpec。
 
 ### CLI
@@ -111,7 +113,8 @@ LLRP 服务。
 - `settings show|edit|validate|apply|save` 提供简化的设置查看、编辑、校验和写入；
   `apply --defaults --yes` 吸收原 `settings defaults`，`validate` 承担原 `settings load`
  的"载入+校验"（`defaults`/`load` 子命令已移除，不保留别名）。`settings apply [--defaults|<file>] --yes`
-  是唯一显式批量应用入口，不维护 CLI 草稿状态。Raw/手工资源操作后，先用 `sync` 采用设备现状，或用带 Inventory 的 `settings apply` 强制接管；不会隐式恢复旧草稿。
+  是唯一显式批量应用入口，不维护 CLI 草稿状态。默认 PreserveForeign；`manual off` 不删除
+  资源，`sync` 只是刷新快照，Raw/手工资源后仍可直接使用 `inventory start` 或 settings apply。
 - Live Shell 的 `status` 默认只显示连接和托管生命周期状态；`status --full` 会刷新
   Settings、ROSpec 和 AccessSpec 并展示参数树。`caps` 会重新执行
   `GET_READER_CAPABILITIES(All)`，默认展示归一化能力表，`--raw` 展示完整响应参数树，
@@ -123,8 +126,8 @@ LLRP 服务。
   天线 RF 索引采用单组交互，并同步写入 Reader 默认配置与托管 Inventory ROSpec。
   编辑菜单支持预览、连接设备能力校验及应用前影响提示和二次确认；批量写入统一通过
   `settings apply [--defaults|<file>] --yes`（校验后直接下发，无重复校验）。
-  `sync` 查询并采用设备现状，或使用带 `Inventory` 的 `settings apply <file> --yes` /
-  `settings apply --defaults --yes` 强制接管；`inventory start` 只在状态已同步或接管完成后执行。
+  `sync` 查询并刷新设备现状但保留 DesiredState；`inventory start` 可在 Stale/Unknown
+  观测下直接协调 SDK 资源。需要删除全部标准资源时必须由 SDK API 显式选择 ReplaceAll。
   `inventory start --defaults|--settings <file>` 提供一段式部署+启动。
 - 根级一次性 `inventory <host>` 与 Live Shell 共用 SDK 和 Settings 工作流，
   默认输出适合 Agent 使用的 JSON。

@@ -74,7 +74,7 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["start", "stop", "status", "--monitor", "--monitor-duration", "--refresh", "live", "frames", "none", "30", "60"],
         },
-        new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Manage ROSpecs after entering manual resource mode.", RequiresConnection: true)
+        new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Start an installed ROSpec directly; use manual mode for other ROSpec writes.", RequiresConnection: true)
         {
             CompletionCandidates = ["add", "list", "enable", "disable", "start", "stop", "delete", "--id", "--antennas", "--mode", "--tari", "--session", "--population", "all"],
         },
@@ -86,8 +86,8 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["manual", "enter", "exit", "status", "clear"],
         },
-        new("raw", LiveCommandRoute.Raw, "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame; managed state becomes unknown afterward.", RequiresConnection: true),
-        new("sync", LiveCommandRoute.Synchronize, "sync", "Inspect and adopt SDK-managed resource state after raw access.", RequiresConnection: true),
+        new("raw", LiveCommandRoute.Raw, "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame; resource observation may become stale while DesiredState is retained.", RequiresConnection: true),
+        new("sync", LiveCommandRoute.Synchronize, "sync", "Refresh the device ROSpec/AccessSpec snapshot without clearing DesiredState.", RequiresConnection: true),
         new("frames", LiveCommandRoute.Frames, "frames [count]", "Show recent captured LLRP message frames.")
         {
             CompletionCandidates = ["10", "20", "50", "100"],

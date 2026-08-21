@@ -45,7 +45,7 @@ LLRPCSharp exposes progressively lower-level surfaces:
 2. **Advanced resources** — explicit ROSpec and AccessSpec operations through **reader.RoSpecs** and **reader.AccessSpecs**.
 3. **Raw protocol** — typed or exact-frame transactions through **reader.Protocol**, or direct use of LlrpNet.
 
-Managed inventory owns the SDK resource domain. Manual resource writes require explicit manual mode. Raw protocol access invalidates the SDK's managed-state assumption, so the application must synchronize state or perform an explicit managed takeover before returning to high-level operations.
+Managed inventory is the primary control plane and keeps its desired settings locally. Expert resource writes require explicit manual mode, while Raw protocol access is serialized with managed operations: read-only `GET_*` messages leave the observation current; writes or exact frames mark only the device observation stale and never erase the desired settings. High-level APIs can reconcile their reserved resources immediately. `SynchronizeStateAsync()` refreshes the device snapshot for inspection; it is not a prerequisite for managed operations. The default `PreserveForeign` policy keeps foreign resources, while `ReplaceAll` is an explicit destructive choice.
 
 ## Quick start
 

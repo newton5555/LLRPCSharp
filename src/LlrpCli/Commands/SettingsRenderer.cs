@@ -114,7 +114,7 @@ internal static class SettingsRenderer
             return;
         }
 
-        console.MarkupLine("[yellow]Apply will delete existing ROSpec/AccessSpec resources, write Reader configuration, and deploy SDK ROSpec 14150 in Disabled state.[/]");
+        console.MarkupLine("[yellow]Apply will replace SDK-owned ROSpec/AccessSpec resources, preserve foreign resources, write Reader configuration, and deploy SDK ROSpec 14150 in Disabled state.[/]");
         if (settings.Inventory.AttachedData.Enabled)
         {
             console.MarkupLine("[yellow]AttachedData also deploys SDK AccessSpec 14151.[/]");

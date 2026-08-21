@@ -13,13 +13,19 @@ public interface IAccessSpecService
     /// <summary>Adds one AccessSpec parameter.</summary>
     public Task AddAsync(ILlrpParameter accessSpec, CancellationToken cancellationToken = default);
 
-    /// <summary>Deletes one AccessSpec, or all AccessSpecs when the identifier is zero.</summary>
+    /// <summary>Deletes one AccessSpec.</summary>
     public Task DeleteAsync(uint accessSpecId, CancellationToken cancellationToken = default);
 
-    /// <summary>Enables one AccessSpec, or all AccessSpecs when the identifier is zero.</summary>
+    /// <summary>
+    /// Explicitly deletes all standard AccessSpec resources.
+    /// </summary>
+    /// <param name="policy">Must be <see cref="ResourceTakeoverPolicy.ReplaceAll"/>.</param>
+    public Task DeleteAllAsync(ResourceTakeoverPolicy policy, CancellationToken cancellationToken = default);
+
+    /// <summary>Enables one AccessSpec.</summary>
     public Task EnableAsync(uint accessSpecId, CancellationToken cancellationToken = default);
 
-    /// <summary>Disables one AccessSpec, or all AccessSpecs when the identifier is zero.</summary>
+    /// <summary>Disables one AccessSpec.</summary>
     public Task DisableAsync(uint accessSpecId, CancellationToken cancellationToken = default);
 
     /// <summary>Retrieves the reader's AccessSpec resources without populating a local cache.</summary>

@@ -199,9 +199,23 @@ internal sealed class Llrp20ProtocolAdapter : ILlrpProtocolAdapter
     public bool IsManagedRoSpec(ILlrpParameter item) =>
         item is ROSpec roSpec && roSpec.ROSpecID == LlrpReader.ManagedInventoryRoSpecId;
 
+    public uint GetRoSpecId(ILlrpParameter item) => (item as ROSpec ?? throw new ArgumentException(
+        "The supplied parameter is not an LLRP 2.0 ROSpec.", nameof(item))).ROSpecID;
+
+    public InventoryRuntimeState GetRoSpecRuntimeState(ILlrpParameter item) => (item as ROSpec ?? throw new ArgumentException(
+        "The supplied parameter is not an LLRP 2.0 ROSpec.", nameof(item))).CurrentState switch
+    {
+        ROSpecState.Active => InventoryRuntimeState.Running,
+        ROSpecState.Inactive => InventoryRuntimeState.Enabled,
+        _ => InventoryRuntimeState.Disabled,
+    };
+
     public bool HasAttachedDataAccessSpec(IReadOnlyList<ILlrpParameter> accessSpecs) =>
         accessSpecs.Any(item => item is AccessSpec spec &&
             spec.AccessSpecID == LlrpReader.ManagedInventoryAttachedDataAccessSpecId);
+
+    public uint GetAccessSpecId(ILlrpParameter item) => (item as AccessSpec ?? throw new ArgumentException(
+        "The supplied parameter is not an LLRP 2.0 AccessSpec.", nameof(item))).AccessSpecID;
 
     public async Task<IReadOnlyList<TranslatedTagReport>> FetchReportsAsync(
         LlrpReader reader,

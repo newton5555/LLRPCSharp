@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using System.Text.Json;
 using System.Threading.Channels;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Core.Session;
@@ -28,6 +29,8 @@ public sealed class LlrpReader : IAsyncDisposable
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly AsyncLocal<int> _internalResourceOperationDepth = new();
+    private readonly HashSet<uint> _expertRoSpecIds = [];
+    private readonly HashSet<uint> _expertAccessSpecIds = [];
     private readonly ILogger<LlrpReader> _logger;
     private readonly LlrpMessageIdGenerator _messageIds = new();
     private readonly ReaderExtensionCollection _extensions = new();
@@ -42,6 +45,7 @@ public sealed class LlrpReader : IAsyncDisposable
     private CancellationTokenSource? _automaticReconnectCancellation;
     private Task? _automaticReconnectTask;
     private InventorySettings? _currentInventorySettings;
+    private ReaderSettings? _desiredReaderSettings;
     private ReaderMetadataSnapshot? _metadata;
     private uint? _managedInventoryRoSpecId;
     private uint? _managedInventoryAttachedDataAccessSpecId;
@@ -49,9 +53,13 @@ public sealed class LlrpReader : IAsyncDisposable
     private int _nextManagedAccessSpecId = 24000;
     private int _connectionState = (int)ReaderConnectionState.Disconnected;
     private int _deviceInitiatedClose;
-    private int _managedStateIsSynchronized = 1;
+    private int _managedStateIsSynchronized;
+    private int _observedResourceState = (int)ReaderObservedState.Unknown;
+    private int _observedManagedResourcePresent;
+    private int _observedManagedInventoryState = (int)InventoryRuntimeState.Disabled;
     private int _operationState = (int)ReaderOperationState.Idle;
     private int _resourceMode = (int)ReaderResourceMode.Idle;
+    private ReaderResourceSnapshot? _lastResourceSnapshot;
     private int _disposed;
     private long _lastKeepaliveUtcTicks;
     private int _keepaliveTimeoutSignaled;
@@ -175,6 +183,16 @@ public sealed class LlrpReader : IAsyncDisposable
     public ReaderResourceMode ResourceMode =>
         (ReaderResourceMode)Volatile.Read(ref _resourceMode);
 
+    /// <summary>Gets the freshness of the last observed standard resource snapshot.</summary>
+    public ReaderObservedState ObservedState =>
+        (ReaderObservedState)Volatile.Read(ref _observedResourceState);
+
+    /// <summary>Gets the most recent standard ROSpec/AccessSpec observation, if one was captured.</summary>
+    public ReaderResourceSnapshot? LastResourceSnapshot => Volatile.Read(ref _lastResourceSnapshot);
+
+    /// <summary>Gets whether the last resource observation found resources outside the SDK-managed IDs.</summary>
+    public bool HasForeignResources => LastResourceSnapshot?.HasForeignResources == true;
+
     /// <summary>
     /// Gets a value indicating whether the reader is Ready and its underlying session remains connected.
     /// </summary>
@@ -201,13 +219,15 @@ public sealed class LlrpReader : IAsyncDisposable
     /// </summary>
     public InventorySettings? CurrentInventorySettings => Volatile.Read(ref _currentInventorySettings);
 
+    /// <summary>Gets the last settings intent successfully or intentionally submitted to the managed API.</summary>
+    public ReaderSettings? DesiredSettings => Volatile.Read(ref _desiredReaderSettings);
+
     /// <summary>
-    /// Gets a value indicating whether SDK-managed resource state is known after the most recent raw protocol call.
+    /// Gets a value indicating whether the most recent SDK resource observation is trustworthy.
     /// </summary>
     /// <remarks>
-    /// A successful call through <see cref="Protocol"/> may change reader state outside the SDK's managed services.
-    /// Call <see cref="SynchronizeStateAsync(CancellationToken)"/> before resuming a managed operation when this
-    /// property is <see langword="false"/>.
+    /// This property describes observed-device freshness only. It does not indicate whether a desired managed
+    /// inventory exists, and a managed operation may reconcile a stale observation without a preceding sync call.
     /// </remarks>
     public bool IsManagedStateSynchronized => Volatile.Read(ref _managedStateIsSynchronized) != 0;
 
@@ -341,6 +361,7 @@ public sealed class LlrpReader : IAsyncDisposable
             }
 
             InvalidateMetadata();
+            ResetConnectionResourceState();
             Volatile.Write(ref _deviceInitiatedClose, 0);
             SelectProtocolAdapter(LlrpProtocolVersion.Version101);
 
@@ -376,6 +397,7 @@ public sealed class LlrpReader : IAsyncDisposable
             catch (Exception exception)
             {
                 InvalidateMetadata();
+                ResetConnectionResourceState();
                 await StopPumpAsync().ConfigureAwait(false);
                 await TryDisconnectAfterFailureAsync().ConfigureAwait(false);
 
@@ -407,20 +429,25 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
+    /// <summary>Deploys and starts SDK-managed inventory while preserving foreign resources.</summary>
+    public async Task<InventorySession> StartInventoryAsync(InventorySettings settings, CancellationToken cancellationToken = default)
+        => await StartInventoryAsync(settings, ResourceTakeoverPolicy.PreserveForeign, cancellationToken).ConfigureAwait(false);
+
     /// <summary>
-    /// Deploys and starts exclusive SDK-managed inventory and returns its isolated report session.
+    /// Deploys and starts SDK-managed inventory with an explicit resource takeover policy.
     /// </summary>
     /// <remarks>
-    /// Deployment takes full control of reader resources: before adding the SDK ROSpec (and optional attached-data
-    /// AccessSpec) it deletes <b>all</b> ROSpecs and AccessSpecs on the device (LLRP id=0 delete semantics), including
-    /// resources deployed by other applications. This is also the explicit takeover boundary after raw or manual
-    /// resource operations; it does not require a preceding <see cref="SynchronizeStateAsync(CancellationToken)"/>.
-    /// Do not use this on a reader shared with other managed ROSpecs; use the parameterless
-    /// <see cref="StartInventoryAsync(CancellationToken)"/> overload after a prior deployment.
+    /// <see cref="ResourceTakeoverPolicy.PreserveForeign"/> replaces only the SDK-reserved resources and is safe
+    /// for a reader that also contains expert or foreign ROSpecs. <see cref="ResourceTakeoverPolicy.ReplaceAll"/>
+    /// uses LLRP id zero and deletes every standard ROSpec and AccessSpec.
     /// </remarks>
-    public async Task<InventorySession> StartInventoryAsync(InventorySettings settings, CancellationToken cancellationToken = default)
+    public async Task<InventorySession> StartInventoryAsync(
+        InventorySettings settings,
+        ResourceTakeoverPolicy takeoverPolicy,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        ValidateTakeoverPolicy(takeoverPolicy);
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -430,6 +457,7 @@ public sealed class LlrpReader : IAsyncDisposable
             }
             ValidateSettingsCore(new ReaderSettings { Inventory = settings }).ThrowIfInvalid();
             InventorySettings active = settings;
+            SetDesiredInventorySettings(active);
             InventoryRuntimeState initialState = active.StartTrigger.Type == InventoryStartTriggerType.None
                 ? InventoryRuntimeState.Running
                 : InventoryRuntimeState.Enabled;
@@ -450,7 +478,8 @@ public sealed class LlrpReader : IAsyncDisposable
                     active,
                     resourcesAlreadyCleared: false,
                     cancellationToken,
-                    forceTakeover: true).ConfigureAwait(false);
+                    forceTakeover: true,
+                    takeoverPolicy: takeoverPolicy).ConfigureAwait(false);
                 return session;
             }
             catch
@@ -476,25 +505,73 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureProtocolAvailable();
-            EnsureManagedStateSynchronized();
             if (_inventorySession is not null)
             {
                 throw new InvalidOperationException("A managed inventory session already exists for this reader.");
             }
-            if (ResourceMode != ReaderResourceMode.HighLevelConfigured ||
-                _managedInventoryRoSpecId is not uint roSpecId ||
-                CurrentInventorySettings is not { } settings)
+            InventorySettings? desiredInventory = Volatile.Read(ref _desiredReaderSettings)?.Inventory;
+            InventorySettings? settings = desiredInventory ?? Volatile.Read(ref _currentInventorySettings);
+            if (settings is null || _managedInventoryRoSpecId is not uint roSpecId)
+            {
+                throw new InvalidOperationException("No stopped SDK-managed inventory configuration is available to start.");
+            }
+
+            // The desired inventory is authoritative when an observed ROSpec was changed by Raw/expert code.
+            // Keep the attached-data identifier aligned with that intent before constructing the session.
+            _managedInventoryAttachedDataAccessSpecId = settings.AttachedData.Enabled
+                ? ManagedInventoryAttachedDataAccessSpecId
+                : null;
+
+            bool desiredDiffersFromObserved = desiredInventory is not null &&
+                Volatile.Read(ref _currentInventorySettings) is { } observedInventoryForAttach &&
+                !InventorySettingsMatch(desiredInventory, observedInventoryForAttach);
+            if (IsManagedStateSynchronized &&
+                Volatile.Read(ref _observedManagedResourcePresent) != 0 &&
+                (InventoryRuntimeState)Volatile.Read(ref _observedManagedInventoryState) == InventoryRuntimeState.Running &&
+                !desiredDiffersFromObserved)
+            {
+                var attachedSession = new InventorySession(
+                    this,
+                    settings,
+                    roSpecId,
+                    _managedInventoryAttachedDataAccessSpecId,
+                    InventoryRuntimeState.Running,
+                    Options.IncomingMessageCapacity,
+                    ownsResource: true);
+                _inventorySession = attachedSession;
+                Volatile.Write(ref _operationState, (int)ReaderOperationState.Inventorying);
+                Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.HighLevelRunning);
+                return attachedSession;
+            }
+
+            bool redeploy = !IsManagedStateSynchronized || Volatile.Read(ref _observedManagedResourcePresent) == 0 ||
+                ResourceMode is ReaderResourceMode.StateUnknown or ReaderResourceMode.Idle ||
+                desiredDiffersFromObserved;
+            if (!redeploy && ResourceMode != ReaderResourceMode.HighLevelConfigured)
             {
                 throw new InvalidOperationException("No stopped SDK-managed inventory configuration is available to start.");
             }
 
             var session = new InventorySession(this, settings, roSpecId,
                 _managedInventoryAttachedDataAccessSpecId, InventoryRuntimeState.Enabled,
-                Options.IncomingMessageCapacity);
+                Options.IncomingMessageCapacity, ownsResource: true);
             _inventorySession = session;
             try
             {
-                await StartConfiguredManagedInventoryCoreAsync(cancellationToken).ConfigureAwait(false);
+                if (redeploy)
+                {
+                    PrepareForManagedTakeover();
+                    await StartManagedInventoryCoreAsync(
+                        settings,
+                        resourcesAlreadyCleared: false,
+                        cancellationToken,
+                        forceTakeover: true,
+                        takeoverPolicy: ResourceTakeoverPolicy.PreserveForeign).ConfigureAwait(false);
+                }
+                else
+                {
+                    await StartConfiguredManagedInventoryCoreAsync(cancellationToken).ConfigureAwait(false);
+                }
                 return session;
             }
             catch
@@ -507,11 +584,131 @@ public sealed class LlrpReader : IAsyncDisposable
         finally { _operationLock.Release(); }
     }
 
+    /// <summary>
+    /// Starts an existing ROSpec and exposes its reports through the managed inventory session API.
+    /// </summary>
+    /// <remarks>
+    /// This is the bridge for an ROSpec created by <see cref="RoSpecs"/> or <see cref="Protocol"/>. The SDK does not
+    /// compile, delete, or replace the definition. Stopping the returned session stops the ROSpec but leaves it on
+    /// the reader for further expert or raw inspection.
+    /// </remarks>
+    public async Task<InventorySession> StartExistingRoSpecAsync(
+        uint roSpecId,
+        CancellationToken cancellationToken = default)
+    {
+        if (roSpecId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(roSpecId), "An existing ROSpec identifier must be non-zero.");
+        }
+
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureProtocolAvailable();
+            if (_inventorySession is not null)
+            {
+                throw new InvalidOperationException("An inventory session already exists for this reader.");
+            }
+
+            using IDisposable scope = BeginInternalResourceOperationScope();
+            IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            StoreResourceSnapshot(roSpecs, accessSpecs);
+            ILlrpParameter roSpec = roSpecs.SingleOrDefault(item => GetProtocolAdapter().GetRoSpecId(item) == roSpecId)
+                ?? throw new InvalidOperationException($"ROSpec {roSpecId} was not found on the reader.");
+            InventoryRuntimeState currentState = GetProtocolAdapter().GetRoSpecRuntimeState(roSpec);
+            InventorySettings sessionSettings = CurrentInventorySettings ?? new InventorySettings();
+            var session = new InventorySession(
+                this,
+                sessionSettings,
+                roSpecId,
+                attachedDataAccessSpecId: null,
+                InventoryRuntimeState.Running,
+                Options.IncomingMessageCapacity,
+                ownsResource: false);
+            _inventorySession = session;
+
+            try
+            {
+                if (currentState == InventoryRuntimeState.Disabled)
+                {
+                    await RoSpecs.EnableAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+                    await RoSpecs.StartAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+                }
+                else if (currentState == InventoryRuntimeState.Enabled)
+                {
+                    await RoSpecs.StartAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+                }
+
+                // Refresh after START_ROSPEC so an attached session can safely decide whether a report that
+                // omits ROSpecID is unambiguous. The pre-start snapshot may not reflect the running state yet.
+                IReadOnlyList<ILlrpParameter> startedRoSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+                IReadOnlyList<ILlrpParameter> startedAccessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+                StoreResourceSnapshot(startedRoSpecs, startedAccessSpecs);
+
+                Volatile.Write(ref _operationState, (int)ReaderOperationState.Inventorying);
+                Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.AttachedInventory);
+                Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Synchronized);
+                Volatile.Write(ref _managedStateIsSynchronized, 1);
+                return session;
+            }
+            catch
+            {
+                CompleteActiveInventorySession();
+                MarkResourceObservationStale();
+                throw;
+            }
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
     internal async Task StopInventorySessionAsync(InventorySession session, CancellationToken cancellationToken)
     {
         if (ReferenceEquals(_inventorySession, session))
         {
-            await StopAsync(cancellationToken).ConfigureAwait(false);
+            if (session.OwnsResource)
+            {
+                await StopAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await StopAttachedInventorySessionAsync(session, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task StopAttachedInventorySessionAsync(InventorySession session, CancellationToken cancellationToken)
+    {
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!ReferenceEquals(_inventorySession, session))
+            {
+                return;
+            }
+
+            using IDisposable scope = BeginInternalResourceOperationScope();
+            try
+            {
+                await RoSpecs.StopAsync(session.RoSpecId, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _inventorySession = null;
+                session.Complete(InventoryRuntimeState.Disabled);
+                Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+                Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
+                Volatile.Write(ref _managedStateIsSynchronized, 0);
+                Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Stale);
+            }
+        }
+        finally
+        {
+            _operationLock.Release();
         }
     }
 
@@ -548,7 +745,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 await StopPumpAsync().ConfigureAwait(false);
                 await _session.DisconnectAsync().ConfigureAwait(false);
                 CompleteActiveInventorySession();
-                ResetManagedInventoryState();
+                ResetConnectionResourceState();
                 AddTransition(transitions, ReaderConnectionState.Disconnected);
             }
             catch (Exception exception)
@@ -596,6 +793,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             ThrowIfDisposed();
             InvalidateMetadata();
+            ResetConnectionResourceState();
             Volatile.Write(ref _deviceInitiatedClose, 0);
             SelectProtocolAdapter(LlrpProtocolVersion.Version101);
             AddTransition(transitions, ReaderConnectionState.Reconnecting);
@@ -625,6 +823,7 @@ public sealed class LlrpReader : IAsyncDisposable
             catch (Exception exception)
             {
                 InvalidateMetadata();
+                ResetConnectionResourceState();
                 await StopPumpAsync().ConfigureAwait(false);
                 await TryDisconnectAfterFailureAsync().ConfigureAwait(false);
 
@@ -901,13 +1100,14 @@ public sealed class LlrpReader : IAsyncDisposable
     }
 
     /// <summary>
-    /// Queries reader-managed resources after raw protocol access invalidated the SDK's local state assumptions.
+    /// Refreshes the reader's observed ROSpec and AccessSpec snapshot.
     /// </summary>
     /// <param name="cancellationToken">Cancels the synchronization queries.</param>
     /// <returns>A task that completes after standard ROSpec and AccessSpec state has been queried.</returns>
     /// <remarks>
-    /// Synchronization deliberately does not recreate a previous high-level inventory operation. If raw access changed
-    /// a resource, the application must explicitly establish the next desired managed state.
+    /// Synchronization is observational. It refreshes <see cref="CurrentInventorySettings"/> from the device while
+    /// preserving <see cref="DesiredSettings"/>, and does not enter or leave expert mode. A stale snapshot does not
+    /// block a later managed API call; managed APIs reconcile their own reserved resources as needed.
     /// </remarks>
     public async Task SynchronizeStateAsync(CancellationToken cancellationToken = default)
     {
@@ -917,9 +1117,12 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureProtocolAvailable();
+            using IDisposable scope = BeginInternalResourceOperationScope();
             IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            StoreResourceSnapshot(roSpecs, accessSpecs);
             AdoptManagedInventorySnapshot(roSpecs.SingleOrDefault(GetProtocolAdapter().IsManagedRoSpec), accessSpecs);
+            Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Synchronized);
             Volatile.Write(ref _managedStateIsSynchronized, 1);
         }
         finally
@@ -942,8 +1145,13 @@ public sealed class LlrpReader : IAsyncDisposable
     /// </remarks>
     private async Task SynchronizeManagedStateOnReconnectAsync(CancellationToken cancellationToken)
     {
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using IDisposable scope = BeginInternalResourceOperationScope();
         IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
         IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        StoreResourceSnapshot(roSpecs, accessSpecs);
         ILlrpParameter? managed = roSpecs.SingleOrDefault(GetProtocolAdapter().IsManagedRoSpec);
         if (managed is null)
         {
@@ -956,8 +1164,13 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             AdoptManagedInventorySnapshot(managed, accessSpecs);
         }
-
+        Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Synchronized);
         Volatile.Write(ref _managedStateIsSynchronized, 1);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
     }
 
     private async Task EnsureEventsAndReportsEnabledOnReconnectAsync(CancellationToken cancellationToken)
@@ -1011,7 +1224,13 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             ValidateSettingsCore(new ReaderSettings { Inventory = settings }).ThrowIfInvalid();
-            await StartManagedInventoryCoreAsync(settings, resourcesAlreadyCleared: false, cancellationToken).ConfigureAwait(false);
+            SetDesiredInventorySettings(settings);
+            await StartManagedInventoryCoreAsync(
+                settings,
+                resourcesAlreadyCleared: false,
+                cancellationToken,
+                forceTakeover: true,
+                takeoverPolicy: ResourceTakeoverPolicy.PreserveForeign).ConfigureAwait(false);
         }
         finally
         {
@@ -1027,6 +1246,12 @@ public sealed class LlrpReader : IAsyncDisposable
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         EnsureProtocolAvailable();
+
+        if (_inventorySession is { OwnsResource: false } attachedSession)
+        {
+            await StopAttachedInventorySessionAsync(attachedSession, cancellationToken).ConfigureAwait(false);
+            return;
+        }
 
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -1063,7 +1288,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 }
                 else
                 {
-                    InvalidateManagedStateAfterRawProtocolAccess();
+                    MarkResourceObservationStale();
                 }
             }
         }
@@ -1112,11 +1337,11 @@ public sealed class LlrpReader : IAsyncDisposable
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            EnsureManagedStateSynchronized();
-            if (_managedInventoryRoSpecId is not uint roSpecId)
+            if (_managedInventoryRoSpecId is not uint roSpecId && CurrentInventorySettings is null)
             {
                 return;
             }
+            roSpecId = _managedInventoryRoSpecId ?? ManagedInventoryRoSpecId;
 
             using IDisposable scope = BeginInternalResourceOperationScope();
             try
@@ -1129,16 +1354,51 @@ public sealed class LlrpReader : IAsyncDisposable
                 InventorySession? session = _inventorySession;
                 _inventorySession = null;
                 session?.Complete(InventoryRuntimeState.Disabled);
-                ResetManagedInventoryState();
+                ClearDesiredManagedState();
                 Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
+                Volatile.Write(ref _observedManagedResourcePresent, 0);
+                Volatile.Write(ref _observedManagedInventoryState, (int)InventoryRuntimeState.Disabled);
+                Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Synchronized);
+                Volatile.Write(ref _managedStateIsSynchronized, 1);
             }
             catch
             {
-                InvalidateManagedStateAfterRawProtocolAccess();
+                MarkResourceObservationStale();
                 throw;
             }
         }
         finally { _operationLock.Release(); }
+    }
+
+    /// <summary>Explicitly deletes all standard ROSpec and AccessSpec resources.</summary>
+    /// <remarks>
+    /// This is the only reader-level operation whose contract is to remove foreign standard resources. The desired
+    /// managed settings remain available for a later managed deployment unless <see cref="ClearManagedSettingsAsync"/>
+    /// is also called.
+    /// </remarks>
+    public async Task DeleteAllResourcesAsync(
+        ResourceTakeoverPolicy takeoverPolicy,
+        CancellationToken cancellationToken = default)
+    {
+        if (takeoverPolicy != ResourceTakeoverPolicy.ReplaceAll)
+        {
+            throw new ArgumentException(
+                "Deleting all resources requires ResourceTakeoverPolicy.ReplaceAll.",
+                nameof(takeoverPolicy));
+        }
+
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using IDisposable scope = BeginInternalResourceOperationScope();
+            await DeleteAllStandardResourcesAsync(cancellationToken).ConfigureAwait(false);
+            MarkResourceObservationStale();
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
     }
 
     /// <summary>Reads the high-level configuration and, when currently managed, the SDK inventory snapshot.</summary>
@@ -1148,6 +1408,7 @@ public sealed class LlrpReader : IAsyncDisposable
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using IDisposable scope = BeginInternalResourceOperationScope();
             ReaderConfiguration configuration = await QueryConfigurationCoreAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<ILlrpParameter> roSpecs = await RoSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<ILlrpParameter> accessSpecs = await AccessSpecs.GetAllAsync(cancellationToken).ConfigureAwait(false);
@@ -1155,7 +1416,10 @@ public sealed class LlrpReader : IAsyncDisposable
             ManagedRoSpecSnapshot? snapshot = managed is null
                 ? null
                 : GetProtocolAdapter().ParseManagedRoSpec(this, managed, accessSpecs);
+            StoreResourceSnapshot(roSpecs, accessSpecs);
             AdoptManagedInventorySnapshot(managed, accessSpecs, snapshot);
+            Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Synchronized);
+            Volatile.Write(ref _managedStateIsSynchronized, 1);
             InventorySettings? inventory = snapshot?.Inventory;
             return new ReaderSettingsSnapshot(new ReaderSettings { Configuration = configuration, Inventory = inventory }, snapshot)
             {
@@ -1245,60 +1509,105 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureProtocolAvailable();
-            EnsureManagedStateSynchronized();
-            if (ResourceMode != ReaderResourceMode.HighLevelConfigured)
+            InventorySettings? desiredInventory = Volatile.Read(ref _desiredReaderSettings)?.Inventory;
+            InventorySettings? settings = desiredInventory ?? Volatile.Read(ref _currentInventorySettings);
+            if (settings is null || _managedInventoryRoSpecId is not uint)
             {
                 throw new InvalidOperationException("No stopped SDK-managed inventory configuration is available to start.");
             }
-            await StartConfiguredManagedInventoryCoreAsync(cancellationToken).ConfigureAwait(false);
+
+            _managedInventoryAttachedDataAccessSpecId = settings.AttachedData.Enabled
+                ? ManagedInventoryAttachedDataAccessSpecId
+                : null;
+
+            bool desiredDiffersFromObserved = desiredInventory is not null &&
+                Volatile.Read(ref _currentInventorySettings) is { } observedInventory &&
+                !InventorySettingsMatch(desiredInventory, observedInventory);
+            bool redeploy = !IsManagedStateSynchronized || Volatile.Read(ref _observedManagedResourcePresent) == 0 ||
+                ResourceMode is ReaderResourceMode.StateUnknown or ReaderResourceMode.Idle ||
+                desiredDiffersFromObserved;
+            if (redeploy)
+            {
+                PrepareForManagedTakeover();
+                await StartManagedInventoryCoreAsync(
+                    settings,
+                    resourcesAlreadyCleared: false,
+                    cancellationToken,
+                    forceTakeover: true,
+                    takeoverPolicy: ResourceTakeoverPolicy.PreserveForeign).ConfigureAwait(false);
+            }
+            else if (ResourceMode == ReaderResourceMode.HighLevelConfigured)
+            {
+                await StartConfiguredManagedInventoryCoreAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else if (OperationState != ReaderOperationState.Inventorying)
+            {
+                throw new InvalidOperationException("No stopped SDK-managed inventory configuration is available to start.");
+            }
         }
         finally { _operationLock.Release(); }
     }
 
-    /// <summary>Applies high-level configuration and deploys optional exclusive inventory intent without starting it.</summary>
+    /// <summary>Applies high-level configuration and optionally deploys managed inventory without starting it.</summary>
     /// <remarks>
-    /// When <paramref name="settings"/> carries Inventory intent, deployment takes full control of reader resources
-    /// and first deletes <b>all</b> ROSpecs and AccessSpecs on the device (LLRP id=0 delete semantics), including
-    /// resources deployed by other applications. This is the explicit takeover boundary after raw or manual resource
-    /// operations and does not require a preceding <see cref="SynchronizeStateAsync(CancellationToken)"/>. When
-    /// Inventory is <see langword="null"/>, only reader configuration is applied and synchronization remains required.
+    /// The default policy replaces only SDK-reserved resources. Use the overload with
+    /// <see cref="ResourceTakeoverPolicy.ReplaceAll"/> when deleting all standard resources is intentional.
     /// </remarks>
     public async Task ApplySettingsAsync(ReaderSettings settings, CancellationToken cancellationToken = default)
+        => await ApplySettingsAsync(settings, ResourceTakeoverPolicy.PreserveForeign, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Applies high-level settings with an explicit resource takeover policy.</summary>
+    public async Task ApplySettingsAsync(
+        ReaderSettings settings,
+        ResourceTakeoverPolicy takeoverPolicy,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        ValidateTakeoverPolicy(takeoverPolicy);
         EnsureProtocolAvailable();
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            bool forceTakeover = settings.Inventory is not null;
-            if (!forceTakeover)
-            {
-                EnsureManagedStateSynchronized();
-            }
             ValidateSettingsCore(settings).ThrowIfInvalid();
             using IDisposable scope = BeginInternalResourceOperationScope();
             if (settings.Inventory is null)
             {
                 await ApplyConfigurationCoreAsync(settings.Configuration, cancellationToken).ConfigureAwait(false);
-                Volatile.Write(ref _managedStateIsSynchronized, 1);
+                ReaderSettings? existingDesired = Volatile.Read(ref _desiredReaderSettings);
+                Volatile.Write(ref _desiredReaderSettings, new ReaderSettings
+                {
+                    Configuration = settings.Configuration,
+                    Inventory = existingDesired?.Inventory,
+                    Extensions = settings.Extensions,
+                });
                 return;
             }
 
             try
             {
+                Volatile.Write(ref _desiredReaderSettings, settings);
+                SetDesiredInventorySettings(settings.Inventory);
                 PrepareForManagedTakeover();
-                await DeleteAllResourcesAsync(cancellationToken).ConfigureAwait(false);
+                if (takeoverPolicy == ResourceTakeoverPolicy.ReplaceAll)
+                {
+                    await DeleteAllStandardResourcesAsync(cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await DeleteSdkOwnedResourcesAsync(cancellationToken).ConfigureAwait(false);
+                }
                 await ApplyConfigurationCoreAsync(settings.Configuration, cancellationToken).ConfigureAwait(false);
                 await StartManagedInventoryCoreAsync(
                     settings.Inventory,
                     resourcesAlreadyCleared: true,
                     cancellationToken: cancellationToken,
                     startAfterDeployment: false,
-                    forceTakeover: true).ConfigureAwait(false);
+                    forceTakeover: true,
+                    takeoverPolicy: takeoverPolicy).ConfigureAwait(false);
             }
             catch
             {
-                InvalidateManagedStateAfterRawProtocolAccess();
+                MarkResourceObservationStale();
                 throw;
             }
         }
@@ -1365,13 +1674,11 @@ public sealed class LlrpReader : IAsyncDisposable
         bool resourcesAlreadyCleared,
         CancellationToken cancellationToken,
         bool startAfterDeployment = true,
-        bool forceTakeover = false)
+        bool forceTakeover = false,
+        ResourceTakeoverPolicy takeoverPolicy = ResourceTakeoverPolicy.PreserveForeign)
     {
         EnsureProtocolAvailable();
-        if (!forceTakeover)
-        {
-            EnsureManagedStateSynchronized();
-        }
+        ValidateTakeoverPolicy(takeoverPolicy);
         if (OperationState != ReaderOperationState.Idle)
         {
             throw new InvalidOperationException(
@@ -1389,7 +1696,14 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             if (!resourcesAlreadyCleared)
             {
-                await DeleteAllResourcesAsync(cancellationToken).ConfigureAwait(false);
+                if (takeoverPolicy == ResourceTakeoverPolicy.ReplaceAll)
+                {
+                    await DeleteAllStandardResourcesAsync(cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await DeleteSdkOwnedResourcesAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
 
             ILlrpParameter roSpec = CompileDefaultInventoryRoSpec(settings);
@@ -1425,6 +1739,10 @@ public sealed class LlrpReader : IAsyncDisposable
             _managedInventoryRoSpecId = ManagedInventoryRoSpecId;
             _managedInventoryAttachedDataAccessSpecId = attachedDataAccessSpecId;
             Volatile.Write(ref _currentInventorySettings, settings);
+            Volatile.Write(ref _observedManagedResourcePresent, 1);
+            Volatile.Write(ref _observedManagedInventoryState, (int)(startAfterDeployment
+                ? (settings.StartTrigger.Type == InventoryStartTriggerType.None ? InventoryRuntimeState.Running : InventoryRuntimeState.Enabled)
+                : InventoryRuntimeState.Enabled));
             Volatile.Write(ref _operationState, (int)(startAfterDeployment
                 ? ReaderOperationState.Inventorying
                 : ReaderOperationState.Idle));
@@ -1445,8 +1763,7 @@ public sealed class LlrpReader : IAsyncDisposable
                 await TryDeleteManagedInventoryAsync(ManagedInventoryRoSpecId, CancellationToken.None).ConfigureAwait(false);
             }
 
-            ResetManagedInventoryState();
-            InvalidateManagedStateAfterRawProtocolAccess();
+            MarkResourceObservationStale();
             throw;
         }
     }
@@ -1474,10 +1791,14 @@ public sealed class LlrpReader : IAsyncDisposable
 
             Volatile.Write(ref _operationState, (int)ReaderOperationState.Inventorying);
             Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.HighLevelRunning);
+            Volatile.Write(ref _observedManagedResourcePresent, 1);
+            Volatile.Write(ref _observedManagedInventoryState, (int)InventoryRuntimeState.Running);
+            Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Synchronized);
+            Volatile.Write(ref _managedStateIsSynchronized, 1);
         }
         catch
         {
-            InvalidateManagedStateAfterRawProtocolAccess();
+            MarkResourceObservationStale();
             throw;
         }
     }
@@ -1485,7 +1806,6 @@ public sealed class LlrpReader : IAsyncDisposable
     private async Task<ReaderConfiguration> QueryConfigurationCoreAsync(CancellationToken cancellationToken)
     {
         EnsureProtocolAvailable();
-        EnsureManagedStateSynchronized();
         ILlrpProtocolAdapter adapter = GetProtocolAdapter();
         uint messageId = _messageIds.Next();
         IReadOnlyList<ILlrpParameter> customItems = BuildSettingsQueryParameters();
@@ -1505,7 +1825,11 @@ public sealed class LlrpReader : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
-    /// <summary>Enters explicit application-owned ROSpec and AccessSpec control after high-level work has stopped.</summary>
+    /// <summary>Marks the beginning of an expert resource operation scope.</summary>
+    /// <remarks>
+    /// This compatibility scope does not erase the managed desired state and does not require a synchronization call.
+    /// Expert writes are serialized and make only the observed resource snapshot stale.
+    /// </remarks>
     public async Task EnterManualResourceModeAsync(CancellationToken cancellationToken = default)
     {
         EnsureProtocolAvailable();
@@ -1513,7 +1837,6 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureProtocolAvailable();
-            EnsureManagedStateSynchronized();
             if (ResourceMode is ReaderResourceMode.HighLevelConfigured or ReaderResourceMode.HighLevelRunning)
             {
                 throw new InvalidOperationException("Clear the SDK-managed inventory configuration before entering manual resource mode.");
@@ -1527,7 +1850,7 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    /// <summary>Deletes all manual ROSpecs and AccessSpecs and returns the reader to idle resource mode.</summary>
+    /// <summary>Ends the compatibility expert resource operation scope without deleting resources.</summary>
     public async Task ExitManualResourceModeAsync(CancellationToken cancellationToken = default)
     {
         EnsureProtocolAvailable();
@@ -1535,23 +1858,15 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureProtocolAvailable();
-            EnsureManagedStateSynchronized();
             if (ResourceMode != ReaderResourceMode.ManualResources)
             {
                 throw new InvalidOperationException("The reader is not in manual resource mode.");
             }
 
-            using IDisposable scope = BeginInternalResourceOperationScope();
-            try
-            {
-                await DeleteAllResourcesAsync(cancellationToken).ConfigureAwait(false);
-                Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
-            }
-            catch
-            {
-                InvalidateManagedStateAfterRawProtocolAccess();
-                throw;
-            }
+            Volatile.Write(ref _resourceMode, (int)(IsManagedStateSynchronized &&
+                Volatile.Read(ref _observedManagedResourcePresent) != 0
+                    ? ReaderResourceMode.HighLevelConfigured
+                    : ReaderResourceMode.Idle));
         }
         finally
         {
@@ -1589,8 +1904,8 @@ public sealed class LlrpReader : IAsyncDisposable
                 failure = exception;
             }
 
-            ResetManagedInventoryState();
-            CompleteActiveInventorySession();
+            ClearDesiredManagedState();
+            ResetConnectionResourceState();
             AddTransition(transitions, ReaderConnectionState.Disconnected, failure);
             _messages.Writer.TryComplete(failure);
             _tagReports.Writer.TryComplete(failure);
@@ -1618,7 +1933,6 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         EnsureProtocolAvailable();
-        EnsureManagedStateSynchronized();
 
         ILlrpProtocolAdapter adapter = GetProtocolAdapter();
         uint messageId = _messageIds.Next();
@@ -1943,13 +2257,18 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken)
         where TResponse : class, ILlrpMessage
     {
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             return await TransactAsync<TResponse>(request, timeout, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            InvalidateManagedStateAfterRawProtocolAccess();
+            if (!IsReadOnlyRawMessage(request))
+            {
+                MarkResourceObservationStale();
+            }
+            _operationLock.Release();
         }
     }
 
@@ -2038,13 +2357,18 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken)
         where TMessage : ILlrpMessage
     {
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await SendAsync(message, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            InvalidateManagedStateAfterRawProtocolAccess();
+            if (!IsReadOnlyRawMessage(message))
+            {
+                MarkResourceObservationStale();
+            }
+            _operationLock.Release();
         }
     }
 
@@ -2056,6 +2380,7 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(responseMatcher);
         EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             return await _session.TransactAsync(
@@ -2066,7 +2391,8 @@ public sealed class LlrpReader : IAsyncDisposable
         }
         finally
         {
-            InvalidateManagedStateAfterRawProtocolAccess();
+            MarkResourceObservationStale();
+            _operationLock.Release();
         }
     }
 
@@ -2075,13 +2401,15 @@ public sealed class LlrpReader : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await _session.SendFrameAsync(frame, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            InvalidateManagedStateAfterRawProtocolAccess();
+            MarkResourceObservationStale();
+            _operationLock.Release();
         }
     }
 
@@ -2119,11 +2447,61 @@ public sealed class LlrpReader : IAsyncDisposable
         cancellation.Dispose();
     }
 
-    private async Task DeleteAllResourcesAsync(CancellationToken cancellationToken)
+    internal async Task DeleteAllRoSpecsAsync(
+        ResourceTakeoverPolicy takeoverPolicy,
+        CancellationToken cancellationToken)
+    {
+        if (takeoverPolicy != ResourceTakeoverPolicy.ReplaceAll)
+        {
+            throw new ArgumentException(
+                "Deleting all ROSpecs requires ResourceTakeoverPolicy.ReplaceAll.",
+                nameof(takeoverPolicy));
+        }
+
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using IDisposable scope = BeginInternalResourceOperationScope();
+            await DeleteAllRoSpecsCoreAsync(cancellationToken).ConfigureAwait(false);
+            MarkResourceObservationStale();
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    internal async Task DeleteAllAccessSpecsAsync(
+        ResourceTakeoverPolicy takeoverPolicy,
+        CancellationToken cancellationToken)
+    {
+        if (takeoverPolicy != ResourceTakeoverPolicy.ReplaceAll)
+        {
+            throw new ArgumentException(
+                "Deleting all AccessSpecs requires ResourceTakeoverPolicy.ReplaceAll.",
+                nameof(takeoverPolicy));
+        }
+
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using IDisposable scope = BeginInternalResourceOperationScope();
+            await DeleteAllAccessSpecsCoreAsync(cancellationToken).ConfigureAwait(false);
+            MarkResourceObservationStale();
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    private async Task DeleteAllStandardResourcesAsync(CancellationToken cancellationToken)
     {
         try
         {
-            await AccessSpecs.DeleteAsync(0, cancellationToken).ConfigureAwait(false);
+            await DeleteAllAccessSpecsCoreAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
         {
@@ -2131,7 +2509,65 @@ public sealed class LlrpReader : IAsyncDisposable
 
         try
         {
-            await RoSpecs.DeleteAsync(0, cancellationToken).ConfigureAwait(false);
+            await DeleteAllRoSpecsCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
+        {
+        }
+    }
+
+    private async Task DeleteAllRoSpecsCoreAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await GetProtocolAdapter().DeleteRoSpecAsync(this, _messageIds.Next(), 0, cancellationToken).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
+        {
+        }
+    }
+
+    private async Task DeleteAllAccessSpecsCoreAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await GetProtocolAdapter().DeleteAccessSpecAsync(this, _messageIds.Next(), 0, cancellationToken).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
+        {
+        }
+    }
+
+    private async Task DeleteSdkOwnedResourcesAsync(CancellationToken cancellationToken)
+    {
+        // The reserved IDs are the only resources the managed compiler is allowed to replace in the default mode.
+        try
+        {
+            await GetProtocolAdapter().StopRoSpecAsync(this, _messageIds.Next(), ManagedInventoryRoSpecId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception))
+        {
+        }
+
+        try
+        {
+            await GetProtocolAdapter().DisableRoSpecAsync(this, _messageIds.Next(), ManagedInventoryRoSpecId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception))
+        {
+        }
+
+        try
+        {
+            await GetProtocolAdapter().DeleteAccessSpecAsync(this, _messageIds.Next(), ManagedInventoryAttachedDataAccessSpecId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
+        {
+        }
+
+        try
+        {
+            await GetProtocolAdapter().DeleteRoSpecAsync(this, _messageIds.Next(), ManagedInventoryRoSpecId, cancellationToken).ConfigureAwait(false);
         }
         catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
         {
@@ -2140,6 +2576,14 @@ public sealed class LlrpReader : IAsyncDisposable
 
     private static bool IsNoResourceError(LlrpReaderOperationException exception) =>
         exception.StatusCode == 100 && exception.ErrorDescription.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsIgnorableOwnedCleanupError(LlrpReaderOperationException exception) =>
+        IsNoResourceError(exception) ||
+        exception.StatusCode == 100 && (
+            exception.ErrorDescription.Contains("not active", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("only an active", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("not enabled", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("disabled", StringComparison.OrdinalIgnoreCase));
 
     private void StartKeepaliveMonitor()
     {
@@ -2339,7 +2783,7 @@ public sealed class LlrpReader : IAsyncDisposable
             _pumpCancellation = null;
             _pumpTask = null;
             CompleteActiveInventorySession();
-            ResetManagedInventoryState();
+            ResetConnectionResourceState();
             InvalidateMetadata();
             AddTransition(
                 transitions,
@@ -2622,17 +3066,60 @@ public sealed class LlrpReader : IAsyncDisposable
         if (!IsManagedStateSynchronized)
         {
             throw new InvalidOperationException(
-                "SDK-managed reader state is unknown after raw protocol access. " +
-                $"Call {nameof(SynchronizeStateAsync)} before starting a managed operation.");
+                "The reader resource observation is not synchronized. Call " +
+                $"{nameof(SynchronizeStateAsync)} when an up-to-date observation is required.");
         }
     }
 
-    private void InvalidateManagedStateAfterRawProtocolAccess()
+    private static void ValidateTakeoverPolicy(ResourceTakeoverPolicy takeoverPolicy)
+    {
+        if (takeoverPolicy is not ResourceTakeoverPolicy.PreserveForeign and not ResourceTakeoverPolicy.ReplaceAll)
+        {
+            throw new ArgumentOutOfRangeException(nameof(takeoverPolicy), takeoverPolicy, "Unknown resource takeover policy.");
+        }
+    }
+
+    private static bool IsReadOnlyRawMessage(ILlrpMessage message) =>
+        message.GetType().Name.StartsWith("GET_", StringComparison.Ordinal);
+
+    private static bool InventorySettingsMatch(InventorySettings desired, InventorySettings observed)
+    {
+        if (ReferenceEquals(desired, observed))
+        {
+            return true;
+        }
+
+        try
+        {
+            return string.Equals(
+                JsonSerializer.Serialize(desired),
+                JsonSerializer.Serialize(observed),
+                StringComparison.Ordinal);
+        }
+        catch (JsonException)
+        {
+            // If an extension value cannot be compared safely, redeployment is the conservative recovery path.
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            // If an extension value cannot be compared safely, redeployment is the conservative recovery path.
+            return false;
+        }
+    }
+
+    private void MarkResourceObservationStale()
     {
         CompleteActiveInventorySession();
-        ResetManagedInventoryState();
+        Volatile.Write(ref _observedManagedResourcePresent, 0);
+        Volatile.Write(ref _observedManagedInventoryState, (int)InventoryRuntimeState.Disabled);
+        Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
         Volatile.Write(ref _managedStateIsSynchronized, 0);
-        Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.StateUnknown);
+        Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Stale);
+        if (ResourceMode != ReaderResourceMode.ManualResources)
+        {
+            Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.StateUnknown);
+        }
     }
 
     /// <summary>Re-queries all reader capabilities and replaces the initialized capability snapshot.</summary>
@@ -2659,8 +3146,11 @@ public sealed class LlrpReader : IAsyncDisposable
     private void PrepareForManagedTakeover()
     {
         CompleteActiveInventorySession();
-        ResetManagedInventoryState();
+        Volatile.Write(ref _observedManagedResourcePresent, 0);
+        Volatile.Write(ref _observedManagedInventoryState, (int)InventoryRuntimeState.Disabled);
+        Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
         Volatile.Write(ref _managedStateIsSynchronized, 0);
+        Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Stale);
         Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.StateUnknown);
     }
 
@@ -2677,18 +3167,103 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             EnsureProtocolAvailable();
-            EnsureManagedStateSynchronized();
-            if (ResourceMode != ReaderResourceMode.ManualResources)
+            bool operationInvoked = false;
+            try
             {
-                throw new InvalidOperationException(
-                    $"Resource write operations require {nameof(EnterManualResourceModeAsync)}. Current mode is {ResourceMode}.");
+                operationInvoked = true;
+                await operation().ConfigureAwait(false);
             }
-
-            await operation().ConfigureAwait(false);
+            finally
+            {
+                // A request may have reached the device even when its response is lost. Treat every
+                // externally issued resource write as stale on both success and failure; internal
+                // scopes are reconciled by their owning high-level operation instead.
+                if (operationInvoked && _internalResourceOperationDepth.Value == 0)
+                {
+                    MarkResourceObservationStale();
+                }
+            }
         }
         finally
         {
             _operationLock.Release();
+        }
+    }
+
+    internal async Task<IReadOnlyList<ILlrpParameter>> ExecuteManualResourceQueryAsync(
+        Func<Task<IReadOnlyList<ILlrpParameter>>> operation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        if (_internalResourceOperationDepth.Value > 0)
+        {
+            EnsureProtocolAvailable();
+            return await operation().ConfigureAwait(false);
+        }
+
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureProtocolAvailable();
+            return await operation().ConfigureAwait(false);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    internal void TrackExpertRoSpec(ILlrpParameter roSpec)
+    {
+        try
+        {
+            uint id = GetProtocolAdapter().GetRoSpecId(roSpec);
+            if (id != 0 && id != ManagedInventoryRoSpecId)
+            {
+                lock (_expertRoSpecIds)
+                {
+                    _expertRoSpecIds.Add(id);
+                }
+            }
+        }
+        catch (ArgumentException)
+        {
+            // The adapter already validated the wire parameter before ADD_ROSPEC.
+        }
+    }
+
+    internal void TrackExpertRoSpecDeleted(uint roSpecId)
+    {
+        lock (_expertRoSpecIds)
+        {
+            _expertRoSpecIds.Remove(roSpecId);
+        }
+    }
+
+    internal void TrackExpertAccessSpec(ILlrpParameter accessSpec)
+    {
+        try
+        {
+            uint id = GetProtocolAdapter().GetAccessSpecId(accessSpec);
+            if (id != 0 && id != ManagedInventoryAttachedDataAccessSpecId)
+            {
+                lock (_expertAccessSpecIds)
+                {
+                    _expertAccessSpecIds.Add(id);
+                }
+            }
+        }
+        catch (ArgumentException)
+        {
+            // The adapter already validated the wire parameter before ADD_ACCESSSPEC.
+        }
+    }
+
+    internal void TrackExpertAccessSpecDeleted(uint accessSpecId)
+    {
+        lock (_expertAccessSpecIds)
+        {
+            _expertAccessSpecIds.Remove(accessSpecId);
         }
     }
 
@@ -2721,12 +3296,76 @@ public sealed class LlrpReader : IAsyncDisposable
         session?.Complete(InventoryRuntimeState.Disabled);
     }
 
-    private void ResetManagedInventoryState()
+    private void SetDesiredInventorySettings(InventorySettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Volatile.Write(ref _currentInventorySettings, settings);
+        _managedInventoryRoSpecId = ManagedInventoryRoSpecId;
+        _managedInventoryAttachedDataAccessSpecId = settings.AttachedData.Enabled
+            ? ManagedInventoryAttachedDataAccessSpecId
+            : null;
+        ReaderSettings? desired = Volatile.Read(ref _desiredReaderSettings);
+        Volatile.Write(ref _desiredReaderSettings, new ReaderSettings
+        {
+            Configuration = desired?.Configuration ?? new ReaderConfiguration(),
+            Inventory = settings,
+            Extensions = desired?.Extensions ?? new Dictionary<string, object?>(),
+        });
+    }
+
+    private void ClearDesiredManagedState()
     {
         _managedInventoryRoSpecId = null;
         _managedInventoryAttachedDataAccessSpecId = null;
         Volatile.Write(ref _currentInventorySettings, null);
+        ReaderSettings? desired = Volatile.Read(ref _desiredReaderSettings);
+        Volatile.Write(ref _desiredReaderSettings, desired is null ? null : desired with { Inventory = null });
+        Volatile.Write(ref _observedManagedResourcePresent, 0);
+        Volatile.Write(ref _observedManagedInventoryState, (int)InventoryRuntimeState.Disabled);
         Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+    }
+
+    private void ResetConnectionResourceState()
+    {
+        CompleteActiveInventorySession();
+        Volatile.Write(ref _observedManagedResourcePresent, 0);
+        Volatile.Write(ref _observedManagedInventoryState, (int)InventoryRuntimeState.Disabled);
+        Volatile.Write(ref _managedStateIsSynchronized, 0);
+        Volatile.Write(ref _observedResourceState, (int)ReaderObservedState.Unknown);
+        Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+        Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
+        Volatile.Write(ref _lastResourceSnapshot, null);
+        if (CurrentInventorySettings is null)
+        {
+            _managedInventoryRoSpecId = null;
+            _managedInventoryAttachedDataAccessSpecId = null;
+        }
+    }
+
+    private void StoreResourceSnapshot(
+        IReadOnlyList<ILlrpParameter> roSpecs,
+        IReadOnlyList<ILlrpParameter> accessSpecs)
+    {
+        bool HasForeignRoSpec(ILlrpParameter item)
+        {
+            try { return GetProtocolAdapter().GetRoSpecId(item) != ManagedInventoryRoSpecId; }
+            catch (ArgumentException) { return true; }
+        }
+
+        bool HasForeignAccessSpec(ILlrpParameter item)
+        {
+            try { return GetProtocolAdapter().GetAccessSpecId(item) != ManagedInventoryAttachedDataAccessSpecId; }
+            catch (ArgumentException) { return true; }
+        }
+
+        bool hasManaged = roSpecs.Any(GetProtocolAdapter().IsManagedRoSpec);
+        bool hasForeign = roSpecs.Any(HasForeignRoSpec) || accessSpecs.Any(HasForeignAccessSpec);
+        Volatile.Write(ref _lastResourceSnapshot, new ReaderResourceSnapshot(
+            roSpecs.ToArray(),
+            accessSpecs.ToArray(),
+            hasManaged,
+            hasForeign,
+            DateTimeOffset.UtcNow));
     }
 
     private void AdoptManagedInventorySnapshot(
@@ -2736,9 +3375,19 @@ public sealed class LlrpReader : IAsyncDisposable
     {
         if (managedRoSpec is null)
         {
-            CompleteActiveInventorySession();
-            ResetManagedInventoryState();
-            Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
+            if (_inventorySession is { OwnsResource: true })
+            {
+                CompleteActiveInventorySession();
+            }
+            Volatile.Write(ref _observedManagedResourcePresent, 0);
+            Volatile.Write(ref _observedManagedInventoryState, (int)InventoryRuntimeState.Disabled);
+            Volatile.Write(ref _operationState, (int)(ResourceMode == ReaderResourceMode.AttachedInventory
+                ? ReaderOperationState.Inventorying
+                : ReaderOperationState.Idle));
+            if (ResourceMode != ReaderResourceMode.ManualResources && ResourceMode != ReaderResourceMode.AttachedInventory)
+            {
+                Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
+            }
             return;
         }
 
@@ -2747,10 +3396,25 @@ public sealed class LlrpReader : IAsyncDisposable
         _managedInventoryAttachedDataAccessSpecId = GetProtocolAdapter().HasAttachedDataAccessSpec(accessSpecs)
             ? ManagedInventoryAttachedDataAccessSpecId
             : null;
+        ReaderSettings? desired = Volatile.Read(ref _desiredReaderSettings);
+        if (desired is null)
+        {
+            Volatile.Write(ref _desiredReaderSettings, new ReaderSettings
+            {
+                Configuration = new ReaderConfiguration(),
+                Inventory = actual.Inventory,
+                Extensions = new Dictionary<string, object?>(),
+            });
+        }
         Volatile.Write(ref _currentInventorySettings, actual.Inventory);
         bool running = actual.State == InventoryRuntimeState.Running;
+        Volatile.Write(ref _observedManagedResourcePresent, 1);
+        Volatile.Write(ref _observedManagedInventoryState, (int)actual.State);
         Volatile.Write(ref _operationState, (int)(running ? ReaderOperationState.Inventorying : ReaderOperationState.Idle));
-        Volatile.Write(ref _resourceMode, (int)(running ? ReaderResourceMode.HighLevelRunning : ReaderResourceMode.HighLevelConfigured));
+        if (ResourceMode != ReaderResourceMode.ManualResources && ResourceMode != ReaderResourceMode.AttachedInventory)
+        {
+            Volatile.Write(ref _resourceMode, (int)(running ? ReaderResourceMode.HighLevelRunning : ReaderResourceMode.HighLevelConfigured));
+        }
     }
 
     private async Task StopManagedInventoryAsync(uint roSpecId, CancellationToken cancellationToken)
@@ -3058,11 +3722,15 @@ public sealed class LlrpReader : IAsyncDisposable
         }
 
         // ROSpecID is optional in an RO_ACCESS_REPORT. A reader may legitimately omit it when
-        // ROReportSpec.EnableROSpecID is false. While the SDK owns the exclusive
-        // high-level resource domain, a report without an ID can only belong to the active managed
-        // ROSpec; keep strict matching whenever the reader does provide an ID.
+        // ROReportSpec.EnableROSpecID is false. An attached expert session cannot claim such a
+        // report while another ROSpec may be running, so it is allowed only when the last complete
+        // snapshot proves that the attached ROSpec is the sole running ROSpec. Managed sessions retain
+        // the historical SDK-owned routing rule; an explicit ROSpecID is always matched strictly.
         bool matchesManagedRoSpec = report.RoSpecId == session?.RoSpecId ||
-            (report.RoSpecId is null && ResourceMode == ReaderResourceMode.HighLevelRunning);
+            (report.RoSpecId is null &&
+                (session?.OwnsResource != false
+                    ? ResourceMode == ReaderResourceMode.HighLevelRunning
+                    : session is not null && CanRouteMissingRoSpecId(session)));
         if (session is not null &&
             (owner == TagReportDeliveryOwner.Session || owner == TagReportDeliveryOwner.None) &&
             matchesManagedRoSpec &&
@@ -3072,14 +3740,75 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
+    private bool CanRouteMissingRoSpecId(InventorySession session)
+    {
+        if (ObservedState != ReaderObservedState.Synchronized || LastResourceSnapshot is not { } snapshot)
+        {
+            return false;
+        }
+
+        int runningCount = 0;
+        bool targetIsRunning = false;
+        foreach (ILlrpParameter roSpec in snapshot.RoSpecs)
+        {
+            uint id;
+            InventoryRuntimeState state;
+            try
+            {
+                id = GetProtocolAdapter().GetRoSpecId(roSpec);
+                state = GetProtocolAdapter().GetRoSpecRuntimeState(roSpec);
+            }
+            catch (ArgumentException)
+            {
+                // An unknown ROSpec cannot be proven inactive; fail closed for an ID-less report.
+                return false;
+            }
+
+            if (state != InventoryRuntimeState.Running)
+            {
+                continue;
+            }
+
+            runningCount++;
+            targetIsRunning |= id == session.RoSpecId;
+        }
+
+        return targetIsRunning && runningCount == 1;
+    }
+
     private void ProcessManagedRoSpecEvent(uint? roSpecId, InventoryRuntimeState? state)
     {
-        if (roSpecId != ManagedInventoryRoSpecId || state is not { } nextState)
+        if (state is not { } nextState)
         {
             return;
         }
 
         InventorySession? session = _inventorySession;
+        if (session is { OwnsResource: false } attached && attached.RoSpecId == roSpecId)
+        {
+            attached.SetState(nextState);
+            if (nextState == InventoryRuntimeState.Disabled)
+            {
+                attached.Complete(InventoryRuntimeState.Disabled);
+                _inventorySession = null;
+                Volatile.Write(ref _operationState, (int)ReaderOperationState.Idle);
+                Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.Idle);
+            }
+            else
+            {
+                Volatile.Write(ref _operationState, (int)ReaderOperationState.Inventorying);
+                Volatile.Write(ref _resourceMode, (int)ReaderResourceMode.AttachedInventory);
+            }
+            return;
+        }
+
+        if (roSpecId != ManagedInventoryRoSpecId)
+        {
+            return;
+        }
+
+        Volatile.Write(ref _observedManagedResourcePresent, 1);
+        Volatile.Write(ref _observedManagedInventoryState, (int)nextState);
         if (nextState == InventoryRuntimeState.Disabled)
         {
             session?.Complete(InventoryRuntimeState.Disabled);

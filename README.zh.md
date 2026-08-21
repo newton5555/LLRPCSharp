@@ -45,7 +45,7 @@ LLRPCSharp 提供三个逐级下沉的控制层：
 2. **专家资源**——通过 **reader.RoSpecs** 和 **reader.AccessSpecs** 显式操作 ROSpec 与 AccessSpec。
 3. **Raw 协议**——通过 **reader.Protocol** 执行强类型或精确帧事务，或者直接使用 LlrpNet。
 
-托管盘存独占 SDK 的资源域。手动资源写入必须显式进入 Manual 模式。Raw 协议访问会使 SDK 的托管状态假设失效，因此回到高层操作前必须同步状态，或者显式执行一次新的托管接管。
+托管盘存是主控制面，并在本地长期保存 DesiredState。专家资源写入仍需显式进入 Manual 模式；Raw 操作会与托管操作串行执行：只读 `GET_*` 不会使观测失效，写入或精确帧只会把设备观测标为 Stale/Unknown，不会清空托管意图。高层 API 可以立即协调自己的保留资源。`SynchronizeStateAsync()` 只是刷新设备资源快照供检查，并不是继续使用托管 API 的前置条件。默认 `PreserveForeign` 保留外部资源，只有显式选择 `ReplaceAll` 才会执行破坏性全量删除。
 
 ## 快速开始
 

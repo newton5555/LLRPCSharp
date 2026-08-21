@@ -286,7 +286,8 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         table.AddRow("LLRP Version", $"[white]{_session.Reader.NegotiatedVersion}[/]");
         table.AddRow("Operation State", $"[white]{_session.Reader.OperationState}[/]");
         table.AddRow("Resource Mode", $"[white]{_session.Reader.ResourceMode}[/]");
-        table.AddRow("Managed State", _session.Reader.IsManagedStateSynchronized ? "[green]Synchronized[/]" : "[yellow]Unknown[/]");
+        table.AddRow("Observed Resources", $"[white]{_session.Reader.ObservedState}[/]");
+        table.AddRow("Managed State", _session.Reader.IsManagedStateSynchronized ? "[green]Snapshot current[/]" : "[yellow]Snapshot stale/unknown[/]");
 
         if (_session.Reader.Identity is { } identity)
         {
@@ -312,10 +313,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         _console.Write(panel);
         if (full)
         {
-            if (_session.Reader.ResourceMode == ReaderResourceMode.ManualResources || !_session.Reader.IsManagedStateSynchronized)
-            {
-                throw new CliUsageException("Full managed status is unavailable in manual or unknown resource state. Exit manual mode and run 'sync' first.");
-            }
             ReaderSettingsSnapshot snapshot = await _session.Reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
             SettingsRenderer.RenderSummary(_console, "FULL READER CONFIGURATION", snapshot.Settings, snapshot.ManagedRoSpec?.State);
             SettingsRenderer.RenderResources(_console, snapshot);
@@ -513,7 +510,9 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         string subAction = tokens[1].ToLowerInvariant();
-        if (subAction is "add" or "enable" or "disable" or "start" or "stop" or "delete")
+        // Starting an already-installed ROSpec is a normal lifecycle operation. It does not add, replace,
+        // or delete a resource, so it can be issued directly and the SDK will mark its observation stale.
+        if (subAction is "add" or "enable" or "disable" or "stop" or "delete")
         {
             EnsureManualResourceWriteAvailable(_session.Reader, $"rospec {subAction}");
         }
@@ -635,25 +634,15 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         string action = (tokens.Length >= 2 ? tokens[1] : "status").ToLowerInvariant();
-        if (action is "on" or "off")
-        {
-            EnsureManagedStateSynchronized(_session.Reader, $"manual {action}");
-        }
-
         switch (action)
         {
             case "on":
-                if (!_session.Reader.IsManagedStateSynchronized)
-                {
-                    await _session.Reader.SynchronizeStateAsync(cancellationToken);
-                    _console.MarkupLine("[grey]State synchronized before entering manual mode.[/]");
-                }
                 await _session.Reader.EnterManualResourceModeAsync(cancellationToken);
                 _console.MarkupLine("[green]Manual resource mode on. ROSpec and AccessSpec writes are now enabled.[/]");
                 break;
             case "off":
                 await _session.Reader.ExitManualResourceModeAsync(cancellationToken);
-                _console.MarkupLine("[green]Manual resources deleted; reader returned to idle mode.[/]");
+                _console.MarkupLine("[green]Manual resource mode off; existing ROSpec/AccessSpec resources were preserved.[/]");
                 break;
             case "status":
                 _console.MarkupLine($"Resource mode: [cyan]{_session.Reader.ResourceMode}[/]");
@@ -775,12 +764,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 throw new CliUsageException("Usage: raw send|transact <hex-frame> [--response-type <type>] --yes");
         }
 
-        if (!_session.Reader.IsManagedStateSynchronized)
+        if (_session.Reader.ObservedState == ReaderObservedState.Stale)
         {
             _console.MarkupLine(
-                "[yellow]SDK-managed state is now unknown. Run [cyan1]sync[/] to inspect existing resources, " +
-                "or use a settings file with [cyan1]Inventory[/] via [cyan1]settings apply <file> --yes[/] / " +
-                "[cyan1]settings apply --defaults --yes[/] to force a managed takeover.[/]");
+                "[yellow]Observed resource state is stale; DesiredState was retained. Run [cyan1]sync[/] to inspect " +
+                "the device snapshot, or continue with a high-level API to reconcile SDK-owned resources.[/]");
         }
     }
 
@@ -794,27 +782,16 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         _console.MarkupLine("[grey]Synchronizing reader-managed ROSpec and AccessSpec state...[/]");
         await _session.Reader.SynchronizeStateAsync(cancellationToken);
-        _console.MarkupLine("[bold springgreen2]✔ SDK-managed state synchronized.[/]");
+        _console.MarkupLine("[bold springgreen2]✔ Device resource snapshot refreshed; DesiredState was preserved.[/]");
     }
 
     private static void EnsureManualResourceWriteAvailable(LlrpReader reader, string command)
     {
-        EnsureManagedStateSynchronized(reader, command);
         if (reader.ResourceMode != ReaderResourceMode.ManualResources)
         {
             throw new CliUsageException(
                 $"'{command}' changes ROSpec/AccessSpec resources. Run 'manual on' first, " +
                 "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' for a managed takeover.");
-        }
-    }
-
-    private static void EnsureManagedStateSynchronized(LlrpReader reader, string command)
-    {
-        if (!reader.IsManagedStateSynchronized)
-        {
-            throw new CliUsageException(
-                $"SDK-managed state is unknown after raw or manual resource access. Run 'sync' before '{command}', " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.");
         }
     }
 
@@ -934,11 +911,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 4: 进阶底层资源操控 (Advanced Resource API)
         table.AddRow("[bold yellow1]─── ⚙️ 进阶底层资源操控 (Advanced Resource API) ───[/]", "");
-        table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "先 sync，再 manual on 后管理设备 ROSpec 资源");
-        table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "先 sync，再 manual on 后管理 AccessSpec 资源");
-        table.AddRow("  [cyan1]manual on|off|status[/]", "raw 后先 sync；显式进入/退出专家资源模式");
+        table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "start 可直接启动已有 ROSpec；其余写操作需 manual on");
+        table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "manual on 后管理 AccessSpec 资源；查询不改变状态");
+        table.AddRow("  [cyan1]manual on|off|status[/]", "显式进入/退出专家资源模式；off 不删除资源");
         table.AddRow("  [cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "精准发送或收发原始二进制 Hex 报文");
-        table.AddRow("  [cyan1]sync[/]", "同步并采用设备现有 ROSpec/AccessSpec；需要覆盖时改用带 Inventory 的 settings apply 或 defaults --yes");
+        table.AddRow("  [cyan1]sync[/]", "刷新设备资源快照并保留 DesiredState；需要覆盖时使用高层 API 的显式 ReplaceAll 策略");
 
         // 分组 5: 报文工具与终端
         table.AddRow("[bold yellow1]─── 🛠️ 报文工具与终端 (Codec & Utilities) ───[/]", "");

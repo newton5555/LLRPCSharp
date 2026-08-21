@@ -331,7 +331,8 @@ public sealed class LlrpReaderTagAccessAndEventTests
         uint accessSpecId = accessSpec.AccessSpecID;
         Assert.Contains(requests, message => message is V101.ENABLE_ACCESSSPEC enable && enable.AccessSpecID == accessSpecId);
         Assert.Contains(requests, message => message is V101.DISABLE_ACCESSSPEC disable && disable.AccessSpecID == accessSpecId);
-        Assert.DoesNotContain(requests, message => message is V101.DELETE_ACCESSSPEC delete && delete.AccessSpecID == accessSpecId);
+        Assert.DoesNotContain(requests, message => message is V101.DELETE_ACCESSSPEC delete && delete.AccessSpecID == 0);
+        Assert.DoesNotContain(requests, message => message is V101.DELETE_ROSPEC delete && delete.ROSpecID == 0);
         Assert.Contains(requests, message => message is V101.START_ROSPEC start && start.ROSpecID == 14150);
 
         await reader.ClearManagedSettingsAsync(timeout.Token);
@@ -482,6 +483,10 @@ public sealed class LlrpReaderTagAccessAndEventTests
         Assert.Same(inventory, reader.CurrentInventorySettings);
         ILlrpMessage[] requests = transport.SentFrames.Select(frame => Registry.DecodeMessage(frame)).ToArray();
         Assert.Single(requests.OfType<V101.ADD_ROSPEC>());
+        Assert.DoesNotContain(requests, static message =>
+            message is V101.DELETE_ROSPEC { ROSpecID: 0 });
+        Assert.DoesNotContain(requests, static message =>
+            message is V101.DELETE_ACCESSSPEC { AccessSpecID: 0 });
     }
 
     private static void ConfigureManagementSuccessResponses(ScriptedLlrpTransport transport)

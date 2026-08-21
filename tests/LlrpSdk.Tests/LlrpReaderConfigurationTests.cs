@@ -311,6 +311,110 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
+    public async Task ObservationQueries_PreserveDesiredInventoryAndParameterlessStartRestoresIt()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var transport = new ScriptedLlrpTransport();
+        var registry = new LlrpCodecRegistry();
+        Llrp101StandardModule.Register(registry);
+        var actualSettings = new InventorySettings
+        {
+            AntennaIds = [1],
+            Session = 2,
+            TagPopulationEstimate = 64,
+        };
+        ROSpec actualRoSpec = Llrp101InventoryCompiler.Compile(
+            actualSettings,
+            LlrpReader.ManagedInventoryRoSpecId,
+            [],
+            [],
+            supportsStateAwareSingulation: false) with
+        {
+            CurrentState = ROSpecState.Active,
+        };
+
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        transport.OnSendAsync = (frame, _) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            switch (header.MessageType)
+            {
+                case GET_READER_CONFIG.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetReaderConfigResponseFrame(header.MessageId));
+                    break;
+                case GET_ROSPECS.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(header.MessageId, roSpecs: [actualRoSpec]));
+                    break;
+                case GET_ACCESSSPECS.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetAccessSpecsResponseFrame(header.MessageId));
+                    break;
+                case ADD_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        ADD_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId));
+                    break;
+                case DELETE_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        DELETE_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId));
+                    break;
+                case ENABLE_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        ENABLE_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId));
+                    break;
+                case DISABLE_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        DISABLE_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId));
+                    break;
+                case START_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        START_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId));
+                    break;
+                case STOP_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        STOP_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId));
+                    break;
+                case DELETE_ACCESSSPEC.MessageType:
+                    transport.EnqueueFrame(registry.EncodeMessage(
+                        LlrpProtocolVersion.Version101,
+                        new DELETE_ACCESSSPEC_RESPONSE(
+                            header.MessageId,
+                            new LLRPStatus(StatusCode.M_Success, string.Empty, null, null))));
+                    break;
+            }
+
+            return ValueTask.CompletedTask;
+        };
+
+        var desired = new InventorySettings
+        {
+            AntennaIds = [1],
+            Session = 1,
+            TagPopulationEstimate = 32,
+        };
+        await using InventorySession initial = await reader.StartInventoryAsync(desired, timeout.Token);
+        await initial.StopAsync(timeout.Token);
+
+        _ = await reader.QuerySettingsAsync(timeout.Token);
+        Assert.Same(desired, reader.DesiredSettings!.Inventory);
+        Assert.Equal((byte)2, reader.CurrentInventorySettings!.Session);
+
+        await reader.SynchronizeStateAsync(timeout.Token);
+        Assert.Same(desired, reader.DesiredSettings!.Inventory);
+        Assert.Equal((byte)2, reader.CurrentInventorySettings!.Session);
+
+        await using InventorySession recovered = await reader.StartInventoryAsync(timeout.Token);
+        Assert.Same(desired, recovered.Settings);
+        Assert.Same(desired, reader.DesiredSettings!.Inventory);
+        await recovered.StopAsync(timeout.Token);
+    }
+
+    [Fact]
     public async Task ApplySettings_SendsSetReaderConfig()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -376,7 +480,8 @@ public sealed class LlrpReaderConfigurationTests
 
         await reader.ApplySettingsAsync(new ReaderSettings { Configuration = config }, timeout.Token);
         Assert.True(setConfigSent);
-        Assert.True(reader.IsManagedStateSynchronized);
+        Assert.False(reader.IsManagedStateSynchronized);
+        Assert.Equal(ReaderObservedState.Unknown, reader.ObservedState);
     }
 
     [Fact]

@@ -379,12 +379,12 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
-    public void ManualModeGuard_PromptsOnlyWhenNonManagedResourcesExist()
+    public void ManualModeGuard_NeverPromptsToDeleteResources()
     {
-        Assert.False(ManualModeGuard.ShouldPromptToDelete(0, 0)); // 无资源 -> 静默退出
-        Assert.True(ManualModeGuard.ShouldPromptToDelete(1, 0));   // 有 ROSpec -> 确认
-        Assert.True(ManualModeGuard.ShouldPromptToDelete(0, 1));   // 有 AccessSpec -> 确认
-        Assert.True(ManualModeGuard.ShouldPromptToDelete(2, 3));
+        Assert.False(ManualModeGuard.ShouldPromptToDelete(0, 0));
+        Assert.False(ManualModeGuard.ShouldPromptToDelete(1, 0));
+        Assert.False(ManualModeGuard.ShouldPromptToDelete(0, 1));
+        Assert.False(ManualModeGuard.ShouldPromptToDelete(2, 3));
     }
 
     [Fact]

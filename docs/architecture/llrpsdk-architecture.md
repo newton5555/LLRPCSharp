@@ -16,7 +16,9 @@ src/LlrpSdk/
 │   ├── LlrpReaderExceptions.cs 公共异常族;状态名由版本边界解析后传入(异常自身中立)
 │   ├── ReaderEvents.cs        全部公共事件参数类型(GpiChanged/AntennaChanged/ReaderException/... 各 EventArgs)
 │   ├── ReaderMetadata.cs      ReaderIdentity / ReaderCapabilities / ReaderMetadataSnapshot
-│   ├── ReaderConnectionState.cs / ReaderOperationState.cs / ReaderResourceMode.cs  三个状态枚举
+│   ├── ReaderConnectionState.cs / ReaderOperationState.cs / ReaderResourceMode.cs  三个运行时状态枚举
+│   ├── ReaderObservedState.cs / ReaderResourceSnapshot.cs  设备资源观测快照
+│   ├── ResourceTakeoverPolicy.cs  PreserveForeign / ReplaceAll 接管策略
 │   ├── LlrpAutomaticReconnectOptions.cs  自动重连策略
 │   └── ReaderEventProjection.cs  中立事件投影记录(边界投影器 → 门面发布的传递物)
 ├── Settings/                 ①中立 —— 配置域模型
@@ -139,13 +141,13 @@ LlrpSdk
 
 **生命周期** `ConnectAsync` / `DisconnectAsync` / `ReconnectAsync` / `DisposeAsync`;属性 `ConnectionState` / `IsConnected` / `ConnectionId` / `NegotiatedVersion` / `OperationState` / `ResourceMode` / `IsManagedStateSynchronized` / `Options`
 
-**盘点** `StartInventoryAsync(settings)`(部署+启动,独占资源)/ `StartInventoryAsync()`(启动已部署)/ `StopAsync` / `ClearManagedSettingsAsync` / `SynchronizeStateAsync` / `CurrentInventorySettings`
+**盘点** `StartInventoryAsync(settings)`(部署+启动,默认保留 foreign)/ `StartInventoryAsync()`(启动或协调已部署)/ `StartExistingRoSpecAsync(id)`(接入现有 ROSpec) / `StopAsync` / `ClearManagedSettingsAsync` / `SynchronizeStateAsync` / `CurrentInventorySettings`
 
 **配置** `QuerySettingsAsync` → `ReaderSettingsSnapshot` / `GetDefaultSettingsAsync` / `ValidateSettingsAsync` / `ApplySettingsAsync` / `SetGpoAsync`
 
 **标签访问** `ReadTagMemoryAsync` / `WriteTagMemoryAsync` / `LockTagMemoryAsync` / `KillTagAsync` / `BlockEraseTagMemoryAsync` / `ExecuteTagAccessAsync` / `ExecuteTagAccessSequenceAsync` / `GetTagReportsAsync`
 
-**专家资源与 raw** `RoSpecs` / `AccessSpecs` / `EnterManualResourceModeAsync` / `ExitManualResourceModeAsync` / `Protocol`(raw 收发)/ `ReadMessagesAsync` / `ReadTagReportsAsync` / `Registry`(只读视图 `ILlrpCodecRegistryReader`)/ `RefreshCapabilitiesAsync`
+**专家资源与 raw** `RoSpecs` / `AccessSpecs` / `EnterManualResourceModeAsync` / `ExitManualResourceModeAsync`(不删除资源) / `Protocol`(raw 收发)/ `ReadMessagesAsync` / `ReadTagReportsAsync` / `Registry`(只读视图 `ILlrpCodecRegistryReader`)/ `RefreshCapabilitiesAsync`
 
 **元数据** `Identity` / `Capabilities` / `Extensions`
 
@@ -167,9 +169,10 @@ LlrpSdk
   | `ReadTagReportsAsync()` | 连接级 | 连接级有界 channel,不过滤 | manual/raw 资源模式需要中性报表(专家面) |
 
   `GetTagReportsAsync()` 是另一条轴(拉取):发 `GET_REPORT` 主动取设备缓冲,结果只经返回值交付,不进上述任一出口。
-- **托管资源独占**:高层盘点使用固定 ROSpec 14150 / AccessSpec 14151,部署前删除设备上全部 ROSpec/AccessSpec
-  (LLRP id=0 语义)。raw 或手动资源操作后 `IsManagedStateSynchronized=false`,须 `SynchronizeStateAsync` 或带 Inventory 的
-  `ApplySettingsAsync` 强制接管。
+- **托管资源与观测分离**:高层盘点使用固定 ROSpec 14150 / AccessSpec 14151。默认
+  `ResourceTakeoverPolicy.PreserveForeign` 只替换 SDK 自有资源并保留 foreign；只有显式
+  `ReplaceAll` 才调用 LLRP id=0 删除全部标准 ROSpec/AccessSpec。Raw/专家写入只使观测
+  `Stale/Unknown`，不清空 DesiredState；`SynchronizeStateAsync` 只刷新快照，不是托管调用前置条件。
 - **盘点两段式入口是有意设计**:`StartInventoryAsync(settings)` = 部署+启动(一段式,独占接管);
   `StartInventoryAsync()` = 仅启动"已部署未运行"的托管盘点(两段式第二段,配合 `ApplySettingsAsync`)。
   两个重载共用动词 Start 是"激活"语义统一,不是过设计;参数类型不同故编译期消歧,无已部署配置时无参版抛
@@ -189,13 +192,13 @@ Reader 的只读属性按"是否会变、变了由谁刷"分三档,避免把不�
 
 **快照** —— 可能变,各有唯一刷新入口,不跨职责隐性刷新:
 - `Capabilities` → 刷新口 `RefreshCapabilitiesAsync`(设备能力热变更才需重查;连接初始化那次即默认值)
-- `CurrentInventorySettings` 与托管资源状态 → 刷新口 `QuerySettingsAsync` / `SynchronizeStateAsync` / 盘点生命周期
+- `DesiredSettings` / `CurrentInventorySettings` 保存托管意图；`ReaderResourceSnapshot` 与 `ObservedState` 保存设备观测，刷新口为 `QuerySettingsAsync` / `SynchronizeStateAsync` / 盘点生命周期
 - 原则:每个"拉取"操作只刷新它自己负责的快照。查配置(`QuerySettingsAsync`)不重拉能力,重拉能力(`RefreshCapabilitiesAsync`)不碰配置。
 
 **派生/实时** —— 直接由底层状态机或标志驱动,不缓存:
 - `IsConnected` / `ConnectionState`(连接状态机)
 - `OperationState` / `ResourceMode`(盘点与资源状态机;也会被 `QuerySettingsAsync`/`SynchronizeStateAsync` 对齐)
-- `IsManagedStateSynchronized`(raw 或手动资源操作后为 `false`,`SynchronizeStateAsync` 置回)
+- `IsManagedStateSynchronized`(兼容名称，表示 ROSpec/AccessSpec 观测快照可信度；Raw 写入后可为 `false`，高层 API 不要求先置回)
 
 ## 4. Impinj 扩展 SDK 项目(LlrpSdk.Extensions.Impinj)的内部技术结构
 

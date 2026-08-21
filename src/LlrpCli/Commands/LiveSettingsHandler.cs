@@ -40,20 +40,6 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
 
     private async Task ShowAsync(LlrpReader reader, string[] tokens, CancellationToken cancellationToken)
     {
-        if (reader.ResourceMode == ReaderResourceMode.ManualResources)
-        {
-            throw new CliUsageException(
-                "Manual resource mode is active. Exit it before 'settings show', or use 'settings apply <file> --yes' " +
-                "with Inventory / 'settings apply --defaults --yes' to replace manual resources with SDK-managed state.");
-        }
-
-        if (!reader.IsManagedStateSynchronized)
-        {
-            throw new CliUsageException(
-                "SDK-managed state is unknown after raw or manual resource access. Run 'sync' before 'settings show', " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.");
-        }
-
         bool json = tokens.Any(static token => token.Equals("--json", StringComparison.OrdinalIgnoreCase));
         bool raw = tokens.Any(static token => token.Equals("--raw", StringComparison.OrdinalIgnoreCase));
         if (tokens.Length > 3 || (tokens.Length == 3 && !json && !raw) || (json && raw))
@@ -81,7 +67,6 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         ReaderSettings sourceSettings;
         if (tokens.Length == 2)
         {
-            EnsureSettingsQueryAvailable(reader, "settings edit");
             sourceSettings = (await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false)).Settings;
         }
         else if (tokens.Length == 4 && tokens[2].Equals("--from", StringComparison.OrdinalIgnoreCase))
@@ -129,7 +114,6 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
                 return;
             }
 
-            EnsureSettingsApplyCanProceed(reader, result.Settings);
             SettingsRenderer.RenderApplyImpact(console, result.Settings);
             if (!console.Confirm("Apply these settings to the connected reader?", defaultValue: false))
             {
@@ -150,7 +134,6 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         }
         
         string path = tokens[2];
-        EnsureSettingsQueryAvailable(reader, "settings save");
         ReaderSettings settings = (await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false)).Settings;
         ManagedSettingsWorkflow.Save(reader, path, settings);
         console.MarkupLine($"[bold springgreen2]✔ Reader settings saved to {Markup.Escape(path)}.[/]");
@@ -202,7 +185,6 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
             return;
         }
 
-        EnsureSettingsApplyCanProceed(reader, settings);
         if (!await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
         {
             return;
@@ -222,30 +204,4 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         throw new CliUsageException("Not connected. Run 'connect <host>' first.");
     }
 
-    private static void EnsureSettingsQueryAvailable(LlrpReader reader, string command)
-    {
-        if (reader.ResourceMode == ReaderResourceMode.ManualResources)
-        {
-            throw new CliUsageException(
-                $"Manual resource mode is active. Exit it before '{command}', or use 'settings apply <file> --yes' " +
-                "with Inventory / 'settings apply --defaults --yes' to replace manual resources with SDK-managed state.");
-        }
-
-        if (!reader.IsManagedStateSynchronized)
-        {
-            throw new CliUsageException(
-                $"SDK-managed state is unknown after raw or manual resource access. Run 'sync' before '{command}', " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.");
-        }
-    }
-
-    private static void EnsureSettingsApplyCanProceed(LlrpReader reader, ReaderSettings settings)
-    {
-        if (!reader.IsManagedStateSynchronized && settings.Inventory is null)
-        {
-            throw new CliUsageException(
-                "SDK-managed state is unknown. The settings file must include Inventory to force a takeover; " +
-                "otherwise run 'sync' first.");
-        }
-    }
 }

@@ -23,7 +23,8 @@ public sealed class InventorySession : IAsyncDisposable
         uint roSpecId,
         uint? attachedDataAccessSpecId,
         InventoryRuntimeState initialState,
-        int reportCapacity)
+        int reportCapacity,
+        bool ownsResource = true)
     {
         this.reader = reader;
         this.reportCapacity = reportCapacity;
@@ -37,6 +38,7 @@ public sealed class InventorySession : IAsyncDisposable
         Settings = settings;
         RoSpecId = roSpecId;
         AttachedDataAccessSpecId = attachedDataAccessSpecId;
+        OwnsResource = ownsResource;
         State = initialState;
     }
 
@@ -46,6 +48,7 @@ public sealed class InventorySession : IAsyncDisposable
     internal bool IsCompleted { get; private set; }
     internal uint RoSpecId { get; }
     internal uint? AttachedDataAccessSpecId { get; }
+    internal bool OwnsResource { get; }
 
     public IAsyncEnumerable<TagReport> ReadReportsAsync(CancellationToken cancellationToken = default) =>
         reader.ReadInventorySessionReports(this, cancellationToken);

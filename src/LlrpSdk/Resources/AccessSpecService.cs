@@ -23,22 +23,51 @@ internal sealed class AccessSpecService : IAccessSpecService
     public Task AddAsync(ILlrpParameter accessSpec, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(accessSpec);
-        return reader.ExecuteManualResourceOperationAsync(
-            () => protocolAdapter().AddAccessSpecAsync(reader, messageIds.Next(), accessSpec, cancellationToken), cancellationToken);
+        return AddCoreAsync(accessSpec, cancellationToken);
     }
 
-    public Task DeleteAsync(uint accessSpecId, CancellationToken cancellationToken = default) =>
-        reader.ExecuteManualResourceOperationAsync(
+    private async Task AddCoreAsync(ILlrpParameter accessSpec, CancellationToken cancellationToken)
+    {
+        await reader.ExecuteManualResourceOperationAsync(
+            () => protocolAdapter().AddAccessSpecAsync(reader, messageIds.Next(), accessSpec, cancellationToken), cancellationToken);
+        reader.TrackExpertAccessSpec(accessSpec);
+    }
+
+    public Task DeleteAsync(uint accessSpecId, CancellationToken cancellationToken = default)
+    {
+        if (accessSpecId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(accessSpecId), "Zero selects all resources; use DeleteAllAsync(ResourceTakeoverPolicy.ReplaceAll) explicitly.");
+        }
+
+        return DeleteCoreAsync(accessSpecId, cancellationToken);
+    }
+
+    private async Task DeleteCoreAsync(uint accessSpecId, CancellationToken cancellationToken)
+    {
+        await reader.ExecuteManualResourceOperationAsync(
             () => protocolAdapter().DeleteAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
+        reader.TrackExpertAccessSpecDeleted(accessSpecId);
+    }
+
+    public Task DeleteAllAsync(ResourceTakeoverPolicy policy, CancellationToken cancellationToken = default) =>
+        reader.DeleteAllAccessSpecsAsync(policy, cancellationToken);
 
     public Task EnableAsync(uint accessSpecId, CancellationToken cancellationToken = default) =>
+        accessSpecId == 0
+            ? throw new ArgumentOutOfRangeException(nameof(accessSpecId), "Zero selects all resources; use an explicit takeover policy.")
+            :
         reader.ExecuteManualResourceOperationAsync(
             () => protocolAdapter().EnableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
 
     public Task DisableAsync(uint accessSpecId, CancellationToken cancellationToken = default) =>
+        accessSpecId == 0
+            ? throw new ArgumentOutOfRangeException(nameof(accessSpecId), "Zero selects all resources; use an explicit takeover policy.")
+            :
         reader.ExecuteManualResourceOperationAsync(
             () => protocolAdapter().DisableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
 
     public Task<IReadOnlyList<ILlrpParameter>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        protocolAdapter().GetAccessSpecsAsync(reader, messageIds.Next(), cancellationToken);
+        reader.ExecuteManualResourceQueryAsync(
+            () => protocolAdapter().GetAccessSpecsAsync(reader, messageIds.Next(), cancellationToken), cancellationToken);
 }

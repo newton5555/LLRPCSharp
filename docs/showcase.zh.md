@@ -38,7 +38,7 @@ Registry、异步传输、版本 Adapter 和托管 Reader API。协议资产因�
 
 - **连接与版本协商**：支持协议版本自动协商（1.0.1 / 1.1 / 2.0），并可按策略强制指定版本（1.0.1、1.1 或 2.0）。
 - **有限自动重连**：提供 `LlrpAutomaticReconnectOptions` 和 `WithAutomaticReconnect(...)`，用于意外断线后的重连基线。重连成功后 SDK 会自动查询设备当前 ROSpec/AccessSpec 状态并对齐内部状态（只对齐设备现状，不重放之前的期望配置）。
-- **托管状态同步**：Raw Protocol 操作后会使托管状态失效。需要观察并接管设备现有资源时使用 `SynchronizeStateAsync()`；需要强制恢复 SDK 托管时，直接把目标盘点配置传给 `StartInventoryAsync(settings)` 或带 `Inventory` 的 `ApplySettingsAsync(...)`，SDK 会删除标准资源并重建托管状态，无需先同步。
+- **托管状态同步**：SDK 将持久 DesiredState 与设备 Observed 快照分离。只读 `GET_*` Raw 报文不会使观测失效；写入和精确帧只标记观测 Stale，不清空托管意图。`SynchronizeStateAsync()` 刷新快照供检查，不是托管 API 的前置条件。默认 `PreserveForeign` 只协调 SDK 自有 ID 并保留外部资源；`ReplaceAll` 才是显式全量删除策略。`StartExistingRoSpecAsync(id)` 可把专家/Raw 创建的 ROSpec 接入正常报告 Session，不编译、替换或删除它。
 
 ### 2. 进阶资源控制
 

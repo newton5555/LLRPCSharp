@@ -30,18 +30,10 @@ internal sealed class LiveInventoryHandler(
                         return;
                     }
                     LlrpReader reader = session.Reader!;
-                    if (reader.ResourceMode == ReaderResourceMode.ManualResources)
+                    if (reader.ResourceMode == ReaderResourceMode.ManualResources &&
+                        !await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
                     {
-                        throw new CliUsageException(
-                            "Manual resource mode is active. Run 'settings apply <file> --yes' with Inventory or 'settings apply --defaults --yes' " +
-                            "to explicitly replace manual ROSpec/AccessSpec resources before 'inventory start'.");
-                    }
-                    if (!reader.IsManagedStateSynchronized)
-                    {
-                        throw new CliUsageException(
-                            "SDK-managed state is unknown after raw or manual resource access. Run 'sync' to inspect " +
-                            "existing resources, or run 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to " +
-                            "force a managed takeover, then run 'inventory start'.");
+                        return;
                     }
                     // A fresh SDK connection intentionally does not query ROSpec resources during the connection
                     // handshake. Refresh the managed snapshot here so an already-deployed SDK ROSpec (14150) can
@@ -69,8 +61,8 @@ internal sealed class LiveInventoryHandler(
                             console.MarkupLine("[bold red]inventory start aborted due to validation errors.[/]");
                             return;
                         }
-                        EnsureSettingsApplyCanProceed(reader, requested);
-                        if (!await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
+                        if (reader.ResourceMode == ReaderResourceMode.ManualResources &&
+                            !await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
                         {
                             return;
                         }
@@ -106,7 +98,6 @@ internal sealed class LiveInventoryHandler(
                 {
                     return;
                 }
-                EnsureInventoryStateSynchronized(session.Reader!);
                 await StopAsync(cancellationToken);
                 console.MarkupLine("[bold springgreen2]✔ SDK-managed inventory stopped.[/]");
                 break;
@@ -121,20 +112,9 @@ internal sealed class LiveInventoryHandler(
                 {
                     return;
                 }
-                if (!session.Reader!.IsManagedStateSynchronized)
-                {
-                    console.MarkupLine(
-                        "[yellow]SDK-managed state is unknown after raw or manual resource access. Run 'sync' to inspect " +
-                        "the reader, or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.[/]");
-                    return;
-                }
                 if (refresh)
                 {
-                    if (session.Reader.ResourceMode == ReaderResourceMode.ManualResources)
-                    {
-                        throw new CliUsageException("Manual resource mode is active. Exit it before 'inventory status --refresh'.");
-                    }
-                    await session.Reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
+                    await session.Reader!.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
                 }
                 RenderStatus();
                 break;
@@ -172,26 +152,6 @@ internal sealed class LiveInventoryHandler(
 
         ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync(cancellationToken).ConfigureAwait(false);
         return defaults.Settings;
-    }
-
-    private static void EnsureInventoryStateSynchronized(LlrpReader reader)
-    {
-        if (!reader.IsManagedStateSynchronized)
-        {
-            throw new CliUsageException(
-                "SDK-managed state is unknown after raw or manual resource access. Run 'sync' before 'inventory stop', " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' to force a managed takeover.");
-        }
-    }
-
-    private static void EnsureSettingsApplyCanProceed(LlrpReader reader, ReaderSettings settings)
-    {
-        if (!reader.IsManagedStateSynchronized && settings.Inventory is null)
-        {
-            throw new CliUsageException(
-                "SDK-managed state is unknown. The settings source must include Inventory to force a takeover; " +
-                "otherwise run 'sync' first.");
-        }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)

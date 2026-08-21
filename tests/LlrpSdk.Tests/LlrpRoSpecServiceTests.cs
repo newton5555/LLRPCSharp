@@ -294,6 +294,182 @@ public sealed class LlrpRoSpecServiceTests
         Assert.Equal(2U, Assert.IsType<ROSpec>(Assert.Single(second)).ROSpecID);
     }
 
+    [Fact]
+    public async Task RawAndExpertResourceOperations_AreSerializedByOneOperationBoundary()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        int activeOperations = 0;
+        int maximumActiveOperations = 0;
+
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        transport.OnSendAsync = async (frame, cancellationToken) =>
+        {
+            int active = Interlocked.Increment(ref activeOperations);
+            int observedMaximum;
+            do
+            {
+                observedMaximum = Volatile.Read(ref maximumActiveOperations);
+                if (active <= observedMaximum)
+                {
+                    break;
+                }
+            }
+            while (Interlocked.CompareExchange(
+                       ref maximumActiveOperations,
+                       active,
+                       observedMaximum) != observedMaximum);
+
+            try
+            {
+                LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+                if (header.MessageType == V101Messages.GET_ROSPECS.MessageType)
+                {
+                    transport.EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(header.MessageId));
+                }
+                else if (header.MessageType == V101Messages.KEEPALIVE.MessageType)
+                {
+                    transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(
+                        V101Messages.KEEPALIVE_ACK.MessageType,
+                        header.MessageId));
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref activeOperations);
+            }
+        };
+
+        Task<IReadOnlyList<ILlrpParameter>> expertQuery = reader.RoSpecs.GetAllAsync(timeout.Token);
+        Task<V101Messages.KEEPALIVE_ACK> rawOperation = reader.Protocol.TransactAsync<V101Messages.KEEPALIVE_ACK>(
+            new V101Messages.KEEPALIVE(reader.Protocol.NextMessageId()),
+            cancellationToken: timeout.Token);
+
+        await Task.WhenAll(expertQuery, rawOperation);
+        Assert.Equal(1, Volatile.Read(ref maximumActiveOperations));
+    }
+
+    [Fact]
+    public async Task RawAndHighLevelOperations_AreSerializedByOneOperationBoundary()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var transport = new ScriptedLlrpTransport();
+        var registry = CreateRegistry();
+        int activeOperations = 0;
+        int maximumActiveOperations = 0;
+
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        transport.OnSendAsync = async (frame, cancellationToken) =>
+        {
+            int active = Interlocked.Increment(ref activeOperations);
+            int observedMaximum;
+            do
+            {
+                observedMaximum = Volatile.Read(ref maximumActiveOperations);
+                if (active <= observedMaximum)
+                {
+                    break;
+                }
+            }
+            while (Interlocked.CompareExchange(
+                       ref maximumActiveOperations,
+                       active,
+                       observedMaximum) != observedMaximum);
+
+            try
+            {
+                LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+                LLRPStatus status = new(StatusCode.M_Success, string.Empty, null, null);
+                switch (header.MessageType)
+                {
+                    case V101Messages.ADD_ROSPEC.MessageType:
+                        transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                            V101Messages.ADD_ROSPEC_RESPONSE.MessageType,
+                            header.MessageId));
+                        break;
+                    case V101Messages.DELETE_ROSPEC.MessageType:
+                        transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                            V101Messages.DELETE_ROSPEC_RESPONSE.MessageType,
+                            header.MessageId));
+                        break;
+                    case V101Messages.ENABLE_ROSPEC.MessageType:
+                        transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                            V101Messages.ENABLE_ROSPEC_RESPONSE.MessageType,
+                            header.MessageId));
+                        break;
+                    case V101Messages.DISABLE_ROSPEC.MessageType:
+                        transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                            V101Messages.DISABLE_ROSPEC_RESPONSE.MessageType,
+                            header.MessageId));
+                        break;
+                    case V101Messages.START_ROSPEC.MessageType:
+                        transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                            V101Messages.START_ROSPEC_RESPONSE.MessageType,
+                            header.MessageId));
+                        break;
+                    case V101Messages.STOP_ROSPEC.MessageType:
+                        transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                            V101Messages.STOP_ROSPEC_RESPONSE.MessageType,
+                            header.MessageId));
+                        break;
+                    case V101Messages.DELETE_ACCESSSPEC.MessageType:
+                        transport.EnqueueFrame(registry.EncodeMessage(
+                            LlrpProtocolVersion.Version101,
+                            new V101Messages.DELETE_ACCESSSPEC_RESPONSE(header.MessageId, status)));
+                        break;
+                    case V101Messages.KEEPALIVE.MessageType:
+                        transport.EnqueueFrame(LlrpTestFrames.EmptyMessage(
+                            V101Messages.KEEPALIVE_ACK.MessageType,
+                            header.MessageId));
+                        break;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref activeOperations);
+            }
+        };
+
+        Task<InventorySession> highLevelOperation = reader.StartInventoryAsync(
+            new InventorySettings(),
+            timeout.Token);
+        Task<V101Messages.KEEPALIVE_ACK> rawOperation = reader.Protocol.TransactAsync<V101Messages.KEEPALIVE_ACK>(
+            new V101Messages.KEEPALIVE(reader.Protocol.NextMessageId()),
+            cancellationToken: timeout.Token);
+
+        InventorySession session = await highLevelOperation;
+        await rawOperation;
+        await using (session)
+        {
+            await session.StopAsync(timeout.Token);
+        }
+
+        Assert.Equal(1, Volatile.Read(ref maximumActiveOperations));
+    }
+
+    [Fact]
+    public async Task ExpertWriteFailure_MarksResourceObservationStale()
+    {
+        var transport = new ScriptedLlrpTransport();
+        await using LlrpReader reader = CreateReader(transport);
+        using var connectionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await reader.ConnectAsync(connectionTimeout.Token);
+
+        transport.OnSendAsync = (_, _) => ValueTask.CompletedTask;
+        using var operationTimeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            reader.RoSpecs.DeleteAsync(7, operationTimeout.Token));
+
+        Assert.Equal(ReaderObservedState.Stale, reader.ObservedState);
+        Assert.False(reader.IsManagedStateSynchronized);
+    }
+
     private static void ConfigureSuccessResponses(
         ScriptedLlrpTransport transport,
         IEnumerable<ROSpec>? returnedRoSpecs = null)

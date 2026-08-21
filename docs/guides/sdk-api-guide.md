@@ -170,18 +170,19 @@ InventorySettings saved = InventorySettingsSerializer.LoadFromFile("inventory.js
 await using var session = await reader.StartInventoryAsync(saved);
 ```
 
-> ⚠️ 注意：带 Inventory 意图的部署会先删除设备上**全部** ROSpec/AccessSpec（SDK 完全接管设备资源配置），不要在共享设备上对正在运行的其他托管盘点执行部署型调用。无参 `StartInventoryAsync()` 仅启动已部署资源，不做任何部署或删除。
+> ⚠️ 注意：带 Inventory 意图的部署默认使用 `ResourceTakeoverPolicy.PreserveForeign`，只替换 SDK 保留的 ROSpec 14150、AttachedData AccessSpec 14151 及 SDK 自己的临时资源，保留其他应用资源。无参 `StartInventoryAsync()` 仅启动或恢复 SDK 托管资源，不做隐式全量删除。
 
-**⑤ 非托管操作后的强制接管**：如果应用通过 `reader.Protocol`、`reader.RoSpecs` 或
-`reader.AccessSpecs` 使用了非托管资源接口，SDK 会将本地托管状态标记为未知。此时有两种选择：
+**⑤ 非托管操作后的观测与恢复**：如果应用通过 `reader.Protocol`、`reader.RoSpecs` 或
+`reader.AccessSpecs` 使用了修改类资源接口，SDK 会把设备观测标为 Stale/Unknown，但保留 DesiredState。
+标准只读 `GET_*` Raw 报文不使观测失效。此时可以：
 
-- 需要保留并检查设备现有资源：调用 `SynchronizeStateAsync()`，再继续无参托管操作；
-- 需要 SDK 完全覆盖设备现状：直接调用 `StartInventoryAsync(desiredInventory)`，或调用带
-  `Inventory` 的 `ApplySettingsAsync(desiredSettings)`。这两个入口会删除全部标准 ROSpec/AccessSpec
-  后重新部署 SDK 托管资源，不需要先同步。
+- 需要查看设备现状：调用 `SynchronizeStateAsync()`，它只刷新 ROSpec/AccessSpec 快照，不清空 DesiredState，且不会把 foreign/manual 资源静默变成 SDK 所有；
+- 需要继续托管盘点：直接调用 `StartInventoryAsync(desiredInventory)` 或带 `Inventory` 的 `ApplySettingsAsync(desiredSettings)`，不需要先同步，默认保留 foreign 资源；
+- 需要验证专家/Raw 创建的 ROSpec：调用 `StartExistingRoSpecAsync(roSpecId)`，会检查、Enable、Start 指定 ID，并返回正常 `InventorySession`，停止时保留该 ROSpec。
 
-这类强制接管会删除其他应用创建的标准资源；仅修改 Reader 全局配置而不提供 `Inventory` 的
-`ApplySettingsAsync` 仍要求先同步，不会隐式删除资源。
+只有显式传入 `ResourceTakeoverPolicy.ReplaceAll` 的 `StartInventoryAsync` / `ApplySettingsAsync`，或调用
+`DeleteAllResourcesAsync(ReplaceAll)` / 资源服务的 `DeleteAllAsync(ReplaceAll)`，才会使用 LLRP ID=0 删除全部标准
+ROSpec/AccessSpec。仅修改 Reader 全局配置而不提供 `Inventory` 不会删除资源，也不要求先同步。
 
 ### 4.2 入口选择：一段式 vs 两段式
 
@@ -189,11 +190,12 @@ await using var session = await reader.StartInventoryAsync(saved);
 
 | 场景 | 入口 | 说明 |
 |---|---|---|
-| **快速/临时盘点** | `StartInventoryAsync(InventorySettings)` | 不重发设备配置（以设备为真相），仅部署盘点 ROSpec 并立即启动；适合临时巡检、快速验证、一次性盘点 |
-| **受控部署 + 显式启动** | `ApplySettingsAsync(ReaderSettings)` → `StartInventoryAsync()` | 先全量下发配置与盘点意图（保持停止），应用确认后再显式启动；适合正式业务流程（与 Impinj Octane 的 `ApplySettings` + `Start()` 一致） |
+| **快速/临时盘点** | `StartInventoryAsync(InventorySettings)` | 部署并启动 SDK ROSpec；默认只替换 SDK 自有资源并保留 foreign ROSpec/AccessSpec |
+| **显式全量接管** | `StartInventoryAsync(settings, ReplaceAll)` 或 `ApplySettingsAsync(settings, ReplaceAll)` | 明确确认后删除全部标准资源，再部署 SDK 资源；适合设备资源确实由当前应用独占的场景 |
+| **受控部署 + 显式启动** | `ApplySettingsAsync(ReaderSettings)` → `StartInventoryAsync()` | 写入 Reader 配置并部署 SDK 资源（默认 PreserveForeign，保持停止），随后显式启动 |
 | **恢复（断电重启/新会话）** | 见 4.1 三种来源 + 显式传入 | 设备重启后 ROSpec 丢失，无参 `StartInventoryAsync()` 会报错，需应用从本地/default 重新部署 |
 
-两段式对应 Octane 官方用法：`Connect` → `QueryDefaultSettings` → `ApplySettings(settings)`（部署，保持停止）→ `Start()`（显式启动）→ `Stop()`。
+两段式对应 Octane 官方用法：`Connect` → `QueryDefaultSettings` → `ApplySettings(settings)`（部署，保持停止）→ `Start()`（显式启动）→ `Stop()`。`Stop` 默认只停用 SDK 会话/ROSpec，不删除 foreign 资源；`ExitManualResourceModeAsync` 同样不会删除资源。
 
 ---
 

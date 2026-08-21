@@ -23,8 +23,14 @@ internal sealed class RoSpecService : IRoSpecService
     public Task AddAsync(ILlrpParameter roSpec, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(roSpec);
-        return reader.ExecuteManualResourceOperationAsync(
+        return AddCoreAsync(roSpec, cancellationToken);
+    }
+
+    private async Task AddCoreAsync(ILlrpParameter roSpec, CancellationToken cancellationToken)
+    {
+        await reader.ExecuteManualResourceOperationAsync(
             () => protocolAdapter().AddRoSpecAsync(reader, messageIds.Next(), roSpec, cancellationToken), cancellationToken);
+        reader.TrackExpertRoSpec(roSpec);
     }
 
     public Task AddDefaultAsync(uint roSpecId, InventorySettings settings, CancellationToken cancellationToken = default)
@@ -37,15 +43,37 @@ internal sealed class RoSpecService : IRoSpecService
         return AddAsync(reader.CompileDefaultInventoryRoSpec(settings, roSpecId), cancellationToken);
     }
 
-    public Task DeleteAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
-        reader.ExecuteManualResourceOperationAsync(
+    public Task DeleteAsync(uint roSpecId, CancellationToken cancellationToken = default)
+    {
+        if (roSpecId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(roSpecId), "Zero selects all resources; use DeleteAllAsync(ResourceTakeoverPolicy.ReplaceAll) explicitly.");
+        }
+
+        return DeleteCoreAsync(roSpecId, cancellationToken);
+    }
+
+    private async Task DeleteCoreAsync(uint roSpecId, CancellationToken cancellationToken)
+    {
+        await reader.ExecuteManualResourceOperationAsync(
             () => protocolAdapter().DeleteRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
+        reader.TrackExpertRoSpecDeleted(roSpecId);
+    }
+
+    public Task DeleteAllAsync(ResourceTakeoverPolicy policy, CancellationToken cancellationToken = default) =>
+        reader.DeleteAllRoSpecsAsync(policy, cancellationToken);
 
     public Task EnableAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
+        roSpecId == 0
+            ? throw new ArgumentOutOfRangeException(nameof(roSpecId), "Zero selects all resources; use an explicit takeover policy.")
+            :
         reader.ExecuteManualResourceOperationAsync(
             () => protocolAdapter().EnableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
     public Task DisableAsync(uint roSpecId, CancellationToken cancellationToken = default) =>
+        roSpecId == 0
+            ? throw new ArgumentOutOfRangeException(nameof(roSpecId), "Zero selects all resources; use an explicit takeover policy.")
+            :
         reader.ExecuteManualResourceOperationAsync(
             () => protocolAdapter().DisableRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
@@ -58,5 +86,6 @@ internal sealed class RoSpecService : IRoSpecService
             () => protocolAdapter().StopRoSpecAsync(reader, messageIds.Next(), roSpecId, cancellationToken), cancellationToken);
 
     public Task<IReadOnlyList<ILlrpParameter>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        protocolAdapter().GetRoSpecsAsync(reader, messageIds.Next(), cancellationToken);
+        reader.ExecuteManualResourceQueryAsync(
+            () => protocolAdapter().GetRoSpecsAsync(reader, messageIds.Next(), cancellationToken), cancellationToken);
 }
