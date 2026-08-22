@@ -43,6 +43,7 @@ dotnet run --project tools/LlrpSdk.LiveSmoke -- <reader-host>
 ## 已记录证据
 
 | 日期 | 设备 | 结果 |
+| 2026-08-22 | 真机环境不可用（预期设备 `192.168.41.148` 未接入） | SDK 2.0.3 发布前硬件验收未执行；曾尝试 `dotnet run --project tools/LlrpSdk.LiveSmoke -- 192.168.41.148 --inventory`，连接在自动版本协商阶段关闭。未写标签或设备配置。 |
 | 2026-08-20 | Seuic UF40 `192.168.41.148`，LLRP 1.0.1，Manufacturer `57690`、Model `40`、Firmware `1.0.0.233`，1 天线 | SDK 2.0.1 Release 真机验收：显式执行 `LlrpCli inventory 192.168.41.148 --llrp 1.0.1 --vendor seuic --duration 10 --output json --yes`，强制 `Version101` 连接、Seuic profile 和默认配置成功，10 秒收到 32 个唯一标签（全部来自天线 1，峰值 RSSI -58 至 -77），输出确认 `managedInventoryCleared=true`、`readerConfigurationRetained=true`；未写标签或设备配置。 |
 | 2026-08-19 | Impinj R420 `192.168.40.87`，LLRP 1.0.1，Manufacturer `25882`、Model `2001002`、Firmware `6.4.1.240`，4 天线 | SDK 2.0.0 Release 冒烟：首次 `LiveSmoke --inventory` 正确拒绝替换已有 SDK-managed ROSpec；随后使用显式 `--clear-managed --yes` 清理托管资源，再独立连接执行 `--inventory`，协商 `Version101`、Impinj 扩展和能力/配置读取成功，收到 EPC `E28011710000020D056E9D0E`（天线 2、RSSI -22）。工具完成 Stop/Clear 清理；未写标签或设备配置。 |
 | 2026-08-14 | 标准 LLRP 设备 `192.168.40.88`，LLRP 1.0.1，Manufacturer `161`、Model `96008`、Firmware `3.32.37.0`，8 天线 | `LlrpSdk.Hardware.Tests` 真机执行 **6/6 通过**（`StandardReaderHardwareTests` 4 项 + `PhysicalReaderConformanceTests` 2 项，标准路径 Force101）：连接/能力初始化、默认配置与查询、天线配置原值回写不丢失 `RFTransmitter` 字段、盘点收到标签并完成 Stop/Clear 清理。本次运行验证适配器边界重构后的反向路径：`QuerySettingsAsync`/`SynchronizeStateAsync` 经 `ILlrpProtocolAdapter.ParseManagedRoSpec` 反解析真实设备 ROSpec。未写标签；配置仅原值回写。 |
