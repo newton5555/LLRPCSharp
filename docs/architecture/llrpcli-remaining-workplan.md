@@ -7,10 +7,8 @@
 
 ## 实施进度速览
 
-- [x] A 段(WP4):`ManualModeGuard.TryAutoExitManualModeAsync` 已实现并接入
-  `LiveSettingsHandler.ApplyAsync` 与 `LiveInventoryHandler` start one-shot;
-  `manual on` 已加自动 `sync` 前置;有资源确认/无资源静默两分支已实现;
-  纯函数 `ShouldPromptToDelete` 已单测。
+- [x] A 段(WP4):旧资源模式流程已由两控制面架构取代；当前专家资源在 Ready 后直通，
+  托管部署统一使用 PreserveForeign/显式 ReplaceAll 与容量预检。
 - [x] B E2:能力交叉引用(`RenderRfModeHint`/`RenderTxRxHint` 已加)。
 - [x] B E1:厂商扩展泛化(`EditVendorExtensions` 拆为 Impinj + Zebra 分支)。
 - [x] B E4:内联校验(population/ReportEveryN 加 `.Validate`)。
@@ -22,82 +20,44 @@
 
 ---
 
-## A. WP4 收尾:托管调用在 manual 模式自动 off
+## A. WP4 收尾（已被两控制面架构取代）
 
 父计划 8/13 节已定行为:
 
-1. 托管调用(settings apply --yes 带 Inventory、inventory start --defaults/--settings)在 ResourceMode == ManualResources 时自动 off;
-2. 设备上有非托管资源 -> 提示 将删除 N 个 ROSpec / M 个 AccessSpec 并要求确认(默认否);
-3. 无资源 -> 静默退出 manual 模式;
-4. 显式 manual off 不额外确认(已实现);
-5. manual on 需要时自动 sync 前置(见 A.3)。
+1. 托管调用统一在同一 operation lock 下完成能力查询、容量预检和部署；
+2. PreserveForeign 保留 foreign 资源，容量冲突提示显式 ReplaceAll；
+3. 专家资源调用在 Ready 后直接可用，写入后观测 stale、DesiredState 保留。
 
 ### A.1 现状核实
 
-- 前端 manual on|off|status 已在 LiveCommand.HandleResourcesAsync(约 629 行)实现,走 LiveCommandRoute.Manual,catalog 入口已改为 manual。
+- 前端资源模式入口已删除；CommandCatalog 只保留托管入口和专家协议入口。
 - SDK 原语齐备(勿在 CLI 重新实现):
   - reader.RoSpecs.GetAllAsync(ct) / reader.AccessSpecs.GetAllAsync(ct) -> IReadOnlyList<ILlrpParameter>,直接 .Count(src/LlrpSdk/Resources/*Service.cs)。
-  - reader.EnterManualResourceModeAsync(ct)(LlrpReader.cs:1509):处于 HighLevelConfigured/Running 会抛 InvalidOperationException。
-  - reader.ExitManualResourceModeAsync(ct)(LlrpReader.cs:1531):内部 DeleteAllResourcesAsync 后置 ResourceMode = Idle。
+  - `reader.RoSpecs` / `reader.AccessSpecs` 在 Ready 后直接调用；SDK 不再提供资源模式切换 API。
 - 托管 apply 入口两处:
   - LiveSettingsHandler.ApplyAsync(LiveSettingsHandler.cs:156 附近,--defaults|--yes|--json)
   - LiveInventoryHandler.HandleAsync 的 start 分支 one-shot 路径(LiveInventoryHandler.cs:58-80,deploy 前后)。
 
 ### A.2 实施步骤
 
-新增共享 helper(建议放 LiveSettingsHandler.cs 或新文件 ManualModeGuard.cs,internal static):
+旧的模式守卫 helper 已删除；ManagedSettingsWorkflow 统一承载
+`ResourceTakeoverPolicy.PreserveForeign` / `ReplaceAll`，并在同一 operation lock 内完成容量预检。
+`RoSpecs.GetAllAsync` 始终直接发送 GET_ROSPECS，不缓存也不受额外模式门控。
+
+### A.3 直接专家资源调用
+
+现状:专家资源调用无需先同步；写入后 SDK 将观测标记 stale，调用方可直接 sync 或由托管 API 重新接管:
 
 ```csharp
-// 返回:true = 可继续;false = 用户已拒绝/已输出消息,调用方 return
-internal static async Task<bool> TryAutoExitManualModeAsync(
-    IAnsiConsole console, LlrpReader reader, CancellationToken ct)
-{
-    if (reader.ResourceMode != ReaderResourceMode.ManualResources) return true;
-    IReadOnlyList<ILlrpParameter> ro = await reader.RoSpecs.GetAllAsync(ct);
-    IReadOnlyList<ILlrpParameter> acc = await reader.AccessSpecs.GetAllAsync(ct);
-    if (ro.Count == 0 && acc.Count == 0)
-    {
-        await reader.ExitManualResourceModeAsync(ct);
-        return true; // 静默退出
-    }
-    console.MarkupLine($"[yellow]Manual mode holds {ro.Count} ROSpec / {acc.Count} AccessSpec.[/]");
-    if (!console.Confirm("Delete them and return to managed mode?", defaultValue: false))
-    {
-        console.MarkupLine("[yellow]Cancelled. Exit manual mode first ('manual off') or confirm deletion.[/]");
-        return false;
-    }
-    await reader.ExitManualResourceModeAsync(ct);
-    return true;
-}
-```
-
-注意:RoSpecs.GetAllAsync 在 ManualResources 态是否有额外门控需编译后小跑确认(RoSpecService.GetAllAsync 当前实现仅转发 adapter)。如遇异常按 OperationCanceledException/协议异常传播,不吞。
-
-挂接点(各 1 行):
-
-1. LiveSettingsHandler.ApplyAsync:在 DeployAsync 之前(已过 EnsureSettingsApplyCanProceed)调用:
-   if (!await TryAutoExitManualModeAsync(console, reader, cancellationToken)) return;
-2. LiveInventoryHandler start one-shot 分支:在 ManagedSettingsWorkflow.DeployAsync 之前同样调用(约 LiveInventoryHandler.cs:58)。
-
-### A.3 manual on 自动 sync 前置
-
-现状:on 分支直接 EnterManualResourceModeAsync,!IsManagedStateSynchronized 时 SDK 会抛 state unknown。改为:
-
-```csharp
-case "on":
-    if (!_session.Reader.IsManagedStateSynchronized)
-    {
-        await _session.Reader.SynchronizeStateAsync(cancellationToken);
-        _console.MarkupLine("[grey]State synchronized before entering manual mode.[/]");
-    }
-    await _session.Reader.EnterManualResourceModeAsync(cancellationToken);
+await _session.Reader.RoSpecs.GetAllAsync(cancellationToken);
+await _session.Reader.RoSpecs.AddAsync(roSpec, cancellationToken);
 ```
 
 ### A.4 验收
 
 - 单测:两分支(有资源确认拒绝/接受、无资源静默)走 fake IAnsiConsole;helper 提为 internal static 供测试。
 - dotnet test tests/LLRPCli.Tests 绿色(当前 31,不得回归)。
-- 实机(可选,记入 docs/acceptance/reader-interoperability.md):R420(192.168.40.87)上 manual on -> inventory start --defaults 走确认/静默两路。
+- 实机(可选,记入 docs/acceptance/reader-interoperability.md):验证专家 CRUD、stale/DesiredState 和 PreserveForeign/ReplaceAll 接管。
 
 ---
 
@@ -203,7 +163,7 @@ case "on":
 
 ## C. 完成后统一收口(WP8 续)
 
-- 同步 docs/guides/cli-user-guide.md(settings 编辑器/盘点/manual 段落)、docs/status.md、docs/roadmap.md(把 settings 编辑器增强、manual 自动 off 标为已完成),父计划 llrpcli-optimization-plan.md 状态更新为已实施。
+- 同步 docs/guides/cli-user-guide.md(settings 编辑器/盘点/两控制面段落)、docs/status.md、docs/roadmap.md，父计划 llrpcli-optimization-plan.md 状态更新为已实施。
 - docs/architecture/llrpcli-target-commands.md 无需大改(A/B 均已在其目标态内)。
 
 ---
@@ -211,5 +171,5 @@ case "on":
 ## D. 依赖与风险
 
 - reader.Capabilities 在未连接为 null:所有 E2 路径必须容 null。
-- RoSpecs.GetAllAsync 在 ManualResources 态的行为需编译后小跑确认(见 A.2 注释);若 SDK 有门控,改在 ExitManualResourceModeAsync 前用 SynchronizeStateAsync 或直接按现状计数。
+- RoSpecs.GetAllAsync 的直查与容量预检需保持同一 operation lock；设备最终状态码仍是专家 API 的权威裁决。
 - E1 依赖 Zebra 扩展布尔字段名,实施时以 src/LlrpSdk.Extensions.Zebra 实际代码为准(勿信记忆)。

@@ -607,6 +607,42 @@ public sealed class LlrpReaderInitializationTests
     }
 
     [Fact]
+    public async Task Capabilities_MapsResourceLimitsAndPreservesExplicitZero()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponseWithResourceLimits(
+                messageId,
+                new LLRPCapabilities(
+                    CanDoRFSurvey: false,
+                    CanReportBufferFillWarning: false,
+                    SupportsClientRequestOpSpec: false,
+                    CanDoTagInventoryStateAwareSingulation: false,
+                    SupportsEventAndReportHolding: false,
+                    MaxNumPriorityLevelsSupported: 0,
+                    ClientRequestOpSpecTimeout: 0,
+                    MaxNumROSpecs: 0,
+                    MaxNumSpecsPerROSpec: 7,
+                    MaxNumInventoryParameterSpecsPerAISpec: 3,
+                    MaxNumAccessSpecs: 2,
+                    MaxNumOpSpecsPerAccessSpec: 5),
+                maxNumSelectFiltersPerQuery: 4),
+        };
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        ReaderResourceLimits limits = Assert.IsType<ReaderCapabilities>(reader.Capabilities).ResourceLimits;
+        Assert.Equal((uint)0, limits.MaxNumROSpecs);
+        Assert.Equal((uint)7, limits.MaxNumSpecsPerROSpec);
+        Assert.Equal((uint)3, limits.MaxNumInventoryParameterSpecsPerAISpec);
+        Assert.Equal((uint)2, limits.MaxNumAccessSpecs);
+        Assert.Equal((uint)5, limits.MaxNumOpSpecsPerAccessSpec);
+        Assert.Equal((uint)0, limits.MaxNumPriorityLevelsSupported);
+        Assert.Equal((uint)4, limits.MaxNumSelectFiltersPerQuery);
+    }
+
+    [Fact]
     public async Task Capabilities_WithoutLlrpCapabilities_ExposesFalseClientRequestOpSpecGate()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

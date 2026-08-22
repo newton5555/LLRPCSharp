@@ -154,10 +154,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         case LiveCommandRoute.AccessSpec:
                             await HandleAccessSpecAsync(tokens, cancellationToken);
                             break;
-                        case LiveCommandRoute.Resources:
-                        case LiveCommandRoute.Manual:
-                            await HandleResourcesAsync(tokens, cancellationToken);
-                            break;
                         case LiveCommandRoute.Settings:
                             await _settingsHandler.HandleAsync(tokens, cancellationToken);
                             break;
@@ -199,6 +195,14 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                         default:
                             throw new InvalidOperationException($"Unsupported live command route '{command.Route}'.");
                     }
+                }
+            }
+            catch (LlrpResourceCapacityException exception)
+            {
+                _console.MarkupLine($"[bold red]Resource capacity failed:[/] {Markup.Escape(exception.Message)}");
+                if (exception.TakeoverPolicy == ResourceTakeoverPolicy.PreserveForeign)
+                {
+                    _console.MarkupLine("[yellow]Retry the managed command with --replace-all when replacing foreign resources is intended.[/]");
                 }
             }
             catch (Exception ex)
@@ -346,6 +350,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
                 capabilities.RxSensitivities,
                 capabilities.TxFrequencies,
                 capabilities.RfModes,
+                ResourceLimits = capabilities.ResourceLimits,
                 AdditionalParameterCount = capabilities.AdditionalParameters.Count,
             }, new JsonSerializerOptions { WriteIndented = true }));
             return;
@@ -367,6 +372,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             }
             table.AddRow("Transmit frequencies", capabilities.TxFrequencies.Count.ToString());
             table.AddRow("RF mode entries", capabilities.RfModes.Count.ToString());
+            table.AddRow("Max ROSpecs", capabilities.ResourceLimits.MaxNumROSpecs?.ToString() ?? "unknown");
+            table.AddRow("Max AccessSpecs", capabilities.ResourceLimits.MaxNumAccessSpecs?.ToString() ?? "unknown");
+            table.AddRow("Max OpSpecs/AccessSpec", capabilities.ResourceLimits.MaxNumOpSpecsPerAccessSpec?.ToString() ?? "unknown");
+            table.AddRow("Max Select Filters", capabilities.ResourceLimits.MaxNumSelectFiltersPerQuery?.ToString() ?? "unknown");
             table.AddRow("Additional Parameters", $"[cyan1]{capabilities.AdditionalParameters.Count}[/]");
 
             var panel = new Panel(table)
@@ -510,33 +519,32 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         string subAction = tokens[1].ToLowerInvariant();
-        // Starting an already-installed ROSpec is a normal lifecycle operation. It does not add, replace,
-        // or delete a resource, so it can be issued directly and the SDK will mark its observation stale.
-        if (subAction is "add" or "enable" or "disable" or "stop" or "delete")
-        {
-            EnsureManualResourceWriteAvailable(_session.Reader, $"rospec {subAction}");
-        }
-
         uint rospecId = 1;
         if (tokens.Length >= 3 && uint.TryParse(tokens[2], out uint parsedId))
         {
             rospecId = parsedId;
         }
 
+        if (rospecId == LlrpReader.ManagedInventoryRoSpecId && subAction is "enable" or "disable" or "start" or "stop" or "delete")
+        {
+            _console.MarkupLine("[yellow]ROSpec 14150 is SDK-reserved; this expert write will invalidate managed ObservedState while retaining DesiredState.[/]");
+        }
+
         switch (subAction)
         {
             case "add":
                 var existingRoSpecs = await _session.Reader.RoSpecs.GetAllAsync(cancellationToken);
-                if (existingRoSpecs.Count != 0)
+                ReaderResourceLimits? limits = _session.Reader.Capabilities?.ResourceLimits;
+                if (limits?.MaxNumROSpecs is uint maxRoSpecs && existingRoSpecs.Count >= maxRoSpecs)
                 {
-                    _console.MarkupLine("[yellow]Default ROSpec was not created: the reader already has ROSpec resources. Use 'rospec list' to inspect them.[/]");
+                    _console.MarkupLine($"[yellow]Cannot add ROSpec: current count {existingRoSpecs.Count} reached advertised limit {maxRoSpecs}. Use managed settings or explicit --replace-all when appropriate.[/]");
                     return;
                 }
 
                 (uint defaultRoSpecId, InventorySettings defaultSettings) = ParseDefaultRoSpecSettings(tokens);
-                if (defaultRoSpecId == 14150)
+                if (defaultRoSpecId == LlrpReader.ManagedInventoryRoSpecId)
                 {
-                    throw new CliUsageException("ROSpec ID 14150 is reserved for high-level inventory.");
+                    _console.MarkupLine("[yellow]ROSpec 14150 is the managed recognition ID; this expert add will invalidate managed ObservedState while retaining DesiredState.[/]");
                 }
                 _console.MarkupLine($"[grey]Creating disabled SDK-default ROSpec {defaultRoSpecId}...[/]");
                 await _session.Reader.RoSpecs.AddDefaultAsync(defaultRoSpecId, defaultSettings, cancellationToken);
@@ -575,6 +583,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             default:
                 _console.MarkupLine($"[red]Unknown rospec sub-command '{subAction}'.[/]");
                 return;
+        }
+
+        if (subAction is not "list" && _session.Reader.ObservedState == ReaderObservedState.Stale)
+        {
+            _console.MarkupLine("[yellow]ObservedState is stale; DesiredState was retained. Use 'sync' to inspect or managed settings/inventory APIs to take over again.[/]");
         }
 
     }
@@ -625,34 +638,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         return values.Select(static item => ushort.Parse(item)).Distinct().ToArray();
     }
 
-    private async Task HandleResourcesAsync(string[] tokens, CancellationToken cancellationToken)
-    {
-        if (_session.Reader is null || !_session.Reader.IsConnected)
-        {
-            _console.MarkupLine("[yellow]Not connected. Run 'connect <host>' first.[/]");
-            return;
-        }
-
-        string action = (tokens.Length >= 2 ? tokens[1] : "status").ToLowerInvariant();
-        switch (action)
-        {
-            case "on":
-                await _session.Reader.EnterManualResourceModeAsync(cancellationToken);
-                _console.MarkupLine("[green]Manual resource mode on. ROSpec and AccessSpec writes are now enabled.[/]");
-                break;
-            case "off":
-                await _session.Reader.ExitManualResourceModeAsync(cancellationToken);
-                _console.MarkupLine("[green]Manual resource mode off; existing ROSpec/AccessSpec resources were preserved.[/]");
-                break;
-            case "status":
-                _console.MarkupLine($"Resource mode: [cyan]{_session.Reader.ResourceMode}[/]");
-                break;
-            default:
-                _console.MarkupLine("[red]Usage:[/] manual on|off|status");
-                break;
-        }
-    }
-
     private async Task HandleAccessSpecAsync(string[] tokens, CancellationToken cancellationToken)
     {
         if (_session.Reader is null || !_session.Reader.IsConnected)
@@ -668,15 +653,15 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         }
 
         string subAction = tokens[1].ToLowerInvariant();
-        if (subAction is "enable" or "disable" or "delete")
-        {
-            EnsureManualResourceWriteAvailable(_session.Reader, $"accessspec {subAction}");
-        }
-
         uint accessSpecId = 1;
         if (tokens.Length >= 3 && uint.TryParse(tokens[2], out uint parsedId))
         {
             accessSpecId = parsedId;
+        }
+
+        if (accessSpecId == LlrpReader.ManagedInventoryAttachedDataAccessSpecId && subAction is "enable" or "disable" or "delete")
+        {
+            _console.MarkupLine("[yellow]AccessSpec 14151 is SDK-reserved for managed AttachedData; this expert write will invalidate managed ObservedState while retaining DesiredState.[/]");
         }
 
         switch (subAction)
@@ -704,6 +689,11 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             default:
                 _console.MarkupLine("[red]Usage:[/] accessspec list|enable|disable|delete [[id]]");
                 return;
+        }
+
+        if (subAction is not "list" && _session.Reader.ObservedState == ReaderObservedState.Stale)
+        {
+            _console.MarkupLine("[yellow]ObservedState is stale; DesiredState was retained. Use 'sync' to inspect or managed settings/inventory APIs to take over again.[/]");
         }
 
     }
@@ -783,16 +773,6 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
         _console.MarkupLine("[grey]Synchronizing reader-managed ROSpec and AccessSpec state...[/]");
         await _session.Reader.SynchronizeStateAsync(cancellationToken);
         _console.MarkupLine("[bold springgreen2]✔ Device resource snapshot refreshed; DesiredState was preserved.[/]");
-    }
-
-    private static void EnsureManualResourceWriteAvailable(LlrpReader reader, string command)
-    {
-        if (reader.ResourceMode != ReaderResourceMode.ManualResources)
-        {
-            throw new CliUsageException(
-                $"'{command}' changes ROSpec/AccessSpec resources. Run 'manual on' first, " +
-                "or use 'settings apply <file> --yes' with Inventory / 'settings apply --defaults --yes' for a managed takeover.");
-        }
     }
 
     private static ushort? ParseRawResponseType(string[] options)
@@ -911,11 +891,10 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
 
         // 分组 4: 进阶底层资源操控 (Advanced Resource API)
         table.AddRow("[bold yellow1]─── ⚙️ 进阶底层资源操控 (Advanced Resource API) ───[/]", "");
-        table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "start 可直接启动已有 ROSpec；其余写操作需 manual on");
-        table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "manual on 后管理 AccessSpec 资源；查询不改变状态");
-        table.AddRow("  [cyan1]manual on|off|status[/]", "显式进入/退出专家资源模式；off 不删除资源");
+        table.AddRow("  [cyan1]rospec add|list|enable|disable|start|stop|delete [[id]][/]", "专家 ROSpec 资源；连接 Ready 后可直接操作，写入会使 ObservedState stale");
+        table.AddRow("  [cyan1]accessspec list|enable|disable|delete [[id]][/]", "专家 AccessSpec 资源；连接 Ready 后可直接操作");
         table.AddRow("  [cyan1]raw send|transact <hex> [[--response-type type]] --yes[/]", "精准发送或收发原始二进制 Hex 报文");
-        table.AddRow("  [cyan1]sync[/]", "刷新设备资源快照并保留 DesiredState；需要覆盖时使用高层 API 的显式 ReplaceAll 策略");
+        table.AddRow("  [cyan1]sync[/]", "刷新设备资源快照并保留 DesiredState；专家写入后可检查 stale 状态");
 
         // 分组 5: 报文工具与终端
         table.AddRow("[bold yellow1]─── 🛠️ 报文工具与终端 (Codec & Utilities) ───[/]", "");
@@ -964,7 +943,7 @@ public sealed class LiveCommand : AsyncCommand<LiveSettings>
             optionsTable.AddRow(Markup.Escape("show [--json|--raw]"), "Command", "Read the connected reader settings");
             optionsTable.AddRow(Markup.Escape("edit [--from reader|defaults|<file>]"), "Command", "Interactively edit and optionally apply settings");
             optionsTable.AddRow(Markup.Escape("validate <file>"), "Command", "Validate a settings file against the connected reader");
-            optionsTable.AddRow(Markup.Escape("apply --defaults --yes | <file> --yes [--json]"), "Command", "Validate and apply reader settings or SDK defaults; --yes confirms deployment");
+            optionsTable.AddRow(Markup.Escape("apply --defaults|<file> --yes [--replace-all] [--json]"), "Command", "Validate and apply reader settings; --replace-all explicitly replaces foreign resources");
             optionsTable.AddRow(Markup.Escape("save <file>"), "Command", "Save the current reader settings to a JSON file");
 
             _console.Write(new Panel(optionsTable)

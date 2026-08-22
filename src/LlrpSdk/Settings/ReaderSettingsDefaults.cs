@@ -125,7 +125,8 @@ public sealed record ReaderSettingsDefaults
             })
             .ToArray();
 
-        InventorySettings? inventory = antennaIds.Length == 0
+        bool roSpecsExplicitlyUnsupported = capabilities.ResourceLimits.MaxNumROSpecs == 0;
+        InventorySettings? inventory = antennaIds.Length == 0 || roSpecsExplicitlyUnsupported
             ? null
             : new InventorySettings
             {
@@ -138,6 +139,10 @@ public sealed record ReaderSettingsDefaults
         if (antennaIds.Length == 0)
         {
             notes.Add("The reader advertised no usable antenna count; Inventory is omitted until capabilities are available.");
+        }
+        else if (roSpecsExplicitlyUnsupported)
+        {
+            notes.Add("The reader explicitly advertises MaxNumROSpecs=0; Inventory is omitted because no managed ROSpec can be deployed.");
         }
 
         return new ReaderSettingsDefaults

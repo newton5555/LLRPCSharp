@@ -35,7 +35,7 @@ CLI 有两个入口:
 |---|---|---|
 | P1 | 托管盘点必须两段式(settings 部署 → inventory start);one-shot `inventory` 却一段式,两套实现 | `LiveInventoryHandler.cs:58-70` vs `InventoryCommand.cs:137-142` |
 | P2 | 状态门控长文案重复 6+ 处 | `LiveInventoryHandler`/`LiveSettingsHandler`/`LiveCommand` 多处 |
-| P3 | rospec/accessspec 双重仪式(先 sync 再 resources manual enter) | `LiveCommand.cs:642-643,802-810` |
+| P3 | rospec/accessspec 双重仪式(先 sync 再资源模式切换) | `LiveCommand.cs` |
 | P4 | monitor 两条重叠入口,参数语法不一致 | `LiveMonitorHandler.cs:91-124` vs `LiveInventoryHandler.cs:159-214` |
 | P5 | `inventory start` 与 one-shot `inventory` 双实现 | `LiveInventoryHandler` vs `InventoryCommand` |
 | P6 | tag 命令 `--op read:bank:word:count` 冒号字符串,无补全校验 | `LiveTagAccessHandler.cs:142-228` |
@@ -109,7 +109,7 @@ CLI 有两个入口:
 
 **第二梯队(体验)**
 - D2:状态门控文案收敛 + 下一步建议,可选 `--force`(保守)。
-- D3:`rospec/accessspec/resources` 收成单一 manual 流程,消除双重仪式。
+- D3:`rospec/accessspec` 收成专家协议控制面，消除额外模式仪式。
 
 **第三梯队(消重 + 可选)**
 - D5:monitor 入口合一(P4)。
@@ -127,7 +127,7 @@ CLI 有两个入口:
 - `settings validate` 独立保留(只校验,不写设备);`settings apply` 语义单一(写设备,`--yes` 确认)。
 - 一段式盘点用 `inventory start --defaults` 与 `--settings <file>` 两个旗标。
 - 不引入 `--force`(保留 `--yes` + 显式接管语义)。
-- `manual on/off/status` 命名确认;托管调用在 manual 模式时**自动 off**:设备有非托管 ROSpec/AccessSpec → 提示确认(默认否,显示将删除的数量),无资源 → 静默退出;显式 `manual off` 不额外确认。
+- 旧资源模式命令不再作为控制面；专家 ROSpec/AccessSpec 命令在 Ready 后直接执行，托管接管由 `PreserveForeign`/显式 `--replace-all` 决定。
 - 非法 vendor×version 组合:**自动降级为标准 LLRP(丢弃厂商)+ 显式警告**,不拒绝连接(§11)。
 - 旧命令(`resources`/`settings defaults`/`settings load`)**直接移除,不保留别名**(§15)。
 
@@ -168,7 +168,7 @@ CLI 有两个入口:
 
 ## 13. 命令细节残留设计项
 
-- `manual on`:需要时自动 `sync` + `EnterManualResourceModeAsync`(SDK 要求托管配置已清,否则报错);`manual off` 删除全部资源回 Idle;`manual status` 查询。托管调用(`inventory start --defaults/--settings`、`settings apply --yes` 带 Inventory)在 manual 模式时自动 off:设备有非托管资源 → 提示"将删除 N 个 ROSpec / M 个 AccessSpec"确认(默认否),无资源 → 静默退出。
+- 专家资源命令(`rospec`/`accessspec`/`raw`)直接进入协议控制面；托管调用(`inventory start --defaults/--settings`、`settings apply --yes` 带 Inventory)在部署前按能力预检容量，冲突时建议显式 `--replace-all`。
 - `inventory start`:同时给 `--defaults` 与 `--settings` → 报错;两者都不给 = 两段式第二段(现状)。
 - `tag sequence`:结构化旗标 `--read bank:word:count` / `--write bank:word:data` / `--erase` / `--lock target:privilege` / `--kill pwd`,可重复、按出现顺序执行。
 - `settings apply --json`:统一 JSON 输出形态(成功/失败结构,与 one-shot `inventory` 对齐)。
@@ -177,7 +177,7 @@ CLI 有两个入口:
 
 ## 14. 测试与验收
 
-- **单元/交互测试新增点**:版本解析器(`"2"`→2.0、别名)、vendor×version 组合校验、一段式盘点、apply/validate 语义、`manual on/off`、`tag sequence` 结构化、离线工具 `--llrp`。
+- **单元/交互测试新增点**:版本解析器(`"2"`→2.0、别名)、vendor×version 组合校验、一段式盘点、apply/validate 语义、专家直接 CRUD 与容量提示、`tag sequence` 结构化、离线工具 `--llrp`。
 - **实机验收**(按 AGENTS.md 记入 acceptance 表):
   - 2.0 协商:SDK 层已实现但**未实机验证**;CLI 接 2.0 后需在支持设备上验证;
   - Zebra:192.168.40.88(FX9600),CLI `--vendor zebra` 走它;
@@ -205,7 +205,7 @@ CLI 有两个入口:
 | WP1 对齐:版本/厂商覆盖(A1-A7) | 修 `"2"→Force20` 错映射与别名;`--vendor zebra`;`Helpers.CreateRegistry()` 注册全版本/厂商模块;banner 版本取程序集;`encode` 加 `--llrp` 且目录单源;`LlrpFrameAnalyzer` 状态提取去 1.0.1 硬编码 | `ProtocolVersionPolicyParser.cs`、`VendorExtensionModeParser.cs`、`CliConnectionOptions.cs`、`Helpers.cs`、`EncodeCommand.cs`、`LiveProtocolDiagnostics.cs`、`LlrpFrameAnalyzer.cs`、`LiveCommand.cs` | LlrpCli.Tests 新增:版本解析(`"2"`→2.0、别名)、decode/validate 1.1/2.0 帧、Zebra custom 帧解码、encode `--llrp 2.0` |
 | WP2 settings 收缩(§5.2/§5.4) | 7→5:`show/validate/apply/edit/save`;`apply --defaults`;移除 `defaults/load`;双校验消除;门控文案收口;flags 统一 | `LiveSettingsHandler.cs`、`ManagedSettingsWorkflow.cs`、`CommandCatalog.cs` | `apply` 无 `--yes` = 校验+预览+停止(不写设备);`validate` 零副作用;现有 settings 测试迁移 |
 | WP3 一段式盘点(P1/P5) | `inventory start --defaults\|--settings`;与 one-shot `inventory` 共用部署/启动/清理核心 | `LiveInventoryHandler.cs`、`InventoryCommand.cs`(抽共用 workflow) | 交互式一段式可跑;one-shot 行为不回归 |
-| WP4 manual on/off(§8/§13) | `manual on/off/status`;托管调用自动 off + 非托管资源确认;移除 `resources`/`clear` 旧命令(不保留别名) | `LiveCommand.cs`、`CommandCatalog.cs`、`LiveInventoryHandler.cs`、`LiveSettingsHandler.cs` | manual 流程测试;自动 off 的确认/静默两分支;`rospec add` 前置自动 sync |
+| WP4 两控制面收口(§8/§13) | 移除资源模式命令；专家 CRUD 直通；托管容量预检与 `--replace-all` | `LiveCommand.cs`、`CommandCatalog.cs`、`LiveInventoryHandler.cs`、`LiveSettingsHandler.cs` | 专家直通测试；托管 PreserveForeign/ReplaceAll 与容量错误测试 |
 | WP5 monitor 合一 + tag sequence 结构化(P4/P6) | `monitor` 与 `inventory start --monitor` 参数统一;`tag sequence` 改 `--read/--write/--erase/--lock/--kill` 结构化旗标 | `LiveMonitorHandler.cs`、`LiveInventoryHandler.cs`、`LiveTagAccessHandler.cs`、`CommandCatalog.cs` | 参数解析测试;补全候选同步 |
 | WP6 消重(D1-D4) | standalone 与 live-shell 四命令合体;树遍历合并;hex 解析统一 | `LiveProtocolDiagnostics.cs` + 四个 Command、`FrameRenderer.cs`、`LlrpFrameAnalyzer.cs`、`TagAccessCliRequest.cs` | 行为不变;同一报文渲染一致 |
 | WP7 编辑器增强(§5.3 优先级 E2→E1→E4→E3→E5→E6→E7) | 逐项独立小步,每步带测试 | `SettingsEditor.cs`(可能拆文件) | 每项交付即验收 |

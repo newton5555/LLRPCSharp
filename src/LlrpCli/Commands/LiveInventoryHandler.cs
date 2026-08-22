@@ -30,14 +30,9 @@ internal sealed class LiveInventoryHandler(
                         return;
                     }
                     LlrpReader reader = session.Reader!;
-                    if (reader.ResourceMode == ReaderResourceMode.ManualResources &&
-                        !await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
-                    {
-                        return;
-                    }
                     // A fresh SDK connection intentionally does not query ROSpec resources during the connection
                     // handshake. Refresh the managed snapshot here so an already-deployed SDK ROSpec (14150) can
-                    // be started directly from the CLI without requiring a prior manual `settings show` command.
+                    // be started directly from the CLI without requiring a prior `settings show` command.
                     if (reader.CurrentInventorySettings is null)
                     {
                         await reader.QuerySettingsAsync(cancellationToken).ConfigureAwait(false);
@@ -53,6 +48,14 @@ internal sealed class LiveInventoryHandler(
                     if (oneShot)
                     {
                         ReaderSettings requested = await OneShotInventorySourceAsync(reader, tokens, cancellationToken).ConfigureAwait(false);
+                        bool replaceAll = tokens.Any(static token => token.Equals("--replace-all", StringComparison.OrdinalIgnoreCase));
+                        if (replaceAll && requested.Inventory is null)
+                        {
+                            throw new CliUsageException("inventory start --replace-all requires Inventory intent; Inventory=null does not take over resources.");
+                        }
+                        ResourceTakeoverPolicy takeoverPolicy = replaceAll
+                            ? ResourceTakeoverPolicy.ReplaceAll
+                            : ResourceTakeoverPolicy.PreserveForeign;
                         SettingsValidationResult validation = await ManagedSettingsWorkflow.ValidateAsync(
                             reader, requested, cancellationToken).ConfigureAwait(false);
                         if (!validation.IsValid)
@@ -61,17 +64,12 @@ internal sealed class LiveInventoryHandler(
                             console.MarkupLine("[bold red]inventory start aborted due to validation errors.[/]");
                             return;
                         }
-                        if (reader.ResourceMode == ReaderResourceMode.ManualResources &&
-                            !await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
-                        {
-                            return;
-                        }
                         SettingsRenderer.RenderApplyImpact(console, requested);
                         // Deploy remains Disabled (StartTrigger not wired here) exactly like settings apply;
                         // the explicit StartInventoryAsync below activates it.
-                        await ManagedSettingsWorkflow.DeployAsync(reader, requested, cancellationToken).ConfigureAwait(false);
+                        await ManagedSettingsWorkflow.DeployAsync(reader, requested, cancellationToken, takeoverPolicy).ConfigureAwait(false);
                     }
-                    else if (reader.CurrentInventorySettings is null)
+                    else if (reader.CurrentInventorySettings is null && reader.DesiredSettings?.Inventory is null)
                     {
                         throw new CliUsageException("The reader has no deployed Inventory. Run 'settings apply <file> --yes' with Inventory or 'settings apply --defaults --yes', then 'inventory start'.");
                     }
@@ -83,7 +81,11 @@ internal sealed class LiveInventoryHandler(
                         throw new CliUsageException("inventory start --monitor-duration requires --monitor live or --monitor frames.");
                     }
 
-                    session.InventorySession = await reader.StartInventoryAsync(cancellationToken);
+                    bool startReplaceAll = tokens.Any(static token => token.Equals("--replace-all", StringComparison.OrdinalIgnoreCase));
+                    session.InventorySession = await reader.StartInventoryAsync(
+                        oneShot ? ResourceTakeoverPolicy.PreserveForeign :
+                            (startReplaceAll ? ResourceTakeoverPolicy.ReplaceAll : ResourceTakeoverPolicy.PreserveForeign),
+                        cancellationToken);
                     RenderStartedSummary(session.InventorySession.Settings);
                     await monitor.MonitorAsync(monitorMode, monitorDurationSeconds, filterType: null, cancellationToken);
                     break;
@@ -141,7 +143,7 @@ internal sealed class LiveInventoryHandler(
         string[] tokens,
         CancellationToken cancellationToken)
     {
-        for (int index = 2; index < tokens.Length; index += 2)
+        for (int index = 2; index + 1 < tokens.Length; index++)
         {
             if (tokens[index].Equals("--settings", StringComparison.OrdinalIgnoreCase)
                 && index + 1 < tokens.Length)
@@ -170,10 +172,16 @@ internal sealed class LiveInventoryHandler(
 
     private static LiveMonitorMode ParseStartMonitorMode(string[] tokens)
     {
-        for (int index = 2; index < tokens.Length; index += 2)
+        // --replace-all is a boolean option, so options are not necessarily aligned as
+        // name/value pairs. Scan for --monitor rather than assuming a fixed stride.
+        for (int index = 2; index < tokens.Length; index++)
         {
             if (tokens[index].Equals("--monitor", StringComparison.OrdinalIgnoreCase))
             {
+                if (index + 1 >= tokens.Length)
+                {
+                    throw new CliUsageException("Usage: inventory start [--defaults|--settings <file>] [--replace-all] [--monitor live|frames|none] [--monitor-duration seconds]");
+                }
                 return ParseMonitorMode(tokens[index + 1]);
             }
         }
@@ -185,30 +193,46 @@ internal sealed class LiveInventoryHandler(
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         bool useDefaults = false;
         bool useSettings = false;
-        for (int index = 2; index < tokens.Length; index += 2)
+        for (int index = 2; index < tokens.Length;)
         {
             string option = tokens[index];
+            if (option.Equals("--replace-all", StringComparison.OrdinalIgnoreCase))
+            {
+                index++;
+                continue;
+            }
             bool knownOption = option.Equals("--monitor", StringComparison.OrdinalIgnoreCase)
                 || option.Equals("--monitor-duration", StringComparison.OrdinalIgnoreCase)
                 || option.Equals("--defaults", StringComparison.OrdinalIgnoreCase)
                 || option.Equals("--settings", StringComparison.OrdinalIgnoreCase);
-            if (!knownOption || index + 1 >= tokens.Length)
+            if (!knownOption)
             {
-                throw new CliUsageException("Usage: inventory start [--defaults|--settings <file>] [--monitor live|frames|none] [--monitor-duration seconds]");
+                throw new CliUsageException("Usage: inventory start [--defaults|--settings <file>] [--replace-all] [--monitor live|frames|none] [--monitor-duration seconds]");
+            }
+            if (option.Equals("--defaults", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!seen.Add(option))
+                {
+                    throw new CliUsageException($"{option} may only be specified once.");
+                }
+                useDefaults = true;
+                index++;
+                continue;
+            }
+            if (index + 1 >= tokens.Length)
+            {
+                throw new CliUsageException("Usage: inventory start [--defaults|--settings <file>] [--replace-all] [--monitor live|frames|none] [--monitor-duration seconds]");
             }
             if (!seen.Add(option))
             {
                 throw new CliUsageException($"{option} may only be specified once.");
             }
 
-            if (option.Equals("--defaults", StringComparison.OrdinalIgnoreCase))
-            {
-                useDefaults = true;
-            }
-            else if (option.Equals("--settings", StringComparison.OrdinalIgnoreCase))
+            if (option.Equals("--settings", StringComparison.OrdinalIgnoreCase))
             {
                 useSettings = true;
             }
+            index += 2;
         }
 
         if (useDefaults && useSettings)
@@ -219,7 +243,7 @@ internal sealed class LiveInventoryHandler(
 
     private static int? ParseStartMonitorDurationSeconds(string[] tokens)
     {
-        for (int index = 2; index < tokens.Length; index += 2)
+        for (int index = 2; index + 1 < tokens.Length; index++)
         {
             if (tokens[index].Equals("--monitor-duration", StringComparison.OrdinalIgnoreCase))
             {
@@ -282,7 +306,7 @@ internal sealed class LiveInventoryHandler(
 
     private void RenderUsage()
     {
-        console.MarkupLine("[red]Usage:[/] inventory start [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status [[--refresh]]");
+        console.MarkupLine("[red]Usage:[/] inventory start [[--defaults|--settings <file>]] [[--replace-all]] [[--monitor live|frames|none]] [[--monitor-duration seconds]] | stop | status [[--refresh]]");
     }
 
 }

@@ -6,7 +6,7 @@ namespace LlrpCli.Commands;
 /// <summary>Implements the stable Live Shell settings command contract.</summary>
 internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionContext session)
 {
-    public const string Usage = "settings show [--json|--raw] | validate <file> | apply [--defaults|<file>] --yes [--json] | edit [--from reader|defaults|<file>] | save <file>";
+    public const string Usage = "settings show [--json|--raw] | validate <file> | apply [--defaults|<file>] --yes [--replace-all] [--json] | edit [--from reader|defaults|<file>] | save <file>";
 
     public async Task HandleAsync(string[] tokens, CancellationToken cancellationToken)
     {
@@ -157,16 +157,18 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
         bool confirmed = tokens.Any(static token => token.Equals("--yes", StringComparison.OrdinalIgnoreCase));
         bool useDefaults = tokens.Any(static token => token.Equals("--defaults", StringComparison.OrdinalIgnoreCase));
         bool json = tokens.Any(static token => token.Equals("--json", StringComparison.OrdinalIgnoreCase));
+        bool replaceAll = tokens.Any(static token => token.Equals("--replace-all", StringComparison.OrdinalIgnoreCase));
         string[] positional = tokens.Skip(2)
             .Where(static token => !token.Equals("--yes", StringComparison.OrdinalIgnoreCase))
             .Where(static token => !token.Equals("--defaults", StringComparison.OrdinalIgnoreCase))
             .Where(static token => !token.Equals("--json", StringComparison.OrdinalIgnoreCase))
+            .Where(static token => !token.Equals("--replace-all", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
         bool hasFile = positional.Length == 1;
         if (!confirmed || (useDefaults && hasFile) || (!useDefaults && !hasFile))
         {
-            throw new CliUsageException("Usage: settings apply --defaults --yes  |  settings apply <file> --yes [--json]");
+            throw new CliUsageException("Usage: settings apply --defaults|<file> --yes [--replace-all] [--json]");
         }
 
         ReaderSettings settings = useDefaults
@@ -185,12 +187,15 @@ internal sealed class LiveSettingsHandler(IAnsiConsole console, LiveSessionConte
             return;
         }
 
-        if (!await ManualModeGuard.TryAutoExitManualModeAsync(console, reader, cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
         SettingsRenderer.RenderApplyImpact(console, settings);
-        ReaderSettingsSnapshot deployed = await ManagedSettingsWorkflow.DeployAsync(reader, settings, cancellationToken).ConfigureAwait(false);
+        if (replaceAll && settings.Inventory is null)
+        {
+            throw new CliUsageException("settings apply --replace-all requires Inventory intent; Inventory=null applies configuration only and does not take over resources.");
+        }
+        ResourceTakeoverPolicy takeoverPolicy = replaceAll
+            ? ResourceTakeoverPolicy.ReplaceAll
+            : ResourceTakeoverPolicy.PreserveForeign;
+        ReaderSettingsSnapshot deployed = await ManagedSettingsWorkflow.DeployAsync(reader, settings, cancellationToken, takeoverPolicy).ConfigureAwait(false);
         SettingsRenderer.RenderSummary(console, "Applied settings", deployed.Settings, deployed.ManagedRoSpec?.State);
         console.MarkupLine("[bold springgreen2]✔ Settings applied. Inventory remains Disabled until 'inventory start'.[/]");
     }

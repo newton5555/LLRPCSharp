@@ -119,12 +119,23 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
         bool canDoRfSurvey = response.LLRPCapabilities?.CanDoRFSurvey ?? false;
         bool isBlockWrite = false;
         bool isBlockErase = false;
+        C1G2LLRPCapabilities? c1g2Caps = response.AirProtocolLLRPCapabilities as C1G2LLRPCapabilities;
 
-        if (response.AirProtocolLLRPCapabilities is C1G2LLRPCapabilities c1g2Caps)
+        if (c1g2Caps is not null)
         {
             isBlockWrite = c1g2Caps.CanSupportBlockWrite;
             isBlockErase = c1g2Caps.CanSupportBlockErase;
         }
+
+        LLRPCapabilities? llrpCaps = response.LLRPCapabilities;
+        ReaderResourceLimits resourceLimits = ReaderResourceLimits.FromLlrp(
+            llrpCaps?.MaxNumPriorityLevelsSupported,
+            llrpCaps?.MaxNumROSpecs,
+            llrpCaps?.MaxNumSpecsPerROSpec,
+            llrpCaps?.MaxNumInventoryParameterSpecsPerAISpec,
+            llrpCaps?.MaxNumAccessSpecs,
+            llrpCaps?.MaxNumOpSpecsPerAccessSpec,
+            c1g2Caps?.MaxNumSelectFiltersPerQuery);
 
         return new ReaderCapabilities(
             general.MaxNumberOfAntennaSupported,
@@ -143,7 +154,8 @@ internal sealed class Llrp101ProtocolAdapter : ILlrpProtocolAdapter
             isBlockErase,
             canDoStateAware,
             supportsClientRequestOpSpec,
-            canDoRfSurvey);
+            canDoRfSurvey,
+            resourceLimits: resourceLimits);
     }
 
     public ILlrpParameter CompileInventory(

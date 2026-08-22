@@ -11,8 +11,6 @@ public enum LiveCommandRoute
     Frames,
     RoSpec,
     AccessSpec,
-    Manual,
-    Resources,
     Settings,
     TagAccess,
     Raw,
@@ -62,29 +60,25 @@ public static class CommandCatalog
         {
             CompletionCandidates = ["--raw", "--json"],
         },
-        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, validate, apply, edit, or save ReaderSettings; apply --defaults absorbs the old defaults command; Inventory applies can take over after raw access.", RequiresConnection: true)
+        new("settings", LiveCommandRoute.Settings, LiveSettingsHandler.Usage, "Show, validate, apply, edit, or save ReaderSettings; use --replace-all for explicit destructive takeover.", RequiresConnection: true)
         {
-            CompletionCandidates = ["show", "edit", "validate", "apply", "save", "--json", "--raw", "--yes", "--from", "--defaults"],
+            CompletionCandidates = ["show", "edit", "validate", "apply", "save", "--json", "--raw", "--yes", "--from", "--defaults", "--replace-all"],
         },
         new("tag", LiveCommandRoute.TagAccess, "tag read|write|lock|kill|erase|sequence <epc> [options]", "Read, write, lock, kill, erase, or sequence tag memory operations.", RequiresConnection: true)
         {
             CompletionCandidates = ["read", "write", "lock", "kill", "erase", "sequence", "--op", "--read", "--write", "--erase", "--lock", "--kill", "--bank", "--word", "--count", "--data", "--privilege", "--target", "--kill-pwd", "--antenna", "--password", "--timeout", "--yes", "user", "tid", "epc", "reserved", "unlock", "perma-lock", "read:tid:0:2", "write:user:0:1234"],
         },
-        new("inventory", LiveCommandRoute.Inventory, "inventory start [--monitor live|frames|none] [--monitor-duration seconds] | stop | status [--refresh]", "Control the Reader-deployed high-level inventory after state sync or managed takeover.")
+        new("inventory", LiveCommandRoute.Inventory, "inventory start [--defaults|--settings <file>] [--replace-all] [--monitor live|frames|none] [--monitor-duration seconds] | stop | status [--refresh]", "Control managed inventory; --replace-all explicitly replaces foreign resources.")
         {
-            CompletionCandidates = ["start", "stop", "status", "--monitor", "--monitor-duration", "--refresh", "live", "frames", "none", "30", "60"],
+            CompletionCandidates = ["start", "stop", "status", "--defaults", "--settings", "--replace-all", "--monitor", "--monitor-duration", "--refresh", "live", "frames", "none", "30", "60"],
         },
-        new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Start an installed ROSpec directly; use manual mode for other ROSpec writes.", RequiresConnection: true)
+        new("rospec", LiveCommandRoute.RoSpec, "rospec add [--id n] [AISpec options] | list|enable|disable|start|stop|delete [id]", "Expert ROSpec protocol resources; writes are available whenever connected.", RequiresConnection: true)
         {
             CompletionCandidates = ["add", "list", "enable", "disable", "start", "stop", "delete", "--id", "--antennas", "--mode", "--tari", "--session", "--population", "all"],
         },
-        new("accessspec", LiveCommandRoute.AccessSpec, "accessspec list|enable|disable|delete [id]", "Manage AccessSpecs after entering manual resource mode.", RequiresConnection: true)
+        new("accessspec", LiveCommandRoute.AccessSpec, "accessspec list|enable|disable|delete [id]", "Expert AccessSpec protocol resources; writes are available whenever connected.", RequiresConnection: true)
         {
             CompletionCandidates = ["list", "enable", "disable", "delete"],
-        },
-        new("manual", LiveCommandRoute.Manual, "manual on|off|status", "Enter (on) or exit (off) manual resource mode, or query its status. Managed calls auto-exit manual mode.", RequiresConnection: true)
-        {
-            CompletionCandidates = ["manual", "enter", "exit", "status", "clear"],
         },
         new("raw", LiveCommandRoute.Raw, "raw send|transact <hex> [--response-type type] --yes", "Send an exact LLRP frame; resource observation may become stale while DesiredState is retained.", RequiresConnection: true),
         new("sync", LiveCommandRoute.Synchronize, "sync", "Refresh the device ROSpec/AccessSpec snapshot without clearing DesiredState.", RequiresConnection: true),

@@ -512,7 +512,7 @@ public sealed class VirtualDeviceSdkInteropTests
     }
 
     [Fact]
-    public async Task ManualMode_HighLevelTakeoverAndRawSynchronizationFollowResourceContract()
+    public async Task ManagedAndRawSynchronizationFollowResourceContract()
     {
         await using var host = CreateHost();
         await host.StartAsync();
@@ -528,8 +528,6 @@ public sealed class VirtualDeviceSdkInteropTests
         await reader.ConnectAsync(timeout.Token);
         Assert.Equal(ReaderResourceMode.Idle, reader.ResourceMode);
 
-        await reader.EnterManualResourceModeAsync(timeout.Token);
-        Assert.Equal(ReaderResourceMode.ManualResources, reader.ResourceMode);
         await reader.RoSpecs.AddDefaultAsync(600, new InventorySettings(), timeout.Token);
 
         await reader.StartInventoryAsync(new InventorySettings(), timeout.Token);
@@ -542,7 +540,6 @@ public sealed class VirtualDeviceSdkInteropTests
                 Assert.IsType<LlrpNet.Protocol.Parameters.V1_0_1.ROSpec>(resource).ROSpecID == 600U);
             Assert.Contains(resources, static resource =>
                 Assert.IsType<LlrpNet.Protocol.Parameters.V1_0_1.ROSpec>(resource).ROSpecID == 14150U);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => reader.EnterManualResourceModeAsync(timeout.Token));
         }
         finally
         {
@@ -582,9 +579,7 @@ public sealed class VirtualDeviceSdkInteropTests
         await using LlrpReader reader = CreateReader(host.BoundPort);
         await reader.ConnectAsync(timeout.Token);
 
-        await reader.EnterManualResourceModeAsync(timeout.Token);
         await reader.RoSpecs.AddDefaultAsync(600, new InventorySettings(), timeout.Token);
-        await reader.ExitManualResourceModeAsync(timeout.Token);
 
         var afterExit = await reader.RoSpecs.GetAllAsync(timeout.Token);
         Assert.Contains(afterExit, static resource =>
@@ -613,9 +608,7 @@ public sealed class VirtualDeviceSdkInteropTests
         await using LlrpReader reader = CreateReader(host.BoundPort);
         await reader.ConnectAsync(timeout.Token);
 
-        await reader.EnterManualResourceModeAsync(timeout.Token);
         await reader.RoSpecs.AddDefaultAsync(600, new InventorySettings(), timeout.Token);
-        await reader.ExitManualResourceModeAsync(timeout.Token);
 
         await using InventorySession preserved = await reader.StartInventoryAsync(
             new InventorySettings(),
@@ -723,6 +716,35 @@ public sealed class VirtualDeviceSdkInteropTests
 
         Assert.Equal(InventoryRuntimeState.Disabled, previous.State);
         Assert.Equal(ReaderResourceMode.StateUnknown, reader.ResourceMode);
+        Assert.Same(desired, reader.DesiredSettings!.Inventory);
+
+        await using InventorySession recovered = await reader.StartInventoryAsync(timeout.Token);
+        Assert.Equal(ReaderResourceMode.HighLevelRunning, reader.ResourceMode);
+        Assert.Same(desired, recovered.Settings);
+        await recovered.StopAsync(timeout.Token);
+    }
+
+    [Fact]
+    public async Task ExpertDeleteOfManagedRoSpec_EndsSessionAndManagedStartReclaimsIt()
+    {
+        await using var host = CreateHost();
+        await host.StartAsync();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using LlrpReader reader = CreateReader(host.BoundPort);
+        await reader.ConnectAsync(timeout.Token);
+        var desired = new InventorySettings { Session = 2, TagPopulationEstimate = 16 };
+        await using InventorySession previous = await reader.StartInventoryAsync(desired, timeout.Token);
+
+        await reader.RoSpecs.StopAsync(14150, timeout.Token);
+        await reader.RoSpecs.DeleteAsync(14150, timeout.Token);
+
+        Assert.Equal(InventoryRuntimeState.Disabled, previous.State);
+        Assert.Equal(ReaderResourceMode.StateUnknown, reader.ResourceMode);
+        Assert.Same(desired, reader.DesiredSettings!.Inventory);
+
+        await reader.SynchronizeStateAsync(timeout.Token);
+        Assert.Null(reader.CurrentInventorySettings);
         Assert.Same(desired, reader.DesiredSettings!.Inventory);
 
         await using InventorySession recovered = await reader.StartInventoryAsync(timeout.Token);

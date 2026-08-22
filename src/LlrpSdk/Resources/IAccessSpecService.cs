@@ -3,7 +3,7 @@ using LlrpNet.Protocol.Parameters;
 namespace LlrpSdk;
 
 /// <summary>
-/// Provides managed request/response operations for AccessSpec resources on one ready reader connection.
+/// Provides expert protocol convenience operations for AccessSpec resources on one ready reader connection.
 /// </summary>
 /// <remarks>
 /// This advanced API sends operations directly to the reader and does not maintain a local AccessSpec cache.

@@ -217,6 +217,8 @@ LLRP 版本差异由 `ILlrpProtocolAdapter` 屏蔽。业务层面对统一的 `L
 
 - Protocol Module：连接前注册 Custom Message/Parameter、Codec 和类型映射。
 - Reader Extension：标准初始化后按 Manufacturer/Model/Firmware/ProtocolVersion 匹配并激活厂商能力。
+- 如果没有任何 Reader Extension 匹配，连接仍按标准 SDK 完成：不发送厂商初始化命令，也不运行厂商
+  Settings/TagReport contributor；应用在应用厂商 Settings 前必须检查扩展是否已激活。
 
 同一 wire identity 的 Codec 冲突必须失败，不能静默覆盖。同一非空互斥组的多个 Reader Extension 同时匹配时，应拒绝连接或要求显式选择。
 

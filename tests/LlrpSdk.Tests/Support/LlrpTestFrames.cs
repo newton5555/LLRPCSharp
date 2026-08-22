@@ -118,6 +118,25 @@ internal static class LlrpTestFrames
         return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
     }
 
+    public static byte[] CapabilitiesResponseWithResourceLimits(
+        uint messageId,
+        LLRPCapabilities llrpCapabilities,
+        ushort maxNumSelectFiltersPerQuery)
+    {
+        var response = new V101Messages.GET_READER_CAPABILITIES_RESPONSE(
+            messageId,
+            new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
+            GeneralCapabilities(),
+            llrpCapabilities,
+            null,
+            new C1G2LLRPCapabilities(
+                CanSupportBlockErase: true,
+                CanSupportBlockWrite: true,
+                MaxNumSelectFiltersPerQuery: maxNumSelectFiltersPerQuery),
+            []);
+        return Registry.EncodeMessage(LlrpProtocolVersion.Version101, response);
+    }
+
     public static byte[] CapabilitiesResponseWithDuplicateGeneral(uint messageId)
     {
         byte[] frame = CapabilitiesResponse(messageId);

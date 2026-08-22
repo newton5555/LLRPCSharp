@@ -86,6 +86,7 @@ public sealed class CapsCommand : AsyncCommand<CapsCommandSettings>
                     txPowers = capabilities.TxPowers,
                     rxSensitivities = capabilities.RxSensitivities,
                     rfModes = capabilities.RfModes,
+                    resourceLimits = capabilities.ResourceLimits,
                     additionalParameterCount = capabilities.AdditionalParameters.Count,
                 }, new JsonSerializerOptions { WriteIndented = true }));
             }
@@ -101,6 +102,10 @@ public sealed class CapsCommand : AsyncCommand<CapsCommandSettings>
                 table.AddRow("Tx Power Entries", capabilities.TxPowers.Count.ToString());
                 table.AddRow("Rx Sensitivity Entries", capabilities.RxSensitivities.Count.ToString());
                 table.AddRow("RF Modes", capabilities.RfModes.Count.ToString());
+                table.AddRow("Max ROSpecs", capabilities.ResourceLimits.MaxNumROSpecs?.ToString() ?? "unknown");
+                table.AddRow("Max AccessSpecs", capabilities.ResourceLimits.MaxNumAccessSpecs?.ToString() ?? "unknown");
+                table.AddRow("Max OpSpecs/AccessSpec", capabilities.ResourceLimits.MaxNumOpSpecsPerAccessSpec?.ToString() ?? "unknown");
+                table.AddRow("Max Select Filters", capabilities.ResourceLimits.MaxNumSelectFiltersPerQuery?.ToString() ?? "unknown");
                 console.Write(table);
             }
             return 0;

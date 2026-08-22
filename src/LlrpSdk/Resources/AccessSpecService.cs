@@ -28,9 +28,8 @@ internal sealed class AccessSpecService : IAccessSpecService
 
     private async Task AddCoreAsync(ILlrpParameter accessSpec, CancellationToken cancellationToken)
     {
-        await reader.ExecuteManualResourceOperationAsync(
+        await reader.ExecuteExpertResourceOperationAsync(
             () => protocolAdapter().AddAccessSpecAsync(reader, messageIds.Next(), accessSpec, cancellationToken), cancellationToken);
-        reader.TrackExpertAccessSpec(accessSpec);
     }
 
     public Task DeleteAsync(uint accessSpecId, CancellationToken cancellationToken = default)
@@ -45,9 +44,8 @@ internal sealed class AccessSpecService : IAccessSpecService
 
     private async Task DeleteCoreAsync(uint accessSpecId, CancellationToken cancellationToken)
     {
-        await reader.ExecuteManualResourceOperationAsync(
+        await reader.ExecuteExpertResourceOperationAsync(
             () => protocolAdapter().DeleteAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
-        reader.TrackExpertAccessSpecDeleted(accessSpecId);
     }
 
     public Task DeleteAllAsync(ResourceTakeoverPolicy policy, CancellationToken cancellationToken = default) =>
@@ -57,17 +55,17 @@ internal sealed class AccessSpecService : IAccessSpecService
         accessSpecId == 0
             ? throw new ArgumentOutOfRangeException(nameof(accessSpecId), "Zero selects all resources; use an explicit takeover policy.")
             :
-        reader.ExecuteManualResourceOperationAsync(
+        reader.ExecuteExpertResourceOperationAsync(
             () => protocolAdapter().EnableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
 
     public Task DisableAsync(uint accessSpecId, CancellationToken cancellationToken = default) =>
         accessSpecId == 0
             ? throw new ArgumentOutOfRangeException(nameof(accessSpecId), "Zero selects all resources; use an explicit takeover policy.")
             :
-        reader.ExecuteManualResourceOperationAsync(
+        reader.ExecuteExpertResourceOperationAsync(
             () => protocolAdapter().DisableAccessSpecAsync(reader, messageIds.Next(), accessSpecId, cancellationToken), cancellationToken);
 
     public Task<IReadOnlyList<ILlrpParameter>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        reader.ExecuteManualResourceQueryAsync(
+        reader.ExecuteExpertResourceQueryAsync(
             () => protocolAdapter().GetAccessSpecsAsync(reader, messageIds.Next(), cancellationToken), cancellationToken);
 }

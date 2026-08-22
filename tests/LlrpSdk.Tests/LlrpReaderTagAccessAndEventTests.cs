@@ -489,6 +489,103 @@ public sealed class LlrpReaderTagAccessAndEventTests
             message is V101.DELETE_ACCESSSPEC { AccessSpecID: 0 });
     }
 
+    [Fact]
+    public async Task ExecuteTagAccessSequence_RejectsAdvertisedOpSpecLimitBeforeResourceMutation()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponseWithResourceLimits(
+                messageId,
+                new LLRPCapabilities(
+                    CanDoRFSurvey: false,
+                    CanReportBufferFillWarning: false,
+                    SupportsClientRequestOpSpec: false,
+                    CanDoTagInventoryStateAwareSingulation: false,
+                    SupportsEventAndReportHolding: false,
+                    MaxNumPriorityLevelsSupported: 1,
+                    ClientRequestOpSpecTimeout: 0,
+                    MaxNumROSpecs: 1,
+                    MaxNumSpecsPerROSpec: 1,
+                    MaxNumInventoryParameterSpecsPerAISpec: 1,
+                    MaxNumAccessSpecs: 1,
+                    MaxNumOpSpecsPerAccessSpec: 1),
+                maxNumSelectFiltersPerQuery: 1),
+        };
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        LlrpResourceCapacityException exception = await Assert.ThrowsAsync<LlrpResourceCapacityException>(() =>
+            reader.ExecuteTagAccessSequenceAsync(
+                new TagAccessSequenceRequest
+                {
+                    Operations =
+                    [
+                        new ReadTagRequest { Selection = MatchAllSelection(), MemoryBank = TagMemoryBank.Tid, WordCount = 1 },
+                        new ReadTagRequest { Selection = MatchAllSelection(), MemoryBank = TagMemoryBank.User, WordCount = 1 },
+                    ],
+                },
+                cancellationToken: timeout.Token));
+
+        Assert.Equal("OpSpec", exception.ResourceType);
+        Assert.Equal((uint)1, exception.Limit);
+        Assert.DoesNotContain(
+            transport.SentFrames,
+            static frame => LlrpMessageHeader.Decode(frame).MessageType is V101.ADD_ROSPEC.MessageType or V101.ADD_ACCESSSPEC.MessageType);
+    }
+
+    [Fact]
+    public async Task ExecuteTagAccess_RejectsZeroAccessSpecCapacityBeforeCreatingInventory()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponseWithResourceLimits(
+                messageId,
+                new LLRPCapabilities(
+                    CanDoRFSurvey: false,
+                    CanReportBufferFillWarning: false,
+                    SupportsClientRequestOpSpec: false,
+                    CanDoTagInventoryStateAwareSingulation: false,
+                    SupportsEventAndReportHolding: false,
+                    MaxNumPriorityLevelsSupported: 1,
+                    ClientRequestOpSpecTimeout: 0,
+                    MaxNumROSpecs: 1,
+                    MaxNumSpecsPerROSpec: 1,
+                    MaxNumInventoryParameterSpecsPerAISpec: 1,
+                    MaxNumAccessSpecs: 0,
+                    MaxNumOpSpecsPerAccessSpec: 1),
+                maxNumSelectFiltersPerQuery: 1),
+        };
+        transport.OnSendAsync = (frame, _) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            if (header.MessageType == V101.GET_ACCESSSPECS.MessageType)
+            {
+                transport.EnqueueFrame(Registry.EncodeMessage(
+                    LlrpProtocolVersion.Version101,
+                    new V101.GET_ACCESSSPECS_RESPONSE(
+                        header.MessageId,
+                        new LLRPStatus(StatusCode.M_Success, string.Empty, null, null),
+                        [])));
+            }
+            return ValueTask.CompletedTask;
+        };
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        LlrpResourceCapacityException exception = await Assert.ThrowsAsync<LlrpResourceCapacityException>(() =>
+            reader.ExecuteTagAccessAsync(
+                new ReadTagRequest { Selection = MatchAllSelection(), MemoryBank = TagMemoryBank.Tid, WordCount = 1 },
+                cancellationToken: timeout.Token));
+
+        Assert.Equal("AccessSpec", exception.ResourceType);
+        Assert.Equal((uint)0, exception.Limit);
+        Assert.DoesNotContain(
+            transport.SentFrames,
+            static frame => LlrpMessageHeader.Decode(frame).MessageType is V101.ADD_ROSPEC.MessageType or V101.ADD_ACCESSSPEC.MessageType);
+    }
+
     private static void ConfigureManagementSuccessResponses(ScriptedLlrpTransport transport)
     {
         transport.OnSendAsync = (frame, _) =>

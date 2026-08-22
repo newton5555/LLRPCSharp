@@ -37,15 +37,19 @@ LLRPCSharp 是一套面向现代 .NET 的 LLRP RFID 读写器开发工具。它�
 
 LLRP 1.0.1、1.1 和 2.0 的差异被收敛在协议适配器之后。普通业务代码不需要接触按版本生成的 Message 或 Parameter 类型。
 
-### 三层控制面
+### 两个控制面
 
-LLRPCSharp 提供三个逐级下沉的控制层：
+LLRPCSharp 提供两个资源所有权模型：
 
-1. **高层操作**——使用 SDK 领域模型完成设置、托管盘存、报告和 Tag Access。
-2. **专家资源**——通过 **reader.RoSpecs** 和 **reader.AccessSpecs** 显式操作 ROSpec 与 AccessSpec。
-3. **Raw 协议**——通过 **reader.Protocol** 执行强类型或精确帧事务，或者直接使用 LlrpNet。
+1. **托管控制面**——使用 SDK 领域模型完成设置、托管盘存、报告和 Tag Access；SDK 固定管理保留
+   ROSpec 14150、AttachedData AccessSpec 14151 及临时 Tag Access 资源。
+2. **专家协议控制面**——通过与 **reader.Protocol** 平级的 **reader.RoSpecs** 和 **reader.AccessSpecs**
+   直接操作协议资源；这些便利 API 不代替调用方负责生命周期。
 
-托管盘存是主控制面，并在本地长期保存 DesiredState。专家资源写入仍需显式进入 Manual 模式；Raw 操作会与托管操作串行执行：只读 `GET_*` 不会使观测失效，写入或精确帧只会把设备观测标为 Stale/Unknown，不会清空托管意图。高层 API 可以立即协调自己的保留资源。`SynchronizeStateAsync()` 只是刷新设备资源快照供检查，并不是继续使用托管 API 的前置条件。默认 `PreserveForeign` 保留外部资源，只有显式选择 `ReplaceAll` 才会执行破坏性全量删除。
+两个控制面共用同一操作锁。读写器 Ready 后即可执行专家写入；专家写入会结束当前托管 session、将
+ObservedState 标为 stale，但保留 DesiredSettings。`SynchronizeStateAsync()` 用于刷新设备快照检查，托管
+API 可直接重新协调保留资源。默认 `PreserveForeign` 保留外部资源，只有显式选择 `ReplaceAll` 才会执行
+破坏性全量删除。能力模型暴露可空资源上限，便于在专家写入或托管部署前进行容量规划。
 
 ## 快速开始
 

@@ -108,7 +108,8 @@ public sealed class ReaderCapabilities
         bool canDoTagInventoryStateAwareSingulation = false,
         bool supportsClientRequestOpSpec = false,
         bool canDoRfSurvey = false,
-        short? maximumReceiveSensitivityDbm = null)
+        short? maximumReceiveSensitivityDbm = null,
+        ReaderResourceLimits? resourceLimits = null)
     {
         ArgumentNullException.ThrowIfNull(generalDeviceParameters);
         ArgumentNullException.ThrowIfNull(rawResponse);
@@ -134,6 +135,7 @@ public sealed class ReaderCapabilities
         SupportsClientRequestOpSpec = supportsClientRequestOpSpec;
         CanDoRfSurvey = canDoRfSurvey;
         MaximumReceiveSensitivityDbm = maximumReceiveSensitivityDbm;
+        ResourceLimits = resourceLimits ?? ReaderResourceLimits.Unknown;
     }
 
     /// <summary>
@@ -200,6 +202,13 @@ public sealed class ReaderCapabilities
     /// sensitivity in dBm: <c>MaximumReceiveSensitivityDbm + offset</c>.
     /// </summary>
     public short? MaximumReceiveSensitivityDbm { get; }
+
+    /// <summary>
+    /// Gets the immutable ROSpec, AccessSpec, graph, priority, and C1G2 filter limits reported by the reader.
+    /// Individual values are <see langword="null"/> when the reader did not return them; zero is an explicit
+    /// unsupported limit.
+    /// </summary>
+    public ReaderResourceLimits ResourceLimits { get; }
 
     /// <summary>
     /// Gets a value indicating whether inventory state-aware singulation is supported.

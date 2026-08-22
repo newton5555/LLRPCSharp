@@ -113,8 +113,9 @@ LLRP 服务。
 - `settings show|edit|validate|apply|save` 提供简化的设置查看、编辑、校验和写入；
   `apply --defaults --yes` 吸收原 `settings defaults`，`validate` 承担原 `settings load`
  的"载入+校验"（`defaults`/`load` 子命令已移除，不保留别名）。`settings apply [--defaults|<file>] --yes`
-  是唯一显式批量应用入口，不维护 CLI 草稿状态。默认 PreserveForeign；`manual off` 不删除
-  资源，`sync` 只是刷新快照，Raw/手工资源后仍可直接使用 `inventory start` 或 settings apply。
+  是唯一显式批量应用入口，不维护 CLI 草稿状态。默认 PreserveForeign；`--replace-all` 才会显式删除
+  foreign ROSpec/AccessSpec。`sync` 只是刷新快照，专家资源操作后仍可直接使用 `inventory start` 或
+  settings apply。`caps` 同时展示 `ReaderCapabilities.ResourceLimits`（未知容量保持 nullable，设备明确返回 0 则保留为 0）。
 - Live Shell 的 `status` 默认只显示连接和托管生命周期状态；`status --full` 会刷新
   Settings、ROSpec 和 AccessSpec 并展示参数树。`caps` 会重新执行
   `GET_READER_CAPABILITIES(All)`，默认展示归一化能力表，`--raw` 展示完整响应参数树，
@@ -193,8 +194,11 @@ LLRP 服务。
 - `ILlrpProtocolAdapter` 是 SDK 的唯一版本边界:前向编译/翻译、反向反解析
   (`ParseManagedRoSpec`)、事件投影、标准消息构造/分类与连接前版本协商全部
   收敛在版本边界内;`LlrpReader` 门面零版本类型引用(机器强制)。
-- `UseImpinj()` 提供 Impinj 扩展入口；扩展值通过强类型 Contributor 接入托管
-  Settings 和 TagReport。
+- `UseImpinj()` 提供 Impinj 扩展入口，但它只是注册 Codec 和候选 Reader Extension；连接后只有在
+  标准身份与协商版本匹配（当前为 Impinj + LLRP 1.0.1）时才激活。普通设备连接仍按标准 SDK 工作，
+  不发送 `IMPINJ_ENABLE_EXTENSIONS`，也不会产生 Impinj 默认值、配置查询或 TagReport 投影。
+  应用在使用 Impinj Settings 前应检查 `reader.Extensions.Get<ImpinjReaderExtension>()`；当前版本未激活
+  时不会发送厂商字段，因此成功应用标准部分不代表 Impinj 选项已被设备接受。
 - `ILlrpFrameObserver`、日志和连接事件可用于诊断与监控。
 
 ## 当前缺口
@@ -232,6 +236,8 @@ Settings 短连接可以在断开后立即重连，而不会被旧会话的异�
   (PDF/SDK/yml)当权威——需逐参数抓包验证 `reserved`/字段宽度后才能在 `zebra.yml` 标定,并补 round-trip 测试。
 - LLRP 2.0 与 Zebra 的 CLI 离线/实时命令已接线，但 2.0 的真实设备互操作仍需实机验收。
 - 其他厂商/型号/固件的扩展能力目录仍需按实测证据补充。
+- 未激活厂商扩展的高层 Settings 当前不会自动 fail-fast；应用必须先检查 active extension。后续可在
+  核心 Settings 校验阶段增加“扩展未激活/无 contributor”诊断，避免调用方遗漏检查。
 - Virtual Device 当前不驱动真实 RFID 模块、不模拟真实 RF 波形，也不自动恢复进程重启前的
   ROSpec/AccessSpec/托管盘点状态；这些不是本轮本地 JSON 预设的目标。通用
   `LlrpDevice.Server`、`ILlrpDevice` 合同、确定性 RF/Tag Access、Host 生命周期和

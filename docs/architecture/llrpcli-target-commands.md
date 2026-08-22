@@ -72,10 +72,9 @@ tag sequence <epc> --read bank:word:count [--write bank:word:data] [--erase bank
 - 单操作(read/write/lock/kill/erase)已结构化,保留;
 - `sequence` 的 `--op read:...` 冒号字符串改为结构化 `--read/--write/--erase/--lock/--kill` 旗标,补全可提示(P6)。
 
-## 5. 专家资源层(简化)
+## 5. 专家协议控制面(简化)
 
 ```
-manual [status|on|off]
 rospec add|list|enable|disable|start|stop|delete [id]
 accessspec list|enable|disable|delete [id]
 sync
@@ -84,9 +83,8 @@ raw send|transact <hex> [--response-type N] --yes
 ```
 
 **变更**:
-- `resources manual enter|exit|status` → `manual on|off|status`;`resources clear` → `clear`(决定,可推翻);
-- `manual on` 在需要时自动 `sync` 前置(消除 P3 双重仪式);
-- `raw` 后仍标记 `IsManagedStateSynchronized=false`,`sync`/接管入口不变。
+- 删除旧的资源模式命令；`rospec`、`accessspec` 与 `raw` 连接 Ready 后直接执行。
+- 专家写入后标记 `IsManagedStateSynchronized=false`，保留 DesiredState；`sync`/托管接管入口不变。
 
 ## 6. 离线工具层(版本感知)
 
@@ -122,7 +120,7 @@ llrp inventory <host> [--port N] [--settings <file>] [--duration s] [--output js
 | `settings apply` | `settings apply [--defaults\|<file>] --yes` | 语义单一:校验守卫→下发 |
 | `settings edit` | `settings edit`(增强) | E1-E7,不删 |
 | `inventory start`(仅两段式) | `inventory start [--defaults\|--settings]` | 一段式 |
-| `resources manual enter/exit` + `sync` 前置 | `manual on/off` | 自动 sync,旧命令不保留别名 |
+| 资源模式切换 + `sync` 前置 | `rospec`/`accessspec` 直接操作 | 两个控制面，不提供额外模式命令 |
 | `resources clear` | `clear` | 改名,不保留别名 |
 | `--llrp auto\|1.0.1\|1.1` | 增加 `2.0` | 修 `"2"` 错映射 |
 | `--vendor impinj/seuic/none` | 增加 `zebra` | |

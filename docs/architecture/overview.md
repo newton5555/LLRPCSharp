@@ -229,6 +229,8 @@ Extensions use two lifecycle stages:
 
 - Protocol Module: registers Custom Message/Parameter types, codecs, and type mappings before connection.
 - Reader Extension: matches and activates vendor capabilities after standard initialization using Manufacturer, Model, Firmware, and ProtocolVersion.
+- If no Reader Extension matches, the connection remains a standard SDK connection: no vendor initialization or
+  contributor pipeline runs, and applications must check the active extension before applying vendor Settings.
 
 Codec conflicts for the same wire identity must fail rather than silently overwrite. If multiple Reader Extensions in the same non-empty exclusivity group match, connection should be rejected or require explicit selection.
 

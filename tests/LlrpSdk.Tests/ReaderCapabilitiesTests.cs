@@ -1,4 +1,5 @@
 using LlrpNet.Protocol.Messages.V1_0_1;
+using LlrpNet.Core.Protocol;
 using LlrpSdk;
 
 namespace LlrpSdk.Tests;
@@ -56,5 +57,38 @@ public sealed class ReaderCapabilitiesTests
     {
         // LLRP 1.0.1 does not advertise MaximumReceiveSensitivity.
         Assert.Null(CreateCapabilities().MaximumReceiveSensitivityDbm);
+    }
+
+    [Fact]
+    public void ReaderResourceLimits_UsesNullForUnknownAndZeroForExplicitUnsupported()
+    {
+        ReaderResourceLimits unknown = ReaderResourceLimits.Unknown;
+        Assert.Null(unknown.MaxNumROSpecs);
+
+        var explicitUnsupported = new ReaderResourceLimits { MaxNumROSpecs = 0 };
+        Assert.Equal((uint)0, explicitUnsupported.MaxNumROSpecs);
+        Assert.Null(explicitUnsupported.MaxNumAccessSpecs);
+    }
+
+    [Fact]
+    public void ReaderDefaults_OmitInventoryWhenReaderAdvertisesNoRoSpecs()
+    {
+        var connectedCapabilities = new ReaderCapabilities(
+            maxNumberOfAntennas: 1,
+            canSetAntennaProperties: true,
+            hasUtcClockCapability: true,
+            generalDeviceParameters: [],
+            rawResponse: new ENABLE_EVENTS_AND_REPORTS(1),
+            additionalParameters: [],
+            resourceLimits: new ReaderResourceLimits { MaxNumROSpecs = 0 });
+
+        ReaderSettingsDefaults defaults = ReaderSettingsDefaults.CreateForReader(
+            new ReaderSettingsDefaultContext(
+                new ReaderIdentity(1, 2, "fw"),
+                connectedCapabilities,
+                LlrpProtocolVersion.Version101));
+
+        Assert.Null(defaults.Settings.Inventory);
+        Assert.Contains(defaults.Notes, note => note.Contains("MaxNumROSpecs=0", StringComparison.Ordinal));
     }
 }

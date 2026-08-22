@@ -27,7 +27,7 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureSuccessResponses(transport, returnedRoSpecs);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
-        await reader.EnterManualResourceModeAsync(timeout.Token);
+        Assert.Equal(ReaderResourceMode.Idle, reader.ResourceMode);
         var addedRoSpec = RoSpec([0xCA, 0xFE]);
 
         await reader.RoSpecs.AddAsync(addedRoSpec, timeout.Token);
@@ -72,6 +72,29 @@ public sealed class LlrpRoSpecServiceTests
     }
 
     [Fact]
+    public async Task AddDefault_AllowsManagedRecognitionIdAsAnExpertWrite()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var transport = new ScriptedLlrpTransport();
+        ConfigureSuccessResponses(transport);
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        await reader.RoSpecs.AddDefaultAsync(
+            LlrpReader.ManagedInventoryRoSpecId,
+            new InventorySettings(),
+            timeout.Token);
+
+        LlrpCodecRegistry registry = CreateRegistry();
+        V101Messages.ADD_ROSPEC request = transport.SentFrames
+            .Where(static frame => LlrpMessageHeader.Decode(frame).MessageType == V101Messages.ADD_ROSPEC.MessageType)
+            .Select(frame => Assert.IsType<V101Messages.ADD_ROSPEC>(registry.DecodeMessage(frame)))
+            .Single();
+        Assert.Equal(LlrpReader.ManagedInventoryRoSpecId, request.ROSpec.ROSpecID);
+        Assert.Equal(ReaderObservedState.Stale, reader.ObservedState);
+    }
+
+    [Fact]
     public async Task EveryNonSuccessStatusThrowsOperationExceptionWithExactStatus()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -84,7 +107,6 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureStatusResponses(transport, failureStatus);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
-        await reader.EnterManualResourceModeAsync(timeout.Token);
         (string Operation, Func<Task> Invoke)[] cases =
         [
             ("ADD_ROSPEC", () => reader.RoSpecs.AddAsync(RoSpec([]), timeout.Token)),
@@ -130,8 +152,6 @@ public sealed class LlrpRoSpecServiceTests
         };
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
-        await reader.EnterManualResourceModeAsync(timeout.Token);
-
         LlrpReaderOperationException exception =
             await Assert.ThrowsAsync<LlrpReaderOperationException>(() =>
                 reader.RoSpecs.DeleteAsync(7, timeout.Token));
@@ -149,7 +169,6 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureSuccessResponses(transport);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
-        await reader.EnterManualResourceModeAsync(timeout.Token);
         int sentBefore = transport.SentFrames.Count;
         var wrongType = new UnknownParameter(
             LlrpProtocolVersion.Version101,
@@ -173,8 +192,6 @@ public sealed class LlrpRoSpecServiceTests
         ConfigureSuccessResponses(transport);
         await using LlrpReader reader = CreateReader(transport);
         await reader.ConnectAsync(timeout.Token);
-        await reader.EnterManualResourceModeAsync(timeout.Token);
-
         Task[] operations = Enumerable.Range(1, 32)
             .Select(id => reader.RoSpecs.DeleteAsync((uint)id, timeout.Token))
             .ToArray();

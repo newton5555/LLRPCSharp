@@ -301,6 +301,19 @@ public sealed class LlrpCliApplicationTests
     }
 
     [Fact]
+    public void InventoryStart_ParsesMonitorAfterBooleanReplaceAllOption()
+    {
+        System.Reflection.MethodInfo? parseMethod = typeof(LiveInventoryHandler)
+            .GetMethod("ParseStartMonitorMode", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        LiveMonitorMode mode = (LiveMonitorMode)parseMethod!.Invoke(
+            null,
+            [new[] { "inventory", "start", "--replace-all", "--monitor", "none" }])!;
+
+        Assert.Equal(LiveMonitorMode.None, mode);
+    }
+
+    [Fact]
     public void LiveCommandCatalog_ExposesExplicitInspectionOptions()
     {
         Assert.Equal("status [--full]", CommandCatalog.Require("status").Usage);
@@ -308,6 +321,17 @@ public sealed class LlrpCliApplicationTests
         Assert.Contains("settings show [--json|--raw]", CommandCatalog.Require("settings").Usage, StringComparison.Ordinal);
         Assert.DoesNotContain("--apply", CommandCatalog.Require("settings").CompletionCandidates);
         Assert.Contains("--refresh", CommandCatalog.Require("inventory").CompletionCandidates);
+    }
+
+    [Fact]
+    public void CommandCatalog_UsesTwoControlPlanesAndExposesReplaceAll()
+    {
+        Assert.Null(CommandCatalog.Find("manual"));
+        Assert.Null(CommandCatalog.Find("resources"));
+        Assert.Contains("--replace-all", CommandCatalog.Require("settings").CompletionCandidates);
+        Assert.Contains("--replace-all", CommandCatalog.Require("inventory").CompletionCandidates);
+        Assert.Contains("Expert ROSpec", CommandCatalog.Require("rospec").Description, StringComparison.Ordinal);
+        Assert.DoesNotContain("manual", CommandCatalog.Require("rospec").Description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -376,15 +400,6 @@ public sealed class LlrpCliApplicationTests
         var registry = new LlrpCodecRegistry();
         Llrp101StandardModule.Register(registry);
         return registry;
-    }
-
-    [Fact]
-    public void ManualModeGuard_NeverPromptsToDeleteResources()
-    {
-        Assert.False(ManualModeGuard.ShouldPromptToDelete(0, 0));
-        Assert.False(ManualModeGuard.ShouldPromptToDelete(1, 0));
-        Assert.False(ManualModeGuard.ShouldPromptToDelete(0, 1));
-        Assert.False(ManualModeGuard.ShouldPromptToDelete(2, 3));
     }
 
     [Fact]

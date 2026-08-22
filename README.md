@@ -37,15 +37,22 @@ Applications normally work with version-neutral models:
 
 LLRP 1.0.1, 1.1, and 2.0 differences are contained behind protocol adapters. Ordinary application code does not need generated version-specific message or parameter types.
 
-### Three levels of control
+### Two control planes
 
-LLRPCSharp exposes progressively lower-level surfaces:
+LLRPCSharp exposes two ownership models:
 
-1. **High-level operations** — settings, managed inventory, reports, and Tag Access using SDK domain models.
-2. **Advanced resources** — explicit ROSpec and AccessSpec operations through **reader.RoSpecs** and **reader.AccessSpecs**.
-3. **Raw protocol** — typed or exact-frame transactions through **reader.Protocol**, or direct use of LlrpNet.
+1. **Managed control plane** — settings, managed inventory, reports, and Tag Access using SDK domain models. The
+   SDK owns reserved ROSpec 14150, AttachedData AccessSpec 14151, and temporary Tag Access resources.
+2. **Expert protocol control plane** — explicit ROSpec/AccessSpec operations through **reader.RoSpecs** and
+   **reader.AccessSpecs**, alongside typed or exact-frame transactions through **reader.Protocol**. These are
+   direct protocol conveniences; callers own their lifecycle.
 
-Managed inventory is the primary control plane and keeps its desired settings locally. Expert resource writes require explicit manual mode, while Raw protocol access is serialized with managed operations: read-only `GET_*` messages leave the observation current; writes or exact frames mark only the device observation stale and never erase the desired settings. High-level APIs can reconcile their reserved resources immediately. `SynchronizeStateAsync()` refreshes the device snapshot for inspection; it is not a prerequisite for managed operations. The default `PreserveForeign` policy keeps foreign resources, while `ReplaceAll` is an explicit destructive choice.
+The two control planes share one operation lock. Expert writes are available whenever the reader is Ready; they end
+the current managed session and mark ObservedState stale while retaining DesiredSettings. `SynchronizeStateAsync()`
+refreshes the device snapshot for inspection, and managed APIs can immediately reconcile their reserved resources.
+The default `PreserveForeign` policy keeps foreign resources, while `ReplaceAll` is an explicit destructive choice.
+Reader capabilities expose nullable resource limits so callers can plan capacity before expert writes or managed
+deployment.
 
 ## Quick start
 

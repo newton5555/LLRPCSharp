@@ -44,7 +44,8 @@ Live Shell ──► LiveSessionContext
 - `settings`、`inventory`、`tag`、`rospec`、`accessspec`、`raw`、`sync` 都要求 Live Shell 已连接。
 - `settings edit` 从设备实况或 SDK Defaults 生成一次编辑输入，编辑结果通过 `settings save` 导出或通过 `settings apply <file> --yes` 写入；不维护跨命令的 `SettingsDraft`、`load` 或 `discard` 状态。`inventory` 只启动、停止或显示 Reader 已部署的 Inventory。
 - `tag` 操作复用当前 Reader；若没有托管盘点，SDK 负责其临时 ROSpec/AccessSpec 生命周期。任何写入、擦除、锁定、销毁及含此类操作的序列均须 `--yes`。
-- `settings show|edit|validate|apply|save` 是稳定的托管设置入口。只有 `apply [file] --yes` 或 `apply --defaults --yes` 写设备；Apply 后 Inventory 保持 Disabled，只有 `inventory start` 启动盘点。Raw/手工资源操作后，带 Inventory 的 Apply 或 Defaults Apply 可直接强制接管；`sync` 只用于查询并采用设备现状。
+- `settings show|edit|validate|apply|save` 是稳定的托管设置入口。只有 `apply [file] --yes` 或 `apply --defaults --yes` 写设备；Apply 后 Inventory 保持 Disabled，只有 `inventory start` 启动盘点。专家/Raw 写入后，带 Inventory 的 Apply 可直接重新接管；默认 PreserveForeign，显式 `--replace-all` 才全量替换；`sync` 只用于查询并采用设备现状。
+- `rospec`、`accessspec` 与 `raw` 属于同一个专家协议控制面，连接 Ready 后无需 `manual` 命令即可执行。写入会提示 ObservedState stale、DesiredState retained；保留资源容量不足时 CLI 建议 `--replace-all`。
 - 根级 `inventory` 默认使用当前 Reader 的 SDK Defaults，也可加载完整 Settings 文件；它强制立即启动并按 duration 结束。因为 Apply 会接管 Inventory 资源，必须使用 `--yes`。结束时清除托管 Inventory 资源，但不回滚 Reader 全局 Configuration。
 
 ## 自动化的后续边界

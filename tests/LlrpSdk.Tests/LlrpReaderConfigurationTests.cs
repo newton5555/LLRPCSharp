@@ -194,6 +194,84 @@ public sealed class LlrpReaderConfigurationTests
     }
 
     [Fact]
+    public async Task ApplySettings_PreserveForeignCapacityFailsBeforeAnyMutation()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        bool mutationSent = false;
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponseWithResourceLimits(
+                messageId,
+                new LLRPCapabilities(
+                    CanDoRFSurvey: false,
+                    CanReportBufferFillWarning: false,
+                    SupportsClientRequestOpSpec: false,
+                    CanDoTagInventoryStateAwareSingulation: false,
+                    SupportsEventAndReportHolding: false,
+                    MaxNumPriorityLevelsSupported: 1,
+                    ClientRequestOpSpecTimeout: 0,
+                    MaxNumROSpecs: 1,
+                    MaxNumSpecsPerROSpec: 8,
+                    MaxNumInventoryParameterSpecsPerAISpec: 8,
+                    MaxNumAccessSpecs: 8,
+                    MaxNumOpSpecsPerAccessSpec: 8),
+                maxNumSelectFiltersPerQuery: 8),
+        };
+        transport.OnSendAsync = (frame, _) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            switch (header.MessageType)
+            {
+                case GET_ROSPECS.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(
+                        header.MessageId,
+                        roSpecs: [CreateForeignRoSpec(77)]));
+                    break;
+                case GET_ACCESSSPECS.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetAccessSpecsResponseFrame(header.MessageId));
+                    break;
+                case SET_READER_CONFIG.MessageType:
+                case DELETE_ROSPEC.MessageType:
+                case DELETE_ACCESSSPEC.MessageType:
+                case ADD_ROSPEC.MessageType:
+                case ADD_ACCESSSPEC.MessageType:
+                    mutationSent = true;
+                    break;
+            }
+
+            return ValueTask.CompletedTask;
+        };
+
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        LlrpResourceCapacityException exception = await Assert.ThrowsAsync<LlrpResourceCapacityException>(
+            () => reader.ApplySettingsAsync(new ReaderSettings { Inventory = new InventorySettings() }, timeout.Token));
+
+        Assert.Equal("ROSpec", exception.ResourceType);
+        Assert.Equal((uint)1, exception.Limit);
+        Assert.Equal((uint)1, exception.Current);
+        Assert.Equal((uint)2, exception.Required);
+        Assert.Equal(ResourceTakeoverPolicy.PreserveForeign, exception.TakeoverPolicy);
+        Assert.False(mutationSent);
+    }
+
+    private static ROSpec CreateForeignRoSpec(uint id) => new(
+        id,
+        Priority: 1,
+        ROSpecState.Disabled,
+        new ROBoundarySpec(
+            new ROSpecStartTrigger(ROSpecStartTriggerType.Immediate, null, null),
+            new ROSpecStopTrigger(ROSpecStopTriggerType.Null, 0, null)),
+        [new RFSurveySpec(
+            AntennaID: 1,
+            StartFrequency: 0,
+            EndFrequency: 0,
+            new RFSurveySpecStopTrigger(RFSurveySpecStopTriggerType.Null, 0, 0),
+            [])],
+        ROReportSpec: null);
+
+    [Fact]
     public void ReaderIdentity_TrimsProtocolStringPadding()
     {
         var identity = new ReaderIdentity(1, 2, "1.0.0\0\0");

@@ -41,6 +41,10 @@ public sealed class OneShotInventorySettings : CommandSettings
     [CommandOption("--yes")]
     [Description("Confirm managed resource takeover and Reader configuration apply.")]
     public bool Confirmed { get; init; }
+
+    [CommandOption("--replace-all")]
+    [Description("Explicitly replace all standard ROSpec/AccessSpec resources.")]
+    public bool ReplaceAll { get; init; }
 }
 
 /// <summary>Connects, applies one settings source, inventories tags, and cleans managed resources.</summary>
@@ -134,11 +138,20 @@ public sealed class InventoryCommand : AsyncCommand<OneShotInventorySettings>
                 return 3;
             }
 
-            await ManagedSettingsWorkflow.ApplyAsync(reader, requested, cancellationToken).ConfigureAwait(false);
+            ResourceTakeoverPolicy takeoverPolicy = settings.ReplaceAll
+                ? ResourceTakeoverPolicy.ReplaceAll
+                : ResourceTakeoverPolicy.PreserveForeign;
+            if (settings.ReplaceAll && requested.Inventory is null)
+            {
+                throw new CliUsageException("inventory --replace-all requires Inventory intent; Inventory=null does not take over resources.");
+            }
+            await ManagedSettingsWorkflow.ApplyAsync(reader, requested, cancellationToken, takeoverPolicy).ConfigureAwait(false);
             var tags = new Dictionary<string, ScanTagAccumulator>(StringComparer.Ordinal);
             InventorySession? inventorySession = null;
             try
             {
+                // ApplyAsync already performed the requested takeover; starting the just-deployed managed
+                // resource only needs the non-destructive default policy.
                 inventorySession = await reader.StartInventoryAsync(cancellationToken).ConfigureAwait(false);
                 using var duration = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 duration.CancelAfter(TimeSpan.FromSeconds(settings.DurationSeconds));
@@ -176,6 +189,33 @@ public sealed class InventoryCommand : AsyncCommand<OneShotInventorySettings>
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            return 1;
+        }
+        catch (LlrpResourceCapacityException exception)
+        {
+            if (output == "json")
+            {
+                console.WriteLine(JsonSerializer.Serialize(new
+                {
+                    success = false,
+                    error = "resource_capacity",
+                    resourceType = exception.ResourceType,
+                    limit = exception.Limit,
+                    current = exception.Current,
+                    required = exception.Required,
+                    takeoverPolicy = exception.TakeoverPolicy.ToString(),
+                    detail = exception.Detail,
+                    message = exception.Message,
+                }, JsonOptions));
+            }
+            else
+            {
+                console.MarkupLine($"[bold red]Resource capacity failed:[/] {Markup.Escape(exception.Message)}");
+                if (exception.TakeoverPolicy == ResourceTakeoverPolicy.PreserveForeign)
+                {
+                    console.MarkupLine("[yellow]If preserving foreign resources is impossible, retry with --replace-all.[/]");
+                }
+            }
             return 1;
         }
         catch (Exception exception)

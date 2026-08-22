@@ -227,6 +227,65 @@ internal static class ReaderSettingsValidator
         ValidateFilters(inventory, capabilities, protocolVersion, diagnostics);
         ValidateTriggers(inventory, capabilities, diagnostics);
         ValidateAttachedData(inventory.AttachedData, diagnostics);
+        ValidateResourceGraphCapacity(inventory, capabilities, diagnostics);
+    }
+
+    private static void ValidateResourceGraphCapacity(
+        InventorySettings inventory,
+        ReaderCapabilities? capabilities,
+        List<SettingsDiagnostic> diagnostics)
+    {
+        ReaderResourceLimits? limits = capabilities?.ResourceLimits;
+        if (limits is null)
+        {
+            return;
+        }
+
+        AddCapacityErrorIfTooSmall(
+            limits.MaxNumROSpecs,
+            1,
+            "SET-CAP-001",
+            "inventory",
+            "The managed inventory graph requires at least one ROSpec.",
+            diagnostics);
+        AddCapacityErrorIfTooSmall(
+            limits.MaxNumSpecsPerROSpec,
+            1,
+            "SET-CAP-002",
+            "inventory",
+            "The managed inventory graph requires at least one Spec in its ROSpec.",
+            diagnostics);
+        AddCapacityErrorIfTooSmall(
+            limits.MaxNumInventoryParameterSpecsPerAISpec,
+            1,
+            "SET-CAP-003",
+            "inventory",
+            "The managed inventory graph requires at least one InventoryParameterSpec in its AISpec.",
+            diagnostics);
+
+        int filterCount = inventory.Filters?.Count ?? 0;
+        if (limits.MaxNumSelectFiltersPerQuery is uint filterLimit && filterCount > filterLimit)
+        {
+            AddError(
+                diagnostics,
+                "SET-CAP-004",
+                "inventory.filters",
+                $"The reader supports at most {filterLimit} C1G2 select filters per query, but {filterCount} were requested.");
+        }
+    }
+
+    private static void AddCapacityErrorIfTooSmall(
+        uint? limit,
+        uint required,
+        string code,
+        string path,
+        string message,
+        List<SettingsDiagnostic> diagnostics)
+    {
+        if (limit.HasValue && limit.Value < required)
+        {
+            AddError(diagnostics, code, path, message + $" (advertised limit: {limit.Value}).");
+        }
     }
 
     private static void ValidateFilters(

@@ -3,7 +3,7 @@ using LlrpNet.Protocol.Parameters;
 namespace LlrpSdk;
 
 /// <summary>
-/// Provides managed request/response operations for ROSpec resources on one ready reader connection.
+/// Provides expert protocol convenience operations for ROSpec resources on one ready reader connection.
 /// </summary>
 /// <remarks>
 /// The service sends each operation to the reader immediately and does not maintain a local ROSpec cache.
@@ -13,7 +13,10 @@ public interface IRoSpecService
     /// <summary>
     /// Compiles and adds one SDK-default inventory ROSpec in the currently negotiated protocol version.
     /// </summary>
-    /// <param name="roSpecId">The application-owned ROSpec identifier. SDK-reserved identifiers are rejected.</param>
+    /// <param name="roSpecId">
+    /// The non-zero ROSpec identifier. Expert callers may use the SDK recognition identifier 14150; doing so
+    /// invalidates the managed observation just like any other expert resource write.
+    /// </param>
     /// <param name="settings">The version-independent inventory intent used to build the default ROSpec.</param>
     /// <param name="cancellationToken">Cancels the send or pending response transaction.</param>
     /// <remarks>

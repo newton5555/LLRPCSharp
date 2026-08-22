@@ -658,11 +658,10 @@ var read = await reader.ReadTagMemoryAsync(
 // 写/锁/销毁/块擦除:WriteTagMemoryAsync / LockTagAsync / KillTagAsync / BlockEraseAsync
 ```
 
-### 资源模式
+### 控制面
 
-- 托管模式(默认):SDK 管理 ROSpec/AccessSpec 全生命周期
-- `EnterManualResourceModeAsync` / `ExitManualResourceModeAsync`:
-  交给应用自管协议资源(高级场景,配合 `IRoSpecService` 等接口)
+- 托管控制面(默认):SDK 管理固定 ROSpec/AccessSpec 与临时 Tag Access 资源全生命周期
+- 专家协议控制面:应用通过 `RoSpecs` / `AccessSpecs` / `Protocol` 直接负责协议资源生命周期；连接 Ready 后无需额外模式切换。
 
 ## 2.4 适配器层:版本翻译的边界
 

@@ -38,7 +38,8 @@ Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来�
 
 ```text
 > settings apply --defaults --yes  # 应用 SDK/厂商默认值（保持 Inventory Disabled）
-> settings apply settings.json --yes  # 校验并应用指定文件
+> settings apply settings.json --yes  # 校验并应用指定文件（默认 PreserveForeign）
+> settings apply settings.json --yes --replace-all  # 显式替换全部标准 ROSpec/AccessSpec
 > settings validate settings.json # 载入并校验文件（不写入设备）
 > settings show                   # 重新读取设备实况
 > settings show --json            # 输出可保存并再次 apply 的高层 ReaderSettings JSON
@@ -48,8 +49,8 @@ Live Shell 不维护持久化草稿；设置文件或 SDK 默认值是应用来�
 ### 配置来源选项
 
 * `settings apply --defaults --yes`：应用连接设备的推荐配置（SDK/厂商默认值）；
-* `settings apply <file.json> --yes`：校验并应用本地 JSON 文件；Raw/手工资源导致状态未知时，文件必须包含
-  `Inventory` 才会执行强制接管；
+* `settings apply <file.json> --yes`：校验并应用本地 JSON 文件；带 `Inventory` 时默认只替换 SDK 保留资源；
+  `--replace-all` 才会执行显式全量接管；
 * `settings validate <file.json>`：载入并校验文件（零副作用，承担原 `load` 的"载入+校验"），不写入设备；
   需要交互编辑时使用 `settings edit --from <file.json>`。
 
@@ -62,16 +63,15 @@ Priority、InventoryParameterSpecId、报告扩展字段、过滤器动作和周
 二次确认。`settings validate <file>` 只读取并校验文件，不写入设备；写入统一使用
 `settings apply [--defaults|<file>] --yes`。
 
-Raw 或手工 ROSpec/AccessSpec 操作后，SDK 托管状态会变为未知：
+专家 ROSpec/AccessSpec 或 Raw 操作后，SDK 托管状态会变为未知：
 
 * 需要保留并检查设备现有资源时，先执行 `sync`，再使用 `settings show` 或
   `inventory start`；
 * 需要 SDK 覆盖设备现状时，直接执行带 `Inventory` 的 `settings apply <file.json> --yes` 或
-  `settings apply --defaults --yes`，它会删除全部标准 ROSpec/AccessSpec 并重新部署托管资源，之后再执行
+  `settings apply --defaults --yes`；若要删除外部资源则附加 `--replace-all`，之后再执行
   `inventory start`。
-
-处于 `manual on` 模式时，先执行 `manual off` 或直接使用上述带 Inventory 的 Apply；不要在手工资源
-仍由应用控制时执行 `settings show` 或 `inventory start`。
+* `rospec`、`accessspec` 和 `raw` 始终可在连接 Ready 后直接执行，不需要额外的资源模式切换；写入后可用
+  `sync` 检查设备事实，或直接用带 Inventory 的托管 API 重新接管。
 
 ---
 
@@ -86,7 +86,7 @@ Raw 或手工 ROSpec/AccessSpec 操作后，SDK 托管状态会变为未知：
 
 `inventory start` 会在托管状态已同步但当前连接尚未读取托管资源时自动执行一次
 Settings/ROSpec 实况查询，因此重连到仍保留 `14150` 的设备后不需要先手动执行
-`settings show`。如果此前执行过 raw 或手工资源操作，必须先 `sync`，或先用带
+`settings show`。如果此前执行过 raw 或专家资源操作，可以先 `sync`，也可以直接用带
 Inventory 的 Settings Apply 强制接管。
 若实况中的 ROSpec 只配置了某个天线，盘点也只会扫描该天线；没有标签报告时应先
 检查 `settings show` 返回的 `inventory.antennaIds` 和设备天线连接状态。
@@ -95,6 +95,7 @@ Inventory 的 Settings Apply 强制接管。
 
 ```text
 > inventory start --monitor live                  # 实时汇总标签数据 (默认)
+> inventory start --replace-all                   # 启动前显式替换全部标准资源
 > inventory start --monitor frames                # 实时打印原始 LLRP 协议数据帧
 > inventory start --monitor live --monitor-duration 30  # 前台监控 30 秒后退出前台（后台仍运行）
 ```

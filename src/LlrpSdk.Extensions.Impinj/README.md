@@ -1,8 +1,10 @@
 # LlrpSdk.Extensions.Impinj
 
 `LlrpSdk.Extensions.Impinj` adds managed Impinj support to `LlrpSdk` for
-readers such as Speedway R420 and Revolution R700. It provides active
-extension initialization, typed managed settings contributors, and Impinj
+readers such as Speedway R420 and Revolution R700. `UseImpinj()` registers a
+protocol module and a candidate reader extension; after connection the SDK
+activates it only when the standard identity and negotiated protocol match.
+The active extension provides typed managed settings contributors and Impinj
 fields projected into `TagReport.Extensions`.
 
 The generated wire-level messages, parameters, and codecs are kept in the
@@ -21,6 +23,11 @@ await using LlrpReader reader = LlrpReader.CreateBuilder("192.0.2.10")
     .Build();
 
 await reader.ConnectAsync();
+if (reader.Extensions.Get<ImpinjReaderExtension>() is null)
+{
+    throw new NotSupportedException(
+        "The connected reader is not an active Impinj LLRP 1.0.1 reader.");
+}
 ReaderSettings settings = (await reader.GetDefaultSettingsAsync()).Settings;
 await reader.ApplySettingsAsync(settings);
 
@@ -44,6 +51,14 @@ and an explicit, conservative vendor extension object rather than invented
 vendor defaults. For a disconnected, portable baseline use
 `ReaderSettingsDefaults.CreateGeneric()` instead.
 
+When `.UseImpinj()` is used with a standard non-Impinj reader, connection still
+succeeds and all standard SDK APIs remain available, but no Impinj enable,
+configuration query, or report projection runs. The typed `.Impinj(...)` builder
+is local model construction only; check the active extension before applying
+those settings. The current SDK does not emit inactive vendor extension fields
+on a standard reader, so applications must not treat a successful standard
+apply as evidence that an Impinj option was accepted.
+
 Common report options can be expressed with the typed inventory builder:
 
 ```csharp
@@ -55,8 +70,9 @@ InventorySettings inventory = InventorySettings.Create(settings => settings
         .IncludePeakRssi()));
 ```
 
-Use only options verified for the target reader model and firmware. Unknown or
-unverified vendor features are rejected by default.
+Use only options verified for the target reader model and firmware. For an
+active Impinj extension, unknown or unverified vendor features are rejected by
+the configurator unless the explicit `AllowUnverified...` options are used.
 
 ## Package Boundaries
 

@@ -42,6 +42,15 @@ not send protocol messages. `ApplySettingsAsync()` deploys managed settings in
 a stopped state; `StartInventoryAsync()` starts the deployed inventory and
 returns an isolated report stream.
 
+The SDK has two control planes. The managed plane owns ROSpec 14150,
+AttachedData AccessSpec 14151, and temporary Tag Access resources. The expert
+plane is exposed by `reader.RoSpecs`, `reader.AccessSpecs`, and `reader.Protocol`
+side-by-side; it is available whenever the connection is Ready and callers own
+the resource lifecycle. Expert writes end an active managed session and mark
+`ObservedState` stale while retaining `DesiredSettings`. There is no separate
+resource-mode gate: expert resource operations are available whenever the
+connection is Ready.
+
 When a resource write or exact raw frame makes the device observation stale, the
 desired inventory settings remain available. High-level APIs can reconcile the
 SDK-reserved resources immediately; the default `PreserveForeign` policy leaves
@@ -51,6 +60,12 @@ intentional. `SynchronizeStateAsync()` refreshes the observed resource snapshot
 and is useful for inspection, but it is not required before a managed operation.
 `StartExistingRoSpecAsync(id)` can attach a report session to an expert/raw-created
 ROSpec without compiling, replacing, or deleting it.
+
+`ReaderCapabilities.ResourceLimits` exposes nullable ROSpec, AccessSpec, graph,
+OpSpec, priority, and C1G2 select-filter limits. A zero is an explicit device
+limit; `null` means the reader did not report that capability. Managed deployment
+preflights final capacity under `PreserveForeign` (the default) or explicit
+`ReplaceAll` before changing reader resources.
 
 For connection-wide observation, use `TagsReported` or `ReadTagReportsAsync()`;
 these observer outlets are mutually exclusive with the session stream during an

@@ -43,7 +43,7 @@ src/LlrpSdk/
 │   ├── Llrp101InventoryCompiler.cs  ②切片  InventorySettings → 1.0.1 ROSpec
 │   ├── Llrp11InventoryCompiler.cs   ②切片  InventorySettings → 1.1 ROSpec
 │   └── Llrp20InventoryCompiler.cs   ②切片  InventorySettings → 2.0 ROSpec
-├── Resources/                ①中立 —— ROSpec/AccessSpec 专家服务(手动资源模式用)
+├── Resources/                ①中立 —— ROSpec/AccessSpec 专家协议便利服务
 │   ├── IRoSpecService.cs / RoSpecService.cs
 │   └── IAccessSpecService.cs / AccessSpecService.cs
 ├── TagAccess/                ①中立(模型)+ ②切片(三个编译器)
@@ -147,7 +147,7 @@ LlrpSdk
 
 **标签访问** `ReadTagMemoryAsync` / `WriteTagMemoryAsync` / `LockTagMemoryAsync` / `KillTagAsync` / `BlockEraseTagMemoryAsync` / `ExecuteTagAccessAsync` / `ExecuteTagAccessSequenceAsync` / `GetTagReportsAsync`
 
-**专家资源与 raw** `RoSpecs` / `AccessSpecs` / `EnterManualResourceModeAsync` / `ExitManualResourceModeAsync`(不删除资源) / `Protocol`(raw 收发)/ `ReadMessagesAsync` / `ReadTagReportsAsync` / `Registry`(只读视图 `ILlrpCodecRegistryReader`)/ `RefreshCapabilitiesAsync`
+**专家协议控制面** `RoSpecs` / `AccessSpecs` / `Protocol`(typed/raw 收发) / `ReadMessagesAsync` / `ReadTagReportsAsync` / `Registry`(只读视图 `ILlrpCodecRegistryReader`)/ `RefreshCapabilitiesAsync`。资源 API 在连接 Ready 后直接可用，不需要额外的模式切换。
 
 **元数据** `Identity` / `Capabilities` / `Extensions`
 
@@ -158,7 +158,7 @@ LlrpSdk
 ### 3.2 门面机制(改它之前必须懂)
 
 - **三个状态正交**:`ConnectionState`(Disconnected→Connecting→Negotiating→Initializing→Ready)管连接;
-  `OperationState`(Idle/Starting/Inventorying/Stopping)管盘点;`ResourceMode`(Idle/HighLevelConfigured/HighLevelRunning/ManualResources/StateUnknown)管资源所有权。
+  `OperationState`(Idle/Starting/Inventorying/Stopping)管盘点；`ResourceMode` 只描述托管观察状态（Idle/HighLevelConfigured/HighLevelRunning/AttachedInventory/StateUnknown），专家协议资源不再进入额外的资源模式。
 - **报告出口:三个投递出口三选一,`GetTagReportsAsync` 不是第四个**。三个出口同一时刻只归一个,谁先消费谁认领,
   其余立即抛 `InvalidOperationException`:
 
@@ -166,7 +166,7 @@ LlrpSdk
   |---|---|---|---|
   | `InventorySession.ReadReportsAsync()` | 会话级 | 会话私有有界 channel,按 RoSpecId/AccessSpecId 过滤 | 托管盘点(主流;平台/CLI 均用此) |
   | `TagsReported` 事件 | 连接级 | 裸广播,不过滤 | 无会话时观察全连接报告(CLI 无会话 fallback) |
-  | `ReadTagReportsAsync()` | 连接级 | 连接级有界 channel,不过滤 | manual/raw 资源模式需要中性报表(专家面) |
+  | `ReadTagReportsAsync()` | 连接级 | 连接级有界 channel,不过滤 | 专家/raw ROSpec 报表的中性观察出口 |
 
   `GetTagReportsAsync()` 是另一条轴(拉取):发 `GET_REPORT` 主动取设备缓冲,结果只经返回值交付,不进上述任一出口。
 - **托管资源与观测分离**:高层盘点使用固定 ROSpec 14150 / AccessSpec 14151。默认
@@ -233,6 +233,9 @@ src/LlrpSdk.Extensions.Impinj/          (7 个手写文件,依赖 LlrpSdk + Abst
   `ImpinjReaderExtension.Matches` 判定 `ManufacturerId==25882 && ProtocolVersion==Version101` 即激活;
   随后 `InitializeConnectionAsync` 发 `IMPINJ_ENABLE_EXTENSIONS` 事务,成功后才继续拉全量能力
   (此时响应里的 Impinj Custom 参数已能被阶段一的 Codec 强类型解码)。互斥组 `reader-vendor` 保证同组只激活一个。
+  如果没有任何 Reader Extension 匹配（例如普通设备，或当前 Impinj 包连接到 LLRP 1.1），连接仍继续完成，
+  但 active extension collection 为空，不发送厂商启用命令，也不执行厂商 Settings/TagReport contributor。
+  应用在构造并应用厂商 Settings 前必须检查对应扩展是否已激活。
 
 **锚定与增量(与标准协议的同构关系)**:标准协议是每版本全量实现(`Llrp101*`/`Llrp11*` 切片);厂商扩展是
 **锚定单一版本的增量**——Impinj 生成包命名空间带 `V1_0_1`、自定义参数只注册进 1.0.1 版本键、`Matches` 要求

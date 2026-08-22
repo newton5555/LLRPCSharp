@@ -166,6 +166,65 @@ public sealed class LlrpReaderOperationException : Exception
 }
 
 /// <summary>
+/// Indicates that a managed SDK deployment or tag-access operation would exceed a reader resource limit.
+/// </summary>
+public sealed class LlrpResourceCapacityException : InvalidOperationException
+{
+    /// <summary>Initializes a capacity diagnostic.</summary>
+    public LlrpResourceCapacityException(
+        string resourceType,
+        uint? limit,
+        uint current,
+        uint required,
+        ResourceTakeoverPolicy takeoverPolicy,
+        string? detail = null)
+        : base(CreateMessage(resourceType, limit, current, required, takeoverPolicy, detail))
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceType);
+        ResourceType = resourceType;
+        Limit = limit;
+        Current = current;
+        Required = required;
+        TakeoverPolicy = takeoverPolicy;
+        Detail = detail ?? string.Empty;
+    }
+
+    /// <summary>Gets the logical resource type, such as <c>ROSpec</c> or <c>AccessSpec</c>.</summary>
+    public string ResourceType { get; }
+
+    /// <summary>Gets the advertised limit, or <see langword="null"/> when unknown.</summary>
+    public uint? Limit { get; }
+
+    /// <summary>Gets the number of resources observed before deployment.</summary>
+    public uint Current { get; }
+
+    /// <summary>Gets the final number required by the requested deployment.</summary>
+    public uint Required { get; }
+
+    /// <summary>Gets the takeover policy used for the planned deployment.</summary>
+    public ResourceTakeoverPolicy TakeoverPolicy { get; }
+
+    /// <summary>Gets optional operation-specific detail.</summary>
+    public string Detail { get; }
+
+    private static string CreateMessage(
+        string resourceType,
+        uint? limit,
+        uint current,
+        uint required,
+        ResourceTakeoverPolicy takeoverPolicy,
+        string? detail)
+    {
+        string limitText = limit?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown";
+        string policyText = takeoverPolicy == ResourceTakeoverPolicy.PreserveForeign
+            ? "PreserveForeign"
+            : "ReplaceAll";
+        string suffix = string.IsNullOrWhiteSpace(detail) ? string.Empty : $" {detail}";
+        return $"Reader {resourceType} capacity is insufficient (current {current}, required {required}, limit {limitText}, policy {policyText})." + suffix;
+    }
+}
+
+/// <summary>
 /// Indicates that a successful protocol response could not initialize a consistent reader model.
 /// </summary>
 public sealed class LlrpReaderInitializationException : Exception

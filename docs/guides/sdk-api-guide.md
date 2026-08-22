@@ -160,9 +160,9 @@ await using var session = await reader.StartInventoryAsync();  // 启动已部�
 
 **④ 设备断电重启后的恢复**：
 
-设备上的 ROSpec/AccessSpec 是易失资源（LLRP 不强制设备持久化，Impinj 实测断电重启后不保留）。设备重启后直接调用无参
-`StartInventoryAsync()` 会按预期报错（"No stopped SDK-managed inventory configuration is available to start."），
-与 Impinj Octane 在设备重启后直接 `Start()` 报错的行为一致。应用需在重启后从本地配置重新部署：
+设备上的 ROSpec/AccessSpec 是易失资源（LLRP 不强制设备持久化，Impinj 实测断电重启后不保留）。如果仍使用同一个
+`LlrpReader` 实例，SDK 会保留 `DesiredSettings`；重连同步发现 14150 消失后，无参 `StartInventoryAsync()` 会按该意图
+重新部署并启动。若是新建了 SDK 实例或 DesiredSettings 已被清除，则需要从本地配置重新部署：
 
 ```csharp
 // 设备重启后：从本地文件重新部署并启动
@@ -170,13 +170,18 @@ InventorySettings saved = InventorySettingsSerializer.LoadFromFile("inventory.js
 await using var session = await reader.StartInventoryAsync(saved);
 ```
 
-> ⚠️ 注意：带 Inventory 意图的部署默认使用 `ResourceTakeoverPolicy.PreserveForeign`，只替换 SDK 保留的 ROSpec 14150、AttachedData AccessSpec 14151 及 SDK 自己的临时资源，保留其他应用资源。无参 `StartInventoryAsync()` 仅启动或恢复 SDK 托管资源，不做隐式全量删除。
+> ⚠️ 注意：带 Inventory 意图的部署默认使用 `ResourceTakeoverPolicy.PreserveForeign`，只替换 SDK 保留的 ROSpec 14150、AttachedData AccessSpec 14151 及 SDK 自己的临时资源，保留其他应用资源。无参 `StartInventoryAsync()` 会启动、恢复或按保留的 DesiredSettings 重建 SDK 托管资源，但不会隐式全量删除。
 
 **⑤ 非托管操作后的观测与恢复**：如果应用通过 `reader.Protocol`、`reader.RoSpecs` 或
 `reader.AccessSpecs` 使用了修改类资源接口，SDK 会把设备观测标为 Stale/Unknown，但保留 DesiredState。
 标准只读 `GET_*` Raw 报文不使观测失效。此时可以：
 
-- 需要查看设备现状：调用 `SynchronizeStateAsync()`，它只刷新 ROSpec/AccessSpec 快照，不清空 DesiredState，且不会把 foreign/manual 资源静默变成 SDK 所有；
+专家接口允许直接操作 `LlrpReader.ManagedInventoryRoSpecId`（14150）和
+`ManagedInventoryAttachedDataAccessSpecId`（14151）；它们不是专家控制面的禁用 ID，但写入会立即结束当前
+托管 session 并使观测失效。下一次托管启动会根据保留的 DesiredSettings 重新协调或重建这些资源。
+
+- 需要查看设备现状：调用 `SynchronizeStateAsync()`，它只刷新 ROSpec/AccessSpec 快照和
+  `CurrentInventorySettings`，不清空 DesiredState，也不会把 foreign/专家资源静默变成 SDK 所有；
 - 需要继续托管盘点：直接调用 `StartInventoryAsync(desiredInventory)` 或带 `Inventory` 的 `ApplySettingsAsync(desiredSettings)`，不需要先同步，默认保留 foreign 资源；
 - 需要验证专家/Raw 创建的 ROSpec：调用 `StartExistingRoSpecAsync(roSpecId)`，会检查、Enable、Start 指定 ID，并返回正常 `InventorySession`，停止时保留该 ROSpec。
 
@@ -195,7 +200,7 @@ ROSpec/AccessSpec。仅修改 Reader 全局配置而不提供 `Inventory` 不会
 | **受控部署 + 显式启动** | `ApplySettingsAsync(ReaderSettings)` → `StartInventoryAsync()` | 写入 Reader 配置并部署 SDK 资源（默认 PreserveForeign，保持停止），随后显式启动 |
 | **恢复（断电重启/新会话）** | 见 4.1 三种来源 + 显式传入 | 设备重启后 ROSpec 丢失，无参 `StartInventoryAsync()` 会报错，需应用从本地/default 重新部署 |
 
-两段式对应 Octane 官方用法：`Connect` → `QueryDefaultSettings` → `ApplySettings(settings)`（部署，保持停止）→ `Start()`（显式启动）→ `Stop()`。`Stop` 默认只停用 SDK 会话/ROSpec，不删除 foreign 资源；`ExitManualResourceModeAsync` 同样不会删除资源。
+两段式对应 Octane 官方用法：`Connect` → `QueryDefaultSettings` → `ApplySettings(settings)`（部署，保持停止）→ `Start()`（显式启动）→ `Stop()`。`Stop` 默认只停用 SDK 会话/ROSpec，不删除 foreign 资源。专家资源 API 在连接 Ready 后直接可用，不需要额外的模式切换。
 
 ---
 
@@ -266,7 +271,9 @@ TagAccessResult killResult = await reader.KillTagAsync(new KillTagRequest
 
 ## 6. 厂商扩展使用 (以 Impinj 为例)
 
-通过 `.UseImpinj()` 挂载扩展，可提取 Impinj 扩展属性（TID 序列号、相位角、Peak RSSI 等）：
+`.UseImpinj()` 注册 Impinj 的协议 Codec 和候选 Reader Extension。连接后 SDK 会先读取标准
+Reader Identity，再按厂商 ID 和协商版本决定是否激活扩展；它不会把任意读写器强制当作 Impinj。
+高层 Impinj Settings 只应在扩展实际激活后使用：
 
 ```csharp
 using LlrpSdk;
@@ -277,6 +284,12 @@ await using LlrpReader reader = LlrpReader.CreateBuilder("192.168.1.100")
     .Build();
 
 await reader.ConnectAsync();
+
+if (reader.Extensions.Get<ImpinjReaderExtension>() is null)
+{
+    throw new NotSupportedException(
+        "The connected reader is not an active Impinj LLRP 1.0.1 reader.");
+}
 
 ReaderSettings settings = ReaderSettings.Create(builder => builder
     .Inventory(inv => inv
@@ -294,3 +307,11 @@ await foreach (TagReport tag in session.ReadReportsAsync())
     Console.WriteLine($"EPC: {tag.EpcHex}, TID: {tag.GetSerializedTidHex()}");
 }
 ```
+
+如果连接的是普通设备，`ConnectAsync()` 仍会成功，但不会发送
+`IMPINJ_ENABLE_EXTENSIONS`，也不会查询或投影 Impinj 配置和报告字段；标准 SDK API 继续正常工作。
+`InventorySettingsBuilder.Impinj(...)` 本身只是构造本地 Settings，不代表设备已经支持 Impinj。
+当前版本在未激活时不会自动发送这些厂商字段，因此应用必须先检查
+`reader.Extensions.Get<ImpinjReaderExtension>()`，再调用 `ApplySettingsAsync` 或
+`StartInventoryAsync`。需要绕过高层检查时，应明确使用 `reader.Protocol` 专家接口，并承担设备拒绝和
+托管状态失效的责任。
