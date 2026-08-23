@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Virtual Device CLI for deterministic software LLRP readers.">
+  <title>Virtual Device CLI · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Device CLI</small></span></a>
+  <button class="menu-toggle" aria-label="Open navigation">☰</button>
+  <nav><a href="index.html">Home</a><a href="api.html">Reader SDK</a><a href="device-sdk.html">Device SDK</a><a href="cli.html">Reader CLI</a><a href="device-cli.html" class="active">Device CLI</a><a href="api-reference.html">Reader API Reference</a><a href="device-api-reference.html">Device API Reference</a></nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+<main class="shell docs-layout">
+  <aside class="side-nav"><p class="eyebrow">DEVICE CLI</p><a href="#overview">Overview</a><a href="#run">Run</a><a href="#presets">Presets</a><a href="#live-shell">Live shell</a><a href="#config-file">JSON config</a><a href="#validate">Validation</a><a href="#interop">Interop</a></aside>
+  <article class="doc-content">
+    <p class="eyebrow">04 / VIRTUAL DEVICE CLI SERVER</p>
+    <h1>Standalone virtual reader service</h1>
+    <p class="doc-lead"><code>LlrpVirtualDevice.Cli</code> starts a deterministic software LLRP TCP service without application code. Choose a protocol/profile preset, load JSON tag data and control the host lifecycle from an interactive shell. It is a software test endpoint, not a physical RF simulator.</p>
+
+    <section id="overview"><h2>Overview</h2><div class="mini-grid"><div><strong>No-code launch</strong><p>Start a test reader on the default loopback address and port 5084.</p></div><div><strong>Protocol presets</strong><p>Standard 1.0.1, strict 1.0.1, 1.1, 2.0 and an Impinj R420-shaped profile are available.</p></div><div><strong>Lifecycle shell</strong><p>Inspect status, toggle logs and stop, start or restart the same host.</p></div></div></section>
+
+    <section id="run"><h2>1. Run a service</h2><p>The default service listens on <code>127.0.0.1:5084</code>. Use a preset or an explicit port when needed.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code># Default: standard LLRP 1.0.1 on 127.0.0.1:5084
+dotnet run --project src/LlrpVirtualDevice.Cli -- run
+
+# Impinj R420-shaped software profile
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --port 5084 --preset impinj.r420.basic
+
+# Explicit LLRP 2.0 software profile
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --preset llrp.standard20.basic</code></pre></div></section>
+
+    <section id="presets"><h2>2. Presets</h2><p>These IDs select protocol and capability defaults for software tests; they are not claims about a physical RF environment.</p><div class="api-table"><div class="api-row api-head"><span>Preset ID</span><span>Protocol</span><span>Purpose</span></div><div class="api-row"><code>llrp.standard101.basic</code><span>LLRP 1.0.1</span><span>Standard deterministic reporting baseline.</span></div><div class="api-row"><code>llrp.standard101.strict</code><span>LLRP 1.0.1</span><span>Strict standard inventory checks.</span></div><div class="api-row"><code>llrp.standard11.basic</code><span>LLRP 1.1</span><span>Explicit 1.1 negotiation and message path.</span></div><div class="api-row"><code>llrp.standard20.basic</code><span>LLRP 2.0</span><span>Current translated 2.0 device-profile baseline.</span></div><div class="api-row"><code>impinj.r420.basic</code><span>Impinj-shaped / 1.0.1</span><span>Software extension and reporting path.</span></div></div><div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpVirtualDevice.Cli -- presets</code></pre></div></section>
+
+    <section id="live-shell"><h2>3. Interactive live shell</h2><p>The shell controls the service lifecycle and event logging while the virtual reader is running.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpVirtualDevice.Cli -- live --preset llrp.standard101.basic
+
+&gt; server status
+&gt; logs on
+&gt; server restart
+&gt; server stop
+&gt; server start</code></pre></div></section>
+
+    <section id="config-file"><h2>4. JSON configuration</h2><p>Schema 1 JSON can select a profile, protocol version, report cadence, deterministic RF scenario and tag list.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code>{
+  "schemaVersion": 1,
+  "presetId": "impinj.r420.basic",
+  "capabilityProfileId": "impinj.r420.llrp-1.0.1",
+  "protocolVersion": "1.0.1",
+  "reportIntervalMilliseconds": 100,
+  "reportCount": 0,
+  "repeat": true,
+  "rfScenario": "noisy",
+  "randomSeed": 2026,
+  "rssiJitterDb": 1,
+  "tags": [
+    {
+      "epc": "E28011910000000000000001",
+      "tid": "E28011052000600123456789",
+      "peakRssi": -55,
+      "antennaId": 1,
+      "userMemory": [51966, 47806]
+    },
+    {
+      "epc": "E28011910000000000000002",
+      "peakRssi": -62,
+      "antennaId": 2
+    }
+  ]
+}</code></pre></div><div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpVirtualDevice.Cli -- run --config ./my-virtual-reader.json</code></pre></div></section>
+
+    <section id="validate"><h2>5. Validation and capabilities</h2><div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpVirtualDevice.Cli -- validate --config ./my-virtual-reader.json
+dotnet run --project src/LlrpVirtualDevice.Cli -- caps</code></pre></div></section>
+
+    <section id="interop"><h2>6. Interoperability</h2><p>The service provides a standard LLRP TCP connection and an inventory integration path. Advanced vendor behavior and true-device interoperability still require target-specific validation.</p><ul><li><strong>Impinj ItemTest:</strong> the R420-shaped profile has connection and inventory integration evidence; other features need separate verification.</li><li><strong>Other LLRP clients:</strong> useful for connection, negotiation and standard inventory tests, subject to each client's implementation.</li><li><strong>LLRPCSharp:</strong> the Reader SDK and Reader CLI can connect directly for software integration tests.</li></ul></section>
+  </article>
+</main>
+<footer class="shell footer"><span>LLRPCSharp · Device CLI Documentation</span><span><a href="device-api-reference.html">Open the Device API Reference →</a></span></footer>
+<script src="../assets/app.js"></script>
+</body>
+</html>

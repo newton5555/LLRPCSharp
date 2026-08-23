@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp documentation: a modern .NET LLRP SDK, virtual device stack and CLI tools.">
+  <title>LLRPCSharp Documentation · Modern .NET LLRP SDK</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/brand.css">
+  <link rel="stylesheet" href="../assets/home.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>Documentation</small></span>
+  </a>
+  <button class="menu-toggle" aria-label="Open navigation">☰</button>
+  <nav>
+    <a href="index.html" class="active">Home</a>
+    <a href="api.html">Reader SDK</a>
+    <a href="device-sdk.html">Device SDK</a>
+    <a href="cli.html">Reader CLI</a>
+    <a href="device-cli.html">Device CLI</a>
+    <a href="api-reference.html">Reader API Reference</a>
+    <a href="device-api-reference.html">Device API Reference</a>
+    
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-home">
+  <section class="docs-home-head">
+    <p class="eyebrow">LLRPCSHARP / DOCUMENTATION</p>
+    <h1>An industrial LLRP foundation<br>for modern .NET</h1>
+    <p class="doc-lead">
+      LLRPCSharp is a protocol and application foundation for RFID reader software. It combines the <strong>Reader SDK</strong>, a deterministic software <strong>Device SDK</strong>, operational CLI tools and generated, versioned LLRP protocol models.
+    </p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a class="button primary" href="api.html">Start with Reader SDK</a>
+      <a class="button secondary" href="device-sdk.html">Embed a virtual reader</a>
+      <a class="button secondary" href="cli.html">Open Reader CLI</a>
+      <a class="button secondary" href="device-cli.html">Open Device CLI</a>
+      <a class="button secondary" href="api-reference.html">Reader API Reference</a>
+      <a class="button secondary" href="device-api-reference.html">Device API Reference</a>
+    </div>
+    <div class="docs-home-badges">
+      <div class="badge-item"><span class="status-dot"></span>LLRP 1.0.1 / 1.1 usable baselines</div>
+      <div class="badge-item"><span class="status-dot blue"></span>LLRP 2.0 adapter baseline</div>
+      <div class="badge-item"><span class="status-dot amber"></span>Impinj primary · Zebra experimental</div>
+    </div>
+  </section>
+
+  <section class="pillar-grid">
+    <a class="pillar-card featured" href="api.html">
+      <div class="pillar-header"><div class="pillar-icon">📡</div><span class="pillar-tag">Reader SDK</span></div>
+      <h3>High-level reader client</h3>
+      <p>Describe reader intent with typed settings, negotiate an explicit protocol version, stream tag reports and perform standard C1G2 access operations.</p>
+      <ul class="pillar-features">
+        <li>LLRP 1.0.1 and 1.1 adapter baselines</li>
+        <li>Generated 2.0 protocol layer and adapter baseline</li>
+        <li>Inventory, AttachedData and Tag Access APIs</li>
+        <li>Impinj extension package and explicit version types</li>
+      </ul>
+      <span class="pillar-action">Open the Reader SDK guide →</span>
+    </a>
+
+    <a class="pillar-card" href="device-sdk.html">
+      <div class="pillar-header"><div class="pillar-icon">🧪</div><span class="pillar-tag" style="background:#f3eafd;color:#7c3aed;">Device SDK</span></div>
+      <h3>Virtual reader and server</h3>
+      <p>Run a deterministic software LLRP TCP endpoint in tests or host a custom <code>ILlrpDevice</code> implementation. This is not a physical RF waveform simulator.</p>
+      <ul class="pillar-features">
+        <li>Ephemeral-port xUnit and integration tests</li>
+        <li>Repeatable tags, RSSI jitter and memory access</li>
+        <li>Standard server lifecycle and resource routing</li>
+        <li>Hosting and low-level APIs</li>
+      </ul>
+      <span class="pillar-action">Open the Device SDK guide →</span>
+    </a>
+
+    <a class="pillar-card" href="cli.html">
+      <div class="pillar-header"><div class="pillar-icon">⌘</div><span class="pillar-tag" style="background:#eaf0fb;color:var(--blue);">Operations</span></div>
+      <h3>Reader CLI</h3>
+      <p>Connect to readers from a live shell, automate inventory and settings workflows, perform Tag Access and inspect offline protocol traffic.</p>
+      <ul class="pillar-features">
+        <li>Live status, capabilities and inventory</li>
+        <li>Explicit settings validation and takeover policies</li>
+        <li>Raw frame and PCAPNG diagnostics</li>
+        <li>JSON output for scripts and agents</li>
+      </ul>
+      <span class="pillar-action">Open the Reader CLI guide →</span>
+    </a>
+
+    <a class="pillar-card" href="device-cli.html">
+      <div class="pillar-header"><div class="pillar-icon">⚙️</div><span class="pillar-tag" style="background:#fdf3e7;color:var(--amber);">Device CLI</span></div>
+      <h3>Virtual Device CLI</h3>
+      <p>Launch and manage deterministic virtual LLRP readers from the command line with protocol/profile presets or a schema 1 JSON configuration.</p>
+      <ul class="pillar-features">
+        <li>Standard 1.0.1, 1.1 and 2.0 presets</li>
+        <li>Impinj R420-shaped software profile</li>
+        <li>Live lifecycle and event log controls</li>
+        <li>Config validation and capability inspection</li>
+      </ul>
+      <span class="pillar-action">Open the Device CLI guide →</span>
+    </a>
+  </section>
+
+  <section class="docs-home-section">
+    <p class="eyebrow">SUPPORT BOUNDARIES</p>
+    <h2>What is usable today</h2>
+    <div class="api-table">
+      <div class="api-row api-head"><span>Area</span><span>Current position</span></div>
+      <div class="api-row"><code>LLRP 1.0.1 / 1.1</code><span>Usable SDK adapter baselines; verify target-reader behavior for the features you use.</span></div>
+      <div class="api-row"><code>LLRP 2.0</code><span>Generated protocol layer and SDK adapter baseline; real-device interoperability is not yet verified.</span></div>
+      <div class="api-row"><code>Vendor extensions</code><span>Impinj is the primary extension path. Zebra is experimental and requires byte-level/device validation. Seuic is represented by profile defaults.</span></div>
+      <div class="api-row"><code>Virtual device</code><span>Deterministic TCP software for protocol, lifecycle and business-flow tests; it does not model RF physics.</span></div>
+    </div>
+  </section>
+
+  </section>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Modern .NET LLRP SDK</span>
+  <span><a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">Source on GitHub ↗</a></span>
+</footer>
+
+<script src="../assets/app.js"></script>
+</body>
+</html>

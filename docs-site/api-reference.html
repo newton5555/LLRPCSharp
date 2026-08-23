@@ -23,7 +23,7 @@
   </div>
 
   <div class="reference-version">
-    <span class="dot"></span> LlrpSdk · .NET 10 · LLRP 1.0.1 / 1.1 / 2.0
+    <span class="dot"></span> LlrpSdk · .NET 10 · 1.0.1 / 1.1 usable · 2.0 adapter baseline
   </div>
 
   <div class="search-box-wrapper">
@@ -58,55 +58,33 @@
       <div class="reference-nav-title">核心门面 (Core Facade)</div>
       <a href="#type-llrpreader"><code>LlrpReader</code> <span class="badge class">Class</span></a>
       <a href="#type-llrpreaderbuilder"><code>LlrpReaderBuilder</code> <span class="badge class">Class</span></a>
-      <a href="#type-llrpreaderoptions"><code>LlrpReaderOptions</code> <span class="badge class">Class</span></a>
-      <a href="#type-automaticreconnect"><code>LlrpAutomaticReconnectOptions</code> <span class="badge class">Class</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">设备能力与元数据 (Capabilities)</div>
-      <a href="#type-readercapabilities"><code>ReaderCapabilities</code> <span class="badge class">Class</span></a>
-      <a href="#type-readeridentity"><code>ReaderIdentity</code> <span class="badge class">Class</span></a>
-      <a href="#type-readerresourcelimits"><code>ReaderResourceLimits</code> <span class="badge record">Record</span></a>
-      <a href="#type-rfentries"><code>TxPower / Rx / RfMode</code> <span class="badge record">Records</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">配置管理 (Settings & Config)</div>
       <a href="#type-readersettings"><code>ReaderSettings</code> <span class="badge record">Record</span></a>
-      <a href="#type-readersettingsbuilder"><code>ReaderSettingsBuilder</code> <span class="badge class">Class</span></a>
-      <a href="#type-readerconfiguration"><code>ReaderConfiguration</code> <span class="badge record">Record</span></a>
-      <a href="#type-readersettingsdefaults"><code>ReaderSettingsDefaults</code> <span class="badge record">Record</span></a>
-      <a href="#type-readersettingssnapshot"><code>ReaderSettingsSnapshot</code> <span class="badge record">Record</span></a>
-      <a href="#type-settingsvalidation"><code>SettingsValidationResult</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">托管盘点与报告 (Inventory & Stream)</div>
       <a href="#type-inventorysettings"><code>InventorySettings</code> <span class="badge record">Record</span></a>
-      <a href="#type-inventorysettingsbuilder"><code>InventorySettingsBuilder</code> <span class="badge class">Class</span></a>
       <a href="#type-inventorysession"><code>InventorySession</code> <span class="badge class">Class</span></a>
       <a href="#type-tagreport"><code>TagReport</code> <span class="badge record">Record</span></a>
-      <a href="#type-inventoryselectfilter"><code>InventorySelectFilter</code> <span class="badge record">Record</span></a>
-      <a href="#type-attacheddataoptions"><code>AttachedDataOptions</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">C1G2 标签操作 (Tag Access)</div>
       <a href="#type-tagaccessrequest"><code>TagAccessRequest</code> <span class="badge record">Abstract</span></a>
-      <a href="#type-readtagrequest"><code>ReadTagRequest</code> <span class="badge record">Record</span></a>
-      <a href="#type-writetagrequest"><code>WriteTagRequest</code> <span class="badge record">Record</span></a>
-      <a href="#type-locktagrequest"><code>LockTagRequest</code> <span class="badge record">Record</span></a>
-      <a href="#type-killtagrequest"><code>KillTagRequest</code> <span class="badge record">Record</span></a>
-      <a href="#type-blockerasetagrequest"><code>BlockEraseTagRequest</code> <span class="badge record">Record</span></a>
-      <a href="#type-tagaccessresult"><code>TagAccessResult</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">专家与底层协议 (Expert & Raw)</div>
       <a href="#type-irospecservice"><code>IRoSpecService</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-iaccessspecservice"><code>IAccessSpecService</code> <span class="badge interface">Interface</span></a>
       <a href="#type-readerprotocolaccess"><code>IReaderProtocolAccess</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-readerresourcesnapshot"><code>ReaderResourceSnapshot</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
@@ -123,7 +101,6 @@
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">事件与异常 (Events & Exceptions)</div>
-      <a href="#type-events">事件参数类型</a>
       <a href="#type-exceptions">异常体系</a>
     </div>
   </nav>
@@ -139,7 +116,6 @@
       <a href="api.html">Reader SDK 指南</a>
       <a href="device-api-reference.html" style="color:var(--ref-primary);font-weight:700;">切换到 Device SDK 参考 ↗</a>
       <a href="cli.html">Reader CLI</a>
-      <a href="architecture.html">系统架构</a>
       <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
     </div>
   </header>
@@ -150,7 +126,7 @@
       <p class="reference-eyebrow">LLRPCSHARP / READER SDK PUBLIC API REFERENCE</p>
       <h1>Reader SDK (.NET 读写器客户端) API 参考手册</h1>
       <p class="reference-lead">
-        <code>LlrpSdk</code> 提供面向 .NET 10 的现代化读写器客户端 API：强类型的不可变配置意图、流式异步盘点会话、C1G2 存储区全操作（读/写/锁/灭/块擦除）、专家级 ROSpec 资源编排与零拷贝协议通道。
+        <code>LlrpSdk</code> 提供面向 .NET 10 的现代化读写器客户端 API：强类型的不可变配置意图、流式异步盘点会话、C1G2 存储区全操作（读/写/锁/灭/块擦除）、专家级 ROSpec 资源编排与原始字节协议通道。
       </p>
     </header>
 
@@ -164,11 +140,11 @@
         </dl>
         <dl>
           <dt>支持协议基线</dt>
-          <dd>LLRP 1.0.1 · LLRP 1.1 · LLRP 2.0</dd>
+          <dd>LLRP 1.0.1 · LLRP 1.1 usable baselines · LLRP 2.0 adapter baseline</dd>
         </dl>
         <dl>
           <dt>厂商扩展模块</dt>
-          <dd>Impinj (Octane) · Zebra (Motorola) · Seuic</dd>
+          <dd>Impinj primary · Zebra experimental · Seuic profile defaults</dd>
         </dl>
         <dl>
           <dt>资源管理模型</dt>
@@ -242,7 +218,7 @@
             <code>IReaderProtocolAccess</code>
             <span class="badge interface">Interface</span>
           </div>
-          <p>强类型消息事务与原始字节帧 (Raw Frame) 零拷贝交互管道。</p>
+          <p>强类型消息事务与原始字节帧 (Raw Frame) 交互管道。</p>
         </a>
         <a href="#ns-impinj" class="quick-jump-card" data-category="extensions">
           <div class="quick-jump-card-header">
@@ -381,7 +357,7 @@ if (result.Operation.Success)
             <tr class="api-entry" data-search="Protocol">
               <td><code>Protocol</code></td>
               <td class="type-col"><code>IReaderProtocolAccess</code></td>
-              <td class="desc-col">底层协议直接访问通道，用于发送强类型报文事务或零拷贝 Raw 字节帧。</td>
+              <td class="desc-col">底层协议直接访问通道，用于发送强类型报文事务或 Raw 字节帧。</td>
             </tr>
             <tr class="api-entry" data-search="RoSpecs">
               <td><code>RoSpecs</code></td>
@@ -695,7 +671,7 @@ if (result.Operation.Success)
           <span class="badge extension">Extension</span>
         </div>
         <p class="type-desc">
-          通过 <code>builder.UseZebra()</code> 启用（IANA <code>161</code>）。支持查询与配置射频电源状态、自主模式、掉电参数保存，并在标签报告中投影 <code>zebra.phase</code>。
+          通过 <code>builder.UseZebra()</code> 启用（IANA <code>161</code>）。这是实验性扩展路径；当前重点是标准连接/身份和已定义映射，FX9600 高级字段仍需按设备与固件完成字节级、真机验证。
         </p>
       </div>
 
@@ -709,7 +685,7 @@ if (result.Operation.Success)
           <span class="badge extension">Extension</span>
         </div>
         <p class="type-desc">
-          通过 <code>builder.UseSeuic()</code> 启用（IANA <code>57690</code>）。自动解析已知型号的硬件能力表并生成匹配的发射功率与接收灵敏度配置。
+          通过 <code>builder.UseSeuic()</code> 启用（IANA <code>57690</code>）。当前定位是已知型号的 profile/default 映射，用于生成匹配的能力与功率配置；不把它描述为独立的完整厂商协议验收。
         </p>
       </div>
     </section>

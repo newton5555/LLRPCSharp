@@ -23,7 +23,6 @@
     <a href="device-cli.html">Device CLI</a>
     <a href="api-reference.html">Reader API 参考</a>
     <a href="device-api-reference.html">Device API 参考</a>
-    <a href="architecture.html">架构与专题</a>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
@@ -46,7 +45,7 @@
     <p class="eyebrow">04 / VIRTUAL DEVICE CLI SERVER</p>
     <h1>独立运行的虚拟读写器服务程序</h1>
     <p class="doc-lead">
-      <code>LlrpVirtualDevice.Cli</code> 是一个独立的虚拟 LLRP 读写器服务程序。无需编写一行代码，即可在任意机器上启动标准的 LLRP TCP 监听服务，支持丰富的生活化仿真预设与交互式动态标签注入，供任何标准 LLRP 客户端连接联调。
+      <code>LlrpVirtualDevice.Cli</code> 是一个独立的虚拟 LLRP 读写器服务程序。无需编写业务代码，即可启动确定性软件 LLRP TCP 服务，选择内置协议/profile 预设、加载 JSON 标签数据，并通过交互式 Shell 管理宿主生命周期。
     </p>
 
     <!-- Overview -->
@@ -59,11 +58,11 @@
         </div>
         <div>
           <strong>预置丰富仿真场景</strong>
-          <p>内置传送带 (Conveyor)、仓库货架 (Warehouse)、通道门禁 (Portal) 等典型物理场景。</p>
+          <p>内置标准 1.0.1、严格 1.0.1、1.1、2.0 与 Impinj R420-shaped profile 预设。</p>
         </div>
         <div>
           <strong>交互式动态 REPL</strong>
-          <p>支持在服务端运行中动态添加/移除标签、切换天线或调整射频抖动参数。</p>
+          <p>支持在服务端运行中查看状态、控制启停/重启、切换日志以及观察 LLRP RX/TX 事件。</p>
         </div>
       </div>
     </section>
@@ -76,14 +75,14 @@
       </p>
       <div class="code-block">
         <button class="copy-code">复制</button>
-        <pre><code># 1. 默认启动（标准 1.0.1 协议，监听 0.0.0.0:5084）
+        <pre><code># 1. 默认启动（标准 1.0.1 协议，监听 127.0.0.1:5084）
 dotnet run --project src/LlrpVirtualDevice.Cli -- run
 
 # 2. 指定端口与 Impinj Speedway R420 档案
-dotnet run --project src/LlrpVirtualDevice.Cli -- run --port 5084 --profile impinj.r420.llrp-1.0.1
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --port 5084 --preset impinj.r420.basic
 
-# 3. 加载预设场景启动
-dotnet run --project src/LlrpVirtualDevice.Cli -- run --preset warehouse</code></pre>
+# 3. 显式选择 LLRP 2.0 软件预设
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --preset llrp.standard20.basic</code></pre>
       </div>
     </section>
 
@@ -91,33 +90,38 @@ dotnet run --project src/LlrpVirtualDevice.Cli -- run --preset warehouse</code><
     <section id="presets">
       <h2>2. 预设仿真场景 (Presets)</h2>
       <p>
-        内置典型业务场景，快速模拟真实的标签分布与运动特征：
+        内置的是协议/profile 预设，用于快速复现版本、严格校验和厂商扩展路径；它们不是物理射频场景：
       </p>
       <div class="api-table">
         <div class="api-row api-head">
-          <span>场景名称</span>
-          <span>适用预设</span>
-          <span>场景模拟特征</span>
+          <span>预设 ID</span>
+          <span>协议</span>
+          <span>用途</span>
         </div>
         <div class="api-row">
-          <code>warehouse</code>
-          <span>密集仓库货架</span>
-          <span>分布在 4 根天线下的多标签群，带微弱射频抖动</span>
+          <code>llrp.standard101.basic</code>
+          <span>LLRP 1.0.1</span>
+          <span>标准协议和确定性标签报告基线</span>
         </div>
         <div class="api-row">
-          <code>conveyor</code>
-          <span>产线传送带</span>
-          <span>模拟标签按指定周期依序穿过天线 1 → 天线 2</span>
+          <code>llrp.standard101.strict</code>
+          <span>LLRP 1.0.1</span>
+          <span>启用严格标准盘点校验</span>
         </div>
         <div class="api-row">
-          <code>portal</code>
-          <span>门禁通道</span>
-          <span>双天线通道，模拟人员/叉车进出门禁时的短暂刷卡</span>
+          <code>llrp.standard11.basic</code>
+          <span>LLRP 1.1</span>
+          <span>显式版本协商和 1.1 报文路径</span>
         </div>
         <div class="api-row">
-          <code>single-tag</code>
-          <span>单标签基线</span>
-          <span>天线 1 固定 1 枚标签，用于基础读写与基线排查</span>
+          <code>llrp.standard20.basic</code>
+          <span>LLRP 2.0</span>
+          <span>当前 2.0 translated device profile 基线</span>
+        </div>
+        <div class="api-row">
+          <code>impinj.r420.basic</code>
+          <span>Impinj R420-shaped / 1.0.1</span>
+          <span>Impinj 扩展激活和捕获默认值的软件联调 profile</span>
         </div>
       </div>
       <div class="code-block">
@@ -131,20 +135,19 @@ dotnet run --project src/LlrpVirtualDevice.Cli -- presets</code></pre>
     <section id="live-shell">
       <h2>3. 交互式 Live 终端 (live / shell)</h2>
       <p>
-        进入交互式 Live 终端后，可以在读写器运行期间动态观测客户端连接并注入标签事件：
+        进入交互式 Live 终端后，可以在读写器运行期间控制宿主生命周期、查看客户端连接和观察 LLRP 事件：
       </p>
       <div class="code-block">
         <button class="copy-code">复制</button>
         <pre><code># 启动带有交互控制台的虚拟设备服务
-dotnet run --project src/LlrpVirtualDevice.Cli -- live --preset warehouse
+dotnet run --project src/LlrpVirtualDevice.Cli -- live --preset llrp.standard101.basic
 
-# 在控制台中动态注入标签：
-> tag add E280119100000000000000FF --antenna 1 --rssi -50.0
-> tag remove E280119100000000000000FF
-
-# 查看当前连接的客户端与活跃 ROSpec 实况：
-> status
-> clients</code></pre>
+# 在控制台中查看状态、事件日志并重启同一实例：
+> server status
+> logs on
+> server restart
+> server stop
+> server start</code></pre>
       </div>
     </section>
 
@@ -152,34 +155,35 @@ dotnet run --project src/LlrpVirtualDevice.Cli -- live --preset warehouse
     <section id="config-file">
       <h2>4. 使用 JSON 配置文件定义虚拟设备</h2>
       <p>
-        你可以编写结构化的 JSON 配置文件，定制天线数、硬件能力与模拟标签列表：
+        你可以编写 CLI 支持的 schema 1 JSON 配置文件，定制 profile、协议版本、报告节奏、确定性场景与标签列表：
       </p>
       <div class="code-block">
         <button class="copy-code">复制</button>
         <pre><code>{
-  "server": {
-    "listenAddress": "0.0.0.0",
-    "port": 5084,
-    "clientConnectionTimeoutSeconds": 30
-  },
-  "device": {
-    "profile": "impinj.r420.llrp-1.0.1",
-    "antennaCount": 4,
-    "rssiJitterDb": 1.0,
-    "tags": [
-      {
-        "epcHex": "E28011910000000000000001",
-        "tidHex": "E28011052000600123456789",
-        "antennaId": 1,
-        "baseRssi": -55.0
-      },
-      {
-        "epcHex": "E28011910000000000000002",
-        "antennaId": 2,
-        "baseRssi": -62.0
-      }
-    ]
-  }
+  "schemaVersion": 1,
+  "presetId": "impinj.r420.basic",
+  "capabilityProfileId": "impinj.r420.llrp-1.0.1",
+  "protocolVersion": "1.0.1",
+  "reportIntervalMilliseconds": 100,
+  "reportCount": 0,
+  "repeat": true,
+  "rfScenario": "noisy",
+  "randomSeed": 2026,
+  "rssiJitterDb": 1,
+  "tags": [
+    {
+      "epc": "E28011910000000000000001",
+      "tid": "E28011052000600123456789",
+      "peakRssi": -55,
+      "antennaId": 1,
+      "userMemory": [51966, 47806]
+    },
+    {
+      "epc": "E28011910000000000000002",
+      "peakRssi": -62,
+      "antennaId": 2
+    }
+  ]
 }</code></pre>
       </div>
       <div class="code-block">
@@ -198,7 +202,7 @@ dotnet run --project src/LlrpVirtualDevice.Cli -- run --config ./my-virtual-read
       <div class="code-block">
         <button class="copy-code">复制</button>
         <pre><code># 校验配置文件是否合规
-dotnet run --project src/LlrpVirtualDevice.Cli -- validate ./my-virtual-reader.json
+dotnet run --project src/LlrpVirtualDevice.Cli -- validate --config ./my-virtual-reader.json
 
 # 查询支持的能力 Profile
 dotnet run --project src/LlrpVirtualDevice.Cli -- caps</code></pre>
@@ -209,12 +213,12 @@ dotnet run --project src/LlrpVirtualDevice.Cli -- caps</code></pre>
     <section id="interop">
       <h2>6. 与第三方客户端生态互操作</h2>
       <p>
-        虚拟读写器完全遵循标准 LLRP 协议实现，可直接接受各类外部客户端连接：
+        虚拟读写器提供标准 LLRP TCP 连接和盘点联调路径；高级厂商行为与真实设备互操作仍应按具体客户端和 profile 单独验证：
       </p>
       <ul>
-        <li><strong>Impinj ItemTest</strong>：选用 <code>impinj.r420.llrp-1.0.1</code> 档案后，可直接在 ItemTest 中添加并扫描标签。</li>
-        <li><strong>Java / Python / Go LLRP 客户端</strong>：如 ltkjava、libltk-d、pylogix 等。</li>
-        <li><strong>LLRPCSharp 本项目 <code>LlrpSdk</code> 与 <code>LlrpCli</code></strong>：无缝开箱即用。</li>
+        <li><strong>Impinj ItemTest</strong>：R420-shaped profile 已有连接与盘点联调记录；其它 ItemTest 功能仍需单独验证。</li>
+        <li><strong>其它 LLRP 客户端</strong>：可用于连接、版本协商和标准盘点路径测试，具体兼容性取决于客户端实现。</li>
+        <li><strong>LLRPCSharp 本项目 <code>LlrpSdk</code> 与 <code>LlrpCli</code></strong>：可直接连接本 CLI 服务进行软件联调。</li>
       </ul>
     </section>
   </article>

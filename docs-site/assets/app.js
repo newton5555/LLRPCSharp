@@ -1,9 +1,31 @@
 (function () {
+  const isEnglish = document.documentElement.lang === "en" || /\/en(?:\/|$)/.test(location.pathname);
+  const page = location.pathname.endsWith("/")
+    ? "index.html"
+    : (location.pathname.split("/").pop() || "index.html");
   const menu = document.querySelector(".menu-toggle");
   const nav = document.querySelector(".topbar nav");
-  if (menu && nav) menu.addEventListener("click", () => nav.classList.toggle("open"));
+  if (menu && nav) {
+    menu.setAttribute("aria-label", isEnglish ? "Toggle navigation" : "切换导航");
+    menu.setAttribute("aria-expanded", "false");
+    menu.addEventListener("click", () => {
+      const open = nav.classList.toggle("open");
+      menu.setAttribute("aria-expanded", String(open));
+    });
+  }
 
-  const page = location.pathname.split("/").pop() || "index.html";
+  const languageToggle = document.createElement("a");
+  languageToggle.className = "language-toggle";
+  languageToggle.href = `${isEnglish ? "../" : "en/"}${page}${location.hash}`;
+  languageToggle.textContent = isEnglish ? "中文" : "EN";
+  languageToggle.setAttribute("aria-label", isEnglish ? "切换到中文" : "Switch to English");
+  languageToggle.title = isEnglish ? "切换到中文" : "Switch to English";
+  const languageHost = document.querySelector(".topbar")
+    || document.querySelector(".reference-topbar .topbar-links")
+    || document.querySelector(".reference-topbar");
+  const github = languageHost?.querySelector(".github");
+  languageHost?.insertBefore(languageToggle, github || null);
+
   document.querySelectorAll(".topbar nav a").forEach(link => {
     if (link.getAttribute("href").split("#")[0] === page) link.classList.add("active");
   });
@@ -14,10 +36,10 @@
       try {
         await navigator.clipboard.writeText(code);
         const old = button.innerText;
-        button.innerText = "已复制";
+        button.innerText = isEnglish ? "Copied" : "已复制";
         setTimeout(() => button.innerText = old, 1300);
       } catch (_) {
-        button.innerText = "请手动复制";
+        button.innerText = isEnglish ? "Copy manually" : "请手动复制";
       }
     });
   });

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Searchable public API reference for the LLRPCSharp Device SDK.">
+  <title>Device SDK API Reference · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/reference.css">
+</head>
+<body class="api-reference-page">
+<aside id="reference-sidebar">
+  <div class="reference-logo"><a href="index.html"><span class="mark">D</span><div><span>LLRPCSharp</span><small>Device API Reference</small></div></a></div>
+  <div class="reference-version"><span class="dot"></span> LlrpDevice.* · .NET 10 · Server + Hosting + Virtual</div>
+  <div class="search-box-wrapper"><span class="search-icon">🔍</span><input id="api-search" class="reference-search" type="search" placeholder="Search Device SDK types, methods and properties..." aria-label="Search Device API symbols"></div>
+  <div id="api-result-count" class="reference-search-result"></div>
+  <div class="filter-pills"><button class="filter-pill active" data-filter="all">All</button><button class="filter-pill" data-filter="hosting">Hosting</button><button class="filter-pill" data-filter="server">Server</button><button class="filter-pill" data-filter="virtual">Virtual</button><button class="filter-pill" data-filter="abstractions">Abstractions</button></div>
+  <nav class="reference-nav"><a href="#info-overview">Overview</a><a href="#quick-jump">Quick jump</a><a href="#sec-hosting">Hosting</a><a href="#sec-server">Server</a><a href="#sec-virtual">Virtual</a><a href="#sec-abstractions">Abstractions</a><a href="#type-profiles">Profiles</a></nav>
+</aside>
+<main id="reference-main">
+  <header class="reference-topbar"><a href="index.html">← Documentation home</a><span>Device SDK API Reference</span></header>
+  <article class="reference-content">
+    <header class="reference-title"><p class="reference-eyebrow">LLRPCSHARP / DEVICE SDK PUBLIC API REFERENCE</p><h1>Device SDK API reference</h1><p class="reference-lead"><code>LlrpDevice.*</code> contains the device-side server, hosting facade and deterministic virtual-reader types used for protocol and integration tests. It is not an RF waveform simulator.</p></header>
+    <section id="info-overview" class="reference-section"><h2>Architecture and packages</h2><div class="reference-meta"><dl><dt>Hosting</dt><dd><code>LlrpDevice.Virtual.Hosting</code></dd></dl><dl><dt>Server</dt><dd><code>LlrpDevice.Server</code></dd></dl><dl><dt>Virtual</dt><dd><code>LlrpDevice.Virtual</code></dd></dl><dl><dt>Boundary</dt><dd>Deterministic TCP software, not physical RF</dd></dl></div></section>
+    <section id="quick-jump" class="reference-section"><h2>Quick jump</h2><div class="quick-jump-grid"><a href="#type-virtualllrpdevicehost" class="quick-jump-card" data-category="hosting"><div class="quick-jump-card-header"><code>VirtualLlrpDeviceHost</code><span class="badge class">Class</span></div><p>Embeddable async host.</p></a><a href="#type-virtualdevicehostoptions" class="quick-jump-card" data-category="hosting"><div class="quick-jump-card-header"><code>VirtualDeviceHostOptions</code><span class="badge record">Record</span></div><p>Endpoint, protocol and simulation setup.</p></a><a href="#type-lrpdeviceserver" class="quick-jump-card" data-category="server"><div class="quick-jump-card-header"><code>LlrpDeviceServer</code><span class="badge class">Class</span></div><p>Generic LLRP server engine.</p></a><a href="#type-virtualdeviceoptions" class="quick-jump-card" data-category="virtual"><div class="quick-jump-card-header"><code>VirtualDeviceOptions</code><span class="badge record">Record</span></div><p>Low-level virtual device setup.</p></a><a href="#type-virtualinventorytag" class="quick-jump-card" data-category="virtual"><div class="quick-jump-card-header"><code>VirtualInventoryTag</code><span class="badge record">Record</span></div><p>Hosting-level tag definition.</p></a></div></section>
+    <section id="info-examples" class="reference-section"><h2>Typical code</h2><div class="code-block"><button class="copy-code">Copy</button><pre><code>var options = new VirtualDeviceHostOptions
+{
+    ListenAddress = IPAddress.Loopback,
+    Port = 0,
+    Inventory = new VirtualInventoryOptions
+    {
+        Tags = [new VirtualInventoryTag
+        {
+            ElectronicProductCode = Convert.FromHexString("E28011910000000000000001"),
+            AntennaId = 1,
+            PeakRssi = -55
+        }]
+    }
+};
+await using IVirtualLlrpDeviceHost host = VirtualLlrpDeviceHost.Create(options);
+await host.StartAsync();</code></pre></div></section>
+    <section class="reference-section" id="sec-hosting"><h2>Hosting lifecycle</h2><div id="type-virtualllrpdevicehost" class="api-type" data-category="hosting" data-search="VirtualLlrpDeviceHost IVirtualLlrpDeviceHost Create StartAsync StopAsync BoundPort ListenAddress"><h3><code>VirtualLlrpDeviceHost</code> <span class="badge class">Class</span></h3><p>Composes a virtual device and LLRP server for an embeddable TCP endpoint.</p><table class="api-table"><tbody><tr class="api-entry" data-search="Create"><td><code>static Create(VirtualDeviceHostOptions)</code></td><td>Build a host instance.</td></tr><tr class="api-entry" data-search="StartAsync"><td><code>StartAsync</code></td><td>Start listening and expose <code>BoundPort</code>.</td></tr><tr class="api-entry" data-search="StopAsync"><td><code>StopAsync</code></td><td>Stop the listener and release resources.</td></tr></tbody></table></div><div id="type-virtualdevicehostoptions" class="api-type" data-category="hosting" data-search="VirtualDeviceHostOptions ProfileId Name ListenAddress Port ProtocolVersion Inventory Simulation"><h3><code>VirtualDeviceHostOptions</code> <span class="badge record">Record</span></h3><p>Profile, endpoint, protocol version, inventory and simulation options for a host.</p><table class="api-table"><tbody><tr class="api-entry" data-search="ProfileId"><td><code>ProfileId</code></td><td>Capability/profile selection.</td></tr><tr class="api-entry" data-search="ListenAddress Port"><td><code>ListenAddress / Port</code></td><td>Bind address and port; <code>0</code> requests an ephemeral port.</td></tr><tr class="api-entry" data-search="ProtocolVersion"><td><code>ProtocolVersion</code></td><td>Explicit software protocol selection.</td></tr><tr class="api-entry" data-search="Inventory Simulation"><td><code>Inventory / Simulation</code></td><td>Tag data and deterministic behavior options.</td></tr></tbody></table></div></section>
+    <section class="reference-section" id="sec-server"><h2>Server engine</h2><div id="type-lrpdeviceserver" class="api-type" data-category="server" data-search="LlrpDeviceServer StartAsync StopAsync LlrpDevice.Server"><h3><code>LlrpDeviceServer</code> <span class="badge class">Class</span></h3><p>Generic device-side LLRP TCP engine for a supplied <code>ILlrpDevice</code>.</p></div><div id="type-lrpdeviceserveroptions" class="api-type" data-category="server" data-search="LlrpDeviceServerOptions ListenAddress Port IdleTimeout FrameAssemblyTimeout"><h3><code>LlrpDeviceServerOptions</code> <span class="badge record">Record</span></h3><p>Listener address, port, idle timeout and frame-assembly timeout.</p></div></section>
+    <section class="reference-section" id="sec-virtual"><h2>Virtual engine</h2><div id="type-virtualdeviceoptions" class="api-type" data-category="virtual" data-search="VirtualDeviceOptions CapabilityProfileId Identity Capabilities Configuration Tags RfSimulation"><h3><code>VirtualDeviceOptions</code> <span class="badge record">Record</span></h3><p>Low-level profile, capability, configuration, tag and RF-simulation setup.</p></div><div id="type-virtualinventorytag" class="api-type" data-category="virtual" data-search="VirtualInventoryTag ElectronicProductCode Tid UserMemory AntennaId PeakRssi AccessPassword"><h3><code>VirtualInventoryTag</code> <span class="badge record">Record</span></h3><p>Hosting-level tag data: EPC bytes, optional TID/User memory, antenna and RSSI.</p></div></section>
+    <section class="reference-section" id="sec-abstractions"><h2>Device abstractions</h2><div id="type-illrpdevice" class="api-type" data-category="abstractions" data-search="ILlrpDevice Capabilities Status StartInventoryAsync ExecuteTagAccessAsync"><h3><code>ILlrpDevice</code> <span class="badge interface">Interface</span></h3><p>Hardware-neutral contract implemented by virtual or custom device backends.</p></div></section>
+    <section class="reference-section" id="type-profiles"><h2>Built-in profiles</h2><div class="api-table"><div class="api-row api-head"><span>Profile</span><span>Purpose</span></div><div class="api-row"><code>llrp1.0.1_standard</code><span>Standard 1.0.1 software profile.</span></div><div class="api-row"><code>impinj.r420.llrp-1.0.1</code><span>Impinj R420-shaped software profile.</span></div><div class="api-row"><code>llrp1.1_standard</code><span>Standard 1.1 software profile.</span></div></div></section>
+  </article>
+</main>
+<script src="../assets/app.js"></script><script src="../assets/reference.js"></script>
+</body>
+</html>

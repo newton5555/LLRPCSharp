@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Reader CLI for live operations, automation and offline protocol diagnostics.">
+  <title>Reader CLI · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Reader CLI</small></span></a>
+  <button class="menu-toggle" aria-label="Open navigation">☰</button>
+  <nav><a href="index.html">Home</a><a href="api.html">Reader SDK</a><a href="device-sdk.html">Device SDK</a><a href="cli.html" class="active">Reader CLI</a><a href="device-cli.html">Device CLI</a><a href="api-reference.html">Reader API Reference</a><a href="device-api-reference.html">Device API Reference</a></nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+<main class="shell docs-layout">
+  <aside class="side-nav"><p class="eyebrow">READER CLI</p><a href="#overview">Overview</a><a href="#live-shell">Live shell</a><a href="#settings-mgmt">Settings</a><a href="#live-inventory">Inventory</a><a href="#tag-ops">Tag Access</a><a href="#agent-commands">Automation</a><a href="#offline-tools">Offline tools</a><a href="#pcapng">PCAPNG</a></aside>
+  <article class="doc-content">
+    <p class="eyebrow">03 / READER CLIENT CLI TOOL</p>
+    <h1>Operations, automation and protocol diagnostics</h1>
+    <p class="doc-lead"><code>LlrpCli</code> (<code>llrp</code>) is built on <code>LlrpSdk</code> and <code>LlrpNet.Protocol</code>. It provides a live shell for field work, one-shot commands for scripts and agents, and offline decoding for Wireshark <code>.pcapng</code> captures.</p>
+    <section id="overview">
+      <h2>Modes</h2>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code># Start the interactive shell
+dotnet run --project src/LlrpCli
+
+# Run a one-shot inventory command
+dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
+
+# Decode an offline capture
+dotnet run --project src/LlrpCli -- decode ./capture.pcapng --output summary</code></pre></div>
+      <div class="mini-grid"><div><strong>Live shell</strong><p>Maintain a reader connection, inspect status and capabilities, and observe inventory.</p></div><div><strong>Automation</strong><p>Run non-interactive commands and emit structured output for scripts or development agents.</p></div><div><strong>Offline diagnostics</strong><p>Inspect, decode, validate and encode LLRP frames without a physical reader.</p></div></div>
+    </section>
+    <section id="live-shell"><h2>1. Interactive live shell</h2><div class="code-block"><button class="copy-code">Copy</button><pre><code>&gt; connect 192.168.1.100
+&gt; status
+&gt; status --full
+&gt; caps
+&gt; caps --raw</code></pre></div><p>Protocol selection can be made explicitly with the reader connection's <code>--llrp</code> option when the target requires a known version.</p></section>
+    <section id="settings-mgmt"><h2>2. Settings management</h2><p>Settings commands use explicit confirmation so field operators do not accidentally replace reader resources.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code>&gt; settings apply --defaults --yes
+&gt; settings apply config.json --yes
+&gt; settings apply config.json --yes --replace-all
+&gt; settings validate config.json
+&gt; settings show --json</code></pre></div><div class="callout warning"><strong>ReplaceAll:</strong> use it only when the reader is exclusively owned by this process. The default <code>PreserveForeign</code> strategy leaves foreign resources intact.</div></section>
+    <section id="live-inventory"><h2>3. Live inventory</h2><div class="code-block"><button class="copy-code">Copy</button><pre><code>&gt; inventory start
+&gt; inventory start --monitor frames
+&gt; inventory start --monitor live --monitor-duration 30
+&gt; inventory status
+&gt; inventory stop</code></pre></div></section>
+    <section id="tag-ops"><h2>4. C1G2 Tag Access</h2><div class="code-block"><button class="copy-code">Copy</button><pre><code>&gt; tag read E28011910000000000000001 --bank user --word 0 --count 2
+&gt; tag write E28011910000000000000001 --bank user --word 0 --data CAFEBABE --yes
+&gt; tag lock E28011910000000000000001 --target user --privilege lock --yes
+&gt; tag kill E28011910000000000000001 --password 00000000 --yes</code></pre></div></section>
+    <section id="agent-commands"><h2>5. Automation commands</h2><p>One-shot inventory output can be consumed by CI or local automation.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
+
+{
+  "durationSeconds": 10.0,
+  "totalTagCount": 42,
+  "uniqueTagCount": 3,
+  "tags": [{ "epc": "E28011910000000000000001", "antennaId": 1, "readCount": 28, "peakRssi": -52.0 }]
+}</code></pre></div></section>
+    <section id="offline-tools"><h2>6. Offline protocol tools</h2><p>These operations do not connect to a reader.</p><div class="api-table"><div class="api-row api-head"><span>Command</span><span>Input</span><span>Purpose</span></div><div class="api-row"><code>inspect &lt;HEX&gt;</code><span>Hex frame</span><span>Read the header, version, type, message ID and length.</span></div><div class="api-row"><code>decode &lt;HEX_OR_FILE&gt;</code><span>Hex or PCAPNG</span><span>Decode the message tree or structured JSON.</span></div><div class="api-row"><code>validate &lt;HEX&gt;</code><span>Hex frame</span><span>Validate length, TL/TLV and nested parameter structure.</span></div><div class="api-row"><code>encode &lt;MESSAGE&gt;</code><span>Message and options</span><span>Build a versioned LLRP frame.</span></div></div></section>
+    <section id="pcapng"><h2>7. Wireshark PCAPNG</h2><p>When <code>decode</code> receives a <code>.pcapng</code> path, it extracts the TCP stream and reassembles LLRP messages.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpCli -- decode ./reader-traffic.pcapng --output summary
+dotnet run --project src/LlrpCli -- decode ./reader-traffic.pcapng --message-type 61 --output text
+dotnet run --project src/LlrpCli -- decode ./reader-traffic.pcapng --output json</code></pre></div></section>
+  </article>
+</main>
+<footer class="shell footer"><span>LLRPCSharp · Reader CLI Documentation</span><span><a href="device-cli.html">Open the Virtual Device CLI →</a></span></footer>
+<script src="../assets/app.js"></script>
+</body>
+</html>

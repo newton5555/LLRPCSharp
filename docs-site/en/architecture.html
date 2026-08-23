@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp architecture, protocol adapters, resource ownership and generated code workflow.">
+  <title>Architecture · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Architecture</small></span></a>
+  <button class="menu-toggle" aria-label="Open navigation">☰</button>
+  <nav><a href="index.html">Home</a><a href="api.html">Reader SDK</a><a href="device-sdk.html">Device SDK</a><a href="cli.html">Reader CLI</a><a href="device-cli.html">Device CLI</a><a href="api-reference.html">Reader API Reference</a><a href="device-api-reference.html">Device API Reference</a></nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+<main class="shell docs-layout">
+  <aside class="side-nav"><p class="eyebrow">ARCHITECTURE</p><a href="#ltknet-modernization">LTK.NET to LlrpNet</a><a href="#layers">Layers</a><a href="#ownership">Resource ownership</a><a href="#protocol">Protocol adapters</a><a href="#virtual">Virtual device</a><a href="#codegen">Code generation</a></aside>
+  <article class="doc-content">
+    <p class="eyebrow">04 / SYSTEM ARCHITECTURE</p>
+    <h1>A focused business facade over an open protocol core</h1>
+    <p class="doc-lead">LLRPCSharp separates byte transport, LLRP framing, generated versioned models, state management and managed reader APIs. The same foundation also supports offline decoding, automation and deterministic software devices.</p>
+
+    <section id="ltknet-modernization">
+      <h2>From LTK.NET to LlrpNet</h2>
+      <p>LTK.NET established the useful pattern of generating strong protocol types from machine-readable definitions. LlrpNet keeps that definition-driven approach and updates the surrounding design for modern .NET. The comparison below describes design choices, not unbenchmarked performance guarantees.</p>
+      <div class="api-table">
+        <div class="api-row api-head"><span>Dimension</span><span>Legacy LTK.NET</span><span>LLRPCSharp / LlrpNet</span></div>
+        <div class="api-row"><code>Definitions</code><span>Single XML input and legacy transforms.</span><span>Official XML plus YAML-driven generation into typed immutable models and codecs.</span></div>
+        <div class="api-row"><code>Memory</code><span>Older collection and byte-array patterns.</span><span><code>ReadOnlyMemory&lt;byte&gt;</code>, <code>Span&lt;byte&gt;</code> and <code>BinaryPrimitives</code> are used where appropriate to avoid unnecessary copies.</span></div>
+        <div class="api-row"><code>Concurrency</code><span>APM or blocking patterns.</span><span><code>async/await</code>, channels, async streams and bounded report flow.</span></div>
+        <div class="api-row"><code>Versioning</code><span>Primarily fixed around one protocol model.</span><span>Independent 1.0.1, 1.1 and 2.0 namespaces with explicit adapters.</span></div>
+        <div class="api-row"><code>Managed API</code><span>Callers build deeply nested parameter trees.</span><span><code>ReaderSettings</code>, <code>InventorySession</code> and Tag Access express common intent.</span></div>
+      </div>
+      <div class="callout tip"><strong>Migration note:</strong> Existing applications still need verification against their messages, target readers and negotiated versions. This page does not promise a universal compatibility percentage or fixed throughput multiplier.</div>
+    </section>
+
+    <section id="layers">
+      <h2>Four-layer model</h2>
+      <div class="architecture-stack">
+        <div><span>04</span><strong>Application / CLI</strong><p>Business code, <code>LlrpCli</code>, live diagnostics and automation scripts.</p></div>
+        <div><span>03</span><strong>LlrpSdk facade</strong><p><code>LlrpReader</code>, settings intent, inventory sessions, C1G2 access and extension injection.</p></div>
+        <div><span>02</span><strong>Protocol adapter</strong><p><code>ILlrpProtocolAdapter</code> translates and projects version-specific messages.</p></div>
+        <div><span>01</span><strong>Transport and session</strong><p><code>LlrpNet.Core</code> handles TCP framing, transaction matching and asynchronous dispatch.</p></div>
+      </div>
+    </section>
+
+    <section id="ownership">
+      <h2>Resource ownership and isolation</h2>
+      <p>The managed facade uses reserved resource IDs while preserving a boundary for resources owned by other applications.</p>
+      <div class="ownership-grid">
+        <div><span class="tag desired">MANAGED</span><h3>SDK-owned resources</h3><p>ROSpec <code>14150</code> and AccessSpec <code>14151</code> are managed and converged by the high-level API.</p></div>
+        <div><span class="tag observed">FOREIGN</span><h3>Foreign resources</h3><p><code>PreserveForeign</code> keeps resources created elsewhere and reports conflicts instead of silently deleting them.</p></div>
+        <div><span class="tag restored">BRIDGED</span><h3>Existing ROSpec</h3><p><code>StartExistingRoSpecAsync(id)</code> can feed an existing resource into the managed report pipeline without redefining it.</p></div>
+      </div>
+    </section>
+
+    <section id="protocol">
+      <h2>Protocol adapter boundary</h2>
+      <p>Each supported protocol version has its own generated namespace. High-level code must not hide the version behind a default alias; adapters own the cross-version translation.</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
+using V20Parameters = LlrpNet.Protocol.Parameters.V2_0;
+
+V101Parameters.ROSpec roSpec101 = new(roSpecID: 14150, priority: 0, ...);
+V11Parameters.ROSpec roSpec11 = new(roSpecID: 14150, priority: 0, ...);</code></pre></div>
+    </section>
+
+    <section id="virtual">
+      <h2>Server and virtual device</h2>
+      <p>The repository includes a deterministic software LLRP reader for CI and application integration. It covers protocol, lifecycle and business-flow behavior; it is not an RF waveform or physical-environment simulator.</p>
+      <ul><li><code>LlrpDevice.Abstractions</code> defines device contracts and execution state.</li><li><code>LlrpDevice.Server</code> provides the device-side TCP server and resource routing.</li><li><code>LlrpDevice.Virtual</code> provides repeatable tags, antenna filtering, RSSI jitter and C1G2 memory behavior.</li><li><code>LlrpDevice.Virtual.Hosting</code> exposes an embeddable host.</li><li><code>LlrpVirtualDevice.Cli</code> provides presets and lifecycle commands.</li></ul>
+      <div class="callout tip"><strong>Interop note:</strong> Standard and Impinj-shaped software profiles are useful for connection and inventory tests. Advanced vendor behavior still requires a target-specific test.</div>
+    </section>
+
+    <section id="codegen">
+      <h2>Definitions and code generation</h2>
+      <p>Protocol entities originate in <code>definitions/</code> and are generated into messages, parameters, enumerations and codecs. Generated <code>*.g.cs</code> files are committed artifacts and must not be hand-edited; change the definition, importer or generator and regenerate instead.</p>
+    </section>
+  </article>
+</main>
+<footer class="shell footer"><span>LLRPCSharp · Architecture Overview</span><span><a href="api-reference.html">Open the Reader API Reference →</a></span></footer>
+<script src="../assets/app.js"></script>
+</body>
+</html>

@@ -23,7 +23,6 @@
     <a href="device-cli.html">Device CLI</a>
     <a href="api-reference.html">Reader API 参考</a>
     <a href="device-api-reference.html">Device API 参考</a>
-    <a href="architecture.html">架构与专题</a>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
@@ -36,7 +35,7 @@
     <a href="#quick-test">快速开始：测试集成</a>
     <a href="#server">LlrpDevice.Server</a>
     <a href="#virtual">LlrpDevice.Virtual 仿真核</a>
-    <a href="#hosting">VirtualLlrpDeviceHost</a>
+    <a href="#quick-test">VirtualLlrpDeviceHost</a>
     <a href="#profiles">内置能力 Profile</a>
     <a href="#custom-device">自定义硬件后端</a>
   </aside>
@@ -46,7 +45,7 @@
     <p class="eyebrow">02 / DEVICE & VIRTUAL SERVER SDK</p>
     <h1>通用的 LLRP 服务端与虚拟读写器仿真核</h1>
     <p class="doc-lead">
-      在物联网与 RFID 系统开发中，依赖物理读写器会导致 CI 流水线无法脱机运行、边界异常难以复现。<code>LlrpDevice.*</code> 系列包提供符合 LLRP 规范的通用设备端 TCP 服务端与高保真虚拟读写器仿真引擎，支持 3 行代码在自动化测试中启动内存读写器。
+      在物联网与 RFID 系统开发中，依赖物理读写器会导致 CI 流水线无法脱机运行、边界异常难以复现。<code>LlrpDevice.*</code> 系列包提供符合 LLRP 规范的通用设备端 TCP 服务端与确定性软件虚拟读写器，支持在自动化测试中启动临时 TCP 端点。它用于协议、生命周期和业务流程测试，不模拟真实 RF 波形。
     </p>
 
     <!-- Overview -->
@@ -84,7 +83,6 @@
       <div class="code-block">
         <button class="copy-code">复制</button>
         <pre><code>using System.Net;
-using LlrpDevice.Virtual;
 using LlrpDevice.Virtual.Hosting;
 using LlrpSdk;
 using Xunit;
@@ -94,16 +92,27 @@ public class InventoryIntegrationTests
     [Fact]
     public async Task Reader_Should_Read_Simulated_Tags()
     {
-        // 1. 配置虚拟读写器（注入 2 个模拟标签）
+        // 1. 配置 Hosting-level 虚拟读写器（注入 2 个模拟标签）
         var hostOptions = new VirtualDeviceHostOptions
         {
-            Server = new LlrpDeviceServerOptions { Port = 0 }, // 0 表示自动绑定空闲临时端口
-            Device = new VirtualDeviceOptions
+            ListenAddress = IPAddress.Loopback,
+            Port = 0, // 0 表示自动绑定空闲临时端口
+            Inventory = new VirtualInventoryOptions
             {
                 Tags =
                 [
-                    new VirtualTag { EpcHex = "E28011910000000000000001", AntennaId = 1, BaseRssi = -55.0 },
-                    new VirtualTag { EpcHex = "E28011910000000000000002", AntennaId = 2, BaseRssi = -62.0 }
+                    new VirtualInventoryTag
+                    {
+                        ElectronicProductCode = Convert.FromHexString("E28011910000000000000001"),
+                        AntennaId = 1,
+                        PeakRssi = -55
+                    },
+                    new VirtualInventoryTag
+                    {
+                        ElectronicProductCode = Convert.FromHexString("E28011910000000000000002"),
+                        AntennaId = 2,
+                        PeakRssi = -62
+                    }
                 ]
             }
         };
@@ -162,7 +171,8 @@ var serverOptions = new LlrpDeviceServerOptions
 {
     ListenAddress = IPAddress.Any,
     Port = 5084,
-    ClientConnectionTimeout = TimeSpan.FromSeconds(30)
+    IdleTimeout = TimeSpan.FromMinutes(5),
+    FrameAssemblyTimeout = TimeSpan.FromSeconds(30)
 };
 
 await using var server = new LlrpDeviceServer(myCustomDevice, serverOptions);
@@ -175,7 +185,7 @@ Console.WriteLine("LLRP 设备服务端已启动，等待客户端接入...");</
     <section id="virtual">
       <h2>LlrpDevice.Virtual 仿真核</h2>
       <p>
-        <code>VirtualLlrpDevice</code> 提供了高保真的 RFID 物理世界模拟：
+        <code>VirtualLlrpDevice</code> 提供了可重复的 RFID 软件行为模拟：
       </p>
       <div class="ownership-grid">
         <div>
@@ -186,7 +196,7 @@ Console.WriteLine("LLRP 设备服务端已启动，等待客户端接入...");</
         <div>
           <span class="tag observed">VARIANCE</span>
           <h3>RSSI 衰减与抖动</h3>
-          <p>支持配置基础 RSSI 与随机高斯抖动，真实还原物理射频信号波动特性。</p>
+          <p>支持配置基准 RSSI、确定性随机种子和整数 dB 抖动，用于稳定复现业务边界；它不是物理 RF 仿真器。</p>
         </div>
         <div>
           <span class="tag restored">MEMORY</span>
@@ -197,21 +207,27 @@ Console.WriteLine("LLRP 设备服务端已启动，等待客户端接入...");</
 
       <div class="code-block">
         <button class="copy-code">复制</button>
-        <pre><code>// 配置高保真仿真参数
+        <pre><code>using LlrpDevice.Virtual;
+
+// 配置确定性软件仿真参数
 var deviceOptions = new VirtualDeviceOptions
 {
-    AntennaCount = 4,
-    RssiJitterDb = 1.5, // 开启 ±1.5 dB 的射频抖动
+    RfSimulation = new VirtualRfSimulationOptions
+    {
+        Scenario = VirtualRfScenario.Noisy,
+        RandomSeed = 2026,
+        RssiJitterDb = 2 // 整数 ±2 dB 抖动
+    },
     Tags =
     [
-        new VirtualTag
+        new VirtualTagDefinition
         {
-            EpcHex = "E280119100000000000000A1",
-            TidHex = "E28011052000600123456789", // 模拟 96-bit 专属 TID
-            UserMemoryHex = "00000000CAFEBABE",
+            ElectronicProductCode = Convert.FromHexString("E280119100000000000000A1"),
+            Tid = Convert.FromHexString("E28011052000600123456789"),
+            UserMemory = [0xCAFE, 0xBABE],
             AntennaId = 1,
-            BaseRssi = -48.5,
-            AccessPassword = "00000000"
+            PeakRssi = -48,
+            AccessPassword = 0x00000000
         }
     ]
 };</code></pre>

@@ -23,7 +23,6 @@
     <a href="device-cli.html">Device CLI</a>
     <a href="api-reference.html">Reader API 参考</a>
     <a href="device-api-reference.html">Device API 参考</a>
-    <a href="architecture.html">架构与专题</a>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
@@ -54,7 +53,7 @@
     <section id="ltknet-modernization">
       <h2>从 LTK.NET 到 LlrpNet：协议层的现代化重构</h2>
       <p>
-        传统的 <strong>LTK.NET (LLRP Tool Kit for .NET)</strong> 诞生于 .NET Framework 2.0/3.5 时代，是 EPCglobal 官方推进的经典开源实现。它开创了“机器可读 XML 定义生成强类型协议代码”的优秀范式，但随着现代 .NET 运行时的演进，其历史局限性日益突出：
+        传统的 <strong>LTK.NET (LLRP Tool Kit for .NET)</strong> 诞生于 .NET Framework 2.0/3.5 时代，是 LLRP 生态中广泛使用的开源实现。它开创了“机器可读 XML 定义生成强类型协议代码”的优秀范式；本节只比较两套代码库的设计取舍，不把未经基准测试的性能差异当作结论：
       </p>
       
       <div class="api-table">
@@ -71,7 +70,7 @@
         <div class="api-row">
           <code>内存与 GC 分配</code>
           <span>依赖 ArrayList / 装箱拆箱，频繁 byte[] 复制，高并发下 GC 停顿严重</span>
-          <span>全面基于 <code>ReadOnlyMemory&lt;byte&gt;</code>、<code>Span&lt;byte&gt;</code> 与 <code>BinaryPrimitives</code>，实现零拷贝解析与低内存分配</span>
+          <span>在协议编解码路径使用 <code>ReadOnlyMemory&lt;byte&gt;</code>、<code>Span&lt;byte&gt;</code> 与 <code>BinaryPrimitives</code>，减少不必要的数据复制</span>
         </div>
         <div class="api-row">
           <code>异步并发模型</code>
@@ -96,7 +95,7 @@
       </div>
 
       <div class="callout tip">
-        <strong>继承与兼容：</strong> LLRPCSharp 完整保留了 LTK.NET 生成代码的协议精确度，底层支持通过 <code>reader.Protocol</code> 与 <code>LlrpNet.Protocol</code> 直接构造或反序列化原生消息；对于需要从老旧 LTK.NET 项目迁移的系统，既可享受底层 100% 协议兼容，又能获得现代 .NET 10 的十倍级吞吐与低时延收益。
+        <strong>继承与兼容：</strong> LLRPCSharp 延续了定义驱动的强类型协议模型，底层支持通过 <code>reader.Protocol</code> 与 <code>LlrpNet.Protocol</code> 直接构造或反序列化原生消息。迁移项目仍需按具体消息、设备和版本进行验证；本页面不承诺未经基准测试的“100% 兼容”或固定吞吐倍数。
       </div>
     </section>
 
@@ -175,7 +174,7 @@ V11Parameters.ROSpec roSpec11 = new(roSpecID: 14150, priority: 0, ...);</code></
     <section id="virtual">
       <h2>通用设备端 Server 与 Virtual Device</h2>
       <p>
-        仓库内完整实现了生产级的虚拟读写器框架，无需物理硬件即可进行 CI 自动化与应用联调：
+        仓库内实现了可用于 CI 自动化与应用联调的确定性软件虚拟读写器框架，无需物理硬件即可覆盖协议和业务流程；它不是 RF 波形或物理环境模拟器：
       </p>
       <ul>
         <li><strong><code>LlrpDevice.Abstractions</code></strong>：设备端通用合同（<code>ILlrpDevice</code>、<code>IInventoryExecution</code>、硬件配置与事件）。</li>
@@ -185,7 +184,7 @@ V11Parameters.ROSpec roSpec11 = new(roSpecID: 14150, priority: 0, ...);</code></
         <li><strong><code>LlrpVirtualDevice.Cli</code></strong>：独立的虚拟设备命令行服务，内置交互 Shell 与预设 Profile。</li>
       </ul>
       <div class="callout tip">
-        <strong>提示：</strong> 虚拟设备支持 <code>llrp1.0.1_standard</code> 与 <code>impinj.r420.llrp-1.0.1</code> 档案，可直接接受 Impinj ItemTest 等标准 LLRP 客户端连接。
+        <strong>提示：</strong> 虚拟设备支持 <code>llrp1.0.1_standard</code> 与 <code>impinj.r420.llrp-1.0.1</code> 软件 profile，可用于标准 LLRP 客户端的连接、资源和盘点联调；厂商高级功能仍以实际测试为准。
       </div>
     </section>
 

@@ -24,7 +24,6 @@
     <a href="device-cli.html">Device CLI</a>
     <a href="api-reference.html">Reader API 参考</a>
     <a href="device-api-reference.html">Device API 参考</a>
-    <a href="architecture.html">架构与专题</a>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
@@ -40,14 +39,15 @@
     <div style="display:flex;gap:12px;flex-wrap:wrap;">
       <a class="button primary" href="api.html">开始使用 Reader SDK</a>
       <a class="button secondary" href="device-sdk.html">了解虚拟设备 SDK</a>
-      <a class="button secondary" href="cli.html">查看 CLI 运维工具</a>
+      <a class="button secondary" href="cli.html">Reader CLI</a>
+      <a class="button secondary" href="device-cli.html">Device CLI</a>
       <a class="button secondary" href="api-reference.html">Reader API 参考</a>
       <a class="button secondary" href="device-api-reference.html">Device API 参考</a>
     </div>
     <div class="docs-home-badges">
       <div class="badge-item"><span class="status-dot"></span>.NET 10 Ready</div>
-      <div class="badge-item"><span class="status-dot blue"></span>LLRP 1.0.1 / 1.1 / 2.0</div>
-      <div class="badge-item"><span class="status-dot amber"></span>Impinj / Zebra / Seuic 扩展</div>
+      <div class="badge-item"><span class="status-dot blue"></span>LLRP 1.0.1 / 1.1 可用基线</div>
+      <div class="badge-item"><span class="status-dot amber"></span>2.0 适配器基线 · Zebra 实验性</div>
       <div class="badge-item"><span class="status-dot purple"></span>Zero Native Dependencies</div>
     </div>
   </section>
@@ -72,7 +72,7 @@
           <li><code>ReaderSettings</code> 声明式配置与天线功率索引映射</li>
           <li><code>InventorySession</code> 流式异步消费与 AttachedData</li>
           <li>读/写/锁/灭/块擦除标准 C1G2 Tag Access</li>
-          <li>Impinj / Zebra / Seuic 厂商扩展平滑接入</li>
+          <li>Impinj 主路径、Zebra 实验性扩展与 Seuic profile</li>
         </ul>
         <span class="pillar-action">查看 Reader SDK 指南 →</span>
       </a>
@@ -84,12 +84,12 @@
           <span class="pillar-tag">设备端与测试</span>
         </div>
         <h3>Device SDK (LlrpDevice.*)</h3>
-        <p>通用的 LLRP 服务端与虚拟读写器仿真核。专为无硬件自动化测试、CI/CD 流水线以及自定义读写器设备固件桥接而设计。</p>
+        <p>通用的 LLRP 服务端与确定性软件虚拟读写器。专为无硬件自动化测试、CI/CD 流水线以及自定义读写器设备固件桥接而设计。</p>
         <ul class="pillar-features">
           <li><code>LlrpDeviceServer</code> 高并发 TCP 报文路由与状态机</li>
-          <li><code>VirtualLlrpDevice</code> 物理天线、RSSI 抖动与运动模拟</li>
-          <li><code>VirtualLlrpDeviceHost</code> 3 行代码嵌入 xUnit 单元测试</li>
-          <li>内置标准 LLRP 1.0.1 与 Impinj Speedway R420 档案</li>
+          <li><code>VirtualLlrpDevice</code> 天线、可控 RSSI 抖动与确定性场景</li>
+          <li><code>VirtualLlrpDeviceHost</code> 可嵌入 xUnit / 集成测试</li>
+          <li>内置标准 1.0.1 与 Impinj Speedway R420 软件 profile</li>
           <li><code>ILlrpDevice</code> 接口支持对接自定义真实射频硬件</li>
         </ul>
         <span class="pillar-action">查看 Device SDK 指南 →</span>
@@ -108,7 +108,7 @@
           <li>自动化命令：单条命令执行盘点并输出结构化 JSON</li>
           <li>离线 <code>decode</code>：直接解析 Wireshark <code>.pcapng</code> 抓包</li>
           <li><code>inspect</code> / <code>validate</code> / <code>encode</code> 协议报文构造与校验</li>
-          <li>多版本编解码支持（1.0.1 / 1.1 / 2.0 + Impinj/Zebra）</li>
+          <li>多版本编解码支持（1.0.1 / 1.1 / 2.0 基线 + 厂商扩展）</li>
         </ul>
         <span class="pillar-action">查看 Reader CLI 指南 →</span>
       </a>
@@ -120,13 +120,13 @@
           <span class="pillar-tag">仿真环境运行</span>
         </div>
         <h3>Device CLI (LlrpVirtualDevice.Cli)</h3>
-        <p>独立运行的虚拟读写器服务终端。无需编写任何代码，一行命令启动符合标准的 LLRP 仿真服务，供任意 LLRP 客户端连接联调。</p>
+        <p>独立运行的虚拟读写器服务终端。无需编写业务代码即可启动软件 LLRP 服务，供兼容客户端进行连接与盘点联调。</p>
         <ul class="pillar-features">
           <li>一键启动读写器服务：<code>llrp-device run --port 5084</code></li>
           <li>预设场景库：传送带 (Conveyor)、仓库 (Warehouse)、门禁 (Portal)</li>
           <li>交互式 Live 模拟：运行时动态添加/移除标签与故障注入</li>
           <li>仿真配置文件 JSON 校验与能力 Profile 查询</li>
-          <li>完全兼容 Impinj ItemTest、Octane 与第三方 LLRP 客户端</li>
+          <li>可用于 ItemTest / 第三方 LLRP 客户端的连接与盘点联调；具体厂商功能仍以实际验证为准</li>
         </ul>
         <span class="pillar-action">查看 Device CLI 指南 →</span>
       </a>
@@ -144,7 +144,7 @@
           <span>使用 Builder → ConnectAsync → ApplySettingsAsync → ReadReportsAsync</span>
           <i>→</i>
         </a>
-        <a href="device-sdk.html#testing">
+        <a href="device-sdk.html#quick-test">
           <b>我想在 CI 自动化测试中模拟读写器</b>
           <span>使用 VirtualLlrpDeviceHost 快速启动内存虚拟设备进行端到端测试</span>
           <i>→</i>
@@ -162,16 +162,6 @@
         <a href="api.html#attached-data">
           <b>我需要在盘点时同时读取 TID 或 User 存储区</b>
           <span>使用 <code>InventorySettings.AttachedData</code> 声明附加读取选项</span>
-          <i>→</i>
-        </a>
-        <a href="state.html#two-states">
-          <b>我想了解 SDK 托管状态与设备实况的关系</b>
-          <span>深入理解 DesiredSettings 意图与 ObservedState 设备实况双轨状态</span>
-          <i>→</i>
-        </a>
-        <a href="architecture.html#protocol">
-          <b>我需要直接编解码多版本原生 LLRP 消息</b>
-          <span>基于 LlrpNet.Protocol 强类型生成代码与编解码注册表</span>
           <i>→</i>
         </a>
       </div>
@@ -199,8 +189,8 @@
         <p><span class="status-dot blue"></span> LLRP 1.1 (Auto-Negotiated)</p>
         <p><span class="status-dot blue"></span> LLRP 2.0 (Generated Protocol Base)</p>
         <p><span class="status-dot amber"></span> Impinj Custom Extensions</p>
-        <p><span class="status-dot amber"></span> Zebra Custom Extensions</p>
-        <p><span class="status-dot amber"></span> Seuic Custom Extensions</p>
+        <p><span class="status-dot amber"></span> Zebra Experimental Extensions</p>
+        <p><span class="status-dot amber"></span> Seuic Profile Defaults</p>
       </div>
     </aside>
   </section>
@@ -238,50 +228,11 @@
     </div>
   </section>
 
-  <!-- LTK.NET Modernization Section -->
-  <section class="docs-home-section">
-    <p class="eyebrow">MODERN HERITAGE</p>
-    <h2>从传统 LTK.NET 到现代 LlrpNet 的协议演进</h2>
-    <p style="font-size:16px;color:#526972;line-height:1.7;max-width:880px;margin-bottom:28px;">
-      经典 LTK.NET (LLRP Tool Kit for .NET) 开创了由机器可读 XML 规范生成协议强类型模型的工业范式。<strong>LlrpNet 完整继承了其严谨的协议定义驱动思想，并基于现代 .NET 10 进行彻底重构</strong>：全面升级为 <code>ReadOnlyMemory&lt;byte&gt;</code> 零拷贝内存模型、<code>IAsyncEnumerable&lt;TagReport&gt;</code> 响应式异步流、LLRP 1.0.1 / 1.1 / 2.0 运行时自适应协商，以及 Octane 风格的高层托管意图抽象。
-    </p>
-    <div class="mini-grid">
-      <div>
-        <strong>双输入代码生成流水线</strong>
-        <p>兼容官方 LTK XML (<code>llrp-1x0-def.xml</code>) 与现代 YAML 规范，自动编译强类型不可变消息模型与 Codec 注册表。</p>
-      </div>
-      <div>
-        <strong>零拷贝与低内存占用</strong>
-        <p>基于 Span/Memory 与 BinaryPrimitives，在高频标签读写流下大幅降低 GC 压力与内存分配。</p>
-      </div>
-      <div>
-        <strong>纯异步与背压控制</strong>
-        <p>基于 System.Threading.Channels 与 Task 事务匹配，杜绝旧式 APM 模式或线程阻塞导致的死锁风险。</p>
-      </div>
-    </div>
-    <div style="margin-top:20px;">
-      <a class="text-link" href="architecture.html#ltknet-modernization">深入了解 LTK.NET 与 LlrpNet 技术演进对比 →</a>
-    </div>
-  </section>
-
-  <!-- State & Architecture Deep Dives Banner -->
-  <section class="docs-home-section note-section">
-    <p class="eyebrow">ARCHITECTURAL DESIGN</p>
-    <h2>设计哲学：意图驱动与双轨状态</h2>
-    <p>
-      <strong>托管 API 是推荐的默认路径。</strong>SDK 使用不可变的 <code>ReaderSettings</code> 记录应用意图，并在后台将其映射为符合当前协议版本的 LLRP 参数。专家资源 API 与 Raw 通道随时开放，但在进行底层写操作后，SDK 会优雅地将观测状态标记为 Stale，并始终保留重构托管资源的能力。
-    </p>
-    <div style="display:flex;gap:16px;margin-top:18px;">
-      <a class="text-link" href="architecture.html">阅读系统架构设计 →</a>
-      <a class="text-link" href="state.html">查看完整状态机与接管策略 →</a>
-      <a class="text-link" href="expert-raw.html">探索专家模式与 Raw 协议层 →</a>
-    </div>
-  </section>
 </main>
 
 <footer class="shell footer">
   <span>LLRPCSharp · Modern .NET LLRP SDK & Virtual Device Suite</span>
-  <span><a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">Source on GitHub</a></span>
+      <span><a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">Source on GitHub</a></span>
 </footer>
 
 <script src="assets/app.js"></script>
