@@ -26,8 +26,39 @@
   const github = languageHost?.querySelector(".github");
   languageHost?.insertBefore(languageToggle, github || null);
 
-  document.querySelectorAll(".topbar nav a").forEach(link => {
-    if (link.getAttribute("href").split("#")[0] === page) link.classList.add("active");
+  // Dropdown interactivity
+  document.querySelectorAll(".dropdown-toggle").forEach(toggle => {
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const parent = toggle.closest(".nav-dropdown");
+      const wasOpen = parent.classList.contains("open");
+      document.querySelectorAll(".nav-dropdown.open").forEach(d => d.classList.remove("open"));
+      if (!wasOpen) {
+        parent.classList.add("open");
+        toggle.setAttribute("aria-expanded", "true");
+      } else {
+        toggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".nav-dropdown.open").forEach(d => {
+      d.classList.remove("open");
+      d.querySelector(".dropdown-toggle")?.setAttribute("aria-expanded", "false");
+    });
+  });
+
+  // Active link highlighting
+  document.querySelectorAll(".topbar nav a, .dropdown-item").forEach(link => {
+    const href = link.getAttribute("href");
+    if (href && href.split("#")[0] === page) {
+      link.classList.add("active");
+      const parentDropdown = link.closest(".nav-dropdown");
+      if (parentDropdown) {
+        parentDropdown.querySelector(".dropdown-toggle")?.classList.add("active");
+      }
+    }
   });
 
   document.querySelectorAll(".copy-code").forEach(button => {

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Reader CLI (LlrpCli / llrp) User Manual - Interactive Live Shell, automation and Wireshark capture analysis manual.">
+  <title>Reader CLI Manual (llrp) · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>Reader CLI</small></span>
+  </a>
+  <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
+  <nav>
+    <a href="index.html">Home</a>
+
+    <!-- API Reference Dropdown -->
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+        <span>API Reference</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="dropdown-menu">
+        <a href="protocol-api.html" class="dropdown-item">
+          <span class="item-icon">🧬</span>
+          <div class="item-text">
+            <strong>LlrpNet Protocol API</strong>
+            <small>Framing, session transport & codecs</small>
+          </div>
+        </a>
+        <a href="reader-api.html" class="dropdown-item">
+          <span class="item-icon">📡</span>
+          <div class="item-text">
+            <strong>Reader SDK API</strong>
+            <small>Managed client, settings & tag access</small>
+          </div>
+        </a>
+        <a href="device-api.html" class="dropdown-item">
+          <span class="item-icon">🖥️</span>
+          <div class="item-text">
+            <strong>Device SDK API</strong>
+            <small>Virtual reader test host & server</small>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- CLI Manuals Dropdown -->
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true">
+        <span>CLI Manuals</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="dropdown-menu">
+        <a href="cli-reader.html" class="dropdown-item active">
+          <span class="item-icon">⚡</span>
+          <div class="item-text">
+            <strong>Reader CLI (`llrp`)</strong>
+            <small>Live shell, JSON automation & pcapng decode</small>
+          </div>
+        </a>
+        <a href="cli-device.html" class="dropdown-item">
+          <span class="item-icon">📟</span>
+          <div class="item-text">
+            <strong>Device CLI (`llrp-device`)</strong>
+            <small>Standalone virtual server & simulation</small>
+          </div>
+        </a>
+      </div>
+    </div>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <!-- Left Side Navigation -->
+  <aside class="side-nav">
+    <p class="eyebrow">READER CLI (LLRP)</p>
+    <a href="#overview">1. Overview & Launch</a>
+    <a href="#live-shell">2. Interactive Live Shell</a>
+    <a href="#cmd-conn">├ Connection & Status</a>
+    <a href="#cmd-settings">├ Settings & Parameters</a>
+    <a href="#cmd-inventory">├ Inventory & Streams</a>
+    <a href="#cmd-tag">└ C1G2 Tag Operations</a>
+    <a href="#agent-json">3. Single-Shot JSON Automation</a>
+    <a href="#pcapng-decode">4. Wireshark .pcapng Decode</a>
+    <a href="#offline-tools">5. Protocol Codec Tools</a>
+  </aside>
+
+  <!-- Main Article Content -->
+  <article class="doc-content">
+    <p class="eyebrow">LLRPCSHARP / READER CLI USER MANUAL</p>
+    <h1>LlrpCli (`llrp`) Reader Client & Analysis Manual</h1>
+    <p class="doc-lead">
+      <code>LlrpCli</code> (command alias <code>llrp</code>) is an industrial-grade CLI tool built on <code>LlrpSdk</code>. It provides an interactive Live Shell for maintenance, single-shot JSON commands for script automation, and an offline engine to decode Wireshark <code>.pcapng</code> captures.
+    </p>
+
+    <!-- 1. Overview -->
+    <section id="overview">
+      <h2>1. Overview & Launch Options</h2>
+      <div class="code-block">
+        <button class="copy-code">Copy</button>
+        <pre><code># Run interactive shell directly from repository
+dotnet run --project src/LlrpCli
+
+# Or publish as standalone single-file binary (no .NET runtime required)
+dotnet publish src/LlrpCli -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+./src/LlrpCli/bin/Release/net10.0/win-x64/publish/llrp.exe</code></pre>
+      </div>
+    </section>
+
+    <!-- 2. Live Shell -->
+    <section id="live-shell">
+      <h2>2. Interactive Live Shell Command Reference</h2>
+      
+      <div id="cmd-conn">
+        <h3>2.1 Connection & Status Commands</h3>
+        <div class="command-table">
+          <div><code>connect &lt;ip&gt; [--port 5084]</code><span>Connect to reader and discover LLRP version</span></div>
+          <div><code>status [--full]</code><span>Display connection state and staged configuration</span></div>
+          <div><code>caps [--raw] [--json]</code><span>Query normalized hardware capabilities and RF tables</span></div>
+        </div>
+      </div>
+
+      <div id="cmd-settings" style="margin-top:30px;">
+        <h3>2.2 Settings Commands</h3>
+        <div class="command-table">
+          <div><code>settings apply --defaults --yes</code><span>Deploy reader-recommended settings baseline</span></div>
+          <div><code>settings apply &lt;file.json&gt; --yes</code><span>Deploy settings from JSON file (PreserveForeign)</span></div>
+          <div><code>settings apply &lt;file.json&gt; --yes --replace-all</code><span>Delete all foreign resources and deploy exclusively</span></div>
+          <div><code>settings show [--json] [--raw]</code><span>Read and inspect live configuration from reader</span></div>
+          <div><code>settings edit</code><span>Interactive menu to adjust antennas, RF modes & sessions</span></div>
+        </div>
+      </div>
+
+      <div id="cmd-inventory" style="margin-top:30px;">
+        <h3>2.3 Tag Inventory Commands</h3>
+        <div class="command-table">
+          <div><code>inventory start [--monitor live|frames]</code><span>Start inventory and stream tag reports in terminal</span></div>
+          <div><code>inventory status [--refresh]</code><span>Display current inventory execution status</span></div>
+          <div><code>inventory stop</code><span>Stop managed inventory</span></div>
+        </div>
+      </div>
+
+      <div id="cmd-tag" style="margin-top:30px;">
+        <h3>2.4 C1G2 Tag Operations</h3>
+        <div class="command-table">
+          <div><code>tag read --epc &lt;hex&gt; --bank user --ptr 0 --count 2</code><span>Read memory bank of matched tag</span></div>
+          <div><code>tag write --epc &lt;hex&gt; --bank user --ptr 0 --data 12345678</code><span>Write data to tag memory</span></div>
+          <div><code>tag lock --epc &lt;hex&gt; --user-lock SecuredWrite</code><span>Lock memory bank with access password</span></div>
+          <div><code>tag kill --epc &lt;hex&gt; --password &lt;hex&gt;</code><span>Permanently decommission tag</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Automation -->
+    <section id="agent-json">
+      <h2>3. Single-Shot Automation Commands (Agent/CI)</h2>
+      <div class="code-block">
+        <button class="copy-code">Copy</button>
+        <pre><code># Connect, inventory for 10 seconds and output standard JSON
+llrp inventory 192.168.1.100 --duration 10 --yes</code></pre>
+      </div>
+    </section>
+
+    <!-- 4. Pcapng -->
+    <section id="pcapng-decode">
+      <h2>4. Wireshark Capture Analysis (.pcapng)</h2>
+      <div class="code-block">
+        <button class="copy-code">Copy</button>
+        <pre><code># Decode Wireshark capture to summary overview
+llrp decode ./capture.pcapng --output summary
+
+# Decode detailed parameter tree with vendor extension
+llrp decode ./capture.pcapng --extension impinj --output detail</code></pre>
+      </div>
+    </section>
+
+    <!-- 5. Offline Tools -->
+    <section id="offline-tools">
+      <h2>5. Offline Codec & Diagnostic Tools</h2>
+      <div class="code-block">
+        <button class="copy-code">Copy</button>
+        <pre><code># Inspect raw hex frame into human-readable parameter tree
+llrp inspect 04030000001000000001000000000000
+
+# Encode JSON object into raw LLRP binary frame
+llrp encode ./message.json</code></pre>
+      </div>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Reader CLI Manual</span>
+  <span><a href="cli-device.html">Next: Device CLI Manual →</a></span>
+</footer>
+
+<script src="../assets/app.js"></script>
+</body>
+</html>

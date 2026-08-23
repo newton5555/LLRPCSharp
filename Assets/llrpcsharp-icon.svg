@@ -1,63 +1,79 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="LLRPCSharp – Modern LLRP C# SDK Icon">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="LLRPCSharp Icon">
   <defs>
-    <!-- Background Gradient: Deep Slate Navy -->
-    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0F172A"/>
-      <stop offset="50%" stop-color="#1E293B"/>
-      <stop offset="100%" stop-color="#0B132B"/>
+    <!-- Background Gradient: Deep Luxury Slate -->
+    <linearGradient id="canvasBg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#090E17"/>
+      <stop offset="50%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#030712"/>
     </linearGradient>
 
-    <!-- Glowing Accent Gradient for Signal / Core elements -->
-    <linearGradient id="cyanGlow" x1="0" y1="0" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#38BDF8"/>
-      <stop offset="100%" stop-color="#818CF8"/>
-    </linearGradient>
-
-    <!-- Subtle backdrop radial glow -->
-    <radialGradient id="centerGlow" cx="512" cy="512" r="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.12"/>
-      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
+    <!-- Center Radiant Glow -->
+    <radialGradient id="coreGlow" cx="512" cy="512" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.32"/>
+      <stop offset="45%" stop-color="#3B82F6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#090E17" stop-opacity="0"/>
     </radialGradient>
+
+    <!-- Primary RF Wave Gradient (Emerald -> Electric Cyan -> Sky Blue) -->
+    <linearGradient id="waveGradLeft" x1="140" y1="512" x2="480" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="50%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+
+    <linearGradient id="waveGradRight" x1="544" y1="512" x2="884" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+
+    <!-- Central Square Chip Core Gradient -->
+    <linearGradient id="chipGrad" x1="412" y1="412" x2="612" y2="612" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="40%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+
+    <linearGradient id="chipInner" x1="412" y1="412" x2="612" y2="612" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+
+    <!-- Beacon Dot Glow -->
+    <linearGradient id="dotGrad" x1="480" y1="480" x2="544" y2="544" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#67E8F9"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
   </defs>
 
-  <!-- Base canvas with smooth rounded square -->
-  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
-  <rect width="1024" height="1024" rx="220" fill="url(#centerGlow)"/>
+  <!-- Squircle Base Canvas -->
+  <rect width="1024" height="1024" rx="230" fill="url(#canvasBg)"/>
+  <rect width="1024" height="1024" rx="230" fill="none" stroke="#1E293B" stroke-width="3.5"/>
+  <rect width="1024" height="1024" rx="230" fill="url(#coreGlow)"/>
 
-  <!-- Minimalist outer boundary frame (Modern Developer Tool aesthetics) -->
-  <rect x="256" y="256" width="512" height="512" rx="44"
-        fill="none" stroke="#334155" stroke-width="4"/>
+  <!-- Geometric RFID Wave Field (Balanced Symmetrical Minimalist Arcs) -->
+  <g fill="none" stroke-linecap="round">
+    <!-- Outer Arc Pair (R = 340) -->
+    <path d="M 232 272 A 340 340 0 0 0 232 752" stroke="url(#waveGradLeft)" stroke-width="20" opacity="0.35"/>
+    <path d="M 792 272 A 340 340 0 0 1 792 752" stroke="url(#waveGradRight)" stroke-width="20" opacity="0.35"/>
 
-  <!-- Ultra-clean corner notches / pins (Only 4 elegant corner markers instead of dense pins) -->
-  <path d="M 236 256 L 256 256 M 768 256 L 788 256 M 236 768 L 256 768 M 768 768 L 788 768"
-        stroke="#38BDF8" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
-  <path d="M 256 236 L 256 256 M 256 768 L 256 788 M 768 236 L 768 256 M 768 768 L 768 788"
-        stroke="#38BDF8" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+    <!-- Mid Arc Pair (R = 240) -->
+    <path d="M 312 342 A 240 240 0 0 0 312 682" stroke="url(#waveGradLeft)" stroke-width="26" opacity="0.75"/>
+    <path d="M 712 342 A 240 240 0 0 1 712 682" stroke="url(#waveGradRight)" stroke-width="26" opacity="0.75"/>
 
-  <!-- Sleek RFID Wave / Signal Icon (Minimalist 2-arc design at top) -->
-  <path d="M 432 370 A 100 100 0 0 1 592 370" fill="none" stroke="url(#cyanGlow)" stroke-width="14" stroke-linecap="round"/>
-  <path d="M 462 415 A 60 60 0 0 1 552 415" fill="none" stroke="url(#cyanGlow)" stroke-width="12" stroke-linecap="round" opacity="0.75"/>
-
-  <!-- Main Label: LLRP (Bold, Clean, High Contrast) -->
-  <text x="512" y="570"
-        text-anchor="middle"
-        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif"
-        font-size="140"
-        font-weight="800"
-        fill="#F8FAFC"
-        letter-spacing="-2">LLRP</text>
-
-  <!-- Subtitle Badge / Language Indicator: C# SDK -->
-  <g transform="translate(512, 640)">
-    <!-- Subtle Pill Background -->
-    <rect x="-90" y="-32" width="180" height="52" rx="14" fill="#38BDF8" fill-opacity="0.12" stroke="#38BDF8" stroke-opacity="0.3" stroke-width="2"/>
-    <text x="0" y="4"
-          text-anchor="middle"
-          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif"
-          font-size="32"
-          font-weight="700"
-          fill="#38BDF8"
-          letter-spacing="3">C# SDK</text>
+    <!-- Inner High-Intensity Arc Pair (R = 150) -->
+    <path d="M 386 406 A 150 150 0 0 0 386 618" stroke="url(#waveGradLeft)" stroke-width="32"/>
+    <path d="M 638 406 A 150 150 0 0 1 638 618" stroke="url(#waveGradRight)" stroke-width="32"/>
   </g>
 
+  <!-- Central RFID Transceiver Node (Precision Tech Square Chip Core) -->
+  <g>
+    <!-- Upright Precision Rounded Square -->
+    <rect x="412" y="412" width="200" height="200" rx="36"
+          fill="url(#chipInner)" stroke="url(#chipGrad)" stroke-width="14"/>
+
+    <!-- Central Micro-Beacon (Transceiver Pulse Center) -->
+    <circle cx="512" cy="512" r="32" fill="url(#dotGrad)"/>
+    <circle cx="512" cy="512" r="14" fill="#FFFFFF"/>
+  </g>
 </svg>

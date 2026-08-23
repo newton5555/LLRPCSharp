@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Device SDK API Reference - VirtualLlrpDeviceHost test host, LlrpDeviceServer and ILlrpDevice hardware adapter with code samples.">
+  <title>Device SDK (Virtual Reader) API Reference · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/reference.css">
+  <link rel="stylesheet" href="../assets/brand.css">
+</head>
+<body class="api-reference-page">
+
+<!-- Left Navigation Sidebar -->
+<aside id="reference-sidebar">
+  <div class="reference-logo">
+    <a href="index.html">
+      <span class="mark" style="background:var(--ref-badge-struct);">D</span>
+      <div>
+        <span>LLRPCSharp</span>
+        <small>Device API Reference</small>
+      </div>
+    </a>
+  </div>
+
+  <div class="reference-version">
+    <span class="dot" style="background:var(--ref-badge-struct);"></span> LlrpDevice.* · Virtual Reader & Server
+  </div>
+
+  <div class="search-box-wrapper">
+    <span class="search-icon">🔍</span>
+    <input id="api-search" class="reference-search" type="search" placeholder="Search device types, methods, samples..." aria-label="Search Device API symbols">
+  </div>
+  <div id="api-result-count" class="reference-search-result"></div>
+
+  <!-- Category Filter Pills -->
+  <div class="filter-pills">
+    <button class="filter-pill active" data-filter="all">All</button>
+    <button class="filter-pill" data-filter="hosting">Hosting</button>
+    <button class="filter-pill" data-filter="server">Server</button>
+    <button class="filter-pill" data-filter="virtual">Virtual</button>
+    <button class="filter-pill" data-filter="abstractions">Abstractions</button>
+  </div>
+
+  <!-- Tree Navigation -->
+  <nav class="reference-nav" aria-label="Device SDK API reference navigation">
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Quick Index</div>
+      <a href="#info-overview">Architecture & Packages</a>
+      <a href="#quick-jump">Quick Symbol Index</a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Test Hosting</div>
+      <a href="#type-virtualllrpdevicehost"><code>VirtualLlrpDeviceHost</code> <span class="badge class">Class</span></a>
+      <a href="#type-virtualdevicehostoptions"><code>VirtualDeviceHostOptions</code> <span class="badge record">Record</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Server Engine</div>
+      <a href="#type-lrpdeviceserver"><code>LlrpDeviceServer</code> <span class="badge class">Class</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Abstractions & Profiles</div>
+      <a href="#type-illrpdevice"><code>ILlrpDevice</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-profiles">Built-in Profiles</a>
+    </div>
+  </nav>
+</aside>
+
+<!-- Main Content -->
+<main id="reference-main">
+  <!-- Topbar Navigation -->
+  <header class="reference-topbar">
+    <div class="topbar-title">Device SDK API Reference</div>
+    <div class="topbar-links">
+      <a href="index.html">Home</a>
+
+      <!-- API Reference Dropdown -->
+      <div class="nav-dropdown">
+        <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true">
+          <span>API Reference</span>
+          <span class="chevron">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <a href="protocol-api.html" class="dropdown-item">
+            <span class="item-icon">🧬</span>
+            <div class="item-text">
+              <strong>LlrpNet Protocol API</strong>
+              <small>Framing, session transport & codecs</small>
+            </div>
+          </a>
+          <a href="reader-api.html" class="dropdown-item">
+            <span class="item-icon">📡</span>
+            <div class="item-text">
+              <strong>Reader SDK API</strong>
+              <small>Managed client, settings & tag access</small>
+            </div>
+          </a>
+          <a href="device-api.html" class="dropdown-item active">
+            <span class="item-icon">🖥️</span>
+            <div class="item-text">
+              <strong>Device SDK API</strong>
+              <small>Virtual reader test host & server</small>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- CLI Manuals Dropdown -->
+      <div class="nav-dropdown">
+        <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+          <span>CLI Manuals</span>
+          <span class="chevron">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <a href="cli-reader.html" class="dropdown-item">
+            <span class="item-icon">⚡</span>
+            <div class="item-text">
+              <strong>Reader CLI (`llrp`)</strong>
+              <small>Live shell, JSON automation & pcapng decode</small>
+            </div>
+          </a>
+          <a href="cli-device.html" class="dropdown-item">
+            <span class="item-icon">📟</span>
+            <div class="item-text">
+              <strong>Device CLI (`llrp-device`)</strong>
+              <small>Standalone virtual server & simulation</small>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+  </header>
+
+  <article class="reference-content">
+    <header class="reference-title">
+      <p class="reference-eyebrow">LLRPCSHARP / DEVICE SDK PUBLIC API REFERENCE</p>
+      <h1>Device SDK (Virtual Reader) API Reference</h1>
+      <p class="reference-lead">
+        <code>LlrpDevice.*</code> provides a compliant, deterministic LLRP server engine and virtual reader simulation suite for automated testing and real hardware bridging.
+      </p>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="info-overview" class="reference-section">
+      <h2>Architecture & Package Map</h2>
+      <div class="reference-meta">
+        <dl><dt>Hosting</dt><dd><code>LlrpDevice.Virtual.Hosting</code> (xUnit automated test facade)</dd></dl>
+        <dl><dt>Server</dt><dd><code>LlrpDevice.Server</code> (TCP message routing & state machines)</dd></dl>
+        <dl><dt>Virtual</dt><dd><code>LlrpDevice.Virtual</code> (Antenna simulation & RSSI jitter)</dd></dl>
+        <dl><dt>Abstractions</dt><dd><code>LlrpDevice.Abstractions</code> (Pluggable <code>ILlrpDevice</code> driver)</dd></dl>
+      </div>
+    </section>
+
+    <!-- Quick Jump Index -->
+    <section id="quick-jump" class="reference-section">
+      <h2>Quick Symbol Index</h2>
+      <div class="quick-jump-grid">
+        <a href="#type-virtualllrpdevicehost" class="quick-jump-card" data-category="hosting">
+          <div class="quick-jump-card-header"><code>VirtualLlrpDeviceHost</code><span class="badge class">Class</span></div>
+          <p>Embeddable virtual reader host for automated xUnit test suites on ephemeral ports.</p>
+        </a>
+        <a href="#type-lrpdeviceserver" class="quick-jump-card" data-category="server">
+          <div class="quick-jump-card-header"><code>LlrpDeviceServer</code><span class="badge class">Class</span></div>
+          <p>Generic LLRP server engine mounting any <code>ILlrpDevice</code> instance.</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- SECTION: HOSTING -->
+    <section class="reference-section">
+      <h2>Hosting Test Facade</h2>
+
+      <!-- VirtualLlrpDeviceHost -->
+      <article id="type-virtualllrpdevicehost" class="api-type" data-category="hosting" data-search="VirtualLlrpDeviceHost IVirtualDeviceHost CreateAndStartAsync BoundPort">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>VirtualLlrpDeviceHost</code> <span class="badge class">Class</span></div>
+          <div class="api-type-ns">Namespace: <code>LlrpDevice.Virtual.Hosting</code> · Implements: <code>IVirtualDeviceHost</code></div>
+        </div>
+        <p>High-level lifecycle facade composing <code>LlrpDeviceServer</code> and <code>VirtualLlrpDevice</code> on ephemeral TCP ports.</p>
+
+        <h4>C# Code Sample (xUnit Test)</h4>
+        <div class="code-block">
+          <button class="copy-code">Copy</button>
+          <pre><code>using System.Net;
+using LlrpDevice.Virtual.Hosting;
+using LlrpSdk;
+using Xunit;
+
+public class TestVirtualReader
+{
+    [Fact]
+    public async Task Reader_Should_Read_Simulated_Tags()
+    {
+        var hostOptions = new VirtualDeviceHostOptions
+        {
+            ListenAddress = IPAddress.Loopback,
+            Port = 0, // Request ephemeral port
+            Inventory = new VirtualInventoryOptions
+            {
+                Tags = [new VirtualInventoryTag
+                {
+                    ElectronicProductCode = Convert.FromHexString("E28011910000000000000001"),
+                    AntennaId = 1,
+                    PeakRssi = -55
+                }]
+            }
+        };
+
+        await using var host = await VirtualLlrpDeviceHost.CreateAndStartAsync(hostOptions);
+
+        await using var reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.BoundPort)
+            .Build();
+
+        await reader.ConnectAsync();
+        Assert.NotNull(reader.Capabilities);
+    }
+}</code></pre>
+        </div>
+      </article>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Device SDK API Reference</span>
+  <span><a href="cli-reader.html">Next: Reader CLI User Manual →</a></span>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script src="../assets/reference.js"></script>
+</body>
+</html>

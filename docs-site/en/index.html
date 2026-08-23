@@ -3,126 +3,433 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp documentation: a modern .NET LLRP SDK, virtual device stack and CLI tools.">
-  <title>LLRPCSharp Documentation · Modern .NET LLRP SDK</title>
+  <meta name="description" content="LLRPCSharp - Industrial-grade .NET 10 LLRP RFID protocol stack, managed Reader SDK, virtual reader Device SDK, and dual CLI tooling suite.">
+  <title>LLRPCSharp · Modern .NET 10 LLRP Protocol Stack & Tools</title>
   <link rel="stylesheet" href="../assets/styles.css">
-  <link rel="stylesheet" href="../assets/brand.css">
   <link rel="stylesheet" href="../assets/home.css">
+  <link rel="stylesheet" href="../assets/brand.css">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="index.html">
     <img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
-    <span>LLRPCSharp<small>Documentation</small></span>
+    <span>LLRPCSharp</span>
   </a>
-  <button class="menu-toggle" aria-label="Open navigation">☰</button>
+  <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
   <nav>
     <a href="index.html" class="active">Home</a>
-    <a href="api.html">Reader SDK</a>
-    <a href="device-sdk.html">Device SDK</a>
-    <a href="cli.html">Reader CLI</a>
-    <a href="device-cli.html">Device CLI</a>
-    <a href="api-reference.html">Reader API Reference</a>
-    <a href="device-api-reference.html">Device API Reference</a>
-    
+
+    <!-- API Reference Dropdown -->
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+        <span>API Reference</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="dropdown-menu">
+        <a href="reader-api.html" class="dropdown-item">
+          <span class="item-icon">📡</span>
+          <div class="item-text">
+            <strong>Reader SDK API</strong>
+            <small>Managed client, settings & tag access</small>
+          </div>
+        </a>
+        <a href="device-api.html" class="dropdown-item">
+          <span class="item-icon">🖥️</span>
+          <div class="item-text">
+            <strong>Device SDK API</strong>
+            <small>Virtual reader test host & server</small>
+          </div>
+        </a>
+        <a href="protocol-api.html" class="dropdown-item">
+          <span class="item-icon">🧬</span>
+          <div class="item-text">
+            <strong>LlrpNet Protocol API</strong>
+            <small>Framing, session transport & codecs</small>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- CLI Manuals Dropdown -->
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+        <span>CLI Manuals</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="dropdown-menu">
+        <a href="cli-reader.html" class="dropdown-item">
+          <span class="item-icon">⚡</span>
+          <div class="item-text">
+            <strong>Reader CLI (`llrp`)</strong>
+            <small>Live shell, JSON automation & pcapng decode</small>
+          </div>
+        </a>
+        <a href="cli-device.html" class="dropdown-item">
+          <span class="item-icon">📟</span>
+          <div class="item-text">
+            <strong>Device CLI (`llrp-device`)</strong>
+            <small>Standalone virtual server & simulation</small>
+          </div>
+        </a>
+      </div>
+    </div>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
 
 <main class="shell docs-home">
+  <!-- Hero Section -->
   <section class="docs-home-head">
-    <p class="eyebrow">LLRPCSHARP / DOCUMENTATION</p>
-    <h1>An industrial LLRP foundation<br>for modern .NET</h1>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+      <span class="eyebrow" style="margin:0;">MODERN .NET 10 LLRP ECOSYSTEM</span>
+      <span class="release-badge">🏷️ v2.0.3 Latest</span>
+    </div>
+    <h1>Industrial-Grade .NET 10 LLRP Protocol Stack & Tooling</h1>
     <p class="doc-lead">
-      LLRPCSharp is a protocol and application foundation for RFID reader software. It combines the <strong>Reader SDK</strong>, a deterministic software <strong>Device SDK</strong>, operational CLI tools and generated, versioned LLRP protocol models.
+      <code>LLRPCSharp</code> is a high-performance, zero-native-dependency LLRP infrastructure for modern .NET. The project is structured into two core tracks: <strong>Reader SDK (Client API & `llrp` maintenance CLI)</strong> and <strong>Device SDK (Virtual Reader API & `llrp-device` simulation CLI)</strong>, providing complete coverage for physical reader integration and offline automated testing.
     </p>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-      <a class="button primary" href="api.html">Start with Reader SDK</a>
-      <a class="button secondary" href="device-sdk.html">Embed a virtual reader</a>
-      <a class="button secondary" href="cli.html">Open Reader CLI</a>
-      <a class="button secondary" href="device-cli.html">Open Device CLI</a>
-      <a class="button secondary" href="api-reference.html">Reader API Reference</a>
-      <a class="button secondary" href="device-api-reference.html">Device API Reference</a>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;">
+      <a class="button primary" href="#track-reader">📡 Client SDK (Reader API)</a>
+      <a class="button primary" style="background:#2563eb;" href="#track-device">🖥️ Virtual Device (Device API)</a>
+      <a class="button secondary" href="#downloads">📥 Download Standalone CLI Binaries ▾</a>
+      <a class="button secondary" href="#nuget">📦 NuGet Packages</a>
     </div>
-    <div class="docs-home-badges">
-      <div class="badge-item"><span class="status-dot"></span>LLRP 1.0.1 / 1.1 usable baselines</div>
-      <div class="badge-item"><span class="status-dot blue"></span>LLRP 2.0 adapter baseline</div>
-      <div class="badge-item"><span class="status-dot amber"></span>Impinj primary · Zebra experimental</div>
-    </div>
-  </section>
-
-  <section class="pillar-grid">
-    <a class="pillar-card featured" href="api.html">
-      <div class="pillar-header"><div class="pillar-icon">📡</div><span class="pillar-tag">Reader SDK</span></div>
-      <h3>High-level reader client</h3>
-      <p>Describe reader intent with typed settings, negotiate an explicit protocol version, stream tag reports and perform standard C1G2 access operations.</p>
-      <ul class="pillar-features">
-        <li>LLRP 1.0.1 and 1.1 adapter baselines</li>
-        <li>Generated 2.0 protocol layer and adapter baseline</li>
-        <li>Inventory, AttachedData and Tag Access APIs</li>
-        <li>Impinj extension package and explicit version types</li>
-      </ul>
-      <span class="pillar-action">Open the Reader SDK guide →</span>
-    </a>
-
-    <a class="pillar-card" href="device-sdk.html">
-      <div class="pillar-header"><div class="pillar-icon">🧪</div><span class="pillar-tag" style="background:#f3eafd;color:#7c3aed;">Device SDK</span></div>
-      <h3>Virtual reader and server</h3>
-      <p>Run a deterministic software LLRP TCP endpoint in tests or host a custom <code>ILlrpDevice</code> implementation. This is not a physical RF waveform simulator.</p>
-      <ul class="pillar-features">
-        <li>Ephemeral-port xUnit and integration tests</li>
-        <li>Repeatable tags, RSSI jitter and memory access</li>
-        <li>Standard server lifecycle and resource routing</li>
-        <li>Hosting and low-level APIs</li>
-      </ul>
-      <span class="pillar-action">Open the Device SDK guide →</span>
-    </a>
-
-    <a class="pillar-card" href="cli.html">
-      <div class="pillar-header"><div class="pillar-icon">⌘</div><span class="pillar-tag" style="background:#eaf0fb;color:var(--blue);">Operations</span></div>
-      <h3>Reader CLI</h3>
-      <p>Connect to readers from a live shell, automate inventory and settings workflows, perform Tag Access and inspect offline protocol traffic.</p>
-      <ul class="pillar-features">
-        <li>Live status, capabilities and inventory</li>
-        <li>Explicit settings validation and takeover policies</li>
-        <li>Raw frame and PCAPNG diagnostics</li>
-        <li>JSON output for scripts and agents</li>
-      </ul>
-      <span class="pillar-action">Open the Reader CLI guide →</span>
-    </a>
-
-    <a class="pillar-card" href="device-cli.html">
-      <div class="pillar-header"><div class="pillar-icon">⚙️</div><span class="pillar-tag" style="background:#fdf3e7;color:var(--amber);">Device CLI</span></div>
-      <h3>Virtual Device CLI</h3>
-      <p>Launch and manage deterministic virtual LLRP readers from the command line with protocol/profile presets or a schema 1 JSON configuration.</p>
-      <ul class="pillar-features">
-        <li>Standard 1.0.1, 1.1 and 2.0 presets</li>
-        <li>Impinj R420-shaped software profile</li>
-        <li>Live lifecycle and event log controls</li>
-        <li>Config validation and capability inspection</li>
-      </ul>
-      <span class="pillar-action">Open the Device CLI guide →</span>
-    </a>
-  </section>
-
-  <section class="docs-home-section">
-    <p class="eyebrow">SUPPORT BOUNDARIES</p>
-    <h2>What is usable today</h2>
-    <div class="api-table">
-      <div class="api-row api-head"><span>Area</span><span>Current position</span></div>
-      <div class="api-row"><code>LLRP 1.0.1 / 1.1</code><span>Usable SDK adapter baselines; verify target-reader behavior for the features you use.</span></div>
-      <div class="api-row"><code>LLRP 2.0</code><span>Generated protocol layer and SDK adapter baseline; real-device interoperability is not yet verified.</span></div>
-      <div class="api-row"><code>Vendor extensions</code><span>Impinj is the primary extension path. Zebra is experimental and requires byte-level/device validation. Seuic is represented by profile defaults.</span></div>
-      <div class="api-row"><code>Virtual device</code><span>Deterministic TCP software for protocol, lifecycle and business-flow tests; it does not model RF physics.</span></div>
+    <div class="docs-home-badges" style="margin-top:24px;">
+      <div class="badge-item"><span class="status-dot"></span>.NET 10 Ready</div>
+      <div class="badge-item"><span class="status-dot blue"></span>LLRP 1.0.1 / 1.1 Usable Baseline</div>
+      <div class="badge-item"><span class="status-dot amber"></span>2.0 Adapter Baseline · Zebra Experimental</div>
+      <div class="badge-item"><span class="status-dot purple"></span>Zero Native Dependencies</div>
     </div>
   </section>
 
+  <!-- ========================================================================= -->
+  <!-- PART 1: READER API (CLIENT SDK & LLRP CLI) -->
+  <!-- ========================================================================= -->
+  <section id="track-reader" class="docs-home-section" style="padding-top:48px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span class="pillar-icon" style="width:36px;height:36px;font-size:18px;">📡</span>
+      <span class="eyebrow" style="margin:0;font-size:13px;">PART 1 · CLIENT APPLICATION & MAINTENANCE</span>
+    </div>
+    <h2 style="font-size:32px;margin-bottom:12px;">Reader SDK & Field Maintenance CLI (`llrp`)</h2>
+    <p class="doc-lead" style="font-size:17px;margin-bottom:28px;">
+      Business-oriented managed client for physical readers (Impinj Speedway, Zebra FX series) and virtual readers. Features protocol version discovery, immutable configuration, exclusive async tag streams, and C1G2 tag access.
+    </p>
+
+    <div class="pillar-grid">
+      <!-- Card: SDK Capability -->
+      <div class="pillar-card featured">
+        <div class="pillar-header">
+          <div class="pillar-icon">📡</div>
+          <span class="pillar-tag">NuGet: LlrpSdk</span>
+        </div>
+        <h3>Reader SDK (`LlrpSdk`)</h3>
+        <p>High-level managed client with embedded <code>LlrpNet.Core</code> wire engine (no separate install required).</p>
+        <ul class="pillar-features">
+          <li><code>LlrpReaderBuilder</code> fluent configuration and endpoint setup</li>
+          <li><code>ReaderSettings.Edit()</code> immutable configuration intent</li>
+          <li><code>InventorySession</code> exclusive async stream (<code>IAsyncEnumerable</code>)</li>
+          <li>Standard C1G2 Tag Access (Read, Write, Lock, Kill, Block Erase)</li>
+          <li>Optional vendor extensions: <code>LlrpSdk.Extensions.Impinj</code> / <code>Zebra</code></li>
+        </ul>
+        <div style="margin-top:auto;display:flex;gap:12px;flex-wrap:wrap;">
+          <a class="button primary" style="font-size:13px;padding:8px 14px;margin:0;" href="reader-api.html">View Reader SDK API Reference & Samples →</a>
+          <a class="button secondary" style="font-size:13px;padding:8px 14px;margin:0;" href="protocol-api.html">View LlrpNet Wire Protocol API →</a>
+        </div>
+      </div>
+
+      <!-- Card: CLI Tool -->
+      <div class="pillar-card">
+        <div class="pillar-header">
+          <div class="pillar-icon">⚡</div>
+          <span class="pillar-tag">Standalone CLI Tool</span>
+        </div>
+        <h3>LlrpCli (`llrp`) Field Maintenance & Analysis</h3>
+        <p>Provides interactive Live Shell, single-shot JSON automation, and offline Wireshark <code>.pcapng</code> decoding:</p>
+        
+        <div class="code-block" style="margin:10px 0 16px;">
+          <button class="copy-code">Copy</button>
+          <pre><code># 1. Launch interactive field maintenance Live Shell
+llrp
+
+# 2. Automated single-shot inventory for 10s with JSON output
+llrp inventory 192.168.1.100 --duration 10 --yes
+
+# 3. Offline decode Wireshark .pcapng capture
+llrp decode ./capture.pcapng --output summary</code></pre>
+        </div>
+        <div style="margin-top:auto;">
+          <a class="button secondary" style="font-size:13px;padding:8px 14px;margin:0;" href="cli-reader.html">View Complete Reader CLI User Manual →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reader Code Sample -->
+    <div class="code-block" style="margin-top:24px;">
+      <div style="color:#38bdf8;font-weight:750;font-size:13px;margin-bottom:12px;">💻 Reader SDK Quick Connect & Inventory in 3 Steps (C#)</div>
+      <button class="copy-code">Copy</button>
+      <pre><code>using LlrpSdk;
+
+// 1. Build and connect to reader (auto discovers LLRP 1.0.1 / 1.1 protocol)
+await using var reader = LlrpReader.CreateBuilder("192.168.1.100").Build();
+await reader.ConnectAsync();
+
+// 2. Obtain capability-aware default settings and deploy (PreserveForeign safe takeover)
+var defaults = await reader.GetDefaultSettingsAsync();
+await reader.ApplySettingsAsync(defaults.Settings);
+
+// 3. Start inventory and stream tag reports asynchronously
+await using var session = await reader.StartInventoryAsync();
+await foreach (TagReport tag in session.ReadReportsAsync())
+{
+    Console.WriteLine($"[Antenna {tag.AntennaId}] EPC: {tag.EpcHex}, RSSI: {tag.PeakRssi} dBm");
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- PART 2: VIRTUAL DEVICE API (TESTING & SIMULATION TRACK) -->
+  <!-- ========================================================================= -->
+  <section id="track-device" class="docs-home-section" style="padding-top:48px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span class="pillar-icon" style="width:36px;height:36px;font-size:18px;background:#eaf0fb;color:var(--blue);">🖥️</span>
+      <span class="eyebrow" style="margin:0;font-size:13px;color:var(--blue);">PART 2 · VIRTUAL DEVICE SIMULATION & AUTOMATED TESTING</span>
+    </div>
+    <h2 style="font-size:32px;margin-bottom:12px;">Device SDK & Virtual Reader Server (`llrp-device`)</h2>
+    <p class="doc-lead" style="font-size:17px;margin-bottom:28px;">
+      Deterministic software virtual reader and standard LLRP TCP server engine. Designed for offline CI/CD unit testing (xUnit) and hardware-free 3rd-party client testing (e.g. Impinj ItemTest 2.10.0).
+    </p>
+
+    <div class="pillar-grid">
+      <!-- Card: SDK Capability -->
+      <div class="pillar-card" style="border-color:#b8d2fb;background:linear-gradient(180deg,#f4f8fe 0%,#ffffff 100%);">
+        <div class="pillar-header">
+          <div class="pillar-icon" style="background:#eaf0fb;color:var(--blue);">🖥️</div>
+          <span class="pillar-tag" style="background:#eaf0fb;color:var(--blue);">NuGet: LlrpDevice.Virtual.Hosting</span>
+        </div>
+        <h3>Device SDK (`LlrpDevice.*`)</h3>
+        <p>Embed fully compliant in-memory virtual readers on ephemeral ports (Port=0) in test suites.</p>
+        <ul class="pillar-features">
+          <li><code>VirtualLlrpDeviceHost</code> in-memory test host lifecycle</li>
+          <li><code>LlrpDeviceServer</code> TCP message routing and state machines</li>
+          <li>Built-in <code>llrp1.0.1_standard</code> & Impinj R420 capability profiles</li>
+          <li>Pluggable <code>ILlrpDevice</code> interface for custom hardware drivers</li>
+        </ul>
+        <div style="margin-top:auto;">
+          <a class="button primary" style="font-size:13px;padding:8px 14px;margin:0;background:var(--blue);" href="device-api.html">View Device SDK API Reference & Samples →</a>
+        </div>
+      </div>
+
+      <!-- Card: CLI Tool -->
+      <div class="pillar-card">
+        <div class="pillar-header">
+          <div class="pillar-icon" style="background:#fdf3e7;color:var(--amber);">📟</div>
+          <span class="pillar-tag" style="background:#fdf3e7;color:var(--amber);">Standalone CLI Tool</span>
+        </div>
+        <h3>LlrpVirtualDevice.Cli (`llrp-device`) Virtual Server</h3>
+        <p>Start a standalone LLRP TCP reader server (default port 5084) with a single command:</p>
+        
+        <div class="code-block" style="margin:10px 0 16px;">
+          <button class="copy-code">Copy</button>
+          <pre><code># 1. Run foreground server with high-density warehouse preset
+llrp-device run --port 5084 --preset warehouse
+
+# 2. Run conveyor preset with interactive frame logging
+llrp-device live --port 5084 --preset conveyor
+
+# 3. Validate custom simulation JSON configuration
+llrp-device validate ./my-scenario.json</code></pre>
+        </div>
+        <div style="margin-top:auto;">
+          <a class="button secondary" style="font-size:13px;padding:8px 14px;margin:0;" href="cli-device.html">View Complete Device CLI User Manual →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Device Code Sample (xUnit Test) -->
+    <div class="code-block" style="margin-top:24px;">
+      <div style="color:#60a5fa;font-weight:750;font-size:13px;margin-bottom:12px;">💻 VirtualLlrpDeviceHost in xUnit Automated Test Sample (C#)</div>
+      <button class="copy-code">Copy</button>
+      <pre><code>using System.Net;
+using LlrpDevice.Virtual.Hosting;
+using LlrpSdk;
+using Xunit;
+
+public class VirtualReaderTests
+{
+    [Fact]
+    public async Task Reader_Should_Read_Simulated_Tags_On_Ephemeral_Port()
+    {
+        // 1. Start in-memory virtual reader on ephemeral port (Port = 0)
+        var hostOptions = new VirtualDeviceHostOptions
+        {
+            ListenAddress = IPAddress.Loopback,
+            Port = 0,
+            Inventory = new VirtualInventoryOptions
+            {
+                Tags = [new VirtualInventoryTag
+                {
+                    ElectronicProductCode = Convert.FromHexString("E28011910000000000000001"),
+                    AntennaId = 1,
+                    PeakRssi = -55
+                }]
+            }
+        };
+
+        await using var host = await VirtualLlrpDeviceHost.CreateAndStartAsync(hostOptions);
+
+        // 2. Client connects to the ephemeral port and reads tags
+        await using var reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.BoundPort)
+            .Build();
+
+        await reader.ConnectAsync();
+        Assert.NotNull(reader.Capabilities);
+    }
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- SECTION: NUGET PACKAGES (FACTUAL REGISTRY) -->
+  <!-- ========================================================================= -->
+  <section id="nuget" class="docs-home-section" style="padding-top:40px;">
+    <p class="eyebrow">NUGET PACKAGES REGISTRY</p>
+    <h2>Official NuGet Packages Registry</h2>
+    <p class="doc-lead" style="margin-bottom:20px;font-size:16px;">
+      LLRPCSharp follows a clean modular design. The wire engine (<code>LlrpNet.Core</code>) is directly packaged inside the client SDK:
+    </p>
+
+    <div class="nuget-section">
+      <div class="table-wrapper">
+        <table class="member-table">
+          <thead><tr><th>NuGet Official Package</th><th>Version</th><th>Role & Responsibility</th><th>Quick CLI Command</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><a href="https://www.nuget.org/packages/LlrpSdk/" target="_blank" rel="noreferrer" style="font-weight:750;color:var(--teal);"><code>LlrpSdk</code> ↗</a></td>
+              <td><span class="release-badge" style="padding:2px 8px;font-size:11px;">v2.0.3</span></td>
+              <td><strong>Client SDK Core</strong> (Managed reader facade, settings & embedded wire engine)</td>
+              <td><code>dotnet add package LlrpSdk</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://www.nuget.org/packages/LlrpDevice.Virtual.Hosting/" target="_blank" rel="noreferrer" style="font-weight:750;color:var(--blue);"><code>LlrpDevice.Virtual.Hosting</code> ↗</a></td>
+              <td><span class="release-badge" style="padding:2px 8px;font-size:11px;">v2.0.3</span></td>
+              <td><strong>Testing Host</strong> (xUnit / ephemeral Port=0 in-memory virtual reader)</td>
+              <td><code>dotnet add package LlrpDevice.Virtual.Hosting</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://www.nuget.org/packages/LlrpSdk.Extensions.Impinj/" target="_blank" rel="noreferrer" style="font-weight:750;color:var(--teal);"><code>LlrpSdk.Extensions.Impinj</code> ↗</a></td>
+              <td><span class="release-badge" style="padding:2px 8px;font-size:11px;">v2.0.3</span></td>
+              <td><strong>Impinj Extension</strong> (Speedway / R420 vendor specific features)</td>
+              <td><code>dotnet add package LlrpSdk.Extensions.Impinj</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://www.nuget.org/packages/LlrpSdk.Extensions.Zebra/" target="_blank" rel="noreferrer" style="font-weight:750;color:var(--teal);"><code>LlrpSdk.Extensions.Zebra</code> ↗</a></td>
+              <td><span class="release-badge" style="padding:2px 8px;font-size:11px;">v2.0.3</span></td>
+              <td><strong>Zebra Extension</strong> (Zebra FX series vendor specific features)</td>
+              <td><code>dotnet add package LlrpSdk.Extensions.Zebra</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code-block" style="margin-top:20px;">
+        <button class="copy-code">Copy</button>
+        <pre><code># 1. Install Client SDK
+dotnet add package LlrpSdk --version 2.0.3
+
+# 2. Install Virtual Testing Host
+dotnet add package LlrpDevice.Virtual.Hosting --version 2.0.3
+
+# 3. (Optional) Install Vendor Extensions
+dotnet add package LlrpSdk.Extensions.Impinj --version 2.0.3
+dotnet add package LlrpSdk.Extensions.Zebra --version 2.0.3</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- SECTION: LATEST RELEASE & MULTI-PLATFORM DOWNLOADS -->
+  <!-- ========================================================================= -->
+  <section id="downloads" class="docs-home-section" style="padding-top:40px;">
+    <div class="release-banner">
+      <div class="release-head">
+        <div>
+          <h3>🚀 Latest Release Artifacts (v2.0.3)</h3>
+          <span class="release-date">Release: 2026 Latest Stable Release · Zero-dependency standalone executables</span>
+        </div>
+        <a href="https://github.com/newton5555/LLRPCSharp/releases/tag/v2.0.3" target="_blank" rel="noreferrer" class="button secondary" style="margin:0;border-color:rgba(255,255,255,0.3);color:#fff;background:rgba(255,255,255,0.1);">
+          GitHub Releases Assets ↗
+        </a>
+      </div>
+
+      <div class="download-grid">
+        <!-- Windows -->
+        <div class="download-card">
+          <div class="download-card-header">
+            <span class="os-icon">🪟</span>
+            <span>Windows (x64)</span>
+          </div>
+          <p>Single-file standalone binaries, no .NET runtime required.</p>
+          <div class="download-links">
+            <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-win-x64.zip" target="_blank" rel="noreferrer">
+              <span>LlrpCli-v2.0.3-win-x64.zip</span>
+              <small>Win-x64 ⬇</small>
+            </a>
+          </div>
+        </div>
+
+        <!-- Linux x64 -->
+        <div class="download-card">
+          <div class="download-card-header">
+            <span class="os-icon">🐧</span>
+            <span>Linux (x64)</span>
+          </div>
+          <p>For Ubuntu, Debian, CentOS, RHEL servers & Docker.</p>
+          <div class="download-links">
+            <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-linux-x64.zip" target="_blank" rel="noreferrer">
+              <span>LlrpCli-v2.0.3-linux-x64.zip</span>
+              <small>Linux-x64 ⬇</small>
+            </a>
+          </div>
+        </div>
+
+        <!-- macOS ARM64 -->
+        <div class="download-card">
+          <div class="download-card-header">
+            <span class="os-icon">🍏</span>
+            <span>macOS (Apple Silicon)</span>
+          </div>
+          <p>For Apple Silicon (M1/M2/M3/M4) series Macs.</p>
+          <div class="download-links">
+            <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-osx-arm64.zip" target="_blank" rel="noreferrer">
+              <span>LlrpCli-v2.0.3-osx-arm64.zip</span>
+              <small>macOS ARM64 ⬇</small>
+            </a>
+          </div>
+        </div>
+
+        <!-- macOS Intel -->
+        <div class="download-card">
+          <div class="download-card-header">
+            <span class="os-icon">💻</span>
+            <span>macOS (Intel x64)</span>
+          </div>
+          <p>For Intel-based Mac computers.</p>
+          <div class="download-links">
+            <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-osx-x64.zip" target="_blank" rel="noreferrer">
+              <span>LlrpCli-v2.0.3-osx-x64.zip</span>
+              <small>macOS Intel ⬇</small>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 
 <footer class="shell footer">
-  <span>LLRPCSharp · Modern .NET LLRP SDK</span>
-  <span><a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">Source on GitHub ↗</a></span>
+  <span>LLRPCSharp · Modern .NET 10 LLRP Ecosystem (v2.0.3)</span>
+  <span><a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub Repository ↗</a></span>
 </footer>
 
 <script src="../assets/app.js"></script>

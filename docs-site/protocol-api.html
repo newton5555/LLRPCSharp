@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp LlrpNet 协议层 API 参考手册 - 包含帧拆装、会话传输、Codec 注册表与强类型协议消息模型（含代码示例）">
+  <title>LlrpNet 协议层 API 参考 · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/reference.css">
+  <link rel="stylesheet" href="assets/brand.css">
+</head>
+<body class="api-reference-page">
+
+<!-- Left Navigation Sidebar -->
+<aside id="reference-sidebar">
+  <div class="reference-logo">
+    <a href="index.html">
+      <span class="mark" style="background:var(--ref-badge-interface);">P</span>
+      <div>
+        <span>LLRPCSharp</span>
+        <small>Protocol API Reference</small>
+      </div>
+    </a>
+  </div>
+
+  <div class="reference-version">
+    <span class="dot" style="background:var(--ref-badge-interface);"></span> LlrpNet.Core & Protocol
+  </div>
+
+  <div class="search-box-wrapper">
+    <span class="search-icon">🔍</span>
+    <input id="api-search" class="reference-search" type="search" placeholder="搜索协议类型、方法、示例..." aria-label="Search Protocol API symbols">
+  </div>
+  <div id="api-result-count" class="reference-search-result"></div>
+
+  <!-- Category Filter Pills -->
+  <div class="filter-pills">
+    <button class="filter-pill active" data-filter="all">全部</button>
+    <button class="filter-pill" data-filter="framing">Framing 帧拆装</button>
+    <button class="filter-pill" data-filter="transport">Transport 传输</button>
+    <button class="filter-pill" data-filter="codec">Codec 编解码</button>
+    <button class="filter-pill" data-filter="contract">契约与消息</button>
+  </div>
+
+  <!-- Tree Navigation -->
+  <nav class="reference-nav" aria-label="Protocol API reference navigation">
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">快速入口</div>
+      <a href="#info-overview">架构与包图谱</a>
+      <a href="#quick-jump">快速符号索引</a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Framing 帧拆装</div>
+      <a href="#type-llrpframedecoder"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpframeencoder"><code>LlrpFrameEncoder</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpframe"><code>LlrpFrame</code> <span class="badge record">Struct</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Transport 会话传输</div>
+      <a href="#type-llrpsession"><code>LlrpSession</code> <span class="badge class">Class</span></a>
+      <a href="#type-itransport"><code>ITransport</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-llrptcptransport"><code>LlrpTcpTransport</code> <span class="badge class">Class</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Codec 编解码器</div>
+      <a href="#type-llrpcodecregistry"><code>LlrpCodecRegistry</code> <span class="badge class">Class</span></a>
+      <a href="#type-icodec"><code>ICodec</code> <span class="badge interface">Interface</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">多版本消息与契约</div>
+      <a href="#type-illrpmessage"><code>ILLRPMessage</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-illrpparameter"><code>ILLRPParameter</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-namespaces">多版本命名空间规则</a>
+    </div>
+  </nav>
+</aside>
+
+<!-- Main API Reference Content Area -->
+<main id="reference-main">
+  <!-- Topbar Navigation -->
+  <header class="reference-topbar">
+    <div class="topbar-title">LlrpNet 协议层 API 参考手册</div>
+    <div class="topbar-links">
+      <a href="index.html">首页</a>
+
+      <!-- API Reference Dropdown -->
+      <div class="nav-dropdown">
+        <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true">
+          <span>API 参考文档</span>
+          <span class="chevron">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <a href="protocol-api.html" class="dropdown-item active">
+            <span class="item-icon">🧬</span>
+            <div class="item-text">
+              <strong>LlrpNet 协议 API</strong>
+              <small>底层帧拆装、会话传输与 Codec 注册表</small>
+            </div>
+          </a>
+          <a href="reader-api.html" class="dropdown-item">
+            <span class="item-icon">📡</span>
+            <div class="item-text">
+              <strong>Reader SDK API</strong>
+              <small>上位机门面、不可变配置与 TagAccess</small>
+            </div>
+          </a>
+          <a href="device-api.html" class="dropdown-item">
+            <span class="item-icon">🖥️</span>
+            <div class="item-text">
+              <strong>Device SDK API</strong>
+              <small>虚拟读写器测试宿主与服务端抽象</small>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- CLI Manuals Dropdown -->
+      <div class="nav-dropdown">
+        <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+          <span>CLI 用户手册</span>
+          <span class="chevron">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <a href="cli-reader.html" class="dropdown-item">
+            <span class="item-icon">⚡</span>
+            <div class="item-text">
+              <strong>Reader CLI (`llrp`)</strong>
+              <small>现场交互 Shell、JSON 调度与抓包解析</small>
+            </div>
+          </a>
+          <a href="cli-device.html" class="dropdown-item">
+            <span class="item-icon">📟</span>
+            <div class="item-text">
+              <strong>Device CLI (`llrp-device`)</strong>
+              <small>独立虚拟读写器服务与场景仿真</small>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+  </header>
+
+  <article class="reference-content">
+    <header class="reference-title">
+      <p class="reference-eyebrow">LLRPCSHARP / PROTOCOL WIRE API REFERENCE</p>
+      <h1>LlrpNet 协议层 API 参考文档</h1>
+      <p class="reference-lead">
+        <code>LlrpNet.Core</code> 与 <code>LlrpNet.Protocol.*</code> 提供零反射、内存安全的 Span 二进制 LLRP 帧拆装、多版本强类型消息模型与双向 Codec 编解码流水线。
+      </p>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="info-overview" class="reference-section">
+      <h2>架构与包图谱</h2>
+      <div class="reference-meta">
+        <dl><dt>LlrpNet.Core</dt><dd>帧拆装 (Framing) · 会话传输 (Session) · Codec 注册表</dd></dl>
+        <dl><dt>LlrpNet.Protocol</dt><dd>LLRP 1.0.1 / 1.1 / 2.0 强类型消息与参数定义</dd></dl>
+        <dl><dt>厂商扩展包</dt><dd><code>LlrpNet.Protocol.Impinj</code> / <code>LlrpNet.Protocol.Zebra</code></dd></dl>
+        <dl><dt>生成器工具</dt><dd><code>LlrpNet.ProtocolGenerator</code> (XML/YAML 双输入源)</dd></dl>
+      </div>
+    </section>
+
+    <!-- Quick Jump Index -->
+    <section id="quick-jump" class="reference-section">
+      <h2>快速符号索引 (Quick Jump)</h2>
+      <div class="quick-jump-grid">
+        <a href="#type-llrpframedecoder" class="quick-jump-card" data-category="framing">
+          <div class="quick-jump-card-header"><code>LlrpFrameDecoder</code><span class="badge class">Class</span></div>
+          <p>零内存分配的二进制 LLRP 帧流式拆包器，自动处理 TCP 粘包与半包。</p>
+        </a>
+        <a href="#type-llrpcodecregistry" class="quick-jump-card" data-category="codec">
+          <div class="quick-jump-card-header"><code>LlrpCodecRegistry</code><span class="badge class">Class</span></div>
+          <p>强类型消息与二进制线字节流双向转换的全局/局部注册表。</p>
+        </a>
+        <a href="#type-llrpsession" class="quick-jump-card" data-category="transport">
+          <div class="quick-jump-card-header"><code>LlrpSession</code><span class="badge class">Class</span></div>
+          <p>全双工异步消息派发管道，支持按 MessageId 异步等待应答。</p>
+        </a>
+        <a href="#type-illrpmessage" class="quick-jump-card" data-category="contract">
+          <div class="quick-jump-card-header"><code>ILLRPMessage</code><span class="badge interface">Interface</span></div>
+          <p>顶层 LLRP 消息契约（包含 TypeNumber, MessageID, ProtocolVersion）。</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- SECTION: FRAMING -->
+    <section class="reference-section">
+      <h2>Framing 帧拆装核心类型</h2>
+
+      <!-- LlrpFrameDecoder -->
+      <article id="type-llrpframedecoder" class="api-type" data-category="framing" data-search="LlrpFrameDecoder TryDecodeFrame Framing">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></div>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Framing</code></div>
+        </div>
+        <p>基于 <code>ReadOnlySpan&lt;byte&gt;</code> 的高性能二进制帧流解析器。支持无堆分配地提取 10 字节 LLRP 标准帧头与负载切片。</p>
+
+        <h4>方法签名</h4>
+        <div class="table-wrapper">
+          <table class="member-table">
+            <thead><tr><th>方法签名</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr class="api-entry" data-search="TryDecodeFrame">
+                <td><code>bool TryDecodeFrame(ReadOnlySpan&lt;byte&gt; source, out LlrpFrame frame, out int consumedBytes)</code></td>
+                <td>尝试从缓冲区切片中解析出一个完整的 LLRP 帧。返回 false 表示数据不完整（半包），需要等待更多网络字节。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>实战代码示例 (C# Code Sample)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using LlrpNet.Core.Framing;
+
+var decoder = new LlrpFrameDecoder();
+
+// 模拟接收到的 16 字节 GET_READER_CAPABILITIES 消息二进制报文
+ReadOnlySpan&lt;byte&gt; rawBytes = stackalloc byte[] 
+{ 
+    0x04, 0x01,                   // Type=1 (GET_READER_CAPABILITIES), Version=1
+    0x00, 0x00, 0x00, 0x10,       // Length=16 bytes
+    0x00, 0x00, 0x00, 0x01,       // MessageID=1
+    0x00, 0x00, 0x00, 0x00        // RequestedData=All
+};
+
+if (decoder.TryDecodeFrame(rawBytes, out LlrpFrame frame, out int consumedBytes))
+{
+    Console.WriteLine($"解析成功: Type={frame.TypeNumber}, Length={frame.Length}, MsgID={frame.MessageId}");
+    Console.WriteLine($"负载长度: {frame.Payload.Length} 字节, 已消费字节: {consumedBytes}");
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- LlrpFrameEncoder -->
+      <article id="type-llrpframeencoder" class="api-type" data-category="framing" data-search="LlrpFrameEncoder EncodeFrame">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>LlrpFrameEncoder</code> <span class="badge class">Class</span></div>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Framing</code></div>
+        </div>
+        <p>将消息类型、版本与负载组装为标准的 10 字节 LLRP 报头格式。</p>
+      </article>
+    </section>
+
+    <!-- SECTION: TRANSPORT & SESSION -->
+    <section class="reference-section">
+      <h2>Transport 会话与网络传输</h2>
+
+      <!-- LlrpSession -->
+      <article id="type-llrpsession" class="api-type" data-category="transport" data-search="LlrpSession TransactAsync SendAsync ReceiveLoop">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>LlrpSession</code> <span class="badge class">Class</span></div>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Session</code></div>
+        </div>
+        <p>全双工异步消息会话管理通道。负责将网络底层字节流解包为消息帧，并将通知（如 RO_ACCESS_REPORT）推入事件管道，将响应消息匹配到等待中的 <code>TransactAsync</code> 任务。</p>
+
+        <h4>实战代码示例 (C# Code Sample)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using LlrpNet.Core.Session;
+using LlrpNet.Core.Transport;
+
+// 1. 建立 TCP 传输
+await using var transport = new LlrpTcpTransport("192.168.1.100", 5084);
+await transport.ConnectAsync(CancellationToken.None);
+
+// 2. 创建会话管理管道
+await using var session = new LlrpSession(transport);
+session.Start();
+
+// 3. 监听异步主动上报消息 (RO_ACCESS_REPORT)
+session.MessageReceived += (sender, msg) =>
+{
+    Console.WriteLine($"收到主动上报报文: Type={msg.TypeNumber}, MsgID={msg.MessageID}");
+};</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- SECTION: CODEC -->
+    <section class="reference-section">
+      <h2>Codec 编解码器注册表</h2>
+
+      <!-- LlrpCodecRegistry -->
+      <article id="type-llrpcodecregistry" class="api-type" data-category="codec" data-search="LlrpCodecRegistry RegisterModule EncodeMessage DecodeMessage">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>LlrpCodecRegistry</code> <span class="badge class">Class</span></div>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Codec</code></div>
+        </div>
+        <p>中央编解码器注册表。管理标准 1.0.1 / 1.1 / 2.0 及 Impinj / Zebra 厂商扩展的序列化器与反序列化器。</p>
+
+        <h4>实战代码示例 (C# Code Sample)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using LlrpNet.Core.Codec;
+using LlrpNet.Protocol.V1_0_1;
+using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+
+// 1. 注册标准 1.0.1 模块
+var registry = new LlrpCodecRegistry();
+registry.RegisterModule(new Llrp101StandardModule());
+
+// 2. 强类型消息序列化为二进制
+var getCaps = new V101Messages.GET_READER_CAPABILITIES
+{
+    MessageID = 100,
+    RequestedData = LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderCapabilitiesRequestedData.All
+};
+byte[] wireBytes = registry.EncodeMessage(getCaps);
+
+// 3. 二进制报文反序列化为强类型实例
+ILLRPMessage decoded = registry.DecodeMessage(wireBytes);
+if (decoded is V101Messages.GET_READER_CAPABILITIES typedMsg)
+{
+    Console.WriteLine($"反序列化成功: RequestedData={typedMsg.RequestedData}");
+}</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- SECTION: MULTI-VERSION RULES -->
+    <section class="reference-section">
+      <h2>多版本命名空间规则</h2>
+      <article id="type-namespaces" class="api-type" data-category="contract" data-search="V1_0_1 V1_1 V2_0 Namespaces">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>显式多版本命名空间隔离</code> <span class="badge contract">Convention</span></div>
+        </div>
+        <p>
+          LLRPCSharp 要求所有涉及协议类型的代码使用显式别名导入，杜绝使用隐式“默认版本”：
+        </p>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V11Messages = LlrpNet.Protocol.Messages.V1_1;
+using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
+
+// 1.0.1 协议类型
+V101Parameters.ROSpec roSpec101 = new V101Parameters.ROSpec();
+
+// 1.1 协议类型 (概念相同，版本独立隔离)
+V11Parameters.ROSpec roSpec11 = new V11Parameters.ROSpec();</code></pre>
+        </div>
+      </article>
+    </section>
+
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · LlrpNet 协议层 API 参考</span>
+  <span><a href="reader-api.html">下一页：Reader SDK API 参考 →</a></span>
+</footer>
+
+<script src="assets/app.js"></script>
+<script src="assets/reference.js"></script>
+</body>
+</html>

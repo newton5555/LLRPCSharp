@@ -1,40 +1,403 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Searchable public API reference for the LLRPCSharp Reader SDK.">
-  <title>Reader SDK API Reference · LLRPCSharp</title>
-  <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/reference.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Unified API Reference - Complete public contracts, member signatures and C# code samples for Reader SDK, Device SDK and LlrpNet wire protocol.">
+  <title>API Reference (Unified with Code Samples) · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/reference.css">
 </head>
 <body class="api-reference-page">
+
+<!-- Left Navigation Sidebar -->
 <aside id="reference-sidebar">
-  <div class="reference-logo"><a href="index.html"><span class="mark">R</span><div><span>LLRPCSharp</span><small>Reader API Reference</small></div></a></div>
-  <div class="reference-version"><span class="dot"></span> LlrpSdk · .NET 10 · 1.0.1 / 1.1 usable · 2.0 adapter baseline</div>
-  <div class="search-box-wrapper"><span class="search-icon">🔍</span><input id="api-search" class="reference-search" type="search" placeholder="Search Reader SDK types, methods and properties..." aria-label="Search Reader API symbols"></div>
+  <div class="reference-logo">
+    <a href="index.html">
+      <span class="mark">A</span>
+      <div>
+        <span>LLRPCSharp</span>
+        <small>Unified API Reference</small>
+      </div>
+    </a>
+  </div>
+
+  <div class="reference-version">
+    <span class="dot"></span> LLRPCSharp · .NET 10 · Unified Reference
+  </div>
+
+  <div class="search-box-wrapper">
+    <span class="search-icon">🔍</span>
+    <input id="api-search" class="reference-search" type="search" placeholder="Search types, methods, samples..." aria-label="Search API symbols">
+  </div>
   <div id="api-result-count" class="reference-search-result"></div>
-  <div class="filter-pills"><button class="filter-pill active" data-filter="all">All</button><button class="filter-pill" data-filter="facade">Facade</button><button class="filter-pill" data-filter="settings">Settings</button><button class="filter-pill" data-filter="inventory">Inventory</button><button class="filter-pill" data-filter="access">Tag Access</button><button class="filter-pill" data-filter="extensions">Extensions</button><button class="filter-pill" data-filter="expert">Protocol</button><button class="filter-pill" data-filter="exceptions">Exceptions</button></div>
-  <nav class="reference-nav"><a href="#info-overview">Overview</a><a href="#quick-jump">Quick jump</a><a href="#sec-facade">Facade</a><a href="#sec-settings">Settings and inventory</a><a href="#sec-access">Tag Access</a><a href="#sec-expert">Expert / Raw</a><a href="#sec-extensions">Vendor extensions</a><a href="#type-exceptions">Exceptions</a></nav>
+
+  <!-- Category Filter Pills -->
+  <div class="filter-pills">
+    <button class="filter-pill active" data-filter="all">All</button>
+    <button class="filter-pill" data-filter="reader">Reader SDK</button>
+    <button class="filter-pill" data-filter="device">Device SDK</button>
+    <button class="filter-pill" data-filter="protocol">LlrpNet Protocol</button>
+    <button class="filter-pill" data-filter="access">TagAccess</button>
+    <button class="filter-pill" data-filter="extensions">Extensions</button>
+    <button class="filter-pill" data-filter="enums">Enums & Exceptions</button>
+  </div>
+
+  <!-- Tree Navigation -->
+  <nav class="reference-nav" aria-label="API reference navigation">
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Quick Index</div>
+      <a href="#info-overview">Architecture & Packages</a>
+      <a href="#quick-jump">Quick Symbol Index</a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Reader SDK Facade</div>
+      <a href="#type-llrpreader"><code>LlrpReader</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpreaderbuilder"><code>LlrpReaderBuilder</code> <span class="badge class">Class</span></a>
+      <a href="#type-readercapabilities"><code>ReaderCapabilities</code> <span class="badge record">Record</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Settings & Inventory</div>
+      <a href="#type-readersettings"><code>ReaderSettings</code> <span class="badge record">Record</span></a>
+      <a href="#type-inventorysettings"><code>InventorySettings</code> <span class="badge record">Record</span></a>
+      <a href="#type-inventorysession"><code>InventorySession</code> <span class="badge class">Class</span></a>
+      <a href="#type-tagreport"><code>TagReport</code> <span class="badge record">Record</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">C1G2 Tag Access</div>
+      <a href="#type-tagaccessrequest"><code>TagAccessRequest</code> <span class="badge record">Abstract</span></a>
+      <a href="#type-tagaccessresult"><code>TagAccessResult</code> <span class="badge record">Record</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Device SDK (Virtual Reader)</div>
+      <a href="#type-virtualllrpdevicehost"><code>VirtualLlrpDeviceHost</code> <span class="badge class">Class</span></a>
+      <a href="#type-lrpdeviceserver"><code>LlrpDeviceServer</code> <span class="badge class">Class</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">LlrpNet Protocol</div>
+      <a href="#type-llrpframedecoder"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpcodecregistry"><code>LlrpCodecRegistry</code> <span class="badge class">Class</span></a>
+    </div>
+  </nav>
 </aside>
+
+<!-- Main API Reference Content Area -->
 <main id="reference-main">
-  <header class="reference-topbar"><a href="index.html">← Documentation home</a><span>Reader SDK API Reference</span></header>
+  <header class="reference-topbar">
+    <div class="topbar-title">LLRPCSharp Unified API Reference Manual</div>
+    <div class="topbar-links">
+      <a href="index.html">← Home</a>
+      <a href="cli.html">CLI Manual</a>
+      <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+  </header>
+
   <article class="reference-content">
-    <header class="reference-title"><p class="reference-eyebrow">LLRPCSHARP / READER SDK PUBLIC API REFERENCE</p><h1>Reader SDK API reference</h1><p class="reference-lead"><code>LlrpSdk</code> exposes typed settings intent, asynchronous inventory, standard C1G2 access, expert ROSpec control and raw protocol transactions for modern .NET. The 1.0.1 and 1.1 adapters are usable baselines; 2.0 is an adapter baseline pending real-device interoperability.</p></header>
-    <section id="info-overview" class="reference-section"><h2>Overview</h2><div class="reference-meta"><dl><dt>Target</dt><dd>.NET 10 / async streams</dd></dl><dl><dt>Protocol</dt><dd>LLRP 1.0.1 and 1.1 usable · 2.0 adapter baseline</dd></dl><dl><dt>Extensions</dt><dd>Impinj primary · Zebra experimental · Seuic profile defaults</dd></dl><dl><dt>State</dt><dd>Desired intent separated from observed device facts</dd></dl></div></section>
-    <section id="quick-jump" class="reference-section"><h2>Quick jump</h2><div class="quick-jump-grid"><a href="#type-llrpreader" class="quick-jump-card" data-category="facade"><div class="quick-jump-card-header"><code>LlrpReader</code><span class="badge class">Class</span></div><p>Reader facade, connection lifecycle and report pump.</p></a><a href="#type-llrpreaderbuilder" class="quick-jump-card" data-category="facade"><div class="quick-jump-card-header"><code>LlrpReaderBuilder</code><span class="badge class">Class</span></div><p>Endpoint, timeout, version policy and extension setup.</p></a><a href="#type-readersettings" class="quick-jump-card" data-category="settings"><div class="quick-jump-card-header"><code>ReaderSettings</code><span class="badge record">Record</span></div><p>Immutable reader configuration intent.</p></a><a href="#type-inventorysession" class="quick-jump-card" data-category="inventory"><div class="quick-jump-card-header"><code>InventorySession</code><span class="badge class">Class</span></div><p>Async tag-report lifecycle.</p></a><a href="#type-tagaccessrequest" class="quick-jump-card" data-category="access"><div class="quick-jump-card-header"><code>TagAccessRequest</code><span class="badge record">Record</span></div><p>Standard Gen2 access request family.</p></a><a href="#ns-impinj" class="quick-jump-card" data-category="extensions"><div class="quick-jump-card-header"><code>Impinj extension</code><span class="badge extension">Extension</span></div><p>Serialized TID, phase and reporting options.</p></a></div></section>
-    <section id="info-examples" class="reference-section"><h2>Typical code</h2><div class="code-block"><button class="copy-code">Copy</button><pre><code>await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
+    <header class="reference-title">
+      <p class="reference-eyebrow">LLRPCSHARP / UNIFIED PUBLIC API REFERENCE</p>
+      <h1>Unified API Reference Manual</h1>
+      <p class="reference-lead">
+        Comprehensive reference covering <code>LlrpSdk</code>, <code>LlrpDevice.*</code> virtual readers, and <code>LlrpNet</code> wire protocol types with <strong>ready-to-run C# code samples</strong> for every key component.
+      </p>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="info-overview" class="reference-section">
+      <h2>Architecture & Package Map</h2>
+      <div class="reference-meta">
+        <dl>
+          <dt>LlrpSdk</dt>
+          <dd>High-level managed client · Settings/Inventory/TagAccess</dd>
+        </dl>
+        <dl>
+          <dt>LlrpDevice.*</dt>
+          <dd>General TCP server · Deterministic virtual reader · xUnit test host</dd>
+        </dl>
+        <dl>
+          <dt>LlrpNet.*</dt>
+          <dd>Framing · Session transport · Multi-version codec registry</dd>
+        </dl>
+        <dl>
+          <dt>Target Runtime</dt>
+          <dd>.NET 10 (C# 14 / System.Threading.Channels / Async Streams)</dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- Quick Jump Index -->
+    <section id="quick-jump" class="reference-section">
+      <h2>Quick Symbol Index</h2>
+      <div class="quick-jump-grid">
+        <a href="#type-llrpreader" class="quick-jump-card" data-category="reader">
+          <div class="quick-jump-card-header">
+            <code>LlrpReader</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>Managed reader facade: connection, version negotiation and report pump.</p>
+        </a>
+
+        <a href="#type-llrpreaderbuilder" class="quick-jump-card" data-category="reader">
+          <div class="quick-jump-card-header">
+            <code>LlrpReaderBuilder</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>Fluent builder for endpoints, timeouts, version policies and extensions.</p>
+        </a>
+
+        <a href="#type-readersettings" class="quick-jump-card" data-category="reader">
+          <div class="quick-jump-card-header">
+            <code>ReaderSettings</code>
+            <span class="badge record">Record</span>
+          </div>
+          <p>Immutable configuration intent for antennas, RF modes and keepalives.</p>
+        </a>
+
+        <a href="#type-inventorysession" class="quick-jump-card" data-category="reader">
+          <div class="quick-jump-card-header">
+            <code>InventorySession</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>Async inventory session lifecycle with exclusive <code>IAsyncEnumerable&lt;TagReport&gt;</code>.</p>
+        </a>
+
+        <a href="#type-virtualllrpdevicehost" class="quick-jump-card" data-category="device">
+          <div class="quick-jump-card-header">
+            <code>VirtualLlrpDeviceHost</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>Embeddable virtual reader host for automated xUnit test suites.</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- SECTION: READER SDK FACADE -->
+    <section class="reference-section">
+      <h2>Reader SDK Core Facade</h2>
+
+      <!-- LlrpReader -->
+      <article id="type-llrpreader" class="api-type" data-category="reader" data-search="LlrpReader ConnectAsync StartInventoryAsync ApplySettingsAsync GetDefaultSettingsAsync StopAsync">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>LlrpReader</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">Namespace: <code>LlrpSdk</code> · Implements: <code>IAsyncDisposable</code></div>
+        </div>
+        <p>
+          Represents a managed client session to an LLRP reader. Controls connection lifecycle, auto version negotiation, capability querying, immutable settings deployment, and asynchronous tag streaming.
+        </p>
+
+        <h4>C# Code Sample</h4>
+        <div class="code-block">
+          <button class="copy-code">Copy</button>
+          <pre><code>using LlrpSdk;
+
+// 1. Build and connect to reader
+await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
     .WithPort(5084)
+    .WithConnectTimeout(TimeSpan.FromSeconds(5))
     .Build();
+
 await reader.ConnectAsync();
+
+// 2. Obtain capability-aware default settings and deploy
 ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
-await reader.ApplySettingsAsync(defaults.Settings);</code></pre></div></section>
-    <section class="reference-section" id="sec-facade"><h2>Core facade and lifecycle</h2><div id="type-llrpreader" class="api-type" data-category="facade" data-search="LlrpReader ConnectAsync StartInventoryAsync ApplySettingsAsync GetDefaultSettingsAsync"><h3><code>LlrpReader</code> <span class="badge class">Class</span></h3><p>Owns the reader connection, protocol negotiation, managed resources and report delivery.</p><table class="api-table"><tbody><tr class="api-entry" data-search="ConnectAsync"><td><code>ConnectAsync</code></td><td>Open the transport and negotiate the configured policy.</td></tr><tr class="api-entry" data-search="StartInventoryAsync"><td><code>StartInventoryAsync</code></td><td>Deploy or start a managed inventory session.</td></tr><tr class="api-entry" data-search="ApplySettingsAsync"><td><code>ApplySettingsAsync</code></td><td>Validate and deploy reader intent without starting inventory.</td></tr></tbody></table></div><div id="type-llrpreaderbuilder" class="api-type" data-category="facade" data-search="LlrpReaderBuilder WithPort WithConnectTimeout UseImpinj UseZebra UseSeuic Build"><h3><code>LlrpReaderBuilder</code> <span class="badge class">Class</span></h3><p>Builds a reader with endpoint, timeout, explicit protocol policy and extension registrations.</p></div></section>
-    <section class="reference-section" id="sec-settings"><h2>Settings and inventory</h2><div id="type-readersettings" class="api-type" data-category="settings" data-search="ReaderSettings ReaderConfiguration InventorySettings Edit"><h3><code>ReaderSettings</code> <span class="badge record">Record</span></h3><p>Immutable reader intent containing configuration and inventory settings.</p></div><div id="type-inventorysettings" class="api-type" data-category="inventory" data-search="InventorySettings AntennaIds RfModeIndex Session Population AttachedData"><h3><code>InventorySettings</code> <span class="badge record">Record</span></h3><p>Version-neutral inventory intent for antennas, RF mode, session, population, filters and attached data.</p></div><div id="type-inventorysession" class="api-type" data-category="inventory" data-search="InventorySession ReadReportsAsync StopAsync"><h3><code>InventorySession</code> <span class="badge class">Class</span></h3><p>Async lifecycle for a managed inventory run and its <code>IAsyncEnumerable&lt;TagReport&gt;</code> stream.</p></div><div id="type-tagreport" class="api-type" data-category="inventory" data-search="TagReport EpcHex AntennaId PeakRssi FirstSeenUtc LastSeenUtc"><h3><code>TagReport</code> <span class="badge record">Record</span></h3><p>Unified EPC, antenna, RSSI, timestamp and access-result projection.</p></div></section>
-    <section class="reference-section" id="sec-access"><h2>C1G2 Tag Access</h2><div id="type-tagaccessrequest" class="api-type" data-category="access" data-search="TagAccessRequest ReadTagRequest WriteTagRequest LockTagRequest KillTagRequest BlockEraseTagRequest"><h3><code>TagAccessRequest</code> <span class="badge record">Record</span></h3><p>Base request family for read, write, lock, kill and block-erase operations.</p></div></section>
-    <section class="reference-section" id="sec-expert"><h2>Expert and raw protocol</h2><div id="type-irospecservice" class="api-type" data-category="expert" data-search="IRoSpecService AddRoSpecAsync EnableRoSpecAsync StartRoSpecAsync DeleteRoSpecAsync GetRoSpecsAsync"><h3><code>IRoSpecService</code> <span class="badge interface">Interface</span></h3><p>Explicit ROSpec resource lifecycle operations.</p></div><div id="type-readerprotocolaccess" class="api-type" data-category="expert" data-search="IReaderProtocolAccess TransactAsync SendAsync TransactRawAsync SendRawAsync NextMessageId"><h3><code>IReaderProtocolAccess</code> <span class="badge interface">Interface</span></h3><p>Typed transactions and raw byte-frame access.</p></div></section>
-    <section class="reference-section" id="sec-extensions"><h2>Vendor extensions</h2><div id="ns-impinj" class="api-type" data-category="extensions" data-search="Impinj UseImpinj IncludeSerializedTid IncludeRfPhaseAngle IncludePeakRssi SearchMode"><h3>Impinj <span class="badge extension">Extension</span></h3><p>Primary extension path for Serialized TID, RF phase, peak RSSI and search mode options.</p></div><div id="ns-zebra" class="api-type" data-category="extensions" data-search="Zebra UseZebra"><h3>Zebra <span class="badge extension">Experimental</span></h3><p>Wire package and SDK extension baseline; validate against the target model and firmware.</p></div><div id="ns-seuic" class="api-type" data-category="extensions" data-search="Seuic UseSeuic"><h3>Seuic <span class="badge extension">Profile</span></h3><p>Known model/profile defaults, not a complete vendor acceptance claim.</p></div></section>
-    <section class="reference-section" id="type-exceptions"><h2>Exceptions</h2><table class="api-table"><tbody><tr class="api-entry" data-search="LlrpConnectionException"><td><code>LlrpConnectionException</code></td><td>Transport or connection lifecycle failure.</td></tr><tr class="api-entry" data-search="LlrpUnexpectedResponseException"><td><code>LlrpUnexpectedResponseException</code></td><td>Response type does not match the pending transaction.</td></tr><tr class="api-entry" data-search="SettingsValidationException"><td><code>SettingsValidationException</code></td><td>Intent failed validation against the current reader capabilities.</td></tr></tbody></table></section>
+await reader.ApplySettingsAsync(defaults.Settings);
+
+// 3. Start inventory and stream tag reports
+await using InventorySession session = await reader.StartInventoryAsync();
+await foreach (TagReport tag in session.ReadReportsAsync())
+{
+    Console.WriteLine($"[Antenna {tag.AntennaId}] EPC: {tag.EpcHex}, RSSI: {tag.PeakRssi} dBm");
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- LlrpReaderBuilder -->
+      <article id="type-llrpreaderbuilder" class="api-type" data-category="reader" data-search="LlrpReaderBuilder CreateBuilder WithPort WithConnectTimeout UseImpinj Build">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>LlrpReaderBuilder</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">Namespace: <code>LlrpSdk</code></div>
+        </div>
+        <p>Fluent builder for constructing <code>LlrpReader</code> instances.</p>
+
+        <h4>C# Code Sample</h4>
+        <div class="code-block">
+          <button class="copy-code">Copy</button>
+          <pre><code>using LlrpSdk;
+using LlrpSdk.Extensions.Impinj;
+
+var reader = LlrpReader.CreateBuilder("192.168.1.100")
+    .WithPort(5084)
+    .WithConnectTimeout(TimeSpan.FromSeconds(10))
+    .UseImpinj()
+    .Build();</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- SECTION: SETTINGS & INVENTORY -->
+    <section class="reference-section">
+      <h2>Settings & Inventory Management</h2>
+
+      <!-- ReaderSettings -->
+      <article id="type-readersettings" class="api-type" data-category="reader" data-search="ReaderSettings ReaderConfiguration InventorySettings Edit">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>ReaderSettings</code>
+            <span class="badge record">Record</span>
+          </div>
+          <div class="api-type-ns">Namespace: <code>LlrpSdk.Configuration</code></div>
+        </div>
+        <p>Immutable reader configuration intent containing device-level keepalives and inventory parameters.</p>
+
+        <h4>C# Code Sample</h4>
+        <div class="code-block">
+          <button class="copy-code">Copy</button>
+          <pre><code>ReaderSettings baseSettings = (await reader.GetDefaultSettingsAsync()).Settings;
+
+ReaderSettings customSettings = baseSettings.Edit(b => b
+    .Inventory(inv => inv
+        .Antennas(1, 2)
+        .Mode(modeIndex: 1000)
+        .Session(2)
+        .ReportEveryTag()));
+
+await reader.ApplySettingsAsync(customSettings);</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- SECTION: C1G2 TAG ACCESS -->
+    <section class="reference-section">
+      <h2>C1G2 Tag Access Operations</h2>
+
+      <!-- TagAccessRequest -->
+      <article id="type-tagaccessrequest" class="api-type" data-category="access" data-search="TagAccessRequest ReadTagRequest WriteTagRequest LockTagRequest">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>TagAccessRequest / TagSelection</code>
+            <span class="badge record">Records</span>
+          </div>
+          <div class="api-type-ns">Namespace: <code>LlrpSdk.Access</code></div>
+        </div>
+        <p>Standard Gen2 memory access requests for read, write, lock, kill and block erase.</p>
+
+        <h4>C# Code Sample</h4>
+        <div class="code-block">
+          <button class="copy-code">Copy</button>
+          <pre><code>var selection = new TagSelection
+{
+    MemoryBank = TagMemoryBank.ElectronicProductCode,
+    BitPointer = 32,
+    BitLength = 96,
+    Mask = Convert.FromHexString("FFFFFFFFFFFFFFFFFFFFFFFF"),
+    Data = Convert.FromHexString("E28011910000000000000001")
+};
+
+TagAccessResult writeResult = await reader.WriteTagMemoryAsync(new WriteTagRequest
+{
+    Selection = selection,
+    MemoryBank = TagMemoryBank.User,
+    WordPointer = 0,
+    WriteData = [0x1234, 0x5678],
+    AccessPassword = "00000000"
+});</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- SECTION: DEVICE SDK -->
+    <section class="reference-section">
+      <h2>Device SDK (Virtual Reader & Server)</h2>
+
+      <!-- VirtualLlrpDeviceHost -->
+      <article id="type-virtualllrpdevicehost" class="api-type" data-category="device" data-search="VirtualLlrpDeviceHost IVirtualDeviceHost CreateAndStartAsync BoundPort">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>VirtualLlrpDeviceHost</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">Namespace: <code>LlrpDevice.Virtual.Hosting</code></div>
+        </div>
+        <p>Embeddable virtual reader host designed for automated test suites on ephemeral ports.</p>
+
+        <h4>C# Code Sample</h4>
+        <div class="code-block">
+          <button class="copy-code">Copy</button>
+          <pre><code>using System.Net;
+using LlrpDevice.Virtual.Hosting;
+using LlrpSdk;
+using Xunit;
+
+public class TestVirtualReader
+{
+    [Fact]
+    public async Task Reader_Should_Read_Simulated_Tags()
+    {
+        var hostOptions = new VirtualDeviceHostOptions
+        {
+            ListenAddress = IPAddress.Loopback,
+            Port = 0, // Request ephemeral port
+            Inventory = new VirtualInventoryOptions
+            {
+                Tags = [new VirtualInventoryTag
+                {
+                    ElectronicProductCode = Convert.FromHexString("E28011910000000000000001"),
+                    AntennaId = 1,
+                    PeakRssi = -55
+                }]
+            }
+        };
+
+        await using var host = await VirtualLlrpDeviceHost.CreateAndStartAsync(hostOptions);
+
+        await using var reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.BoundPort)
+            .Build();
+
+        await reader.ConnectAsync();
+        Assert.NotNull(reader.Capabilities);
+    }
+}</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- SECTION: LLRPNET PROTOCOL -->
+    <section class="reference-section">
+      <h2>LlrpNet Protocol Types</h2>
+
+      <!-- LlrpFrameDecoder -->
+      <article id="type-llrpframedecoder" class="api-type" data-category="protocol" data-search="LlrpFrameDecoder TryDecodeFrame">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>LlrpFrameDecoder</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">Namespace: <code>LlrpNet.Core.Framing</code></div>
+        </div>
+        <p>Span-based zero-allocation binary frame decoder.</p>
+      </article>
+    </section>
+
   </article>
 </main>
-<script src="../assets/app.js"></script><script src="../assets/reference.js"></script>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Modern .NET LLRP SDK Unified API Reference</span>
+  <span><a href="cli.html">View CLI User Manual →</a></span>
+</footer>
+
+<script src="../assets/app.js"></script>
+<script src="../assets/reference.js"></script>
 </body>
 </html>

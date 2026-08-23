@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp Reader SDK (.NET LLRP 客户端) 完整公开 API 参考手册与类型索引">
-  <title>Reader SDK API Reference · LLRPCSharp</title>
+  <meta name="description" content="LLRPCSharp 综合标准 API 参考手册 - 包含 Reader SDK、Device SDK、LlrpNet 协议层完整类型契约、方法签名与丰富代码示例">
+  <title>API 参考手册 (全量标准版 · 含代码示例) · LLRPCSharp</title>
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/reference.css">
 </head>
@@ -14,108 +14,101 @@
 <aside id="reference-sidebar">
   <div class="reference-logo">
     <a href="index.html">
-      <span class="mark">R</span>
+      <span class="mark">A</span>
       <div>
         <span>LLRPCSharp</span>
-        <small>Reader API Reference</small>
+        <small>Unified API Reference</small>
       </div>
     </a>
   </div>
 
   <div class="reference-version">
-    <span class="dot"></span> LlrpSdk · .NET 10 · 1.0.1 / 1.1 usable · 2.0 adapter baseline
+    <span class="dot"></span> LLRPCSharp · .NET 10 · 统一参考手册
   </div>
 
   <div class="search-box-wrapper">
     <span class="search-icon">🔍</span>
-    <input id="api-search" class="reference-search" type="search" placeholder="搜索 Reader SDK 类型、方法、属性..." aria-label="Search Reader API symbols">
+    <input id="api-search" class="reference-search" type="search" placeholder="搜索类型、方法、参数、示例..." aria-label="Search API symbols">
   </div>
   <div id="api-result-count" class="reference-search-result"></div>
 
   <!-- Category Filter Pills -->
   <div class="filter-pills">
     <button class="filter-pill active" data-filter="all">全部</button>
-    <button class="filter-pill" data-filter="facade">门面</button>
-    <button class="filter-pill" data-filter="settings">配置</button>
-    <button class="filter-pill" data-filter="inventory">盘点/报告</button>
+    <button class="filter-pill" data-filter="reader">Reader SDK</button>
+    <button class="filter-pill" data-filter="device">Device SDK</button>
+    <button class="filter-pill" data-filter="protocol">LlrpNet 协议层</button>
     <button class="filter-pill" data-filter="access">TagAccess</button>
     <button class="filter-pill" data-filter="extensions">厂商扩展</button>
-    <button class="filter-pill" data-filter="expert">协议/底层</button>
-    <button class="filter-pill" data-filter="enums">枚举</button>
-    <button class="filter-pill" data-filter="exceptions">异常</button>
+    <button class="filter-pill" data-filter="enums">枚举与异常</button>
   </div>
 
   <!-- Tree Navigation -->
-  <nav class="reference-nav" aria-label="Reader API reference navigation">
+  <nav class="reference-nav" aria-label="API reference navigation">
     <div class="reference-nav-group">
-      <div class="reference-nav-title">概览与快速入口</div>
-      <a href="#info-overview">API 架构概览</a>
-      <a href="#info-examples">典型代码示例</a>
+      <div class="reference-nav-title">快速入口</div>
+      <a href="#info-overview">架构与包图谱</a>
       <a href="#quick-jump">快速符号索引</a>
     </div>
 
     <div class="reference-nav-group">
-      <div class="reference-nav-title">核心门面 (Core Facade)</div>
+      <div class="reference-nav-title">Reader SDK 核心门面</div>
       <a href="#type-llrpreader"><code>LlrpReader</code> <span class="badge class">Class</span></a>
       <a href="#type-llrpreaderbuilder"><code>LlrpReaderBuilder</code> <span class="badge class">Class</span></a>
+      <a href="#type-readercapabilities"><code>ReaderCapabilities</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
-      <div class="reference-nav-title">设备能力与元数据 (Capabilities)</div>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">配置管理 (Settings & Config)</div>
+      <div class="reference-nav-title">配置与盘点流</div>
       <a href="#type-readersettings"><code>ReaderSettings</code> <span class="badge record">Record</span></a>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">托管盘点与报告 (Inventory & Stream)</div>
       <a href="#type-inventorysettings"><code>InventorySettings</code> <span class="badge record">Record</span></a>
       <a href="#type-inventorysession"><code>InventorySession</code> <span class="badge class">Class</span></a>
       <a href="#type-tagreport"><code>TagReport</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
-      <div class="reference-nav-title">C1G2 标签操作 (Tag Access)</div>
+      <div class="reference-nav-title">C1G2 标签操作</div>
       <a href="#type-tagaccessrequest"><code>TagAccessRequest</code> <span class="badge record">Abstract</span></a>
+      <a href="#type-tagaccessresult"><code>TagAccessResult</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
-      <div class="reference-nav-title">专家与底层协议 (Expert & Raw)</div>
+      <div class="reference-nav-title">专家与 Raw 通道</div>
       <a href="#type-irospecservice"><code>IRoSpecService</code> <span class="badge interface">Interface</span></a>
       <a href="#type-readerprotocolaccess"><code>IReaderProtocolAccess</code> <span class="badge interface">Interface</span></a>
     </div>
 
     <div class="reference-nav-group">
-      <div class="reference-nav-title">厂商扩展 (Vendor Extensions)</div>
-      <a href="#ns-impinj"><code>Impinj Extension</code> <span class="badge extension">Extension</span></a>
-      <a href="#ns-zebra"><code>Zebra Extension</code> <span class="badge extension">Extension</span></a>
-      <a href="#ns-seuic"><code>Seuic Extension</code> <span class="badge extension">Extension</span></a>
+      <div class="reference-nav-title">Device SDK (虚拟设备)</div>
+      <a href="#type-virtualllrpdevicehost"><code>VirtualLlrpDeviceHost</code> <span class="badge class">Class</span></a>
+      <a href="#type-virtualdevicehostoptions"><code>VirtualDeviceHostOptions</code> <span class="badge record">Record</span></a>
+      <a href="#type-lrpdeviceserver"><code>LlrpDeviceServer</code> <span class="badge class">Class</span></a>
+      <a href="#type-illrpdevice"><code>ILlrpDevice</code> <span class="badge interface">Interface</span></a>
     </div>
 
     <div class="reference-nav-group">
-      <div class="reference-nav-title">枚举与状态 (Enums & State)</div>
-      <a href="#type-enums">核心枚举汇总</a>
+      <div class="reference-nav-title">LlrpNet 协议层</div>
+      <a href="#type-llrpframedecoder"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpcodecregistry"><code>LlrpCodecRegistry</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpsession"><code>LlrpSession</code> <span class="badge class">Class</span></a>
     </div>
 
     <div class="reference-nav-group">
-      <div class="reference-nav-title">事件与异常 (Events & Exceptions)</div>
-      <a href="#type-exceptions">异常体系</a>
+      <div class="reference-nav-title">厂商扩展与枚举异常</div>
+      <a href="#type-extensions">厂商扩展注册</a>
+      <a href="#type-enums">核心枚举与异常</a>
     </div>
   </nav>
 </aside>
 
-<!-- Main API Reference Content -->
+<!-- Main API Reference Content Area -->
 <main id="reference-main">
   <!-- Topbar Header -->
   <header class="reference-topbar">
-    <div class="topbar-title">LLRPCSharp Reader SDK API Reference</div>
+    <div class="topbar-title">LLRPCSharp Unified API Reference Manual</div>
     <div class="topbar-links">
       <a href="index.html">← 首页</a>
-      <a href="api.html">Reader SDK 指南</a>
-      <a href="device-api-reference.html" style="color:var(--ref-primary);font-weight:700;">切换到 Device SDK 参考 ↗</a>
-      <a href="cli.html">Reader CLI</a>
+      <a href="cli.html">CLI 用户手册</a>
       <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
     </div>
   </header>
@@ -123,659 +116,613 @@
   <article class="reference-content">
     <!-- Header -->
     <header class="reference-title">
-      <p class="reference-eyebrow">LLRPCSHARP / READER SDK PUBLIC API REFERENCE</p>
-      <h1>Reader SDK (.NET 读写器客户端) API 参考手册</h1>
+      <p class="reference-eyebrow">LLRPCSHARP / UNIFIED PUBLIC API REFERENCE</p>
+      <h1>全量一体化 API 参考手册</h1>
       <p class="reference-lead">
-        <code>LlrpSdk</code> 提供面向 .NET 10 的现代化读写器客户端 API：强类型的不可变配置意图、流式异步盘点会话、C1G2 存储区全操作（读/写/锁/灭/块擦除）、专家级 ROSpec 资源编排与原始字节协议通道。
+        本手册汇集了 <code>LlrpSdk</code> 托管客户端、<code>LlrpDevice.*</code> 虚拟设备与服务端、以及 <code>LlrpNet</code> 协议层全部公开类型契约。每个类型与核心方法均在合适位置<strong>内嵌了可直接运行的 C# 代码示例</strong>。
       </p>
     </header>
 
     <!-- Overview Section -->
     <section id="info-overview" class="reference-section">
-      <h2>API 架构概览</h2>
+      <h2>架构与模块包图谱</h2>
       <div class="reference-meta">
         <dl>
-          <dt>目标框架</dt>
-          <dd>.NET 10 (C# 14 / Async Streams)</dd>
+          <dt>LlrpSdk</dt>
+          <dd>高层业务客户端 · 配置/盘点/TagAccess · Octane 风格设计</dd>
         </dl>
         <dl>
-          <dt>支持协议基线</dt>
-          <dd>LLRP 1.0.1 · LLRP 1.1 usable baselines · LLRP 2.0 adapter baseline</dd>
+          <dt>LlrpDevice.*</dt>
+          <dd>通用 TCP 服务端 · 确定性虚拟仿真核 · xUnit 嵌入宿主</dd>
         </dl>
         <dl>
-          <dt>厂商扩展模块</dt>
-          <dd>Impinj primary · Zebra experimental · Seuic profile defaults</dd>
+          <dt>LlrpNet.*</dt>
+          <dd>流式帧拆装 · 会话传输 · 多版本 Codec 注册表与代码生成</dd>
         </dl>
         <dl>
-          <dt>资源管理模型</dt>
-          <dd>DesiredState 意图 与 ObservedState 事实解耦</dd>
+          <dt>目标运行时</dt>
+          <dd>.NET 10 (C# 14 / System.Threading.Channels / Async Streams)</dd>
         </dl>
       </div>
     </section>
 
     <!-- Quick Jump Index -->
     <section id="quick-jump" class="reference-section">
-      <h2>快速符号索引 (Quick Jump Index)</h2>
+      <h2>快速符号索引 (Quick Jump)</h2>
       <div class="quick-jump-grid">
-        <a href="#type-llrpreader" class="quick-jump-card" data-category="facade">
+        <a href="#type-llrpreader" class="quick-jump-card" data-category="reader">
           <div class="quick-jump-card-header">
             <code>LlrpReader</code>
             <span class="badge class">Class</span>
           </div>
-          <p>核心客户端门面，拥有会话生命周期、连接协商与标签报告泵。</p>
+          <p>上位机核心门面：连接建立、版本协商、配置应用与报告分发泵。</p>
         </a>
-        <a href="#type-llrpreaderbuilder" class="quick-jump-card" data-category="facade">
+
+        <a href="#type-llrpreaderbuilder" class="quick-jump-card" data-category="reader">
           <div class="quick-jump-card-header">
             <code>LlrpReaderBuilder</code>
             <span class="badge class">Class</span>
           </div>
-          <p>读写器构建器，流式配置端点、端口、超时、扩展与协商策略。</p>
+          <p>Fluent 链式构建器：配置读写器端点、连接超时、协议策略与扩展。</p>
         </a>
-        <a href="#type-readersettings" class="quick-jump-card" data-category="settings">
+
+        <a href="#type-readersettings" class="quick-jump-card" data-category="reader">
           <div class="quick-jump-card-header">
             <code>ReaderSettings</code>
             <span class="badge record">Record</span>
           </div>
-          <p>高层配置意图模型，整合读写器硬件参数与默认盘点配置。</p>
+          <p>强类型不可变配置模型，支持天线参数、RF 模式与心跳控制。</p>
         </a>
-        <a href="#type-inventorysettings" class="quick-jump-card" data-category="inventory">
-          <div class="quick-jump-card-header">
-            <code>InventorySettings</code>
-            <span class="badge record">Record</span>
-          </div>
-          <p>版本无关的盘点意图模型，定义天线、RF Mode、Session、过滤与触发器。</p>
-        </a>
-        <a href="#type-inventorysession" class="quick-jump-card" data-category="inventory">
+
+        <a href="#type-inventorysession" class="quick-jump-card" data-category="reader">
           <div class="quick-jump-card-header">
             <code>InventorySession</code>
             <span class="badge class">Class</span>
           </div>
-          <p>单次盘点生命周期会话，提供 <code>IAsyncEnumerable&lt;TagReport&gt;</code> 标签流。</p>
+          <p>异步托管盘点会话生命周期与独占 <code>IAsyncEnumerable&lt;TagReport&gt;</code> 报告流。</p>
         </a>
-        <a href="#type-tagreport" class="quick-jump-card" data-category="inventory">
-          <div class="quick-jump-card-header">
-            <code>TagReport</code>
-            <span class="badge record">Record</span>
-          </div>
-          <p>投影出的统一标签观测结果，包含 EPC、天线、RSSI、时间戳与 PC 字。</p>
-        </a>
+
         <a href="#type-tagaccessrequest" class="quick-jump-card" data-category="access">
           <div class="quick-jump-card-header">
-            <code>TagAccess (C1G2)</code>
-            <span class="badge record">Record</span>
+            <code>TagAccessRequest</code>
+            <span class="badge record">Abstract</span>
           </div>
-          <p>标准 Gen2 内存访问请求基类，涵盖读、写、锁、销毁与块擦除。</p>
+          <p>标准 Gen2 标签内存读、写、锁、灭与块擦除请求基类族。</p>
         </a>
-        <a href="#type-irospecservice" class="quick-jump-card" data-category="expert">
+
+        <a href="#type-virtualllrpdevicehost" class="quick-jump-card" data-category="device">
           <div class="quick-jump-card-header">
-            <code>IRoSpecService</code>
-            <span class="badge interface">Interface</span>
+            <code>VirtualLlrpDeviceHost</code>
+            <span class="badge class">Class</span>
           </div>
-          <p>专家级 ROSpec 资源增删改查与启停控制接口。</p>
+          <p>可嵌入单元测试的虚拟读写器宿主门面，支持自动绑定临时端口。</p>
         </a>
-        <a href="#type-readerprotocolaccess" class="quick-jump-card" data-category="expert">
+
+        <a href="#type-llrpframedecoder" class="quick-jump-card" data-category="protocol">
           <div class="quick-jump-card-header">
-            <code>IReaderProtocolAccess</code>
-            <span class="badge interface">Interface</span>
+            <code>LlrpFrameDecoder</code>
+            <span class="badge class">Class</span>
           </div>
-          <p>强类型消息事务与原始字节帧 (Raw Frame) 交互管道。</p>
-        </a>
-        <a href="#ns-impinj" class="quick-jump-card" data-category="extensions">
-          <div class="quick-jump-card-header">
-            <code>Impinj Extension</code>
-            <span class="badge extension">Extension</span>
-          </div>
-          <p>Impinj 扩展支持：低占空比、搜寻模式、Serialized TID 与相位上报。</p>
+          <p>零内存分配的二进制 LLRP 帧流式拆包器，自动处理 TCP 粘包半包。</p>
         </a>
       </div>
     </section>
 
-    <!-- Examples Section -->
-    <section id="info-examples" class="reference-section">
-      <h2>典型代码示例</h2>
-      <div class="api-example">
-        <div class="example-heading">
-          <span>01. 连接读写器并消费标签流 (Inventory Stream)</span>
-          <button class="copy-example" type="button">复制代码</button>
-        </div>
-        <pre><code>using LlrpSdk;
+    <!-- ========================================================================= -->
+    <!-- SECTION: READER SDK FACADE -->
+    <!-- ========================================================================= -->
+    <section class="reference-section">
+      <h2>Reader SDK 核心门面</h2>
 
-// 1. 创建并构建读写器
+      <!-- LlrpReader -->
+      <article id="type-llrpreader" class="api-type" data-category="reader" data-search="LlrpReader ConnectAsync StartInventoryAsync ApplySettingsAsync GetDefaultSettingsAsync StopAsync">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>LlrpReader</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code> · 实现: <code>IAsyncDisposable</code></div>
+        </div>
+        <p>
+          代表与单个物理或虚拟 LLRP 读写器的托管客户端会话。管理连接生命周期、协议版本自动探查、硬件能力查询、不可变配置下发与异步标签流分发。
+        </p>
+
+        <h4>核心方法与签名</h4>
+        <div class="table-wrapper">
+          <table class="member-table">
+            <thead>
+              <tr><th>方法签名</th><th>说明与契约</th></tr>
+            </thead>
+            <tbody>
+              <tr class="api-entry" data-search="ConnectAsync">
+                <td><code>Task ConnectAsync(CancellationToken cancellationToken = default)</code></td>
+                <td>建立底层 TCP 连接，探查并协商协议版本，初始化 <code>Capabilities</code>。若已连接则直接返回。</td>
+              </tr>
+              <tr class="api-entry" data-search="GetDefaultSettingsAsync">
+                <td><code>Task&lt;ReaderSettingsDefaults&gt; GetDefaultSettingsAsync(CancellationToken cancellationToken = default)</code></td>
+                <td>基于当前已连接设备的硬件能力表（天线数、功率表、RF 模式）生成推荐的默认配置基线。</td>
+              </tr>
+              <tr class="api-entry" data-search="ApplySettingsAsync">
+                <td><code>Task ApplySettingsAsync(ReaderSettings settings, ResourceTakeoverPolicy takeoverPolicy = PreserveForeign, CancellationToken cancellationToken = default)</code></td>
+                <td>校验并将配置意图部署到读写器（部署后保持停止状态）。默认仅替换 SDK 自有资源。</td>
+              </tr>
+              <tr class="api-entry" data-search="StartInventoryAsync">
+                <td><code>Task&lt;InventorySession&gt; StartInventoryAsync(InventorySettings? settings = null, CancellationToken cancellationToken = default)</code></td>
+                <td>启动托管盘点并返回 <code>InventorySession</code> 会话实例。支持独占异步消费标签流。</td>
+              </tr>
+              <tr class="api-entry" data-search="StopAsync">
+                <td><code>Task StopAsync(CancellationToken cancellationToken = default)</code></td>
+                <td>停止当前正在运行的托管盘点，保留已下发的配置定义。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using LlrpSdk;
+
+// 1. 构建并连接读写器
 await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
     .WithPort(5084)
     .WithConnectTimeout(TimeSpan.FromSeconds(5))
     .Build();
 
-// 2. 建立连接（自动探查 LLRP 协议版本并查询硬件能力）
 await reader.ConnectAsync();
 
-// 3. 应用适配当前硬件能力的推荐默认配置
+// 2. 获取基于该设备真实能力生成的默认设置并下发
 ReaderSettingsDefaults defaults = await reader.GetDefaultSettingsAsync();
 await reader.ApplySettingsAsync(defaults.Settings);
 
-// 4. 启动托管盘点会话并异步消费标签报告
-await using var session = await reader.StartInventoryAsync();
+// 3. 启动盘点并消费标签
+await using InventorySession session = await reader.StartInventoryAsync();
 await foreach (TagReport tag in session.ReadReportsAsync())
 {
-    Console.WriteLine($"[天线 {tag.AntennaId}] EPC: {tag.EpcHex} | RSSI: {tag.PeakRssi} dBm | 计数: {tag.SeenCount}");
+    Console.WriteLine($"天线 {tag.AntennaId} 读到 EPC: {tag.EpcHex}, RSSI: {tag.PeakRssi} dBm");
 }</code></pre>
-      </div>
-
-      <div class="api-example">
-        <div class="example-heading">
-          <span>02. 执行标准 C1G2 标签内存读取 (Tag Access)</span>
-          <button class="copy-example" type="button">复制代码</button>
         </div>
-        <pre><code>// 构建按 EPC 前缀匹配的标签选择器
+      </article>
+
+      <!-- LlrpReaderBuilder -->
+      <article id="type-llrpreaderbuilder" class="api-type" data-category="reader" data-search="LlrpReaderBuilder CreateBuilder WithPort WithConnectTimeout WithProtocolVersion UseImpinj UseZebra Build">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>LlrpReaderBuilder</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code></div>
+        </div>
+        <p>提供链式流式 API 用于配置和创建 <code>LlrpReader</code> 实例。</p>
+
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using LlrpSdk;
+using LlrpSdk.Extensions.Impinj;
+
+var reader = LlrpReader.CreateBuilder("192.168.1.100")
+    .WithPort(5084)                                // 指定端口
+    .WithConnectTimeout(TimeSpan.FromSeconds(10))  // 连接超时
+    .WithProtocolVersion(ProtocolVersionPolicy.Auto)// 自动协商 1.1 / 1.0.1
+    .UseImpinj()                                   // 注册 Impinj 扩展
+    .Build();</code></pre>
+        </div>
+      </article>
+
+      <!-- ReaderCapabilities -->
+      <article id="type-readercapabilities" class="api-type" data-category="reader" data-search="ReaderCapabilities MaxNumberOfAntennas RfModes TxPowers HasUtcClockCapability">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>ReaderCapabilities</code>
+            <span class="badge record">Record</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk.Capabilities</code></div>
+        </div>
+        <p>存储连接成功后从读写器查询并归一化的硬件物理能力（天线数、功率表、RF 调制模式表等）。</p>
+
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>ReaderCapabilities caps = reader.Capabilities!;
+Console.WriteLine($"支持天线数量: {caps.MaxNumberOfAntennas}");
+
+// 遍历发射功率索引表 (Index -> dBm 功率)
+foreach (var pwr in caps.TxPowers)
+{
+    Console.WriteLine($"功率索引 {pwr.Index}: {pwr.TransmitPowerDbm:F2} dBm");
+}
+
+// 遍历 RF 模式表 (ModeIdentifier -> 调制参数)
+foreach (var mode in caps.RfModes)
+{
+    Console.WriteLine($"RF Mode {mode.ModeIdentifier}: M={mode.MValue}, MinTari={mode.MinTariValue}ns");
+}</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: SETTINGS & INVENTORY -->
+    <!-- ========================================================================= -->
+    <section class="reference-section">
+      <h2>配置管理与托管盘点流</h2>
+
+      <!-- ReaderSettings -->
+      <article id="type-readersettings" class="api-type" data-category="reader" data-search="ReaderSettings ReaderConfiguration InventorySettings Edit Validate Create">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>ReaderSettings</code>
+            <span class="badge record">Record</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk.Configuration</code></div>
+        </div>
+        <p>不可变的读写器配置意图 Record，包含 Reader 级配置（心跳、事件过滤）与 Inventory 盘点意图。</p>
+
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>ReaderSettings baseSettings = (await reader.GetDefaultSettingsAsync()).Settings;
+
+// 使用不可变流式 Edit 构造新设置
+ReaderSettings customSettings = baseSettings.Edit(b => b
+    .Configuration(baseSettings.Configuration with
+    {
+        Keepalive = new KeepaliveConfiguration { TriggerType = KeepaliveTriggerType.Periodic, IntervalMs = 3000 }
+    })
+    .Inventory(inv => inv
+        .Antennas(1, 2)
+        .Mode(modeIndex: 1000)
+        .Session(2)
+        .Population(64)
+        .ReportEveryTag()));
+
+// 校验并下发到读写器
+await reader.ApplySettingsAsync(customSettings);</code></pre>
+        </div>
+      </article>
+
+      <!-- InventorySession -->
+      <article id="type-inventorysession" class="api-type" data-category="reader" data-search="InventorySession ReadReportsAsync StopAsync IAsyncDisposable">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>InventorySession</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code> · 实现: <code>IAsyncDisposable</code></div>
+        </div>
+        <p>代表单次托管盘点会话。实现 <code>IAsyncDisposable</code>，在退出作用域时自动停止盘点并释放报告流通道。</p>
+
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+await using InventorySession session = await reader.StartInventoryAsync();
+try
+{
+    await foreach (TagReport tag in session.ReadReportsAsync(cts.Token))
+    {
+        Console.WriteLine($"收到标签: EPC={tag.EpcHex}, Antenna={tag.AntennaId}");
+    }
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("10 秒盘点时间到，自动结束。");
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- TagReport -->
+      <article id="type-tagreport" class="api-type" data-category="reader" data-search="TagReport EpcHex AntennaId PeakRssi PcBits FirstSeenUtc AccessOperationResults Extensions">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>TagReport</code>
+            <span class="badge record">Record</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code></div>
+        </div>
+        <p>统一的标签报告投影，包含 EPC 十六进制字符串、天线号、RSSI、变长 PC 字、内联 Access 结果以及厂商扩展字段。</p>
+      </article>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: C1G2 TAG ACCESS -->
+    <!-- ========================================================================= -->
+    <section class="reference-section">
+      <h2>C1G2 标签操作 (Tag Access)</h2>
+
+      <!-- TagAccessRequest -->
+      <article id="type-tagaccessrequest" class="api-type" data-category="access" data-search="TagAccessRequest ReadTagRequest WriteTagRequest LockTagRequest KillTagRequest BlockEraseTagRequest TagSelection">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>TagAccessRequest / TagSelection</code>
+            <span class="badge record">Records</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk.Access</code></div>
+        </div>
+        <p>标准 Gen2 内存访问请求族，支持按 EPC/TID 掩码过滤目标标签并执行读、写、锁、灭与块擦除。</p>
+
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>// 1. 构造按 EPC 精确匹配的目标选择器
 var selection = new TagSelection
 {
     MemoryBank = TagMemoryBank.ElectronicProductCode,
-    BitPointer = 32, // 跳过 CRC (16-bit) 与 PC (16-bit)
+    BitPointer = 32,
     BitLength = 96,
     Mask = Convert.FromHexString("FFFFFFFFFFFFFFFFFFFFFFFF"),
     Data = Convert.FromHexString("E28011910000000000000001")
 };
 
-// 读取指定标签的 TID 存储区 (前 4 字 = 64 位)
-TagAccessResult result = await reader.ReadTagMemoryAsync(new ReadTagRequest
+// 2. 向 User 存储区 Word 0 写入 2 个字 (32位)
+TagAccessResult writeResult = await reader.WriteTagMemoryAsync(new WriteTagRequest
 {
     Selection = selection,
-    MemoryBank = TagMemoryBank.Tid,
+    MemoryBank = TagMemoryBank.User,
     WordPointer = 0,
-    WordCount = 4,
+    WriteData = [0x1234, 0x5678],
     AccessPassword = "00000000"
 });
 
-if (result.Operation.Success)
+if (writeResult.Success)
 {
-    Console.WriteLine($"TID 读取成功: {string.Join(" ", result.Operation.ReadData.Select(w => w.ToString("X4")))}");
+    Console.WriteLine("写入标签 User 内存成功！");
 }</code></pre>
-      </div>
-    </section>
+        </div>
+      </article>
 
-    <!-- SECTION 1: CORE FACADE -->
-    <section class="reference-section" id="sec-facade">
-      <h2>核心门面与生命周期 (Core Facade)</h2>
-
-      <!-- Type: LlrpReader -->
-      <div id="type-llrpreader" class="api-type" data-category="facade" data-search="LlrpReader LlrpSdk ConnectAsync StartInventoryAsync ApplySettingsAsync GetDefaultSettingsAsync">
+      <!-- TagAccessResult -->
+      <article id="type-tagaccessresult" class="api-type" data-category="access" data-search="TagAccessResult Success ReadDataBytes OpCode ErrorCode">
         <div class="api-type-header">
           <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>LlrpReader</h3>
+            <code>TagAccessResult</code>
+            <span class="badge record">Record</span>
           </div>
-          <span class="badge class">Class</span>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk.Access</code></div>
         </div>
-        <div class="type-declaration">public sealed class LlrpReader : IAsyncDisposable</div>
-        <p class="type-desc">
-          代表与单个 RFID 读写器的完整会话连接。负责拥有底层 Transport 传输通道、LLRP 会话、编解码器注册表、协议版本适配器、主动消息分发泵以及高层业务生命周期。
+        <p>表示单次 C1G2 访问操作的执行结果与读取数据。</p>
+      </article>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: EXPERT & RAW ESCAPE HATCHES -->
+    <!-- ========================================================================= -->
+    <section class="reference-section">
+      <h2>专家资源管理与 Raw 协议通道</h2>
+
+      <!-- IRoSpecService -->
+      <article id="type-irospecservice" class="api-type" data-category="reader" data-search="IRoSpecService AddRoSpecAsync EnableRoSpecAsync StartRoSpecAsync DeleteRoSpecAsync GetRoSpecsAsync StartExistingRoSpecAsync">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>IRoSpecService / IAccessSpecService</code>
+            <span class="badge interface">Interfaces</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk.Services</code></div>
+        </div>
+        <p>提供对读写器底层 ROSpec 和 AccessSpec 资源的直接增删改查控制与桥接运行。</p>
+
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>// 1. 查询读写器当前所有已存在的 ROSpec
+var roSpecs = await reader.RoSpecs.GetAllAsync();
+
+// 2. 桥接运行外部创建的 ROSpec 100 并复用托管报告流
+await using var session = await reader.StartExistingRoSpecAsync(roSpecId: 100);
+await foreach (TagReport tag in session.ReadReportsAsync())
+{
+    Console.WriteLine($"来自外部 ROSpec 100 的标签: {tag.EpcHex}");
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- IReaderProtocolAccess -->
+      <article id="type-readerprotocolaccess" class="api-type" data-category="reader" data-search="IReaderProtocolAccess SendMessageAsync TransactAsync Protocol">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>IReaderProtocolAccess</code>
+            <span class="badge interface">Interface</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk.Protocol</code></div>
+        </div>
+        <p>提供底层 LLRP 协议报文直发直收的逃生通道。</p>
+      </article>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: DEVICE SDK (VIRTUAL READER) -->
+    <!-- ========================================================================= -->
+    <section class="reference-section">
+      <h2>Device SDK (虚拟设备与服务端)</h2>
+
+      <!-- VirtualLlrpDeviceHost -->
+      <article id="type-virtualllrpdevicehost" class="api-type" data-category="device" data-search="VirtualLlrpDeviceHost IVirtualDeviceHost CreateAndStartAsync BoundPort BoundEndpoint">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>VirtualLlrpDeviceHost</code>
+            <span class="badge class">Class</span>
+          </div>
+          <div class="api-type-ns">命名空间: <code>LlrpDevice.Virtual.Hosting</code> · 实现: <code>IVirtualDeviceHost</code></div>
+        </div>
+        <p>
+          组合 <code>LlrpDeviceServer</code> 与 <code>VirtualLlrpDevice</code> 的高层生命周期门面，专为在单元测试（xUnit）中启动临时 TCP 虚拟端点而设计。
         </p>
 
-        <h4>常量与字段 (Constants)</h4>
-        <table class="member-table">
-          <thead><tr><th>名称</th><th>类型</th><th>值</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="ManagedInventoryRoSpecId">
-              <td><code>ManagedInventoryRoSpecId</code></td>
-              <td class="type-col"><code>uint</code></td>
-              <td><code>14150</code></td>
-              <td class="desc-col">SDK 托管盘点专用的保留 ROSpec ID。</td>
-            </tr>
-            <tr class="api-entry" data-search="ManagedInventoryAttachedDataAccessSpecId">
-              <td><code>ManagedInventoryAttachedDataAccessSpecId</code></td>
-              <td class="type-col"><code>uint</code></td>
-              <td><code>14151</code></td>
-              <td class="desc-col">SDK 托管 AttachedData 专用的保留 AccessSpec ID。</td>
-            </tr>
-          </tbody>
-        </table>
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using System.Net;
+using LlrpDevice.Virtual.Hosting;
+using LlrpSdk;
+using Xunit;
 
-        <h4>核心属性 (Properties)</h4>
-        <table class="member-table">
-          <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="ConnectionState">
-              <td><code>ConnectionState</code></td>
-              <td class="type-col"><code>ReaderConnectionState</code></td>
-              <td class="desc-col">当前网络与会话状态（<code>Disconnected</code> / <code>Connecting</code> / <code>Ready</code> / <code>Faulted</code>）。</td>
-            </tr>
-            <tr class="api-entry" data-search="OperationState">
-              <td><code>OperationState</code></td>
-              <td class="type-col"><code>ReaderOperationState</code></td>
-              <td class="desc-col">当前高层托管执行状态（<code>Idle</code> / <code>Deploying</code> / <code>InventoryRunning</code> / <code>TagAccessRunning</code> / <code>Busy</code>）。</td>
-            </tr>
-            <tr class="api-entry" data-search="ResourceMode">
-              <td><code>ResourceMode</code></td>
-              <td class="type-col"><code>ReaderResourceMode</code></td>
-              <td class="desc-col">当前资源控制权归属（<code>Idle</code> / <code>ManagedExclusive</code> / <code>AttachedExisting</code> / <code>Manual</code>）。</td>
-            </tr>
-            <tr class="api-entry" data-search="Capabilities">
-              <td><code>Capabilities</code></td>
-              <td class="type-col"><code>ReaderCapabilities?</code></td>
-              <td class="desc-col">连接建立后自动查询并缓存的归一化硬件能力表（功率表、天线数、RF模式表）。未连接时为 <code>null</code>。</td>
-            </tr>
-            <tr class="api-entry" data-search="Protocol">
-              <td><code>Protocol</code></td>
-              <td class="type-col"><code>IReaderProtocolAccess</code></td>
-              <td class="desc-col">底层协议直接访问通道，用于发送强类型报文事务或 Raw 字节帧。</td>
-            </tr>
-            <tr class="api-entry" data-search="RoSpecs">
-              <td><code>RoSpecs</code></td>
-              <td class="type-col"><code>IRoSpecService</code></td>
-              <td class="desc-col">专家级 ROSpec 资源管理接口。</td>
-            </tr>
-          </tbody>
-        </table>
+public class VirtualDeviceTests
+{
+    [Fact]
+    public async Task Reader_Should_Connect_And_Read_Simulated_Tags()
+    {
+        // 1. 在临时空闲端口 (Port = 0) 启动宿主
+        var hostOptions = new VirtualDeviceHostOptions
+        {
+            ListenAddress = IPAddress.Loopback,
+            Port = 0,
+            Inventory = new VirtualInventoryOptions
+            {
+                Tags = [new VirtualInventoryTag
+                {
+                    ElectronicProductCode = Convert.FromHexString("E28011910000000000000001"),
+                    AntennaId = 1,
+                    PeakRssi = -55
+                }]
+            }
+        };
 
-        <h4>核心方法 (Methods)</h4>
-        <table class="member-table">
-          <thead><tr><th>方法签名</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="CreateBuilder">
-              <td><code>static LlrpReaderBuilder CreateBuilder(string host)</code></td>
-              <td class="desc-col">创建指向指定 IP 或主机名的读写器构建器。</td>
-            </tr>
-            <tr class="api-entry" data-search="ConnectAsync">
-              <td><code>Task ConnectAsync(CancellationToken cancellationToken = default)</code></td>
-              <td class="desc-col">建立 TCP 连接，探查 LLRP 协议版本，并完成硬件能力初始化。</td>
-            </tr>
-            <tr class="api-entry" data-search="GetDefaultSettingsAsync">
-              <td><code>Task&lt;ReaderSettingsDefaults&gt; GetDefaultSettingsAsync(CancellationToken)</code></td>
-              <td class="desc-col">基于当前连接设备的硬件能力表，计算并生成推荐的默认设置。</td>
-            </tr>
-            <tr class="api-entry" data-search="ApplySettingsAsync">
-              <td><code>Task ApplySettingsAsync(ReaderSettings settings, ResourceTakeoverPolicy, ...)</code></td>
-              <td class="desc-col">将业务配置意图部署到读写器（下发 Reader 级配置并编译下发 ROSpec），下发后保持停止。</td>
-            </tr>
-            <tr class="api-entry" data-search="StartInventoryAsync">
-              <td><code>Task&lt;InventorySession&gt; StartInventoryAsync(InventorySettings?, ...)</code></td>
-              <td class="desc-col">启动托管盘点会话，返回包含流式标签报告消费接口的 <code>InventorySession</code>。</td>
-            </tr>
-            <tr class="api-entry" data-search="StopAsync">
-              <td><code>Task StopAsync(CancellationToken cancellationToken = default)</code></td>
-              <td class="desc-col">停止当前正在执行的托管盘点，保留已部署的配置。</td>
-            </tr>
-            <tr class="api-entry" data-search="SynchronizeAsync">
-              <td><code>Task&lt;ReaderSettingsSnapshot&gt; SynchronizeAsync(CancellationToken)</code></td>
-              <td class="desc-col">从物理读写器重新拉取实况（ROSpec、AccessSpec、配置），同步刷新本地观测状态。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        await using var host = await VirtualLlrpDeviceHost.CreateAndStartAsync(hostOptions);
 
-      <!-- Type: LlrpReaderBuilder -->
-      <div id="type-llrpreaderbuilder" class="api-type" data-category="facade" data-search="LlrpReaderBuilder WithPort WithConnectTimeout WithProtocolVersionPolicy UseImpinj UseZebra UseSeuic Build">
+        // 2. 客户端连接该临时端口
+        await using var reader = LlrpReader.CreateBuilder("127.0.0.1")
+            .WithPort(host.BoundPort)
+            .Build();
+
+        await reader.ConnectAsync();
+        Assert.NotNull(reader.Capabilities);
+    }
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- LlrpDeviceServer -->
+      <article id="type-lrpdeviceserver" class="api-type" data-category="device" data-search="LlrpDeviceServer ILlrpDevice StartAsync StopAsync">
         <div class="api-type-header">
           <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>LlrpReaderBuilder</h3>
+            <code>LlrpDeviceServer / ILlrpDevice</code>
+            <span class="badge class">Class / Interface</span>
           </div>
-          <span class="badge class">Class</span>
+          <div class="api-type-ns">命名空间: <code>LlrpDevice.Server / LlrpDevice.Abstractions</code></div>
         </div>
-        <div class="type-declaration">public sealed class LlrpReaderBuilder</div>
-        <p class="type-desc">流式读写器构建器，用于在构建 <code>LlrpReader</code> 实例前配置端点、端口、协议协商策略与厂商扩展模块。</p>
-        <table class="member-table">
-          <thead><tr><th>方法签名</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="WithPort">
-              <td><code>LlrpReaderBuilder WithPort(int port)</code></td>
-              <td class="desc-col">指定读写器 TCP 端口（默认 <code>5084</code>）。</td>
-            </tr>
-            <tr class="api-entry" data-search="WithConnectTimeout">
-              <td><code>LlrpReaderBuilder WithConnectTimeout(TimeSpan timeout)</code></td>
-              <td class="desc-col">设置 TCP 连接建立与初始协议握手的超时时间（默认 5 秒）。</td>
-            </tr>
-            <tr class="api-entry" data-search="WithProtocolVersionPolicy">
-              <td><code>LlrpReaderBuilder WithProtocolVersionPolicy(LlrpProtocolVersionPolicy policy)</code></td>
-              <td class="desc-col">设置协议协商策略（<code>Auto</code> 自动协商 / <code>Force101</code> / <code>Force11</code> / <code>Force20</code>）。</td>
-            </tr>
-            <tr class="api-entry" data-search="WithAutomaticReconnect">
-              <td><code>LlrpReaderBuilder WithAutomaticReconnect(Action&lt;LlrpAutomaticReconnectOptions&gt;)</code></td>
-              <td class="desc-col">启用并配置网络断开后的自动重连退避策略。</td>
-            </tr>
-            <tr class="api-entry" data-search="Build">
-              <td><code>LlrpReader Build()</code></td>
-              <td class="desc-col">创建并返回已配置的 <code>LlrpReader</code> 实例。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <p>通用的 TCP LLRP 服务端引擎与底层硬件驱动抽象接口，支持接入真实射频硬件。</p>
+      </article>
     </section>
 
-    <!-- SECTION 2: SETTINGS & INVENTORY -->
-    <section class="reference-section" id="sec-settings">
-      <h2>配置管理与盘点模型 (Settings & Inventory)</h2>
+    <!-- ========================================================================= -->
+    <!-- SECTION: LLRPNET PROTOCOL -->
+    <!-- ========================================================================= -->
+    <section class="reference-section">
+      <h2>LlrpNet 协议层核心类型</h2>
 
-      <!-- Type: ReaderSettings -->
-      <div id="type-readersettings" class="api-type" data-category="settings" data-search="ReaderSettings ReaderConfiguration InventorySettings Edit">
+      <!-- LlrpFrameDecoder -->
+      <article id="type-llrpframedecoder" class="api-type" data-category="protocol" data-search="LlrpFrameDecoder LlrpFrameEncoder LlrpFrame TryDecodeFrame EncodeFrame">
         <div class="api-type-header">
           <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>ReaderSettings</h3>
+            <code>LlrpFrameDecoder / LlrpFrameEncoder</code>
+            <span class="badge class">Classes</span>
           </div>
-          <span class="badge record">Record</span>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Framing</code></div>
         </div>
-        <div class="type-declaration">public sealed record ReaderSettings</div>
-        <p class="type-desc">不可变的高层配置意图容器。组合了 Reader 级全局硬件参数 (<code>Configuration</code>) 与托管盘点业务意图 (<code>Inventory</code>)。</p>
-        <table class="member-table">
-          <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="Configuration">
-              <td><code>Configuration</code></td>
-              <td class="type-col"><code>ReaderConfiguration</code></td>
-              <td class="desc-col">Reader 级配置（事件抑制、心跳 Keepalive、天线默认 RF 模式/发射功率/接收灵敏度）。</td>
-            </tr>
-            <tr class="api-entry" data-search="Inventory">
-              <td><code>Inventory</code></td>
-              <td class="type-col"><code>InventorySettings?</code></td>
-              <td class="desc-col">默认盘点业务配置。为 <code>null</code> 时仅部署硬件级配置，不部署托管 ROSpec。</td>
-            </tr>
-            <tr class="api-entry" data-search="Edit">
-              <td><code>ReaderSettings Edit(Action&lt;ReaderSettingsBuilder&gt; configure)</code></td>
-              <td class="desc-col">基于当前配置副本进行流式链式修改，返回全新不可变实例。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <p>基于 <code>ReadOnlySpan&lt;byte&gt;</code> 的高性能二进制 LLRP 帧拆装器。</p>
 
-      <!-- Type: InventorySettings -->
-      <div id="type-inventorysettings" class="api-type" data-category="inventory" data-search="InventorySettings AntennaIds RfModeIndex Session Population AttachedData SelectFilters">
+        <h4>实战代码示例 (Code Example)</h4>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>using LlrpNet.Core.Framing;
+
+var decoder = new LlrpFrameDecoder();
+ReadOnlySpan&lt;byte&gt; rawBytes = stackalloc byte[] { 0x04, 0x03, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+if (decoder.TryDecodeFrame(rawBytes, out LlrpFrame frame, out int consumedBytes))
+{
+    Console.WriteLine($"解析到帧: TypeNumber={frame.TypeNumber}, Length={frame.Length}, MsgID={frame.MessageId}");
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- LlrpCodecRegistry -->
+      <article id="type-llrpcodecregistry" class="api-type" data-category="protocol" data-search="LlrpCodecRegistry RegisterModule EncodeMessage DecodeMessage">
         <div class="api-type-header">
           <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>InventorySettings</h3>
+            <code>LlrpCodecRegistry</code>
+            <span class="badge class">Class</span>
           </div>
-          <span class="badge record">Record</span>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Codec</code></div>
         </div>
-        <div class="type-declaration">public sealed record InventorySettings</div>
-        <p class="type-desc">声明式的盘点意图模型。SDK 自动将其编译为当前协商协议版本的标准 ROSpec 与 AISpec 参数。</p>
-        <table class="member-table">
-          <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="AntennaIds">
-              <td><code>AntennaIds</code></td>
-              <td class="type-col"><code>IReadOnlyList&lt;ushort&gt;</code></td>
-              <td class="desc-col">启用的天线编号列表（例如 <code>[1, 2]</code>，空表示扫描全部天线）。</td>
-            </tr>
-            <tr class="api-entry" data-search="RfModeIndex">
-              <td><code>RfModeIndex</code></td>
-              <td class="type-col"><code>ushort?</code></td>
-              <td class="desc-col">指定的 Gen2 RF Mode Index。对应 <code>Capabilities.RfModes</code> 中的调制/速率。</td>
-            </tr>
-            <tr class="api-entry" data-search="Session">
-              <td><code>Session</code></td>
-              <td class="type-col"><code>ushort?</code></td>
-              <td class="desc-col">Gen2 Session (0, 1, 2, 3)。</td>
-            </tr>
-            <tr class="api-entry" data-search="TagPopulation">
-              <td><code>TagPopulation</code></td>
-              <td class="type-col"><code>ushort?</code></td>
-              <td class="desc-col">视野内预计标签数量（用于优化 Q 值算法，默认 32）。</td>
-            </tr>
-            <tr class="api-entry" data-search="AttachedData">
-              <td><code>AttachedData</code></td>
-              <td class="type-col"><code>AttachedDataOptions?</code></td>
-              <td class="desc-col">盘存 EPC 时内嵌读取 TID 或 User 存储区的附加内存选项。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Type: InventorySession -->
-      <div id="type-inventorysession" class="api-type" data-category="inventory" data-search="InventorySession ReadReportsAsync StopAsync">
-        <div class="api-type-header">
-          <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>InventorySession</h3>
-          </div>
-          <span class="badge class">Class</span>
-        </div>
-        <div class="type-declaration">public sealed class InventorySession : IAsyncDisposable</div>
-        <p class="type-desc">代表单次运行中的盘点会话生命周期。支持通过 <code>IAsyncEnumerable&lt;TagReport&gt;</code> 进行高性能异步流式消费。</p>
-        <table class="member-table">
-          <thead><tr><th>方法签名</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="ReadReportsAsync">
-              <td><code>IAsyncEnumerable&lt;TagReport&gt; ReadReportsAsync(CancellationToken)</code></td>
-              <td class="desc-col">获取异步标签报告迭代流。一个会话内该出口具有独占权。</td>
-            </tr>
-            <tr class="api-entry" data-search="StopAsync">
-              <td><code>Task StopAsync(CancellationToken cancellationToken = default)</code></td>
-              <td class="desc-col">显式停止当前盘点会话。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Type: TagReport -->
-      <div id="type-tagreport" class="api-type" data-category="inventory" data-search="TagReport EpcHex AntennaId PeakRssi FirstSeenUtc LastSeenUtc AccessOperationResults">
-        <div class="api-type-header">
-          <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>TagReport</h3>
-          </div>
-          <span class="badge record">Record</span>
-        </div>
-        <div class="type-declaration">public sealed record TagReport</div>
-        <p class="type-desc">统一归一化的标签观测结果。包含 EPC 十六进制字符串、天线 ID、信号强度 RSSI、观测时间戳与厂商扩展属性字典。</p>
-      </div>
+        <p>统一管理标准及厂商自定义 LLRP 报文与参数编解码器的全局/局部注册表。</p>
+      </article>
     </section>
 
-    <!-- SECTION 3: TAG ACCESS -->
-    <section class="reference-section" id="sec-access">
-      <h2>C1G2 标签操作 (Tag Access)</h2>
+    <!-- ========================================================================= -->
+    <!-- SECTION: EXTENSIONS & ENUMS -->
+    <!-- ========================================================================= -->
+    <section class="reference-section">
+      <h2>厂商扩展、枚举与异常</h2>
 
-      <!-- Type: TagAccessRequest -->
-      <div id="type-tagaccessrequest" class="api-type" data-category="access" data-search="TagAccessRequest ReadTagRequest WriteTagRequest LockTagRequest KillTagRequest BlockEraseTagRequest">
+      <!-- Extensions -->
+      <article id="type-extensions" class="api-type" data-category="extensions" data-search="Impinj Zebra Seuic UseImpinj UseZebra Extensions">
         <div class="api-type-header">
           <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>TagAccessRequest (基类及派生请求)</h3>
+            <code>厂商扩展与注册方法</code>
+            <span class="badge extension">Extensions</span>
           </div>
-          <span class="badge record">Abstract</span>
         </div>
-        <p class="type-desc">标准 C1G2 标签内存访问请求模型：</p>
-        <table class="member-table">
-          <thead><tr><th>派生类型</th><th>主要参数</th><th>功能说明</th></tr></thead>
-          <tbody>
-            <tr class="api-entry" data-search="ReadTagRequest">
-              <td><code>ReadTagRequest</code></td>
-              <td><code>Selection, MemoryBank, WordPointer, WordCount, AccessPassword</code></td>
-              <td>读取指定标签 EPC、TID、User 或 Reserved 存储区数据。</td>
-            </tr>
-            <tr class="api-entry" data-search="WriteTagRequest">
-              <td><code>WriteTagRequest</code></td>
-              <td><code>Selection, MemoryBank, WordPointer, WriteData, AccessPassword</code></td>
-              <td>向目标标签写入 16-bit 字数组数据。</td>
-            </tr>
-            <tr class="api-entry" data-search="LockTagRequest">
-              <td><code>LockTagRequest</code></td>
-              <td><code>Selection, UserMemoryLockMode, EpcMemoryLockMode, AccessPassword</code></td>
-              <td>锁定或解锁目标标签的指定存储区或密码区。</td>
-            </tr>
-            <tr class="api-entry" data-search="KillTagRequest">
-              <td><code>KillTagRequest</code></td>
-              <td><code>Selection, KillPassword</code></td>
-              <td>永久灭活/销毁目标标签。</td>
-            </tr>
-            <tr class="api-entry" data-search="BlockEraseTagRequest">
-              <td><code>BlockEraseTagRequest</code></td>
-              <td><code>Selection, MemoryBank, WordPointer, WordCount</code></td>
-              <td>块擦除指定存储区的连续字。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <p>提供 Impinj、Zebra 与 Seuic 等厂商专属参数投影与注册扩展方法：</p>
+        <div class="code-block">
+          <button class="copy-code">复制</button>
+          <pre><code>// 启用 Impinj 扩展
+var reader = LlrpReader.CreateBuilder("192.168.1.100").UseImpinj().Build();
+
+// 启用 Zebra 扩展
+var zebraReader = LlrpReader.CreateBuilder("192.168.1.101").UseZebra().Build();</code></pre>
+        </div>
+      </article>
+
+      <!-- Enums & Exceptions -->
+      <article id="type-enums" class="api-type" data-category="enums" data-search="ProtocolVersion ResourceTakeoverPolicy TagMemoryBank TagLockMode KeepaliveTriggerType LlrpException">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <code>核心枚举与异常汇总</code>
+            <span class="badge enum">Enums & Exceptions</span>
+          </div>
+        </div>
+        <div class="table-wrapper" style="margin-top:14px;">
+          <table class="member-table">
+            <thead>
+              <tr><th>类型名称</th><th>种类</th><th>常用取值 / 含义</th></tr>
+            </thead>
+            <tbody>
+              <tr class="api-entry" data-search="ResourceTakeoverPolicy">
+                <td><code>ResourceTakeoverPolicy</code></td>
+                <td><span class="badge enum">Enum</span></td>
+                <td><code>PreserveForeign</code> (默认保留第三方资源), <code>ReplaceAll</code> (显式删除全部)</td>
+              </tr>
+              <tr class="api-entry" data-search="TagMemoryBank">
+                <td><code>TagMemoryBank</code></td>
+                <td><span class="badge enum">Enum</span></td>
+                <td><code>Reserved</code> (0), <code>ElectronicProductCode</code> (1), <code>TID</code> (2), <code>User</code> (3)</td>
+              </tr>
+              <tr class="api-entry" data-search="TagLockMode">
+                <td><code>TagLockMode</code></td>
+                <td><span class="badge enum">Enum</span></td>
+                <td><code>Accessible</code>, <code>AlwaysAccessible</code>, <code>SecuredWrite</code>, <code>AlwaysUnwriteable</code></td>
+              </tr>
+              <tr class="api-entry" data-search="LlrpException">
+                <td><code>LlrpException</code></td>
+                <td><span class="badge exception">Exception</span></td>
+                <td>SDK 与协议交互基础异常（包含 <code>LlrpConnectionException</code>、<code>SettingsValidationException</code>）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
     </section>
 
-    <!-- SECTION 4: EXPERT & RAW -->
-    <section class="reference-section" id="sec-expert">
-      <h2>专家与底层协议 (Expert & Raw)</h2>
-
-      <!-- Type: IRoSpecService -->
-      <div id="type-irospecservice" class="api-type" data-category="expert" data-search="IRoSpecService AddRoSpecAsync EnableRoSpecAsync StartRoSpecAsync DeleteRoSpecAsync GetRoSpecsAsync">
-        <div class="api-type-header">
-          <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>IRoSpecService</h3>
-          </div>
-          <span class="badge interface">Interface</span>
-        </div>
-        <div class="type-declaration">public interface IRoSpecService</div>
-        <p class="type-desc">
-          通过 <code>reader.RoSpecs</code> 暴露的专家级 ROSpec 资源增删改查接口。执行底层写操作后，SDK 托管状态会自动标记为 Stale 并保留后续恢复通道。
-        </p>
-      </div>
-
-      <!-- Type: IReaderProtocolAccess -->
-      <div id="type-readerprotocolaccess" class="api-type" data-category="expert" data-search="IReaderProtocolAccess TransactAsync SendAsync TransactRawAsync SendRawAsync NextMessageId">
-        <div class="api-type-header">
-          <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk</span>
-            <h3>IReaderProtocolAccess</h3>
-          </div>
-          <span class="badge interface">Interface</span>
-        </div>
-        <div class="type-declaration">public interface IReaderProtocolAccess : IReaderConnection</div>
-        <p class="type-desc">
-          通过 <code>reader.Protocol</code> 暴露的强类型和原始帧交互接口，支持执行自定义厂商报文与未封装的标准 LLRP 指令。
-        </p>
-      </div>
-    </section>
-
-    <!-- SECTION 5: VENDOR EXTENSIONS -->
-    <section class="reference-section" id="sec-extensions">
-      <h2>厂商扩展模块 (Vendor Extensions)</h2>
-
-      <!-- Impinj -->
-      <div id="ns-impinj" class="api-type" data-category="extensions" data-search="Impinj UseImpinj ImpinjReaderExtension ImpinjInventoryControlOptions ImpinjInventoryReportOptions">
-        <div class="api-type-header">
-          <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk.Extensions.Impinj</span>
-            <h3>Impinj 扩展模块 (Octane / Speedway / R420)</h3>
-          </div>
-          <span class="badge extension">Extension</span>
-        </div>
-        <p class="type-desc">
-          通过 <code>builder.UseImpinj()</code> 启用。自动注册 Impinj LLRP 1.0.1 编解码器并在连接匹配（IANA <code>25882</code>）时激活低占空比、搜寻模式、Serialized TID 与 RF 相位角上报。
-        </p>
-      </div>
-
-      <!-- Zebra -->
-      <div id="ns-zebra" class="api-type" data-category="extensions" data-search="Zebra UseZebra ZebraReaderExtension ZebraReaderConfiguration ZebraInventoryReportOptions">
-        <div class="api-type-header">
-          <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk.Extensions.Zebra</span>
-            <h3>Zebra 扩展模块 (FX9600 / Motorola)</h3>
-          </div>
-          <span class="badge extension">Extension</span>
-        </div>
-        <p class="type-desc">
-          通过 <code>builder.UseZebra()</code> 启用（IANA <code>161</code>）。这是实验性扩展路径；当前重点是标准连接/身份和已定义映射，FX9600 高级字段仍需按设备与固件完成字节级、真机验证。
-        </p>
-      </div>
-
-      <!-- Seuic -->
-      <div id="ns-seuic" class="api-type" data-category="extensions" data-search="Seuic UseSeuic SeuicReaderExtension">
-        <div class="api-type-header">
-          <div class="api-type-title">
-            <span class="ns-tag">namespace LlrpSdk.Extensions.Seuic</span>
-            <h3>Seuic 扩展模块 (UF40)</h3>
-          </div>
-          <span class="badge extension">Extension</span>
-        </div>
-        <p class="type-desc">
-          通过 <code>builder.UseSeuic()</code> 启用（IANA <code>57690</code>）。当前定位是已知型号的 profile/default 映射，用于生成匹配的能力与功率配置；不把它描述为独立的完整厂商协议验收。
-        </p>
-      </div>
-    </section>
-
-    <!-- SECTION 6: ENUMS & TYPES -->
-    <section class="reference-section" id="type-enums">
-      <h2>核心枚举汇总 (Enums)</h2>
-      <table class="reference-table">
-        <thead><tr><th>枚举类型</th><th>常用值</th><th>说明</th></tr></thead>
-        <tbody>
-          <tr class="api-entry" data-search="ResourceTakeoverPolicy">
-            <td><code>ResourceTakeoverPolicy</code></td>
-            <td><code>PreserveForeign</code> (默认)<br><code>ReplaceAll</code></td>
-            <td>控制下发配置时的资源清理策略。默认仅替换 SDK 自有资源；ReplaceAll 显式清空设备所有资源。</td>
-          </tr>
-          <tr class="api-entry" data-search="ReaderConnectionState">
-            <td><code>ReaderConnectionState</code></td>
-            <td><code>Disconnected</code>, <code>Connecting</code>, <code>Ready</code>, <code>Faulted</code></td>
-            <td>连接与会话就绪状态。</td>
-          </tr>
-          <tr class="api-entry" data-search="ReaderOperationState">
-            <td><code>ReaderOperationState</code></td>
-            <td><code>Idle</code>, <code>Deploying</code>, <code>InventoryRunning</code>, <code>TagAccessRunning</code>, <code>Busy</code></td>
-            <td>高层托管业务执行状态。</td>
-          </tr>
-          <tr class="api-entry" data-search="ReaderResourceMode">
-            <td><code>ReaderResourceMode</code></td>
-            <td><code>Idle</code>, <code>ManagedExclusive</code>, <code>AttachedExisting</code>, <code>Manual</code></td>
-            <td>读写器资源控制权归属模式。</td>
-          </tr>
-          <tr class="api-entry" data-search="ReaderObservedState">
-            <td><code>ReaderObservedState</code></td>
-            <td><code>Unknown</code>, <code>Synchronized</code>, <code>Stale</code></td>
-            <td>设备资源观测事实的最新有效性。</td>
-          </tr>
-          <tr class="api-entry" data-search="TagMemoryBank">
-            <td><code>TagMemoryBank</code></td>
-            <td><code>Reserved (0)</code>, <code>ElectronicProductCode (1)</code>, <code>Tid (2)</code>, <code>User (3)</code></td>
-            <td>Gen2 标签物理存储区。</td>
-          </tr>
-          <tr class="api-entry" data-search="LlrpProtocolVersionPolicy">
-            <td><code>LlrpProtocolVersionPolicy</code></td>
-            <td><code>Auto</code>, <code>Force101</code>, <code>Force11</code>, <code>Force20</code></td>
-            <td>连接建立时的协议版本协商策略。</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <!-- SECTION 7: EXCEPTIONS -->
-    <section class="reference-section" id="type-exceptions">
-      <h2>异常与错误诊断体系 (Exceptions)</h2>
-      <table class="reference-table">
-        <thead><tr><th>异常类型</th><th>基类</th><th>触发原因与诊断信息</th></tr></thead>
-        <tbody>
-          <tr class="api-entry" data-search="LlrpReaderOperationException">
-            <td><code>LlrpReaderOperationException</code></td>
-            <td><code>Exception</code></td>
-            <td>读写器返回了非成功 (Non-Success) 的 LLRP 状态码。提供 <code>StatusCode</code>、<code>ErrorDescription</code> 与 <code>RawStatus</code>。</td>
-          </tr>
-          <tr class="api-entry" data-search="LlrpReaderConnectionException">
-            <td><code>LlrpReaderConnectionException</code></td>
-            <td><code>IOException</code></td>
-            <td>底层 TCP 传输断开或 LLRP 消息泵异常中止。</td>
-          </tr>
-          <tr class="api-entry" data-search="LlrpResourceCapacityException">
-            <td><code>LlrpResourceCapacityException</code></td>
-            <td><code>InvalidOperationException</code></td>
-            <td>即将部署的 ROSpec/AccessSpec 超出读写器在能力表中声明的物理容量上限。</td>
-          </tr>
-          <tr class="api-entry" data-search="LlrpUnexpectedResponseException">
-            <td><code>LlrpUnexpectedResponseException</code></td>
-            <td><code>Exception</code></td>
-            <td>读写器返回了与请求事务不匹配的非预期消息类型。</td>
-          </tr>
-          <tr class="api-entry" data-search="LlrpReaderBackpressureException">
-            <td><code>LlrpReaderBackpressureException</code></td>
-            <td><code>Exception</code></td>
-            <td>上层应用消费标签报告速度过慢导致有界通道队列积压溢出。</td>
-          </tr>
-          <tr class="api-entry" data-search="SettingsValidationException">
-            <td><code>SettingsValidationException</code></td>
-            <td><code>InvalidOperationException</code></td>
-            <td>高层配置无法通过当前读写器硬件能力校验（包含完整的 <code>Diagnostics</code> 列表）。</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
   </article>
 </main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · 现代 .NET LLRP SDK 全量标准 API 参考手册</span>
+  <span><a href="cli.html">查看 CLI 用户手册 →</a></span>
+</footer>
 
 <script src="assets/app.js"></script>
 <script src="assets/reference.js"></script>

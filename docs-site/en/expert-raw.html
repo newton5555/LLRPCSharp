@@ -1,30 +1,12 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp expert ROSpec and raw protocol access.">
-  <title>Expert and Raw APIs · LLRPCSharp</title>
-  <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/brand.css">
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=reader-sdk.html#escape-hatches">
+  <title>Redirecting to Expert & Raw Escape Hatches...</title>
+  <link rel="canonical" href="reader-sdk.html#escape-hatches">
 </head>
 <body>
-<header class="topbar"><a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Expert &amp; Raw</small></span></a><button class="menu-toggle" aria-label="Open navigation">☰</button><nav><a href="index.html">Home</a><a href="api.html">Reader SDK</a><a href="device-sdk.html">Device SDK</a><a href="cli.html">Reader CLI</a><a href="device-cli.html">Device CLI</a><a href="api-reference.html">Reader API Reference</a><a href="device-api-reference.html">Device API Reference</a></nav><a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a></header>
-<main class="shell docs-layout"><aside class="side-nav"><p class="eyebrow">EXPERT / RAW</p><a href="#expert">Expert resources</a><a href="#existing">Existing ROSpec</a><a href="#raw">Raw channel</a><a href="#rules">Safety rules</a></aside><article class="doc-content"><p class="eyebrow">05 / EXPERT PROTOCOL ACCESS</p><h1>Drop to protocol detail and return to managed APIs</h1><p class="doc-lead">The expert surface is for applications that need ROSpec/AccessSpec ownership or protocol messages outside the high-level intent model. It keeps raw work visible and serializes it with managed operations.</p>
-<section id="expert"><h2>Expert resource APIs</h2><p><code>IRoSpecService</code> and <code>IAccessSpecService</code> expose explicit resource creation, update, start, stop, query and deletion operations. Use them when a reader workflow cannot be represented by <code>ReaderSettings</code>.</p><div class="api-table"><div class="api-row api-head"><span>Operation</span><span>Boundary</span></div><div class="api-row"><code>AddRoSpecAsync</code><span>Create a ROSpec under the caller's explicit ownership.</span></div><div class="api-row"><code>EnableRoSpecAsync / StartRoSpecAsync</code><span>Move an existing resource through the reader lifecycle.</span></div><div class="api-row"><code>GetRoSpecsAsync / DeleteRoSpecAsync</code><span>Observe or remove resources deliberately.</span></div></div></section>
-<section id="existing"><h2>Bridge an existing ROSpec</h2><p>When an external system already owns a ROSpec, <code>StartExistingRoSpecAsync(id)</code> can connect its reports to the managed stream without replacing the definition.</p><div class="callout warning"><strong>Ownership:</strong> do not use managed settings to overwrite a resource that another application owns. Select <code>PreserveForeign</code> or bridge the existing resource explicitly.</div></section>
-<section id="raw"><h2>Raw protocol channel</h2><p><code>reader.Protocol</code> can transact typed messages or raw byte frames. Use explicit version aliases for generated types and let the SDK serialize raw and managed operations.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code>using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
-
-var response = await reader.Protocol.TransactAsync&lt;V101Messages.CUSTOM_MESSAGE_RESPONSE&gt;(
-    new V101Messages.CUSTOM_MESSAGE(reader.Protocol.NextMessageId()),
-    cancellationToken: ct);
-
-ReadOnlyMemory&lt;byte&gt; requestFrame = File.ReadAllBytes("custom-frame.bin");
-ReadOnlyMemory&lt;byte&gt; responseFrame = await reader.Protocol.TransactRawAsync(
-    requestFrame,
-    responseMatcher: frame =&gt; frame.Span[1] == 0x04,
-    cancellationToken: ct);</code></pre></div></section>
-<section id="rules"><h2>Three safety rules</h2><ol><li>Keep protocol version names explicit; do not introduce a default-version alias.</li><li>Assume a mutating raw operation makes the managed observation stale and synchronize before reasoning about the device.</li><li>Use an exclusive takeover policy only when the reader is truly owned by this process.</li></ol></section>
-</article></main>
-<footer class="shell footer"><span>LLRPCSharp · Expert and Raw APIs</span><span><a href="state.html">Read the state model →</a></span></footer>
-<script src="../assets/app.js"></script>
+  <p>Page moved to <a href="reader-sdk.html#escape-hatches">Reader SDK Expert & Escape Hatches</a>. Redirecting...</p>
 </body>
 </html>

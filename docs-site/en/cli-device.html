@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Device CLI (LlrpVirtualDevice.Cli / llrp-device) Manual - Standalone virtual reader server, scenario presets and interop manual.">
+  <title>Device CLI Manual (llrp-device) · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>Device CLI</small></span>
+  </a>
+  <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
+  <nav>
+    <a href="index.html">Home</a>
+
+    <!-- API Reference Dropdown -->
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+        <span>API Reference</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="dropdown-menu">
+        <a href="protocol-api.html" class="dropdown-item">
+          <span class="item-icon">🧬</span>
+          <div class="item-text">
+            <strong>LlrpNet Protocol API</strong>
+            <small>Framing, session transport & codecs</small>
+          </div>
+        </a>
+        <a href="reader-api.html" class="dropdown-item">
+          <span class="item-icon">📡</span>
+          <div class="item-text">
+            <strong>Reader SDK API</strong>
+            <small>Managed client, settings & tag access</small>
+          </div>
+        </a>
+        <a href="device-api.html" class="dropdown-item">
+          <span class="item-icon">🖥️</span>
+          <div class="item-text">
+            <strong>Device SDK API</strong>
+            <small>Virtual reader test host & server</small>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- CLI Manuals Dropdown -->
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true">
+        <span>CLI Manuals</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="dropdown-menu">
+        <a href="cli-reader.html" class="dropdown-item">
+          <span class="item-icon">⚡</span>
+          <div class="item-text">
+            <strong>Reader CLI (`llrp`)</strong>
+            <small>Live shell, JSON automation & pcapng decode</small>
+          </div>
+        </a>
+        <a href="cli-device.html" class="dropdown-item active">
+          <span class="item-icon">📟</span>
+          <div class="item-text">
+            <strong>Device CLI (`llrp-device`)</strong>
+            <small>Standalone virtual server & simulation</small>
+          </div>
+        </a>
+      </div>
+    </div>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <!-- Left Navigation -->
+  <aside class="side-nav">
+    <p class="eyebrow">DEVICE CLI (LLRP-DEVICE)</p>
+    <a href="#overview">1. Overview & Use Cases</a>
+    <a href="#quick-run">2. Core Run Modes (run/live)</a>
+    <a href="#host-shell">3. Interactive Host Shell</a>
+    <a href="#config-schema">4. JSON Scenario Presets</a>
+    <a href="#interop">5. 3rd-Party Interop (ItemTest)</a>
+  </aside>
+
+  <!-- Main Content -->
+  <article class="doc-content">
+    <p class="eyebrow">LLRPCSHARP / DEVICE CLI USER MANUAL</p>
+    <h1>LlrpVirtualDevice.Cli (`llrp-device`) Virtual Reader Server Manual</h1>
+    <p class="doc-lead">
+      <code>LlrpVirtualDevice.Cli</code> (command alias <code>llrp-device</code>) is a standalone virtual LLRP reader server. Without writing code, you can start a standard 5084 LLRP TCP server, load presets or custom tag scenarios, and serve any compliant LLRP client.
+    </p>
+
+    <!-- 1. Overview -->
+    <section id="overview">
+      <h2>1. Overview & Launch Options</h2>
+      <div class="code-block">
+        <button class="copy-code">Copy</button>
+        <pre><code># Start interactive host management shell
+dotnet run --project src/LlrpVirtualDevice.Cli
+
+# Or run foreground service with warehouse preset on port 5084
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --port 5084 --preset warehouse</code></pre>
+      </div>
+    </section>
+
+    <!-- 2. Core Run Commands -->
+    <section id="quick-run">
+      <h2>2. Core Commands & Options</h2>
+      <div class="table-wrapper">
+        <table class="member-table">
+          <thead><tr><th>Command Syntax</th><th>Description & Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>llrp-device run [options]</code></td>
+              <td>Launch foreground server: <code>llrp-device run --port 5084 --preset warehouse</code></td>
+            </tr>
+            <tr>
+              <td><code>llrp-device live [options]</code></td>
+              <td>Start server with interactive RX/TX logging: <code>llrp-device live --port 5084 --preset conveyor</code></td>
+            </tr>
+            <tr>
+              <td><code>llrp-device presets</code></td>
+              <td>List all built-in scenario presets.</td>
+            </tr>
+            <tr>
+              <td><code>llrp-device validate &lt;config.json&gt;</code></td>
+              <td>Validate configuration file schema and tag data.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. Host Shell -->
+    <section id="host-shell">
+      <h2>3. Interactive Host Management Shell</h2>
+      <div class="code-block">
+        <button class="copy-code">Copy</button>
+        <pre><code>server create --llrp 1.0.1 --port 5084  # Create host instance
+server start                            # Bind port and begin accepting clients
+server status                           # Display state & connected clients
+logs on / logs off                      # Toggle live RX/TX LLRP frame tracing</code></pre>
+      </div>
+    </section>
+
+    <!-- 4. Presets -->
+    <section id="config-schema">
+      <h2>4. Scenario Presets & Custom Configuration</h2>
+      <div class="mini-grid">
+        <div>
+          <strong>conveyor</strong>
+          <p>Simulates tags passing dynamic antenna interrogation zones at speed.</p>
+        </div>
+        <div>
+          <strong>warehouse</strong>
+          <p>Multi-antenna high tag density inventory for throughput testing.</p>
+        </div>
+        <div>
+          <strong>portal</strong>
+          <p>Dual-sided portal gate for rapid group tag transit verification.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Interop -->
+    <section id="interop">
+      <h2>5. 3rd-Party Interop (Impinj ItemTest)</h2>
+      <p>
+        <code>llrp-device</code> is fully compliant with LLRP standards. Connect commercial software (e.g. <strong>Impinj ItemTest 2.10.0</strong>) to <code>127.0.0.1:5084</code> for live verification.
+      </p>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Device CLI Manual</span>
+  <span><a href="reader-api.html">View Reader SDK API Reference →</a></span>
+</footer>
+
+<script src="../assets/app.js"></script>
+</body>
+</html>

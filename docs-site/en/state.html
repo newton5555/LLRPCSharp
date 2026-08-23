@@ -1,22 +1,12 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp DesiredState and ObservedState resource model.">
-  <title>State Model · LLRPCSharp</title>
-  <link rel="stylesheet" href="../assets/styles.css"><link rel="stylesheet" href="../assets/brand.css">
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=reader-sdk.html#state-model">
+  <title>Redirecting to State Model...</title>
+  <link rel="canonical" href="reader-sdk.html#state-model">
 </head>
 <body>
-<header class="topbar"><a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>State Model</small></span></a><button class="menu-toggle" aria-label="Open navigation">☰</button><nav><a href="index.html">Home</a><a href="api.html">Reader SDK</a><a href="device-sdk.html">Device SDK</a><a href="cli.html">Reader CLI</a><a href="device-cli.html">Device CLI</a><a href="api-reference.html">Reader API Reference</a><a href="device-api-reference.html">Device API Reference</a></nav><a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a></header>
-<main class="shell docs-layout"><aside class="side-nav"><p class="eyebrow">STATE MODEL</p><a href="#two-states">Two states</a><a href="#transitions">Transitions</a><a href="#synchronize">SynchronizeStateAsync</a><a href="#recovery">Recovery</a></aside><article class="doc-content"><p class="eyebrow">06 / STATE AND RESOURCE MODEL</p><h1>Device reality and managed intent</h1><p class="doc-lead">Readers can be changed by several clients or by manual protocol commands. LLRPCSharp therefore separates the application's desired configuration from the device's observed facts.</p>
-<section id="two-states"><h2>Two state dimensions</h2><div class="state-columns"><div class="state-panel desired-panel"><span class="state-kicker">DESIRED STATE</span><h3>What the application wants</h3><p>Set by <code>ApplySettingsAsync</code> or <code>StartInventoryAsync(settings)</code>. Raw operations do not erase the retained intent.</p><code>reader.DesiredSettings</code></div><div class="state-panel observed-panel"><span class="state-kicker">OBSERVED STATE</span><h3>What the device currently has</h3><p>Updated by connection queries, events and synchronization. It may be <code>Unknown</code>, <code>Stale</code> or <code>Synchronized</code>.</p><code>reader.ObservedState</code></div></div></section>
-<section id="transitions"><h2>Typical transition</h2><div class="timeline"><div class="timeline-item"><span class="timeline-num">01</span><div><h3>Managed inventory runs</h3><p>Desired settings are retained and managed ROSpec 14150 is synchronized.</p></div></div><div class="timeline-item"><span class="timeline-num">02</span><div><h3>A raw or external change occurs</h3><p>A <code>DELETE_ROSPEC</code> or another external mutation changes the device; observed state becomes stale while desired settings remain.</p></div></div><div class="timeline-item"><span class="timeline-num">03</span><div><h3>Facts are refreshed</h3><p><code>SynchronizeStateAsync()</code> queries the device and confirms what exists. It does not automatically redeploy the missing resource.</p></div></div><div class="timeline-item"><span class="timeline-num">04</span><div><h3>Managed state converges again</h3><p>A parameterless <code>StartInventoryAsync()</code> can compile and deploy the retained desired settings.</p></div></div></div></section>
-<section id="synchronize"><h2>What SynchronizeStateAsync does</h2><p><code>SynchronizeStateAsync()</code> is an observation operation, not a destructive repair command.</p><div class="do-dont"><div><strong>It does:</strong><ul><li>Query ROSpec and AccessSpec snapshots.</li><li>Identify managed and foreign resources.</li><li>Update <code>ObservedState</code> from the returned facts.</li></ul></div><div><strong>It does not:</strong><ul><li>Rewrite or delete resources automatically.</li><li>Prevent another client from changing the reader after the query.</li><li>Decode private vendor parameters without the matching extension.</li></ul></div></div></section>
-<section id="recovery"><h2>Recovery and rebuilding</h2><p>If the managed resource was removed or the reader reset, redeploy the retained intent explicitly.</p><div class="code-block"><button class="copy-code">Copy</button><pre><code>// After a raw operation deletes the managed ROSpec:
- // reader.ObservedState is stale, but reader.DesiredSettings remains.
-await using InventorySession session = await reader.StartInventoryAsync();</code></pre></div><div class="callout warning"><strong>Foreign resources:</strong> use <code>StartExistingRoSpecAsync(roSpecId)</code> to bridge a proprietary ROSpec instead of overwriting it with managed settings.</div></section>
-</article></main>
-<footer class="shell footer"><span>LLRPCSharp · State and Resource Model</span><span><a href="api-reference.html">Open the Reader API Reference →</a></span></footer>
-<script src="../assets/app.js"></script>
+  <p>Page moved to <a href="reader-sdk.html#state-model">Reader SDK State Model</a>. Redirecting...</p>
 </body>
 </html>

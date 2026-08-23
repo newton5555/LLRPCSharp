@@ -264,8 +264,10 @@ body.api-reference-page {
   transition: color 0.15s ease;
 }
 
-.reference-topbar a:hover {
+.reference-topbar a:hover,
+.reference-topbar a.active {
   color: var(--ref-primary);
+  font-weight: 700;
 }
 
 .reference-topbar .topbar-links {
