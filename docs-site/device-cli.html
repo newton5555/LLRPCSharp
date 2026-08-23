@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Device CLI (LlrpVirtualDevice.Cli) - 独立运行的虚拟读写器服务终端与多场景仿真">
+  <title>Device CLI (虚拟读写器服务) · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>Device CLI</small></span>
+  </a>
+  <button class="menu-toggle">☰</button>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="api.html">Reader SDK</a>
+    <a href="device-sdk.html">Device SDK</a>
+    <a href="cli.html">Reader CLI</a>
+    <a href="device-cli.html">Device CLI</a>
+    <a href="api-reference.html">Reader API 参考</a>
+    <a href="device-api-reference.html">Device API 参考</a>
+    <a href="architecture.html">架构与专题</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <!-- Left Side Navigation -->
+  <aside class="side-nav">
+    <p class="eyebrow">DEVICE CLI</p>
+    <a href="#overview">工具概览</a>
+    <a href="#run">一键启动服务 (run)</a>
+    <a href="#presets">预设仿真场景 (presets)</a>
+    <a href="#live-shell">交互式 Live 终端 (live)</a>
+    <a href="#config-file">JSON 配置文件</a>
+    <a href="#validate">配置校验与能力查询</a>
+    <a href="#interop">对接第三方客户端</a>
+  </aside>
+
+  <!-- Main Content -->
+  <article class="doc-content">
+    <p class="eyebrow">04 / VIRTUAL DEVICE CLI SERVER</p>
+    <h1>独立运行的虚拟读写器服务程序</h1>
+    <p class="doc-lead">
+      <code>LlrpVirtualDevice.Cli</code> 是一个独立的虚拟 LLRP 读写器服务程序。无需编写一行代码，即可在任意机器上启动标准的 LLRP TCP 监听服务，支持丰富的生活化仿真预设与交互式动态标签注入，供任何标准 LLRP 客户端连接联调。
+    </p>
+
+    <!-- Overview -->
+    <section id="overview">
+      <h2>工具概览与特点</h2>
+      <div class="mini-grid">
+        <div>
+          <strong>零代码独立运行</strong>
+          <p>单行命令即可启动支持标准 5084 端口的完整读写器服务，随时为应用提供测试靶机。</p>
+        </div>
+        <div>
+          <strong>预置丰富仿真场景</strong>
+          <p>内置传送带 (Conveyor)、仓库货架 (Warehouse)、通道门禁 (Portal) 等典型物理场景。</p>
+        </div>
+        <div>
+          <strong>交互式动态 REPL</strong>
+          <p>支持在服务端运行中动态添加/移除标签、切换天线或调整射频抖动参数。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Run Command -->
+    <section id="run">
+      <h2>1. 一键启动服务 (run)</h2>
+      <p>
+        通过 <code>run</code> 命令直接启动 TCP 服务端并在前台保持监听：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 1. 默认启动（标准 1.0.1 协议，监听 0.0.0.0:5084）
+dotnet run --project src/LlrpVirtualDevice.Cli -- run
+
+# 2. 指定端口与 Impinj Speedway R420 档案
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --port 5084 --profile impinj.r420.llrp-1.0.1
+
+# 3. 加载预设场景启动
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --preset warehouse</code></pre>
+      </div>
+    </section>
+
+    <!-- Presets -->
+    <section id="presets">
+      <h2>2. 预设仿真场景 (Presets)</h2>
+      <p>
+        内置典型业务场景，快速模拟真实的标签分布与运动特征：
+      </p>
+      <div class="api-table">
+        <div class="api-row api-head">
+          <span>场景名称</span>
+          <span>适用预设</span>
+          <span>场景模拟特征</span>
+        </div>
+        <div class="api-row">
+          <code>warehouse</code>
+          <span>密集仓库货架</span>
+          <span>分布在 4 根天线下的多标签群，带微弱射频抖动</span>
+        </div>
+        <div class="api-row">
+          <code>conveyor</code>
+          <span>产线传送带</span>
+          <span>模拟标签按指定周期依序穿过天线 1 → 天线 2</span>
+        </div>
+        <div class="api-row">
+          <code>portal</code>
+          <span>门禁通道</span>
+          <span>双天线通道，模拟人员/叉车进出门禁时的短暂刷卡</span>
+        </div>
+        <div class="api-row">
+          <code>single-tag</code>
+          <span>单标签基线</span>
+          <span>天线 1 固定 1 枚标签，用于基础读写与基线排查</span>
+        </div>
+      </div>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 查看当前支持的所有预设场景列表
+dotnet run --project src/LlrpVirtualDevice.Cli -- presets</code></pre>
+      </div>
+    </section>
+
+    <!-- Live Shell -->
+    <section id="live-shell">
+      <h2>3. 交互式 Live 终端 (live / shell)</h2>
+      <p>
+        进入交互式 Live 终端后，可以在读写器运行期间动态观测客户端连接并注入标签事件：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 启动带有交互控制台的虚拟设备服务
+dotnet run --project src/LlrpVirtualDevice.Cli -- live --preset warehouse
+
+# 在控制台中动态注入标签：
+> tag add E280119100000000000000FF --antenna 1 --rssi -50.0
+> tag remove E280119100000000000000FF
+
+# 查看当前连接的客户端与活跃 ROSpec 实况：
+> status
+> clients</code></pre>
+      </div>
+    </section>
+
+    <!-- Config File -->
+    <section id="config-file">
+      <h2>4. 使用 JSON 配置文件定义虚拟设备</h2>
+      <p>
+        你可以编写结构化的 JSON 配置文件，定制天线数、硬件能力与模拟标签列表：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code>{
+  "server": {
+    "listenAddress": "0.0.0.0",
+    "port": 5084,
+    "clientConnectionTimeoutSeconds": 30
+  },
+  "device": {
+    "profile": "impinj.r420.llrp-1.0.1",
+    "antennaCount": 4,
+    "rssiJitterDb": 1.0,
+    "tags": [
+      {
+        "epcHex": "E28011910000000000000001",
+        "tidHex": "E28011052000600123456789",
+        "antennaId": 1,
+        "baseRssi": -55.0
+      },
+      {
+        "epcHex": "E28011910000000000000002",
+        "antennaId": 2,
+        "baseRssi": -62.0
+      }
+    ]
+  }
+}</code></pre>
+      </div>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 启动指定配置文件的虚拟读写器
+dotnet run --project src/LlrpVirtualDevice.Cli -- run --config ./my-virtual-reader.json</code></pre>
+      </div>
+    </section>
+
+    <!-- Validate -->
+    <section id="validate">
+      <h2>5. 配置校验与能力查询</h2>
+      <p>
+        在启动前校验 JSON 格式合法性，或查看内置能力档案的详细参数：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 校验配置文件是否合规
+dotnet run --project src/LlrpVirtualDevice.Cli -- validate ./my-virtual-reader.json
+
+# 查询支持的能力 Profile
+dotnet run --project src/LlrpVirtualDevice.Cli -- caps</code></pre>
+      </div>
+    </section>
+
+    <!-- Interop -->
+    <section id="interop">
+      <h2>6. 与第三方客户端生态互操作</h2>
+      <p>
+        虚拟读写器完全遵循标准 LLRP 协议实现，可直接接受各类外部客户端连接：
+      </p>
+      <ul>
+        <li><strong>Impinj ItemTest</strong>：选用 <code>impinj.r420.llrp-1.0.1</code> 档案后，可直接在 ItemTest 中添加并扫描标签。</li>
+        <li><strong>Java / Python / Go LLRP 客户端</strong>：如 ltkjava、libltk-d、pylogix 等。</li>
+        <li><strong>LLRPCSharp 本项目 <code>LlrpSdk</code> 与 <code>LlrpCli</code></strong>：无缝开箱即用。</li>
+      </ul>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Device CLI Documentation</span>
+  <span><a href="api-reference.html">查看全景 API Reference →</a></span>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

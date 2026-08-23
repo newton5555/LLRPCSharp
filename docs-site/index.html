@@ -1,13 +1,263 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="LLRPCSharp SDK 技术文档入口"><title>LLRPCSharp SDK 文档</title><link rel="stylesheet" href="assets/styles.css"><link rel="stylesheet" href="assets/home.css"><link rel="stylesheet" href="assets/brand.css"></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp - 现代 .NET 10 LLRP 协议栈、读写器 SDK、虚拟设备与 CLI 工具体系">
+  <title>LLRPCSharp 文档中心 · 现代 .NET LLRP SDK 与虚拟设备</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/home.css">
+  <link rel="stylesheet" href="assets/brand.css">
+</head>
 <body>
-<header class="topbar"><a class="brand" href="index.html"><img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>SDK Docs</small></span></a><button class="menu-toggle">☰</button><nav><a href="index.html">首页</a><a href="api.html">API 总览</a><a href="api-reference.html">API Reference</a><a href="state.html">状态模型</a><a href="expert-raw.html">专家与 Raw</a><a href="architecture.html">架构</a></nav><a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a></header>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>Docs Portal</small></span>
+  </a>
+  <button class="menu-toggle">☰</button>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="api.html">Reader SDK</a>
+    <a href="device-sdk.html">Device SDK</a>
+    <a href="cli.html">Reader CLI</a>
+    <a href="device-cli.html">Device CLI</a>
+    <a href="api-reference.html">Reader API 参考</a>
+    <a href="device-api-reference.html">Device API 参考</a>
+    <a href="architecture.html">架构与专题</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
 <main class="shell docs-home">
-  <section class="docs-home-head"><p class="eyebrow">LLRPCSHARP / SDK DOCUMENTATION</p><h1>面向 .NET 的 LLRP SDK</h1><p class="doc-lead">这不是设备厂商 SDK 的包装器，也不是只能完成一次盘点的脚本库。LlrpSdk 用版本中立的模型管理连接、Reader 配置、ROSpec、AccessSpec、TagReport 和 C1G2 Tag Access，同时保留直接进入协议层的路径。</p><p><a class="button primary" href="api.html#getting-started">从快速开始</a> <a class="button secondary" href="api.html">查看 API 总览</a></p></section>
-  <section class="docs-home-grid"><div class="docs-home-main"><h2>你要解决什么问题？</h2><div class="reference-list"><a href="api.html#getting-started"><b>我想连接读写器并开始盘点</b><span>Builder → ConnectAsync → ApplySettingsAsync → StartInventoryAsync → ReadReportsAsync</span><i>→</i></a><a href="api.html#takeover"><b>设备上已经有别的 ROSpec</b><span>理解 PreserveForeign 和 ReplaceAll 的资源边界</span><i>→</i></a><a href="expert-raw.html#existing"><b>我用 Raw 创建了 ROSpec，但想用 SDK 收标签</b><span>使用 StartExistingRoSpecAsync(id) 桥接到 InventorySession</span><i>→</i></a><a href="state.html#two-states"><b>Raw 操作后 SDK 的状态为什么变 Stale</b><span>DesiredSettings 和 ObservedState 是两个不同维度</span><i>→</i></a><a href="architecture.html#protocol"><b>我需要使用版本化协议类型</b><span>了解 LlrpNet、Protocol Adapter 和生成代码边界</span><i>→</i></a></div></div><aside class="docs-home-aside"><div class="aside-block"><p class="eyebrow">PACKAGE MAP</p><h3>LlrpSdk</h3><p>托管 Reader API、设置、库存、报告、Tag Access。</p><h3>LlrpNet.Core</h3><p>传输会话、消息匹配和帧处理。</p><h3>LlrpNet.Protocol</h3><p>LLRP 1.0.1 / 1.1 / 2.0 生成类型和编解码。</p><h3>LlrpCli</h3><p>现场连接、操作和诊断命令。</p></div><div class="aside-block"><p class="eyebrow">CURRENT SCOPE</p><p><span class="status-dot"></span> .NET 10</p><p><span class="status-dot blue"></span> LLRP 1.0.1 / 1.1 / 2.0 baseline</p><p><span class="status-dot amber"></span> Virtual Reader available</p></div></aside></section>
-  <section class="docs-home-section"><h2>推荐调用顺序</h2><div class="sequence"><div><b>01</b><code>ConnectAsync()</code><span>连接并完成能力初始化</span></div><div><b>02</b><code>GetDefaultSettingsAsync()</code><span>取得设备相关的默认基线</span></div><div><b>03</b><code>ApplySettingsAsync(settings)</code><span>部署配置，保持停止</span></div><div><b>04</b><code>StartInventoryAsync()</code><span>启动已部署资源并读取报告</span></div><div><b>05</b><code>StopAsync()</code><span>停止托管盘点，保留配置</span></div></div></section>
-  <section class="docs-home-section note-section"><h2>控制层原则</h2><p><strong>托管 API 是默认路径。</strong>专家资源 API 用来临时查看和操作 ROSpec / AccessSpec；Raw 用来承接 SDK 尚未封装的报文。低层写操作可能让设备观测变旧，但 SDK 保留托管意图，后续可以恢复自己的资源。</p><a class="text-link" href="state.html">查看完整状态模型 →</a></section>
+  <!-- Hero Section -->
+  <section class="docs-home-head">
+    <p class="eyebrow">LLRPCSHARP / ECOSYSTEM PORTAL</p>
+    <h1>面向现代 .NET 的工业级 LLRP 体系</h1>
+    <p class="doc-lead">
+      LLRPCSharp 不仅仅是一个读写器客户端，而是一套完整的 RFID 协议基础设施：涵盖版本中立的<strong>上位机 Reader SDK</strong>、可嵌入测试的<strong>虚拟读写器 Device SDK</strong>、现场运维的 <strong>Reader CLI</strong> 以及独立运行的 <strong>Device 模拟器 CLI</strong>。
+    </p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a class="button primary" href="api.html">开始使用 Reader SDK</a>
+      <a class="button secondary" href="device-sdk.html">了解虚拟设备 SDK</a>
+      <a class="button secondary" href="cli.html">查看 CLI 运维工具</a>
+      <a class="button secondary" href="api-reference.html">Reader API 参考</a>
+      <a class="button secondary" href="device-api-reference.html">Device API 参考</a>
+    </div>
+    <div class="docs-home-badges">
+      <div class="badge-item"><span class="status-dot"></span>.NET 10 Ready</div>
+      <div class="badge-item"><span class="status-dot blue"></span>LLRP 1.0.1 / 1.1 / 2.0</div>
+      <div class="badge-item"><span class="status-dot amber"></span>Impinj / Zebra / Seuic 扩展</div>
+      <div class="badge-item"><span class="status-dot purple"></span>Zero Native Dependencies</div>
+    </div>
+  </section>
+
+  <!-- 4 Pillars Section -->
+  <section class="pillar-section">
+    <p class="eyebrow">FOUR CORE PILLARS</p>
+    <h2>四大核心支柱</h2>
+    <p class="pillar-section-lead">根据你的开发与运维场景，选择最适合的模块接入：</p>
+    
+    <div class="pillar-grid">
+      <!-- Pillar 1: Reader SDK -->
+      <a class="pillar-card featured" href="api.html">
+        <div class="pillar-header">
+          <div class="pillar-icon">📡</div>
+          <span class="pillar-tag">上位机开发</span>
+        </div>
+        <h3>Reader SDK (LlrpSdk)</h3>
+        <p>面向业务应用的高层托管客户端，参考 Octane 理念设计。版本自适应、强类型配置、响应式报告流消费与 C1G2 内存全操作。</p>
+        <ul class="pillar-features">
+          <li><code>LlrpReaderBuilder</code> 链式连接与自动版本探查</li>
+          <li><code>ReaderSettings</code> 声明式配置与天线功率索引映射</li>
+          <li><code>InventorySession</code> 流式异步消费与 AttachedData</li>
+          <li>读/写/锁/灭/块擦除标准 C1G2 Tag Access</li>
+          <li>Impinj / Zebra / Seuic 厂商扩展平滑接入</li>
+        </ul>
+        <span class="pillar-action">查看 Reader SDK 指南 →</span>
+      </a>
+
+      <!-- Pillar 2: Device SDK -->
+      <a class="pillar-card" href="device-sdk.html">
+        <div class="pillar-header">
+          <div class="pillar-icon">🖥️</div>
+          <span class="pillar-tag">设备端与测试</span>
+        </div>
+        <h3>Device SDK (LlrpDevice.*)</h3>
+        <p>通用的 LLRP 服务端与虚拟读写器仿真核。专为无硬件自动化测试、CI/CD 流水线以及自定义读写器设备固件桥接而设计。</p>
+        <ul class="pillar-features">
+          <li><code>LlrpDeviceServer</code> 高并发 TCP 报文路由与状态机</li>
+          <li><code>VirtualLlrpDevice</code> 物理天线、RSSI 抖动与运动模拟</li>
+          <li><code>VirtualLlrpDeviceHost</code> 3 行代码嵌入 xUnit 单元测试</li>
+          <li>内置标准 LLRP 1.0.1 与 Impinj Speedway R420 档案</li>
+          <li><code>ILlrpDevice</code> 接口支持对接自定义真实射频硬件</li>
+        </ul>
+        <span class="pillar-action">查看 Device SDK 指南 →</span>
+      </a>
+
+      <!-- Pillar 3: Reader CLI -->
+      <a class="pillar-card" href="cli.html">
+        <div class="pillar-header">
+          <div class="pillar-icon">⚡</div>
+          <span class="pillar-tag">现场运维 & 诊断</span>
+        </div>
+        <h3>Reader CLI (LlrpCli / llrp)</h3>
+        <p>现场工程师的瑞士军刀与 Agent 自动化工具。提供实时交互 Shell、单次 JSON 命令输出以及强大的离线协议分析能力。</p>
+        <ul class="pillar-features">
+          <li>交互式 Live Shell：实时滚屏盘点、天线配置与状态同步</li>
+          <li>自动化命令：单条命令执行盘点并输出结构化 JSON</li>
+          <li>离线 <code>decode</code>：直接解析 Wireshark <code>.pcapng</code> 抓包</li>
+          <li><code>inspect</code> / <code>validate</code> / <code>encode</code> 协议报文构造与校验</li>
+          <li>多版本编解码支持（1.0.1 / 1.1 / 2.0 + Impinj/Zebra）</li>
+        </ul>
+        <span class="pillar-action">查看 Reader CLI 指南 →</span>
+      </a>
+
+      <!-- Pillar 4: Device CLI -->
+      <a class="pillar-card" href="device-cli.html">
+        <div class="pillar-header">
+          <div class="pillar-icon">🎮</div>
+          <span class="pillar-tag">仿真环境运行</span>
+        </div>
+        <h3>Device CLI (LlrpVirtualDevice.Cli)</h3>
+        <p>独立运行的虚拟读写器服务终端。无需编写任何代码，一行命令启动符合标准的 LLRP 仿真服务，供任意 LLRP 客户端连接联调。</p>
+        <ul class="pillar-features">
+          <li>一键启动读写器服务：<code>llrp-device run --port 5084</code></li>
+          <li>预设场景库：传送带 (Conveyor)、仓库 (Warehouse)、门禁 (Portal)</li>
+          <li>交互式 Live 模拟：运行时动态添加/移除标签与故障注入</li>
+          <li>仿真配置文件 JSON 校验与能力 Profile 查询</li>
+          <li>完全兼容 Impinj ItemTest、Octane 与第三方 LLRP 客户端</li>
+        </ul>
+        <span class="pillar-action">查看 Device CLI 指南 →</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Problem Matching Section -->
+  <section class="docs-home-grid">
+    <div class="docs-home-main">
+      <p class="eyebrow">USE CASES</p>
+      <h2>你要解决什么问题？</h2>
+      <div class="reference-list">
+        <a href="api.html#getting-started">
+          <b>我想在 .NET 中连接读写器并盘存标签</b>
+          <span>使用 Builder → ConnectAsync → ApplySettingsAsync → ReadReportsAsync</span>
+          <i>→</i>
+        </a>
+        <a href="device-sdk.html#testing">
+          <b>我想在 CI 自动化测试中模拟读写器</b>
+          <span>使用 VirtualLlrpDeviceHost 快速启动内存虚拟设备进行端到端测试</span>
+          <i>→</i>
+        </a>
+        <a href="cli.html#pcapng">
+          <b>我手头有 Wireshark 抓包，想分析 LLRP 报文</b>
+          <span>使用 <code>llrp decode file.pcapng --output summary</code> 解析报文流</span>
+          <i>→</i>
+        </a>
+        <a href="device-cli.html#presets">
+          <b>我想启动一台模拟读写器与第三方系统对接</b>
+          <span>运行 <code>llrp-device run --preset warehouse</code> 开启仿真服务</span>
+          <i>→</i>
+        </a>
+        <a href="api.html#attached-data">
+          <b>我需要在盘点时同时读取 TID 或 User 存储区</b>
+          <span>使用 <code>InventorySettings.AttachedData</code> 声明附加读取选项</span>
+          <i>→</i>
+        </a>
+        <a href="state.html#two-states">
+          <b>我想了解 SDK 托管状态与设备实况的关系</b>
+          <span>深入理解 DesiredSettings 意图与 ObservedState 设备实况双轨状态</span>
+          <i>→</i>
+        </a>
+        <a href="architecture.html#protocol">
+          <b>我需要直接编解码多版本原生 LLRP 消息</b>
+          <span>基于 LlrpNet.Protocol 强类型生成代码与编解码注册表</span>
+          <i>→</i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Aside package summary -->
+    <aside class="docs-home-aside">
+      <div class="aside-block">
+        <p class="eyebrow">PACKAGE MAP</p>
+        <h3>LlrpSdk</h3>
+        <p>托管客户端 Reader API、配置、盘点、C1G2 操作与厂商扩展。</p>
+        <h3>LlrpDevice.*</h3>
+        <p>服务端协议引擎、虚拟设备仿真核与宿主包装器。</p>
+        <h3>LlrpCli</h3>
+        <p>现场交互式调试、批处理脚本与离线抓包诊断终端。</p>
+        <h3>LlrpVirtualDevice.Cli</h3>
+        <p>独立的虚拟读写器服务程序与多场景交互 REPL。</p>
+        <h3>LlrpNet.*</h3>
+        <p>网络会话、帧拆装包、多版本协议模型与编解码器生成器。</p>
+      </div>
+
+      <div class="aside-block">
+        <p class="eyebrow">STANDARDS & ADAPTERS</p>
+        <p><span class="status-dot"></span> LLRP 1.0.1 (RFC Standard)</p>
+        <p><span class="status-dot blue"></span> LLRP 1.1 (Auto-Negotiated)</p>
+        <p><span class="status-dot blue"></span> LLRP 2.0 (Generated Protocol Base)</p>
+        <p><span class="status-dot amber"></span> Impinj Custom Extensions</p>
+        <p><span class="status-dot amber"></span> Zebra Custom Extensions</p>
+        <p><span class="status-dot amber"></span> Seuic Custom Extensions</p>
+      </div>
+    </aside>
+  </section>
+
+  <!-- Sequence Section -->
+  <section class="docs-home-section">
+    <p class="eyebrow">WORKFLOW</p>
+    <h2>标准 SDK 推荐调用顺序</h2>
+    <div class="sequence">
+      <div>
+        <b>01</b>
+        <code>ConnectAsync()</code>
+        <span>建立连接并完成协议版本探查与能力初始化</span>
+      </div>
+      <div>
+        <b>02</b>
+        <code>GetDefaultSettingsAsync()</code>
+        <span>获取适配当前设备物理能力的推荐默认配置</span>
+      </div>
+      <div>
+        <b>03</b>
+        <code>ApplySettingsAsync(settings)</code>
+        <span>部署业务配置并完成资源下发（保持停止状态）</span>
+      </div>
+      <div>
+        <b>04</b>
+        <code>StartInventoryAsync()</code>
+        <span>启动已部署的 ROSpec 并消费异步标签报告流</span>
+      </div>
+      <div>
+        <b>05</b>
+        <code>StopAsync()</code>
+        <span>停止托管盘点并保留当前配置定义</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- State & Architecture Deep Dives Banner -->
+  <section class="docs-home-section note-section">
+    <p class="eyebrow">ARCHITECTURAL DESIGN</p>
+    <h2>设计哲学：意图驱动与双轨状态</h2>
+    <p>
+      <strong>托管 API 是推荐的默认路径。</strong>SDK 使用不可变的 <code>ReaderSettings</code> 记录应用意图，并在后台将其映射为符合当前协议版本的 LLRP 参数。专家资源 API 与 Raw 通道随时开放，但在进行底层写操作后，SDK 会优雅地将观测状态标记为 Stale，并始终保留重构托管资源的能力。
+    </p>
+    <div style="display:flex;gap:16px;margin-top:18px;">
+      <a class="text-link" href="architecture.html">阅读系统架构设计 →</a>
+      <a class="text-link" href="state.html">查看完整状态机与接管策略 →</a>
+      <a class="text-link" href="expert-raw.html">探索专家模式与 Raw 协议层 →</a>
+    </div>
+  </section>
 </main>
-<footer class="shell footer"><span>LLRPCSharp · SDK Documentation</span><span><a href="https://github.com/newton5555/LLRPCSharp">Source on GitHub</a></span></footer><script src="assets/app.js"></script>
-</body></html>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Modern .NET LLRP SDK & Virtual Device Suite</span>
+  <span><a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">Source on GitHub</a></span>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

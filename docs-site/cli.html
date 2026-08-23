@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Reader CLI (LlrpCli / llrp) - 现场连接调试、自动化运维与 Wireshark 抓包解析工具">
+  <title>Reader CLI (LlrpCli / llrp) · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>Reader CLI</small></span>
+  </a>
+  <button class="menu-toggle">☰</button>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="api.html">Reader SDK</a>
+    <a href="device-sdk.html">Device SDK</a>
+    <a href="cli.html">Reader CLI</a>
+    <a href="device-cli.html">Device CLI</a>
+    <a href="api-reference.html">Reader API 参考</a>
+    <a href="device-api-reference.html">Device API 参考</a>
+    <a href="architecture.html">架构与专题</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <!-- Left Side Navigation -->
+  <aside class="side-nav">
+    <p class="eyebrow">READER CLI</p>
+    <a href="#overview">工具概览与模式</a>
+    <a href="#live-shell">交互式 Live Shell</a>
+    <a href="#settings-mgmt">配置与参数管理</a>
+    <a href="#live-inventory">实时盘点与监控</a>
+    <a href="#tag-ops">标签内存读写与锁定</a>
+    <a href="#agent-commands">Agent 自动化命令</a>
+    <a href="#offline-tools">离线协议工具</a>
+    <a href="#pcapng">pcapng 抓包解析</a>
+  </aside>
+
+  <!-- Main Content -->
+  <article class="doc-content">
+    <p class="eyebrow">03 / READER CLIENT CLI TOOL</p>
+    <h1>现场运维、自动化脚本与协议分析工具</h1>
+    <p class="doc-lead">
+      <code>LlrpCli</code> (<code>llrp</code>) 是基于 <code>LlrpSdk</code> 与 <code>LlrpNet.Protocol</code> 构建的生产级命令行工具。提供用于现场调试的交互式 Live Shell、用于 CI/Agent 调度的单次 JSON 命令，以及可直接解析 Wireshark <code>.pcapng</code> 抓包的离线协议分析核。
+    </p>
+
+    <!-- Overview -->
+    <section id="overview">
+      <h2>工具概览与运行模式</h2>
+      <p>
+        你可以直接在仓库根目录通过 .NET CLI 运行，或将其发布为独立单文件二进制：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 启动交互式 Live Shell 终端
+dotnet run --project src/LlrpCli
+
+# 执行单次自动化盘点命令（10秒后退出并输出 JSON）
+dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
+
+# 离线解析 Wireshark 抓包文件
+dotnet run --project src/LlrpCli -- decode ./capture.pcapng --output summary</code></pre>
+      </div>
+      <div class="mini-grid">
+        <div>
+          <strong>交互式 Live Shell</strong>
+          <p>现场维护、持续连接读写器、实时观察标签流、动态修改天线参数与状态同步。</p>
+        </div>
+        <div>
+          <strong>Agent 自动化命令</strong>
+          <p>专为本地开发 Agent / 自动化脚本设计，单次执行无交互，直接输出易解析的标准 JSON 数据。</p>
+        </div>
+        <div>
+          <strong>离线协议诊断</strong>
+          <p>不连接物理设备，支持十六进制帧与 <code>.pcapng</code> 抓包的双向编解码与参数树渲染。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Shell -->
+    <section id="live-shell">
+      <h2>1. 交互式 Live Shell 终端</h2>
+      <p>
+        进入 Shell 后，支持连贯的命令操作与实时上下文维持：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 1. 连接目标读写器（支持 --llrp auto / 1.0.1 / 1.1）
+> connect 192.168.1.100
+
+# 2. 轻量查看当前连接与状态
+> status
+
+# 3. 展开完整的 ROSpec / AccessSpec 实况参数树
+> status --full
+
+# 4. 查询设备归一化能力表（天线数、功率表、RF Mode 速率表）
+> caps
+
+# 5. 额外显示原生 GET_READER_CAPABILITIES 响应报文树
+> caps --raw</code></pre>
+      </div>
+    </section>
+
+    <!-- Settings Mgmt -->
+    <section id="settings-mgmt">
+      <h2>2. 配置编辑与下发 (Settings)</h2>
+      <p>
+        Live Shell 采用严格的显式确认机制，防止现场误写破坏设备状态：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 应用读写器能力的推荐默认配置（部署后保持停止状态）
+> settings apply --defaults --yes
+
+# 校验并应用本地配置文件（默认 PreserveForeign 保护外部资源）
+> settings apply config.json --yes
+
+# 显式全量接管（清空设备所有外部 ROSpec/AccessSpec）
+> settings apply config.json --yes --replace-all
+
+# 仅校验本地文件合法性（零副作用，不向设备写入）
+> settings validate config.json
+
+# 从设备重新读取实况并输出为 JSON
+> settings show --json</code></pre>
+      </div>
+    </section>
+
+    <!-- Live Inventory -->
+    <section id="live-inventory">
+      <h2>3. 实时标签盘点 (Inventory)</h2>
+      <p>
+        支持 live 汇总与原始 LLRP 帧两种监控模式：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 启动盘点并在控制台实时滚动显示刷卡数据
+> inventory start
+
+# 实时打印底层接收到的原始 LLRP 数据帧
+> inventory start --monitor frames
+
+# 前台监控 30 秒后退出前台（后台盘点保持运行）
+> inventory start --monitor live --monitor-duration 30
+
+# 查看盘点运行统计与状态
+> inventory status
+
+# 停止盘点
+> inventory stop</code></pre>
+      </div>
+    </section>
+
+    <!-- Tag Operations -->
+    <section id="tag-ops">
+      <h2>4. 标签内存读写与锁定 (Tag Access)</h2>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 读取指定 EPC 标签的 User 存储区 (从 Word 0 读取 2 个字)
+> tag read E28011910000000000000001 --bank user --word 0 --count 2
+
+# 向 User 存储区写入 16 进制数据 (需要 --yes 确认)
+> tag write E28011910000000000000001 --bank user --word 0 --data CAFEBABE --yes
+
+# 锁定 User 存储区为 SecuredWrite (带密码可写)
+> tag lock E28011910000000000000001 --target user --privilege lock --yes
+
+# 灭活/销毁目标标签
+> tag kill E28011910000000000000001 --password 00000000 --yes</code></pre>
+      </div>
+    </section>
+
+    <!-- Agent Commands -->
+    <section id="agent-commands">
+      <h2>5. 本地开发 Agent 自动化命令</h2>
+      <p>
+        专为本地 AI Coding Agent（如 Antigravity、Claude Code、Cursor 等）或自动化调度脚本设计。以单条命令行参数形式运行，无前台终端交互阻塞，执行后立即输出标准结构化 JSON，便于 Agent 自动解析并开展硬件验收与闭环调试：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 连接设备并执行 10 秒自动化盘点，输出结构化 JSON
+dotnet run --project src/LlrpCli -- inventory 192.168.1.100 --duration 10 --yes
+
+# JSON 输出示例：
+{
+  "durationSeconds": 10.0,
+  "totalTagCount": 42,
+  "uniqueTagCount": 3,
+  "tags": [
+    {
+      "epc": "E28011910000000000000001",
+      "antennaId": 1,
+      "readCount": 28,
+      "peakRssi": -52.0,
+      "lastSeen": "2026-08-23T13:20:00Z"
+    }
+  ]
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- Offline Tools -->
+    <section id="offline-tools">
+      <h2>6. 离线协议诊断工具 (Offline Tools)</h2>
+      <p>
+        离线工具<strong>无需连接任何读写器</strong>，直接对 LLRP 二进制十六进制进行分析或编码：
+      </p>
+      <div class="api-table">
+        <div class="api-row api-head">
+          <span>命令</span>
+          <span>输入形式</span>
+          <span>输出与功能</span>
+        </div>
+        <div class="api-row">
+          <code>inspect &lt;HEX&gt;</code>
+          <span>十六进制帧</span>
+          <span>只读 Header，快速显示协议版本、消息类型、消息 ID 与报文长度</span>
+        </div>
+        <div class="api-row">
+          <code>decode &lt;HEX_OR_FILE&gt;</code>
+          <span>十六进制或 <code>.pcapng</code></span>
+          <span>解码消息体，渲染完整参数树或输出结构化 JSON</span>
+        </div>
+        <div class="api-row">
+          <code>validate &lt;HEX&gt;</code>
+          <span>十六进制帧</span>
+          <span>深度校验报文长度字段、TL/TLV 参数与嵌套结构完整性</span>
+        </div>
+        <div class="api-row">
+          <code>encode &lt;MESSAGE&gt;</code>
+          <span>消息名 + 选项</span>
+          <span>构造标准的 LLRP 1.0.1 / 1.1 / 2.0 报文十六进制</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PCAPNG -->
+    <section id="pcapng">
+      <h2>7. Wireshark .pcapng 抓包解析</h2>
+      <p>
+        <code>decode</code> 命令具备自动识别功能：若传入参数是 <code>.pcapng</code> 文件路径，工具会自动提取 TCP 数据流并重组完整的 LLRP 报文：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code># 1. 摘要模式（推荐：每条报文一行，显示方向徽标与通信对端）
+dotnet run --project src/LlrpCli -- decode ./reader-traffic.pcapng --output summary
+
+# 2. 仅过滤 RO_ACCESS_REPORT (MessageType=61) 报文并展开参数树
+dotnet run --project src/LlrpCli -- decode ./reader-traffic.pcapng --message-type 61 --output text
+
+# 3. 输出完整会话的结构化 JSON
+dotnet run --project src/LlrpCli -- decode ./reader-traffic.pcapng --output json</code></pre>
+      </div>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Reader CLI Documentation</span>
+  <span><a href="device-cli.html">查看虚拟设备服务 CLI →</a></span>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

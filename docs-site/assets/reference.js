@@ -51,7 +51,7 @@
     // Filter sidebar navigation links
     navLinks.forEach(link => {
       const href = link.getAttribute('href');
-      if (href.startsWith('#type-') || href.startsWith('#ns-')) {
+      if (href && href.startsWith('#') && !href.startsWith('#info-') && href !== '#quick-jump') {
         const targetId = href.substring(1);
         const targetEl = document.getElementById(targetId);
         if (targetEl) {

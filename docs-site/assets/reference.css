@@ -31,6 +31,9 @@ body.api-reference-page {
   line-height: 1.6;
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Sidebar */
@@ -248,7 +251,7 @@ body.api-reference-page {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 36px;
+  padding: 0 40px;
   z-index: 10;
   backdrop-filter: blur(12px);
   font-size: 13px;
@@ -277,10 +280,9 @@ body.api-reference-page {
 }
 
 .reference-content {
-  max-width: 1000px;
+  max-width: 100%;
   width: 100%;
-  margin: 0 auto;
-  padding: 40px 36px 100px;
+  padding: 40px 40px 100px;
   box-sizing: border-box;
 }
 

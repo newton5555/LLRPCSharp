@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Device SDK (LlrpDevice.*) 虚拟读写器与服务端完整公开 API 参考手册">
+  <title>Device SDK API Reference · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/reference.css">
+</head>
+<body class="api-reference-page">
+
+<!-- Left Navigation Sidebar -->
+<aside id="reference-sidebar">
+  <div class="reference-logo">
+    <a href="index.html">
+      <span class="mark">D</span>
+      <div>
+        <span>LLRPCSharp</span>
+        <small>Device API Reference</small>
+      </div>
+    </a>
+  </div>
+
+  <div class="reference-version">
+    <span class="dot" style="background:var(--ref-badge-interface);"></span> LlrpDevice.* · Server & Virtual
+  </div>
+
+  <div class="search-box-wrapper">
+    <span class="search-icon">🔍</span>
+    <input id="api-search" class="reference-search" type="search" placeholder="搜索类型、方法、属性..." aria-label="Search Device API symbols">
+  </div>
+  <div id="api-result-count" class="reference-search-result"></div>
+
+  <!-- Category Filter Pills -->
+  <div class="filter-pills">
+    <button class="filter-pill active" data-filter="all">全部</button>
+    <button class="filter-pill" data-filter="hosting">宿主门面</button>
+    <button class="filter-pill" data-filter="server">Server 协议引擎</button>
+    <button class="filter-pill" data-filter="virtual">虚拟仿真核</button>
+    <button class="filter-pill" data-filter="abstractions">核心抽象</button>
+    <button class="filter-pill" data-filter="profiles">能力 Profile</button>
+    <button class="filter-pill" data-filter="enums">枚举/异常</button>
+  </div>
+
+  <!-- Tree Navigation -->
+  <nav class="reference-nav" aria-label="Device API reference navigation">
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">概览与快速入口</div>
+      <a href="#info-overview">框架架构概览</a>
+      <a href="#info-examples">测试与启动示例</a>
+      <a href="#quick-jump">快速符号索引</a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">宿主生命周期 (Hosting)</div>
+      <a href="#type-virtualllrpdevicehost"><code>VirtualLlrpDeviceHost</code> <span class="badge class">Class</span></a>
+      <a href="#type-ivirtualllrpdevicehost"><code>IVirtualLlrpDeviceHost</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-virtualdevicehostoptions"><code>VirtualDeviceHostOptions</code> <span class="badge record">Record</span></a>
+      <a href="#type-virtualllrpdevicehoststate"><code>VirtualLlrpDeviceHostState</code> <span class="badge enum">Enum</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">服务端协议引擎 (Server)</div>
+      <a href="#type-lrpdeviceserver"><code>LlrpDeviceServer</code> <span class="badge class">Class</span></a>
+      <a href="#type-lrpdeviceserveroptions"><code>LlrpDeviceServerOptions</code> <span class="badge class">Class</span></a>
+      <a href="#type-lrpresourceregistry"><code>LlrpResourceRegistry</code> <span class="badge class">Class</span></a>
+      <a href="#type-lrpdeviceprotocol"><code>LlrpDeviceProtocol</code> <span class="badge class">Class</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">虚拟仿真核 (Virtual Engine)</div>
+      <a href="#type-virtualllrpdevice"><code>VirtualLlrpDevice</code> <span class="badge class">Class</span></a>
+      <a href="#type-virtualdeviceoptions"><code>VirtualDeviceOptions</code> <span class="badge class">Class</span></a>
+      <a href="#type-virtualtag"><code>VirtualTag</code> <span class="badge class">Class</span></a>
+      <a href="#type-ivirtualinventorydatasource"><code>IVirtualInventoryDataSource</code> <span class="badge interface">Interface</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">设备端核心抽象 (Abstractions)</div>
+      <a href="#type-illrpdevice"><code>ILlrpDevice</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-iinventoryexecution"><code>IInventoryExecution</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-inventoryexecutionparams"><code>InventoryExecutionParameters</code> <span class="badge class">Class</span></a>
+      <a href="#type-tagaccessopresult"><code>TagAccessOperationResult</code> <span class="badge class">Class</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">能力档案与预设 (Profiles)</div>
+      <a href="#type-profilecatalog"><code>VirtualDeviceCapabilityProfiles</code> <span class="badge class">Catalog</span></a>
+      <a href="#type-device-enums">枚举与状态</a>
+      <a href="#type-device-exceptions">异常体系</a>
+    </div>
+  </nav>
+</aside>
+
+<!-- Main Content Area -->
+<main id="reference-main">
+  <!-- Topbar Header -->
+  <header class="reference-topbar">
+    <div class="topbar-title">LLRPCSharp Device SDK (Server & Virtual) API Reference</div>
+    <div class="topbar-links">
+      <a href="index.html">← 首页</a>
+      <a href="device-sdk.html">Device SDK 指南</a>
+      <a href="api-reference.html" style="color:var(--ref-primary);font-weight:700;">切换到 Reader SDK 参考 ↗</a>
+      <a href="device-cli.html">Device CLI</a>
+      <a href="architecture.html">系统架构</a>
+      <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+  </header>
+
+  <article class="reference-content">
+    <!-- Header -->
+    <header class="reference-title">
+      <p class="reference-eyebrow">LLRPCSHARP / DEVICE SDK API REFERENCE</p>
+      <h1>Device SDK (服务端与虚拟读写器) API 参考手册</h1>
+      <p class="reference-lead">
+        <code>LlrpDevice.*</code> 系列包提供通用的 LLRP TCP 服务端引擎、虚拟读写器物理世界仿真核与嵌入式测试宿主。支持 3 行代码在单元测试与 CI 中启动内存读写器，或为真实射频硬件开发 LLRP 固件服务端。
+      </p>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="info-overview" class="reference-section">
+      <h2>架构与包依赖关系</h2>
+      <div class="reference-meta">
+        <dl>
+          <dt>LlrpDevice.Virtual.Hosting</dt>
+          <dd>宿主聚合门面 · xUnit 嵌入式测试</dd>
+        </dl>
+        <dl>
+          <dt>LlrpDevice.Server</dt>
+          <dd>通用 TCP 协议引擎 · 状态机路由</dd>
+        </dl>
+        <dl>
+          <dt>LlrpDevice.Virtual</dt>
+          <dd>物理天线 · RSSI 抖动 · 标签仿真</dd>
+        </dl>
+        <dl>
+          <dt>LlrpDevice.Abstractions</dt>
+          <dd>ILlrpDevice 设备端契约接口</dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- Quick Jump Index -->
+    <section id="quick-jump" class="reference-section">
+      <h2>快速符号索引 (Quick Jump)</h2>
+      <div class="quick-jump-grid">
+        <a href="#type-virtualllrpdevicehost" class="quick-jump-card" data-category="hosting">
+          <div class="quick-jump-card-header">
+            <code>VirtualLlrpDeviceHost</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>虚拟读写器宿主门面，用于在单元测试中 3 行代码启停服务端。</p>
+        </a>
+        <a href="#type-virtualdevicehostoptions" class="quick-jump-card" data-category="hosting">
+          <div class="quick-jump-card-header">
+            <code>VirtualDeviceHostOptions</code>
+            <span class="badge record">Record</span>
+          </div>
+          <p>宿主组合配置，聚合 Server 选项与 Device 仿真选项。</p>
+        </a>
+        <a href="#type-lrpdeviceserver" class="quick-jump-card" data-category="server">
+          <div class="quick-jump-card-header">
+            <code>LlrpDeviceServer</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>通用 TCP 服务端引擎，负责 LLRP 报文分发与资源生命周期状态机。</p>
+        </a>
+        <a href="#type-lrpdeviceserveroptions" class="quick-jump-card" data-category="server">
+          <div class="quick-jump-card-header">
+            <code>LlrpDeviceServerOptions</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>服务端网络参数（端口、监听地址、超时与协议策略）。</p>
+        </a>
+        <a href="#type-virtualdeviceoptions" class="quick-jump-card" data-category="virtual">
+          <div class="quick-jump-card-header">
+            <code>VirtualDeviceOptions</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>虚拟读写器射频行为配置（天线数、RSSI 抖动、标签列表）。</p>
+        </a>
+        <a href="#type-virtualtag" class="quick-jump-card" data-category="virtual">
+          <div class="quick-jump-card-header">
+            <code>VirtualTag</code>
+            <span class="badge class">Class</span>
+          </div>
+          <p>模拟标签实体，支持配置 EPC、TID、User 区与初始天线和 RSSI。</p>
+        </a>
+        <a href="#type-illrpdevice" class="quick-jump-card" data-category="abstractions">
+          <div class="quick-jump-card-header">
+            <code>ILlrpDevice</code>
+            <span class="badge interface">Interface</span>
+          </div>
+          <p>设备端核心契约接口，支持桥接自定义硬件射频芯片。</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- Examples Section -->
+    <section id="info-examples" class="reference-section">
+      <h2>典型使用代码示例</h2>
+      <div class="api-example">
+        <div class="example-heading">
+          <span>01. 在 xUnit 集成测试中启动虚拟读写器</span>
+          <button class="copy-example" type="button">复制代码</button>
+        </div>
+        <pre><code>using LlrpDevice.Virtual;
+using LlrpDevice.Virtual.Hosting;
+using LlrpSdk;
+using Xunit;
+
+public class IntegrationTests
+{
+    [Fact]
+    public async Task Reader_Should_Read_Simulated_Tags()
+    {
+        // 1. 创建虚拟读写器配置（Port=0 自动绑定空闲端口）
+        var hostOptions = new VirtualDeviceHostOptions
+        {
+            Server = new LlrpDeviceServerOptions { Port = 0 },
+            Device = new VirtualDeviceOptions
+            {
+                Tags = [ new VirtualTag { EpcHex = "E28011910000000000000001", AntennaId = 1, BaseRssi = -55.0 } ]
+            }
+        };
+
+        // 2. 启动虚拟读写器
+        await using IVirtualLlrpDeviceHost host = VirtualLlrpDeviceHost.Create(hostOptions);
+        await host.StartAsync();
+
+        // 3. 使用客户端连接测试
+        await using var reader = LlrpReader.CreateBuilder("127.0.0.1").WithPort(host.BoundPort).Build();
+        await reader.ConnectAsync();
+        
+        // 4. 盘点验证...
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 1: HOSTING -->
+    <section class="reference-section" id="sec-hosting">
+      <h2>宿主生命周期 (LlrpDevice.Virtual.Hosting)</h2>
+
+      <!-- Type: VirtualLlrpDeviceHost -->
+      <div id="type-virtualllrpdevicehost" class="api-type" data-category="hosting" data-search="VirtualLlrpDeviceHost IVirtualLlrpDeviceHost Create StartAsync StopAsync BoundPort ListenAddress">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <span class="ns-tag">namespace LlrpDevice.Virtual.Hosting</span>
+            <h3>VirtualLlrpDeviceHost</h3>
+          </div>
+          <span class="badge class">Class</span>
+        </div>
+        <div class="type-declaration">public sealed class VirtualLlrpDeviceHost : IVirtualLlrpDeviceHost</div>
+        <p class="type-desc">虚拟读写器宿主门面实现。组合了 <code>LlrpDeviceServer</code> 与 <code>VirtualLlrpDevice</code>，统一对外暴露生命周期与端口信息。</p>
+        <table class="member-table">
+          <thead><tr><th>成员</th><th>类型</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr class="api-entry" data-search="Create">
+              <td><code>static IVirtualLlrpDeviceHost Create(VirtualDeviceHostOptions options)</code></td>
+              <td class="type-col"><code>Method</code></td>
+              <td class="desc-col">基于指定配置构建虚拟读写器宿主实例。</td>
+            </tr>
+            <tr class="api-entry" data-search="StartAsync">
+              <td><code>Task StartAsync(CancellationToken cancellationToken = default)</code></td>
+              <td class="type-col"><code>Method</code></td>
+              <td class="desc-col">启动 TCP 监听服务端并初始化虚拟设备状态。</td>
+            </tr>
+            <tr class="api-entry" data-search="StopAsync">
+              <td><code>Task StopAsync(CancellationToken cancellationToken = default)</code></td>
+              <td class="type-col"><code>Method</code></td>
+              <td class="desc-col">停止监听并断开所有活跃客户端连接。</td>
+            </tr>
+            <tr class="api-entry" data-search="BoundPort">
+              <td><code>int BoundPort { get; }</code></td>
+              <td class="type-col"><code>Property</code></td>
+              <td class="desc-col">服务端实际绑定的本地 TCP 端口（当请求端口为 0 时返回系统分配的临时端口）。</td>
+            </tr>
+            <tr class="api-entry" data-search="State">
+              <td><code>VirtualLlrpDeviceHostState State { get; }</code></td>
+              <td class="type-col"><code>Property</code></td>
+              <td class="desc-col">宿主当前生命周期状态（<code>Created</code>, <code>Starting</code>, <code>Running</code>, <code>Stopping</code>, <code>Stopped</code>）。</td>
+            </tr>
+            <tr class="api-entry" data-search="Device">
+              <td><code>ILlrpDevice Device { get; }</code></td>
+              <td class="type-col"><code>Property</code></td>
+              <td class="desc-col">获取宿主内部承载的虚拟设备实例。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Type: VirtualDeviceHostOptions -->
+      <div id="type-virtualdevicehostoptions" class="api-type" data-category="hosting" data-search="VirtualDeviceHostOptions Server Device InventoryDataSource">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <span class="ns-tag">namespace LlrpDevice.Virtual.Hosting</span>
+            <h3>VirtualDeviceHostOptions</h3>
+          </div>
+          <span class="badge record">Record</span>
+        </div>
+        <div class="type-declaration">public sealed record VirtualDeviceHostOptions</div>
+        <table class="member-table">
+          <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr class="api-entry" data-search="Server">
+              <td><code>Server</code></td>
+              <td class="type-col"><code>LlrpDeviceServerOptions</code></td>
+              <td class="desc-col">网络与连接选项（端口、监听地址、客户端超时）。</td>
+            </tr>
+            <tr class="api-entry" data-search="Device">
+              <td><code>Device</code></td>
+              <td class="type-col"><code>VirtualDeviceOptions</code></td>
+              <td class="desc-col">虚拟硬件与射频行为选项（Profile、天线数、模拟标签列表、RSSI 抖动）。</td>
+            </tr>
+            <tr class="api-entry" data-search="InventoryDataSource">
+              <td><code>InventoryDataSource</code></td>
+              <td class="type-col"><code>IVirtualInventoryDataSource?</code></td>
+              <td class="desc-col">可选的独立动态盘点数据源发生器。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 2: SERVER ENGINE -->
+    <section class="reference-section" id="sec-server">
+      <h2>服务端协议引擎 (LlrpDevice.Server)</h2>
+
+      <!-- Type: LlrpDeviceServer -->
+      <div id="type-lrpdeviceserver" class="api-type" data-category="server" data-search="LlrpDeviceServer StartAsync StopAsync LlrpDevice.Server">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <span class="ns-tag">namespace LlrpDevice.Server</span>
+            <h3>LlrpDeviceServer</h3>
+          </div>
+          <span class="badge class">Class</span>
+        </div>
+        <div class="type-declaration">public sealed class LlrpDeviceServer : IAsyncDisposable</div>
+        <p class="type-desc">
+          通用的独立 LLRP TCP 服务端引擎。内部维护客户端连接管道、帧拆装、版本协商与基于规范的 <code>LlrpResourceRegistry</code> 资源管理状态机。
+        </p>
+      </div>
+
+      <!-- Type: LlrpDeviceServerOptions -->
+      <div id="type-lrpdeviceserveroptions" class="api-type" data-category="server" data-search="LlrpDeviceServerOptions ListenAddress Port ClientConnectionTimeout">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <span class="ns-tag">namespace LlrpDevice.Server</span>
+            <h3>LlrpDeviceServerOptions</h3>
+          </div>
+          <span class="badge class">Class</span>
+        </div>
+        <table class="member-table">
+          <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr class="api-entry" data-search="ListenAddress">
+              <td><code>ListenAddress</code></td>
+              <td class="type-col"><code>IPAddress</code></td>
+              <td class="desc-col">监听的网络 IP 地址（默认 <code>IPAddress.Any</code>）。</td>
+            </tr>
+            <tr class="api-entry" data-search="Port">
+              <td><code>Port</code></td>
+              <td class="type-col"><code>int</code></td>
+              <td class="desc-col">监听端口（默认 <code>5084</code>，指定 <code>0</code> 自动分配临时端口）。</td>
+            </tr>
+            <tr class="api-entry" data-search="ClientConnectionTimeout">
+              <td><code>ClientConnectionTimeout</code></td>
+              <td class="type-col"><code>TimeSpan</code></td>
+              <td class="desc-col">客户端握手与空闲连接超时时间。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 3: VIRTUAL ENGINE -->
+    <section class="reference-section" id="sec-virtual">
+      <h2>虚拟仿真核 (LlrpDevice.Virtual)</h2>
+
+      <!-- Type: VirtualDeviceOptions -->
+      <div id="type-virtualdeviceoptions" class="api-type" data-category="virtual" data-search="VirtualDeviceOptions Profile AntennaCount RssiJitterDb Tags">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <span class="ns-tag">namespace LlrpDevice.Virtual</span>
+            <h3>VirtualDeviceOptions</h3>
+          </div>
+          <span class="badge class">Class</span>
+        </div>
+        <table class="member-table">
+          <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr class="api-entry" data-search="Profile">
+              <td><code>Profile</code></td>
+              <td class="type-col"><code>string</code></td>
+              <td class="desc-col">硬件能力预设标识符（默认 <code>llrp1.0.1_standard</code>）。</td>
+            </tr>
+            <tr class="api-entry" data-search="AntennaCount">
+              <td><code>AntennaCount</code></td>
+              <td class="type-col"><code>int</code></td>
+              <td class="desc-col">模拟的天线端口总数（默认 <code>4</code>）。</td>
+            </tr>
+            <tr class="api-entry" data-search="RssiJitterDb">
+              <td><code>RssiJitterDb</code></td>
+              <td class="type-col"><code>double</code></td>
+              <td class="desc-col">射频信号强度高斯随机抖动标准差（单位 dB）。</td>
+            </tr>
+            <tr class="api-entry" data-search="Tags">
+              <td><code>List&lt;VirtualTag&gt;</code></td>
+              <td class="type-col"><code>List&lt;VirtualTag&gt;</code></td>
+              <td class="desc-col">初始注入到虚拟环境的标签列表。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Type: VirtualTag -->
+      <div id="type-virtualtag" class="api-type" data-category="virtual" data-search="VirtualTag EpcHex TidHex UserMemoryHex AntennaId BaseRssi AccessPassword">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <span class="ns-tag">namespace LlrpDevice.Virtual</span>
+            <h3>VirtualTag</h3>
+          </div>
+          <span class="badge class">Class</span>
+        </div>
+        <table class="member-table">
+          <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr class="api-entry" data-search="EpcHex">
+              <td><code>EpcHex</code></td>
+              <td class="type-col"><code>string</code></td>
+              <td class="desc-col">EPC 十六进制编码（如 <code>E28011910000000000000001</code>）。</td>
+            </tr>
+            <tr class="api-entry" data-search="TidHex">
+              <td><code>TidHex</code></td>
+              <td class="type-col"><code>string?</code></td>
+              <td class="desc-col">TID 存储区十六进制编码（如 <code>E28011052000600123456789</code>）。</td>
+            </tr>
+            <tr class="api-entry" data-search="UserMemoryHex">
+              <td><code>UserMemoryHex</code></td>
+              <td class="type-col"><code>string?</code></td>
+              <td class="desc-col">User 存储区十六进制数据。</td>
+            </tr>
+            <tr class="api-entry" data-search="AntennaId">
+              <td><code>AntennaId</code></td>
+              <td class="type-col"><code>ushort</code></td>
+              <td class="desc-col">当前所处的模拟天线端口编号。</td>
+            </tr>
+            <tr class="api-entry" data-search="BaseRssi">
+              <td><code>BaseRssi</code></td>
+              <td class="type-col"><code>double</code></td>
+              <td class="desc-col">基准接收信号强度（dBm，如 <code>-55.0</code>）。</td>
+            </tr>
+            <tr class="api-entry" data-search="AccessPassword">
+              <td><code>AccessPassword</code></td>
+              <td class="type-col"><code>string</code></td>
+              <td class="desc-col">8 字符十六进制访问密码（默认 <code>00000000</code>）。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 4: ABSTRACTIONS -->
+    <section class="reference-section" id="sec-abstractions">
+      <h2>设备端核心抽象 (LlrpDevice.Abstractions)</h2>
+
+      <!-- Type: ILlrpDevice -->
+      <div id="type-illrpdevice" class="api-type" data-category="abstractions" data-search="ILlrpDevice Capabilities Status StartInventoryAsync ExecuteTagAccessAsync">
+        <div class="api-type-header">
+          <div class="api-type-title">
+            <span class="ns-tag">namespace LlrpDevice.Abstractions</span>
+            <h3>ILlrpDevice</h3>
+          </div>
+          <span class="badge interface">Interface</span>
+        </div>
+        <div class="type-declaration">public interface ILlrpDevice</div>
+        <p class="type-desc">设备端通用行为接口，负责定义硬件能力、执行盘点通道与响应 C1G2 内存访问。</p>
+        <table class="member-table">
+          <thead><tr><th>方法/属性</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr class="api-entry" data-search="Capabilities">
+              <td><code>ReaderCapabilities Capabilities { get; }</code></td>
+              <td class="desc-col">设备硬件能力表（天线数、功率表、RF Mode 表）。</td>
+            </tr>
+            <tr class="api-entry" data-search="StartInventoryAsync">
+              <td><code>Task&lt;IInventoryExecution&gt; StartInventoryAsync(InventoryExecutionParameters, CancellationToken)</code></td>
+              <td class="desc-col">启动射频盘点通道并返回 <code>IInventoryExecution</code>。</td>
+            </tr>
+            <tr class="api-entry" data-search="ExecuteTagAccessAsync">
+              <td><code>Task&lt;TagAccessOperationResult&gt; ExecuteTagAccessAsync(TagAccessRequest, CancellationToken)</code></td>
+              <td class="desc-col">执行 C1G2 内存读写、加锁或灭活操作并返回结果。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 5: PROFILES & ENUMS -->
+    <section class="reference-section" id="type-profiles">
+      <h2>内置能力 Profile 汇总</h2>
+      <table class="reference-table">
+        <thead><tr><th>Profile 标识符</th><th>天线数</th><th>扩展与特性</th></tr></thead>
+        <tbody>
+          <tr class="api-entry" data-search="llrp1.0.1_standard">
+            <td><code>llrp1.0.1_standard</code></td>
+            <td>4</td>
+            <td>标准 LLRP 1.0.1 协议基线，支持标准 Tari 与 Gen2 Session。</td>
+          </tr>
+          <tr class="api-entry" data-search="impinj.r420.llrp-1.0.1">
+            <td><code>impinj.r420.llrp-1.0.1</code></td>
+            <td>4</td>
+            <td>Impinj Speedway Revolution R420 档案，支持 Impinj 厂商扩展与 RF 相位。</td>
+          </tr>
+          <tr class="api-entry" data-search="llrp1.1_standard">
+            <td><code>llrp1.1_standard</code></td>
+            <td>4</td>
+            <td>标准 LLRP 1.1 协议基线，支持版本协商与扩展字段。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- SECTION 6: ENUMS & EXCEPTIONS -->
+    <section class="reference-section" id="type-device-enums">
+      <h2>设备端枚举与异常 (Enums & Exceptions)</h2>
+      <table class="reference-table">
+        <thead><tr><th>类型名称</th><th>种类</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr class="api-entry" data-search="VirtualLlrpDeviceHostState">
+            <td><code>VirtualLlrpDeviceHostState</code></td>
+            <td>Enum</td>
+            <td><code>Created</code>, <code>Starting</code>, <code>Running</code>, <code>Stopping</code>, <code>Stopped</code>, <code>Faulted</code></td>
+          </tr>
+          <tr class="api-entry" data-search="LlrpDeviceServerState">
+            <td><code>LlrpDeviceServerState</code></td>
+            <td>Enum</td>
+            <td><code>Stopped</code>, <code>Listening</code>, <code>ClientConnected</code>, <code>Faulted</code></td>
+          </tr>
+          <tr class="api-entry" data-search="LlrpDeviceServerException">
+            <td><code>LlrpDeviceServerException</code></td>
+            <td>Exception</td>
+            <td>设备端 TCP 监听建立失败或报文路由异常。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </article>
+</main>
+
+<script src="assets/app.js"></script>
+<script src="assets/reference.js"></script>
+</body>
+</html>
