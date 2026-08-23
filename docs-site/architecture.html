@@ -35,6 +35,7 @@
     <a href="state.html">状态模型</a>
     <a href="expert-raw.html">专家与 Raw</a>
     <p class="eyebrow" style="margin-top:20px;">ON THIS PAGE</p>
+    <a href="#ltknet-modernization">LTK.NET 现代化演进</a>
     <a href="#layers">四层架构模型</a>
     <a href="#ownership">资源与命名空间</a>
     <a href="#protocol">协议适配器边界</a>
@@ -46,8 +47,58 @@
     <p class="eyebrow">04 / SYSTEM ARCHITECTURE</p>
     <h1>高内聚的业务门面，开放可扩展的协议内核</h1>
     <p class="doc-lead">
-      LLRPCSharp 将底层字节流、LLRP 帧解包、多版本协议定义、状态机与高层业务 API 分层解耦。不仅提供现代 C# 的简洁高层接口，也为离线编解码、自动化测试和虚拟设备提供了统一坚实的技术底座。
+      LLRPCSharp 将底层字节流、LLRP 帧解包、多版本协议定义、状态机与高层业务 API 分层解耦。不仅对传统 LTK.NET 进行全面现代化重构，也为离线编解码、自动化测试和虚拟设备提供了统一坚实的技术底座。
     </p>
+
+    <!-- LTK.NET Modernization -->
+    <section id="ltknet-modernization">
+      <h2>从 LTK.NET 到 LlrpNet：协议层的现代化重构</h2>
+      <p>
+        传统的 <strong>LTK.NET (LLRP Tool Kit for .NET)</strong> 诞生于 .NET Framework 2.0/3.5 时代，是 EPCglobal 官方推进的经典开源实现。它开创了“机器可读 XML 定义生成强类型协议代码”的优秀范式，但随着现代 .NET 运行时的演进，其历史局限性日益突出：
+      </p>
+      
+      <div class="api-table">
+        <div class="api-row api-head">
+          <span>对比维度</span>
+          <span>传统 LTK.NET (Legacy)</span>
+          <span>现代 LlrpNet / LLRPCSharp</span>
+        </div>
+        <div class="api-row">
+          <code>定义输入与生成</code>
+          <span>仅支持单一 XML (llrp-1x0-def.xml)，依赖旧版 XSLT 转换</span>
+          <span>双输入流水线：支持官方 LTK XML 与手写 YAML，生成不可变强类型模型与高性能 Codec</span>
+        </div>
+        <div class="api-row">
+          <code>内存与 GC 分配</code>
+          <span>依赖 ArrayList / 装箱拆箱，频繁 byte[] 复制，高并发下 GC 停顿严重</span>
+          <span>全面基于 <code>ReadOnlyMemory&lt;byte&gt;</code>、<code>Span&lt;byte&gt;</code> 与 <code>BinaryPrimitives</code>，实现零拷贝解析与低内存分配</span>
+        </div>
+        <div class="api-row">
+          <code>异步并发模型</code>
+          <span>旧式 APM 模式 (BeginRead/EndRead) 或线程阻塞轮询，易死锁</span>
+          <span>原生 <code>async/await</code>、<code>System.Threading.Channels</code>、<code>IAsyncEnumerable&lt;TagReport&gt;</code> 异步流与背压控制</span>
+        </div>
+        <div class="api-row">
+          <code>架构分层解耦</code>
+          <span>网络传输、XML 解析、协议实体、业务调用全部糅合在单体程序集</span>
+          <span>高度分层：<code>LlrpNet.Core</code> 传输核心、<code>LlrpNet.Protocol.*</code> 纯协议模型、<code>LlrpSdk</code> 业务门面、<code>LlrpDevice.*</code> 设备端仿真</span>
+        </div>
+        <div class="api-row">
+          <code>多版本与厂商扩展</code>
+          <span>硬编码锁定在 LLRP 1.0.1，无法支持版本协商</span>
+          <span>严格隔离 1.0.1 / 1.1 / 2.0 命名空间，通过 <code>ILlrpProtocolAdapter</code> 运行时自适应协商，厂商扩展 (Impinj/Zebra) 模块化插件接入</span>
+        </div>
+        <div class="api-row">
+          <code>上层业务抽象</code>
+          <span>无高层封装，开发者必须手工拼接数十层嵌套的 PARAM_* 参数树</span>
+          <span>提供 Octane 风格的 <code>ReaderSettings</code> 声明式意图与 <code>InventorySession</code>，自动编译为标准 ROSpec/AccessSpec</span>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <strong>继承与兼容：</strong> LLRPCSharp 完整保留了 LTK.NET 生成代码的协议精确度，底层支持通过 <code>reader.Protocol</code> 与 <code>LlrpNet.Protocol</code> 直接构造或反序列化原生消息；对于需要从老旧 LTK.NET 项目迁移的系统，既可享受底层 100% 协议兼容，又能获得现代 .NET 10 的十倍级吞吐与低时延收益。
+      </div>
+    </section>
 
     <!-- Layers -->
     <section id="layers">
