@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp 专家资源 API、Raw Protocol 和 StartExistingRoSpecAsync 逃生通道">
+  <title>专家与 Raw · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>SDK Docs</small></span>
+  </a>
+  <button class="menu-toggle">☰</button>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="api.html">API 总览</a>
+    <a href="api-reference.html">API Reference</a>
+    <a href="state.html">状态模型</a>
+    <a href="expert-raw.html">专家与 Raw</a>
+    <a href="architecture.html">架构</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <aside class="side-nav">
+    <p class="eyebrow">ESCAPE HATCHES</p>
+    <a href="#expert">专家资源 API</a>
+    <a href="#existing">桥接运行已有 ROSpec</a>
+    <a href="#raw">Raw Protocol 通道</a>
+    <a href="#rules">三条安全规则</a>
+  </aside>
+
+  <article class="doc-content">
+    <p class="eyebrow">03 / EXPERT & RAW ESCAPE HATCHES</p>
+    <h1>深入协议底层，完成后无缝返回托管层</h1>
+    <p class="doc-lead">
+      专家和 Raw API 是托管 API 的正交扩展通道：允许你绕过高级抽象查看设备现状、试验非标资源、发送自定义厂商报文，然后回到高层的会话与标签报告模型。
+    </p>
+
+    <!-- Expert Resource API -->
+    <section id="expert">
+      <h2>专家资源 API (IRoSpecService & IAccessSpecService)</h2>
+      <p>
+        连接就绪 (Ready) 后，可直接通过 <code>reader.RoSpecs</code> 和 <code>reader.AccessSpecs</code> 操作读写器资源。查询操作不会改变状态；修改操作会让设备资源观测变为 <code>Stale</code>，但 <strong>不会清除 SDK 持有的 DesiredSettings</strong>。
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code>// 1. 查询读写器当前所有已存在的 ROSpec
+var roSpecs = await reader.RoSpecs.GetAllAsync(cancellationToken);
+
+// 2. 添加并管理自定义 ROSpec (例如 ID = 600)
+await reader.RoSpecs.AddAsync(customRoSpecParameter, cancellationToken);
+await reader.RoSpecs.EnableAsync(600, cancellationToken);
+await reader.RoSpecs.StartAsync(600, cancellationToken);
+await reader.RoSpecs.StopAsync(600, cancellationToken);
+await reader.RoSpecs.DisableAsync(600, cancellationToken);
+await reader.RoSpecs.DeleteAsync(600, cancellationToken);
+
+// 3. 删除全部资源需显式指定 ReplaceAll 策略
+await reader.RoSpecs.DeleteAllAsync(ResourceTakeoverPolicy.ReplaceAll, cancellationToken);</code></pre>
+      </div>
+      <div class="callout">
+        <strong>提示：</strong> 专家资源 API 在连接 Ready 后随时可用，不需要像旧版 SDK 那样显式进入或退出“手动模式”。
+      </div>
+    </section>
+
+    <!-- Existing ROSpec Bridge -->
+    <section id="existing">
+      <h2>桥接已有 ROSpec 到高层标签流</h2>
+      <p>
+        当你通过专家 API 或外部系统在设备上创建了特殊的 ROSpec，但依然希望使用 SDK 强大的异步标签流 (<code>InventorySession</code>)、背压控制和生命周期管理时，使用 <code>StartExistingRoSpecAsync</code>：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code>// 1. 通过专家 API 或外部系统部署自定义 ROSpec 600
+await reader.RoSpecs.AddAsync(customRoSpec, ct);
+
+// 2. 桥接为 SDK 的 InventorySession 会话
+await using InventorySession session = await reader.StartExistingRoSpecAsync(600, ct);
+
+// 3. 实时接收标签报告
+await foreach (TagReport tag in session.ReadReportsAsync(ct))
+{
+    Console.WriteLine($"[EPC] {tag.EpcHex} | 天线: {tag.AntennaId}");
+}</code></pre>
+      </div>
+      <div class="callout">
+        <strong>关键区别：</strong> <code>StartExistingRoSpecAsync</code> 不编译、不删除、不覆盖指定的 ROSpec；会话结束 (Stop/Dispose) 时也会保留该 ROSpec，不会从设备上删除。
+      </div>
+    </section>
+
+    <!-- Raw Protocol -->
+    <section id="raw">
+      <h2>Raw Protocol 通道 (IReaderProtocolAccess)</h2>
+      <p>
+        <code>reader.Protocol</code> 提供了向读写器发送任意已编码/未封装消息和原始二进制帧的能力。SDK 会自动串行化 Raw 操作与托管资源操作，避免并发控制冲突。
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code>using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
+
+// 1. 发送强类型消息事务
+var response = await reader.Protocol.TransactAsync&lt;V101Messages.CUSTOM_MESSAGE_RESPONSE&gt;(
+    new V101Messages.CUSTOM_MESSAGE(reader.Protocol.NextMessageId())
+    {
+        // 组装厂商私有参数
+    },
+    cancellationToken: ct);
+
+// 2. 发送原始二进制帧 (零拷贝)
+ReadOnlyMemory&lt;byte&gt; requestFrame = File.ReadAllBytes("custom-frame.bin");
+ReadOnlyMemory&lt;byte&gt; responseFrame = await reader.Protocol.TransactRawAsync(
+    requestFrame,
+    responseMatcher: frame => frame.Span[1] == 0x04, // 自定义匹配器
+    cancellationToken: ct);</code></pre>
+      </div>
+      <div class="raw-grid">
+        <div>
+          <span class="raw-label readonly">READ-ONLY</span>
+          <h3>GET 查询消息</h3>
+          <p>如 <code>GET_ROSPECS</code>，仅读取状态，不会使托管观测失效。</p>
+        </div>
+        <div>
+          <span class="raw-label mutating">MUTATING</span>
+          <h3>写 / 删 / 启停消息</h3>
+          <p>如 <code>DELETE_ROSPEC</code>，标记 Observed=Stale，但保留 DesiredSettings。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rules -->
+    <section id="rules">
+      <h2>三条安全规则</h2>
+      <div class="number-list">
+        <div>
+          <b>01</b>
+          <span>想运行外部或手工创建的 ROSpec，使用 <code>StartExistingRoSpecAsync(id)</code>。</span>
+        </div>
+        <div>
+          <b>02</b>
+          <span>想让 SDK 根据 Desired 重新收敛并恢复盘点，使用无参 <code>StartInventoryAsync()</code>。</span>
+        </div>
+        <div>
+          <b>03</b>
+          <span>只有在应用明确独占整台读写器所有资源时，才使用 <code>ReplaceAll</code>。</span>
+        </div>
+      </div>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Expert & Raw Guide</span>
+  <span><a href="api-reference.html">查看完整 API Reference →</a></span>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

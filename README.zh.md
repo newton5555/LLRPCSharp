@@ -6,6 +6,8 @@
 ![LLRP](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-2563eb?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-16a34a?style=flat-square)
 
+[📚 查看完整 SDK 文档站](https://newton5555.github.io/LLRPCSharp/)
+
 LLRPCSharp 是一套面向现代 .NET 的 LLRP RFID 读写器开发工具。它的主产品是 **LlrpSdk**：一个管理连接生命周期、能力发现、设置、盘存、标签报告和标准 C1G2 Tag Access 的托管 Reader API。
 
 仓库还包含底层协议栈、可选厂商扩展、客户端与设备端命令行工具，以及确定性的 TCP/LLRP 虚拟读写器。这些组件共享同一套协议基础，同时严格分离客户端和设备端职责。

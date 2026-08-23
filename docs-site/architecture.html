@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp SDK 架构设计、分层模型、协议适配与虚拟设备">
+  <title>系统架构 · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>SDK Docs</small></span>
+  </a>
+  <button class="menu-toggle">☰</button>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="api.html">API 总览</a>
+    <a href="api-reference.html">API Reference</a>
+    <a href="state.html">状态模型</a>
+    <a href="expert-raw.html">专家与 Raw</a>
+    <a href="architecture.html">架构</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <aside class="side-nav">
+    <p class="eyebrow">ARCHITECTURE</p>
+    <a href="#layers">四层架构模型</a>
+    <a href="#ownership">资源与命名空间</a>
+    <a href="#protocol">协议适配器边界</a>
+    <a href="#virtual">虚拟读写器系统</a>
+    <a href="#codegen">代码生成管道</a>
+  </aside>
+
+  <article class="doc-content">
+    <p class="eyebrow">04 / SYSTEM ARCHITECTURE</p>
+    <h1>高内聚的业务门面，开放可扩展的协议内核</h1>
+    <p class="doc-lead">
+      LLRPCSharp 将底层字节流、LLRP 帧解包、多版本协议定义、状态机与高层业务 API 分层解耦。不仅提供现代 C# 的简洁高层接口，也为离线编解码、自动化测试和虚拟设备提供了统一坚实的技术底座。
+    </p>
+
+    <!-- Layers -->
+    <section id="layers">
+      <h2>四层架构模型</h2>
+      <div class="architecture-stack">
+        <div>
+          <span>04</span>
+          <strong>Application / CLI</strong>
+          <p>业务应用代码、<code>LlrpCli</code> 控制台工具、Live 诊断交互 Shell 与自动化脚本。</p>
+        </div>
+        <div>
+          <span>03</span>
+          <strong>LlrpSdk Facade</strong>
+          <p><code>LlrpReader</code> 门面、<code>ReaderSettings</code> 意图、<code>InventorySession</code>、C1G2 Tag Access 与厂商扩展注入。</p>
+        </div>
+        <div>
+          <span>02</span>
+          <strong>Protocol Adapter</strong>
+          <p><code>ILlrpProtocolAdapter</code>、LLRP 1.0.1 / 1.1 / 2.0 编译翻译、反向反解析、事件投影与版本协商。</p>
+        </div>
+        <div>
+          <span>01</span>
+          <strong>Transport & Session</strong>
+          <p><code>LlrpNet.Core</code> 传输通道、TCP 帧重组 (Framing)、消息事务匹配器 (Transactions) 与异步分发泵。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ownership -->
+    <section id="ownership">
+      <h2>资源所有权与隔离边界</h2>
+      <p>
+        SDK 托管层使用专有的保留资源 ID，既保证自动管理的便捷性，又防止干扰其他系统：
+      </p>
+      <div class="ownership-grid">
+        <div>
+          <span class="tag desired">MANAGED</span>
+          <h3>SDK 托管资源</h3>
+          <p>固定使用 ROSpec <code>14150</code> 与 AccessSpec <code>14151</code>，由托管 API 自动部署与收敛。</p>
+        </div>
+        <div>
+          <span class="tag observed">FOREIGN</span>
+          <h3>外部/第三方资源</h3>
+          <p>默认采用 <code>PreserveForeign</code> 策略完整保留，发生冲突时上报异常而非静默删除。</p>
+        </div>
+        <div>
+          <span class="tag restored">ATTACHED</span>
+          <h3>已有 ROSpec 桥接</h3>
+          <p>通过 <code>StartExistingRoSpecAsync(id)</code> 接入 SDK 报告流，会话停止时保留定义。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Protocol Adapter -->
+    <section id="protocol">
+      <h2>协议适配器边界 (Multi-Version Convention)</h2>
+      <p>
+        为了支持多版本 LLRP（1.0.1、1.1、2.0），协议层生成独立的强类型命名空间。高层 SDK 门面零依赖特定版本生成类型，所有跨版本转换由 <code>ILlrpProtocolAdapter</code> 承担。
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code>// 多版本显式别名约定（禁止裸 using 版本化命名空间）
+using V101Parameters = LlrpNet.Protocol.Parameters.V1_0_1;
+using V11Parameters = LlrpNet.Protocol.Parameters.V1_1;
+using V20Parameters = LlrpNet.Protocol.Parameters.V2_0;
+
+// 版本显式清晰，防止不同版本 LLRP 类型混淆
+V101Parameters.ROSpec roSpec101 = new(roSpecID: 14150, priority: 0, ...);
+V11Parameters.ROSpec roSpec11 = new(roSpecID: 14150, priority: 0, ...);</code></pre>
+      </div>
+    </section>
+
+    <!-- Virtual Device -->
+    <section id="virtual">
+      <h2>通用设备端 Server 与 Virtual Device</h2>
+      <p>
+        仓库内完整实现了生产级的虚拟读写器框架，无需物理硬件即可进行 CI 自动化与应用联调：
+      </p>
+      <ul>
+        <li><strong><code>LlrpDevice.Abstractions</code></strong>：设备端通用合同（<code>ILlrpDevice</code>、<code>IInventoryExecution</code>、硬件配置与事件）。</li>
+        <li><strong><code>LlrpDevice.Server</code></strong>：通用的独立设备端 TCP 服务端，支持 1.0.1 / 1.1 / 2.0 报文分发、状态机、Keepalive、ROReportSpec 与 C1G2 模拟。</li>
+        <li><strong><code>LlrpDevice.Virtual</code></strong>：确定性标签发生器、天线过滤、RSSI 抖动与多标签移动模拟。</li>
+        <li><strong><code>LlrpDevice.Virtual.Hosting</code></strong>：供外部进程直接调用的 <code>IVirtualDeviceHost</code> 门面。</li>
+        <li><strong><code>LlrpVirtualDevice.Cli</code></strong>：独立的虚拟设备命令行服务，内置交互 Shell 与预设 Profile。</li>
+      </ul>
+      <div class="callout tip">
+        <strong>提示：</strong> 虚拟设备支持 <code>llrp1.0.1_standard</code> 与 <code>impinj.r420.llrp-1.0.1</code> 档案，可直接接受 Impinj ItemTest 等标准 LLRP 客户端连接。
+      </div>
+    </section>
+
+    <!-- Codegen -->
+    <section id="codegen">
+      <h2>协议定义与代码生成管道</h2>
+      <p>
+        所有协议实体源于 <code>definitions/</code> 下的规范定义（XML/YAML）。通过 <code>LlrpNet.ProtocolGenerator</code> 自动化生成不可变消息、参数、枚举与编解码器，禁止手工编辑 <code>*.g.cs</code> 生成代码，确保协议一致性。
+      </p>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Architecture Overview</span>
+  <span><a href="api-reference.html">查看完整 API Reference →</a></span>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

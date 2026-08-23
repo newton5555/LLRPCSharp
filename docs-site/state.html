@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp DesiredSettings、ObservedState 和资源状态转换模型">
+  <title>状态模型 · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
+    <span>LLRPCSharp<small>SDK Docs</small></span>
+  </a>
+  <button class="menu-toggle">☰</button>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="api.html">API 总览</a>
+    <a href="api-reference.html">API Reference</a>
+    <a href="state.html">状态模型</a>
+    <a href="expert-raw.html">专家与 Raw</a>
+    <a href="architecture.html">架构</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <aside class="side-nav">
+    <p class="eyebrow">STATE MODEL</p>
+    <a href="#two-states">两种状态解耦</a>
+    <a href="#transitions">典型状态转换</a>
+    <a href="#synchronize">Synchronize 职责</a>
+    <a href="#recovery">自动与显式恢复</a>
+  </aside>
+
+  <article class="doc-content">
+    <p class="eyebrow">02 / SDK STATE & RESOURCE MODEL</p>
+    <h1>设备现实与托管意图：解耦与双轨管理</h1>
+    <p class="doc-lead">
+      在工业 RFID 环境中，多个客户端或手工指令可能随时改写读写器配置。LLRPCSharp 状态模型的核心是将“应用期望的配置意图 (DesiredState)”与“设备当前的实际状态快照 (ObservedState)”彻底解耦，保障在任意底层改动后托管层依然能够准确观测与恢复。
+    </p>
+
+    <!-- Two States -->
+    <section id="two-states">
+      <h2>两种状态维度的分离</h2>
+      <div class="state-columns">
+        <div class="state-panel desired-panel">
+          <span class="state-kicker">DESIRED STATE (期望意图)</span>
+          <h3>应用想要什么</h3>
+          <p>由 <code>ApplySettingsAsync</code> 或 <code>StartInventoryAsync(settings)</code> 设置并持久保存在客户端内存中。底层的 Raw 或专家操作绝不会清除它。</p>
+          <code>reader.DesiredSettings</code>
+        </div>
+        <div class="state-panel observed-panel">
+          <span class="state-kicker">OBSERVED STATE (设备事实)</span>
+          <h3>设备当前是什么</h3>
+          <p>由连接查询、主动事件和资源刷新操作更新。状态可能是 <code>Unknown</code>、<code>Stale</code> 或 <code>Synchronized</code>。</p>
+          <code>reader.ObservedState</code>
+        </div>
+      </div>
+    </section>
+
+    <!-- Transitions -->
+    <section id="transitions">
+      <h2>典型状态转换流程</h2>
+      <div class="timeline">
+        <div class="timeline-item">
+          <span class="timeline-num">01</span>
+          <div>
+            <h3>托管盘点正常运行</h3>
+            <p>DesiredState = Settings A，设备上存在由 SDK 部署的 ROSpec 14150，ObservedState = <code>Synchronized</code>。</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <span class="timeline-num">02</span>
+          <div>
+            <h3>底层 Raw / 专家修改</h3>
+            <p>外部系统或 <code>reader.Protocol</code> 发送了 <code>DELETE_ROSPEC</code>。设备端资源发生改变，ObservedState 变为 <code>Stale</code>，但 DesiredState 依然保持 Settings A。</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <span class="timeline-num">03</span>
+          <div>
+            <h3>状态观测刷新</h3>
+            <p>调用 <code>reader.SynchronizeStateAsync()</code> 重新查询设备事实快照。快照确认 14150 已丢失，但不会自动重新下发。</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <span class="timeline-num">04</span>
+          <div>
+            <h3>托管重新收敛</h3>
+            <p>调用无参 <code>reader.StartInventoryAsync()</code>，SDK 根据保留的 DesiredState 重新编译并下发 ROSpec 14150，恢复托管盘点并将 ObservedState 置回 <code>Synchronized</code>。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Synchronize -->
+    <section id="synchronize">
+      <h2>SynchronizeStateAsync 到底做什么</h2>
+      <p>
+        <code>SynchronizeStateAsync()</code> 是一个<strong>纯观察操作</strong>，它不是使用托管 API 的强制前置条件。
+      </p>
+      <div class="do-dont">
+        <div>
+          <strong>它保证：</strong>
+          <ul>
+            <li>向设备查询并刷新 <code>GET_ROSPECS</code> 与 <code>GET_ACCESSSPECS</code> 快照</li>
+            <li>准确识别 Foreign（其他应用创建）与 Managed 资源</li>
+            <li>将 <code>reader.ObservedState</code> 置为 <code>Synchronized</code></li>
+          </ul>
+        </div>
+        <div>
+          <strong>它不保证：</strong>
+          <ul>
+            <li>不会自动改写或删除设备上的任何资源</li>
+            <li>无法防止其他第三方客户端在查询瞬间之后再次改写设备</li>
+            <li>无法自动解析未经扩展注册的私有厂商参数</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recovery -->
+    <section id="recovery">
+      <h2>恢复与重建规则</h2>
+      <p>
+        当底层操作删除了 SDK 资源，或者网络重连导致设备重置后，可直接调用无参启动恢复：
+      </p>
+      <div class="code-block">
+        <button class="copy-code">复制</button>
+        <pre><code>// 模拟底层 Raw 操作删除了 ROSpec
+await reader.Protocol.TransactAsync&lt;V101Messages.DELETE_ROSPEC_RESPONSE&gt;(
+    new V101Messages.DELETE_ROSPEC(reader.Protocol.NextMessageId()) { ROSpecID = 14150 });
+
+// 此时 reader.ObservedState 为 Stale，但 reader.DesiredSettings 完好
+// 高层一键根据 Desired 重新部署并恢复运行
+await using InventorySession session = await reader.StartInventoryAsync();</code></pre>
+      </div>
+      <div class="callout warning">
+        <strong>注意：</strong>如果底层操作创建的是专有业务 ROSpec，应使用 <code>StartExistingRoSpecAsync(roSpecId)</code> 桥接运行，避免使用托管配置覆盖它。
+      </div>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · State & Resource Model</span>
+  <span><a href="api-reference.html">查看完整 API Reference →</a></span>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

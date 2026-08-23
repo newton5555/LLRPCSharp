@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="LLRPCSharp – Modern LLRP C# SDK Icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#0F172A"/><stop offset="50%" stop-color="#1E293B"/><stop offset="100%" stop-color="#0B132B"/></linearGradient>
+    <linearGradient id="cyanGlow" x1="0" y1="0" x2="1024" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#38BDF8"/><stop offset="100%" stop-color="#818CF8"/></linearGradient>
+    <radialGradient id="centerGlow" cx="512" cy="512" r="400" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#38BDF8" stop-opacity="0.12"/><stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/><rect width="1024" height="1024" rx="220" fill="url(#centerGlow)"/>
+  <rect x="256" y="256" width="512" height="512" rx="44" fill="none" stroke="#334155" stroke-width="4"/>
+  <path d="M236 256h20M768 256h20M236 768h20M768 768h20M256 236v20M256 768v20M768 236v20M768 768v20" stroke="#38BDF8" stroke-width="6" stroke-linecap="round" opacity=".8"/>
+  <path d="M432 370a100 100 0 0 1 160 0M462 415a60 60 0 0 1 90 0" fill="none" stroke="url(#cyanGlow)" stroke-width="14" stroke-linecap="round"/>
+  <text x="512" y="570" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-size="140" font-weight="800" fill="#F8FAFC" letter-spacing="-2">LLRP</text>
+  <g transform="translate(512 640)"><rect x="-90" y="-32" width="180" height="52" rx="14" fill="#38BDF8" fill-opacity=".12" stroke="#38BDF8" stroke-opacity=".3" stroke-width="2"/><text x="0" y="4" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-size="32" font-weight="700" fill="#38BDF8" letter-spacing="3">C# SDK</text></g>
+</svg>

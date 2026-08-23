@@ -1,5 +1,8 @@
 # Documentation Index
 
+The detailed [SDK documentation site](https://newton5555.github.io/LLRPCSharp/)
+is deployed automatically from docs-site/ on pushes to master.
+
 The root [README](../README.md) is the short project introduction. This
 directory contains only the deeper material needed to use, maintain, or extend
 the project.

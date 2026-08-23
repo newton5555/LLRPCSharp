@@ -6,6 +6,8 @@
 ![LLRP](https://img.shields.io/badge/LLRP-1.0.1%20%7C%201.1%20%7C%202.0-2563eb?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-16a34a?style=flat-square)
 
+[📚 Read the full SDK documentation site](https://newton5555.github.io/LLRPCSharp/)
+
 LLRPCSharp is a modern .NET toolkit for building applications that communicate with RFID readers over LLRP. Its main product is **LlrpSdk**, a managed reader API for connection lifecycle, capability discovery, settings, inventory, tag reports, and standard C1G2 Tag Access.
 
 The repository also contains the lower-level protocol stack, optional vendor extensions, client and device-side command-line tools, and a deterministic TCP/LLRP virtual reader. These parts share one protocol foundation but keep client and device responsibilities separate.
