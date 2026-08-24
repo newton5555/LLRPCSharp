@@ -492,7 +492,6 @@ body {
   --ui-border: #d9e7e4;
   --ui-border-strong: #bddbd5;
   --ui-surface: #ffffff;
-  --ui-shadow: 0 16px 40px rgba(16, 43, 52, 0.07);
   --ui-shadow-hover: 0 20px 46px rgba(16, 43, 52, 0.11);
 }
 
@@ -627,44 +626,6 @@ body:not(.api-reference-page) {
   box-shadow: 0 8px 24px rgba(16, 43, 52, 0.045);
 }
 
-.docs-home-head {
-  position: relative;
-  isolation: isolate;
-}
-
-.docs-home-head::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  top: 32px;
-  right: 0;
-  width: 260px;
-  height: 192px;
-  border: 1px solid rgba(142, 193, 186, 0.42);
-  border-radius: 26px;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.52)),
-    linear-gradient(90deg, rgba(12, 117, 111, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(12, 117, 111, 0.08) 1px, transparent 1px);
-  background-size: auto, 26px 26px, 26px 26px;
-  box-shadow: var(--ui-shadow);
-  opacity: 0.78;
-  pointer-events: none;
-}
-
-.docs-home-head::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  top: 70px;
-  right: 72px;
-  width: 92px;
-  height: 92px;
-  border: 1px solid rgba(12, 117, 111, 0.25);
-  border-radius: 50%;
-  box-shadow: 0 0 0 16px rgba(12, 117, 111, 0.045), 0 0 0 32px rgba(12, 117, 111, 0.025);
-}
-
 .pillar-card,
 .card,
 .api-quick-card,
@@ -691,13 +652,6 @@ body:not(.api-reference-page) {
 @media (max-width: 1240px) {
   .topbar nav {
     top: 72px;
-  }
-}
-
-@media (max-width: 900px) {
-  .docs-home-head::before,
-  .docs-home-head::after {
-    display: none;
   }
 }
 
