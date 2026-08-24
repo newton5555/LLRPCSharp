@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp Device SDK API Reference - VirtualLlrpDeviceHost test host, LlrpDeviceServer and ILlrpDevice hardware adapter with code samples.">
-  <title>Device SDK (Virtual Reader) API Reference · LLRPCSharp</title>
+  <meta name="description" content="LLRPCSharp Virtual Device API advanced reference - SDK test host, generic LLRP server and ILlrpDevice abstraction.">
+  <title>Virtual Device API (Advanced Testing Tool) · LLRPCSharp</title>
   <link rel="stylesheet" href="../assets/styles.css">
   <link rel="stylesheet" href="../assets/reference.css">
   <link rel="stylesheet" href="../assets/brand.css">
@@ -15,16 +15,16 @@
 <aside id="reference-sidebar">
   <div class="reference-logo">
     <a href="index.html">
-      <span class="mark" style="background:var(--ref-badge-struct);">D</span>
+      <span class="mark" style="background:var(--ref-primary);">D</span>
       <div>
         <span>LLRPCSharp</span>
-        <small>Device API Reference</small>
+        <small>Virtual Device API</small>
       </div>
     </a>
   </div>
 
   <div class="reference-version">
-    <span class="dot" style="background:var(--ref-badge-struct);"></span> LlrpDevice.* · Virtual Reader & Server
+    <span class="dot" style="background:var(--ref-primary);"></span> LlrpDevice.* · Virtual Reader & Server
   </div>
 
   <div class="search-box-wrapper">
@@ -43,7 +43,7 @@
   </div>
 
   <!-- Tree Navigation -->
-  <nav class="reference-nav" aria-label="Device SDK API reference navigation">
+  <nav class="reference-nav" aria-label="Virtual Device API reference navigation">
     <div class="reference-nav-group">
       <div class="reference-nav-title">Quick Index</div>
       <a href="#info-overview">Architecture & Packages</a>
@@ -53,18 +53,6 @@
     <div class="reference-nav-group">
       <div class="reference-nav-title">Test Hosting</div>
       <a href="#type-virtualllrpdevicehost"><code>VirtualLlrpDeviceHost</code> <span class="badge class">Class</span></a>
-      <a href="#type-virtualdevicehostoptions"><code>VirtualDeviceHostOptions</code> <span class="badge record">Record</span></a>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">Server Engine</div>
-      <a href="#type-lrpdeviceserver"><code>LlrpDeviceServer</code> <span class="badge class">Class</span></a>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">Abstractions & Profiles</div>
-      <a href="#type-illrpdevice"><code>ILlrpDevice</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-profiles">Built-in Profiles</a>
     </div>
   </nav>
 </aside>
@@ -73,9 +61,10 @@
 <main id="reference-main">
   <!-- Topbar Navigation -->
   <header class="reference-topbar">
-    <div class="topbar-title">Device SDK API Reference</div>
+    <div class="topbar-title">Virtual Device API (Advanced Testing Tool)</div>
     <div class="topbar-links">
       <a href="index.html">Home</a>
+      <a href="reader-sdk.html">Programmer’s Guide</a>
 
       <!-- API Reference Dropdown -->
       <div class="nav-dropdown">
@@ -101,8 +90,8 @@
           <a href="device-api.html" class="dropdown-item active">
             <span class="item-icon">🖥️</span>
             <div class="item-text">
-              <strong>Device SDK API</strong>
-              <small>Virtual reader test host & server</small>
+              <strong>Virtual Device API</strong>
+              <small>SDK test host & server abstractions</small>
             </div>
           </a>
         </div>
@@ -125,13 +114,14 @@
           <a href="cli-device.html" class="dropdown-item">
             <span class="item-icon">📟</span>
             <div class="item-text">
-              <strong>Device CLI (`llrp-device`)</strong>
-              <small>Standalone virtual server & simulation</small>
+              <strong>Virtual Device CLI</strong>
+              <small>One virtual device & interoperability</small>
             </div>
           </a>
         </div>
       </div>
 
+      <a href="releases.html">Releases</a>
       <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
     </div>
   </header>
@@ -139,7 +129,7 @@
   <article class="reference-content">
     <header class="reference-title">
       <p class="reference-eyebrow">LLRPCSHARP / DEVICE SDK PUBLIC API REFERENCE</p>
-      <h1>Device SDK (Virtual Reader) API Reference</h1>
+      <h1>Virtual Device API (Advanced Testing Tool)</h1>
       <p class="reference-lead">
         <code>LlrpDevice.*</code> provides a compliant, deterministic LLRP server engine and virtual reader simulation suite for automated testing and real hardware bridging.
       </p>
@@ -163,10 +153,6 @@
         <a href="#type-virtualllrpdevicehost" class="quick-jump-card" data-category="hosting">
           <div class="quick-jump-card-header"><code>VirtualLlrpDeviceHost</code><span class="badge class">Class</span></div>
           <p>Embeddable virtual reader host for automated xUnit test suites on ephemeral ports.</p>
-        </a>
-        <a href="#type-lrpdeviceserver" class="quick-jump-card" data-category="server">
-          <div class="quick-jump-card-header"><code>LlrpDeviceServer</code><span class="badge class">Class</span></div>
-          <p>Generic LLRP server engine mounting any <code>ILlrpDevice</code> instance.</p>
         </a>
       </div>
     </section>
@@ -228,7 +214,7 @@ public class TestVirtualReader
 </main>
 
 <footer class="shell footer">
-  <span>LLRPCSharp · Device SDK API Reference</span>
+  <span>LLRPCSharp · Virtual Device API Reference</span>
   <span><a href="cli-reader.html">Next: Reader CLI User Manual →</a></span>
 </footer>
 

@@ -1,4 +1,4 @@
-# SDK API 使用指南 (`LlrpSdk`)
+# Reader SDK Programmer’s Guide (`LlrpSdk`)
 
 `LlrpSdk` 是参考 **Impinj Octane SDK** 理念重新实现的托管高层 API。通过 `LlrpReader`，应用程序可直接管理连接、配置天线/功率、启动盘点以及执行标签内存操作，无需手动组装底层的 `ROSpec` 或 `AccessSpec` 消息。
 

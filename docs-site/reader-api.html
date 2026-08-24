@@ -62,7 +62,6 @@
     <div class="reference-nav-group">
       <div class="reference-nav-title">配置与托管盘点流</div>
       <a href="#type-readersettings"><code>ReaderSettings</code> <span class="badge record">Record</span></a>
-      <a href="#type-inventorysettings"><code>InventorySettings</code> <span class="badge record">Record</span></a>
       <a href="#type-inventorysession"><code>InventorySession</code> <span class="badge class">Class</span></a>
       <a href="#type-tagreport"><code>TagReport</code> <span class="badge record">Record</span></a>
     </div>
@@ -70,16 +69,14 @@
     <div class="reference-nav-group">
       <div class="reference-nav-title">C1G2 标签内存操作</div>
       <a href="#type-tagaccessrequest"><code>TagAccessRequest</code> <span class="badge record">Abstract</span></a>
-      <a href="#type-tagselection"><code>TagSelection</code> <span class="badge record">Record</span></a>
-      <a href="#type-tagaccessresult"><code>TagAccessResult</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">专家通道与厂商扩展</div>
       <a href="#type-irospecservice"><code>IRoSpecService</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-readerprotocolaccess"><code>IReaderProtocolAccess</code> <span class="badge interface">Interface</span></a>
+      <a href="#type-irospecservice"><code>IReaderProtocolAccess</code> <span class="badge interface">Interface</span></a>
       <a href="#type-extensions">厂商扩展 (Impinj/Zebra)</a>
-      <a href="#type-enums">核心枚举与异常</a>
+      <a href="#type-extensions">核心枚举</a>
     </div>
   </nav>
 </aside>
@@ -91,6 +88,7 @@
     <div class="topbar-title">Reader SDK API 参考手册</div>
     <div class="topbar-links">
       <a href="index.html">首页</a>
+      <a href="reader-sdk.html">开发者指南</a>
 
       <!-- API Reference Dropdown -->
       <div class="nav-dropdown">
@@ -116,8 +114,8 @@
           <a href="device-api.html" class="dropdown-item">
             <span class="item-icon">🖥️</span>
             <div class="item-text">
-              <strong>Device SDK API</strong>
-              <small>虚拟读写器测试宿主与服务端抽象</small>
+              <strong>Virtual Device API</strong>
+              <small>SDK 测试宿主与服务端抽象</small>
             </div>
           </a>
         </div>
@@ -140,13 +138,14 @@
           <a href="cli-device.html" class="dropdown-item">
             <span class="item-icon">📟</span>
             <div class="item-text">
-              <strong>Device CLI (`llrp-device`)</strong>
-              <small>独立虚拟读写器服务与场景仿真</small>
+              <strong>Virtual Device CLI</strong>
+              <small>单台虚拟设备服务与联调</small>
             </div>
           </a>
         </div>
       </div>
 
+      <a href="releases.html">发布资源</a>
       <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
     </div>
   </header>
@@ -421,7 +420,7 @@ var reader = LlrpReader.CreateBuilder("192.168.1.100").UseImpinj().Build();
 
 <footer class="shell footer">
   <span>LLRPCSharp · Reader SDK API 参考手册</span>
-  <span><a href="device-api.html">下一页：Device SDK API 参考 →</a></span>
+  <span><a href="device-api.html">下一页：Virtual Device API 参考 →</a></span>
 </footer>
 
 <script src="assets/app.js"></script>

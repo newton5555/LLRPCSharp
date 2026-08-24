@@ -3,203 +3,172 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp Reader CLI (LlrpCli / llrp) User Manual - Interactive Live Shell, automation and Wireshark capture analysis manual.">
-  <title>Reader CLI Manual (llrp) · LLRPCSharp</title>
+  <meta name="description" content="LLRPCSharp Reader CLI User’s Guide: Live Shell, reader settings, inventory, tag operations and offline pcapng analysis.">
+  <title>Reader CLI User’s Guide · LLRPCSharp</title>
   <link rel="stylesheet" href="../assets/styles.css">
   <link rel="stylesheet" href="../assets/brand.css">
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="index.html">
-    <img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
-    <span>LLRPCSharp<small>Reader CLI</small></span>
-  </a>
+  <a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Reader CLI</small></span></a>
   <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
   <nav>
     <a href="index.html">Home</a>
-
-    <!-- API Reference Dropdown -->
+    <a href="reader-sdk.html">Programmer’s Guide</a>
     <div class="nav-dropdown">
-      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
-        <span>API Reference</span>
-        <span class="chevron">▾</span>
-      </button>
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>API Documentation</span><span class="chevron">▾</span></button>
       <div class="dropdown-menu">
-        <a href="protocol-api.html" class="dropdown-item">
-          <span class="item-icon">🧬</span>
-          <div class="item-text">
-            <strong>LlrpNet Protocol API</strong>
-            <small>Framing, session transport & codecs</small>
-          </div>
-        </a>
-        <a href="reader-api.html" class="dropdown-item">
-          <span class="item-icon">📡</span>
-          <div class="item-text">
-            <strong>Reader SDK API</strong>
-            <small>Managed client, settings & tag access</small>
-          </div>
-        </a>
-        <a href="device-api.html" class="dropdown-item">
-          <span class="item-icon">🖥️</span>
-          <div class="item-text">
-            <strong>Device SDK API</strong>
-            <small>Virtual reader test host & server</small>
-          </div>
-        </a>
+        <a href="reader-api.html" class="dropdown-item"><span class="item-icon">📡</span><span class="item-text"><strong>Reader SDK API</strong><small>Managed client and public types</small></span></a>
+        <a href="protocol-api.html" class="dropdown-item"><span class="item-icon">🧬</span><span class="item-text"><strong>LlrpNet Protocol API</strong><small>Protocol types and codecs</small></span></a>
+        <a href="device-api.html" class="dropdown-item"><span class="item-icon">🧪</span><span class="item-text"><strong>Virtual Device API</strong><small>Advanced testing-tool API</small></span></a>
       </div>
     </div>
-
-    <!-- CLI Manuals Dropdown -->
     <div class="nav-dropdown">
-      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true">
-        <span>CLI Manuals</span>
-        <span class="chevron">▾</span>
-      </button>
+      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true"><span>CLI User’s Guides</span><span class="chevron">▾</span></button>
       <div class="dropdown-menu">
-        <a href="cli-reader.html" class="dropdown-item active">
-          <span class="item-icon">⚡</span>
-          <div class="item-text">
-            <strong>Reader CLI (`llrp`)</strong>
-            <small>Live shell, JSON automation & pcapng decode</small>
-          </div>
-        </a>
-        <a href="cli-device.html" class="dropdown-item">
-          <span class="item-icon">📟</span>
-          <div class="item-text">
-            <strong>Device CLI (`llrp-device`)</strong>
-            <small>Standalone virtual server & simulation</small>
-          </div>
-        </a>
+        <a href="cli-reader.html" class="dropdown-item active"><span class="item-icon">⚡</span><span class="item-text"><strong>Reader CLI (llrp)</strong><small>Reader operations and capture analysis</small></span></a>
+        <a href="cli-device.html" class="dropdown-item"><span class="item-icon">🖥️</span><span class="item-text"><strong>Virtual Device CLI</strong><small>One virtual device for interoperability</small></span></a>
       </div>
     </div>
+    <a href="releases.html">Releases</a>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
 
 <main class="shell docs-layout">
-  <!-- Left Side Navigation -->
   <aside class="side-nav">
-    <p class="eyebrow">READER CLI (LLRP)</p>
-    <a href="#overview">1. Overview & Launch</a>
-    <a href="#live-shell">2. Interactive Live Shell</a>
-    <a href="#cmd-conn">├ Connection & Status</a>
-    <a href="#cmd-settings">├ Settings & Parameters</a>
-    <a href="#cmd-inventory">├ Inventory & Streams</a>
-    <a href="#cmd-tag">└ C1G2 Tag Operations</a>
-    <a href="#agent-json">3. Single-Shot JSON Automation</a>
-    <a href="#pcapng-decode">4. Wireshark .pcapng Decode</a>
-    <a href="#offline-tools">5. Protocol Codec Tools</a>
+    <p class="eyebrow">CLI USER’S GUIDE</p>
+    <a href="#overview">1. Scope and launch</a>
+    <a href="#shell">2. Live Shell</a>
+    <a href="#settings">3. Settings and resources</a>
+    <a href="#inventory">4. Inventory and tag operations</a>
+    <a href="#automation">5. One-shot automation</a>
+    <a href="#offline">6. Offline protocol tools</a>
+    <a href="#safety">7. Version and safety boundaries</a>
+    <p class="eyebrow" style="margin-top:22px;">RELATED</p>
+    <a href="reader-sdk.html" style="color:var(--teal);font-weight:700;">Reader SDK Guide →</a>
   </aside>
 
-  <!-- Main Article Content -->
   <article class="doc-content">
-    <p class="eyebrow">LLRPCSHARP / READER CLI USER MANUAL</p>
-    <h1>LlrpCli (`llrp`) Reader Client & Analysis Manual</h1>
+    <p class="eyebrow">LLRPCSHARP / CLI USER’S GUIDE</p>
+    <h1>Reader CLI User’s Guide</h1>
     <p class="doc-lead">
-      <code>LlrpCli</code> (command alias <code>llrp</code>) is an industrial-grade CLI tool built on <code>LlrpSdk</code>. It provides an interactive Live Shell for maintenance, single-shot JSON commands for script automation, and an offline engine to decode Wireshark <code>.pcapng</code> captures.
+      <code>LlrpCli</code> (command name <code>llrp</code>) is built on <code>LlrpSdk</code> for real or virtual reader connections, capability inspection, settings deployment, inventory, standard Tag Access, LLRP hex frames and Wireshark <code>.pcapng</code> capture analysis.
     </p>
 
-    <!-- 1. Overview -->
     <section id="overview">
-      <h2>1. Overview & Launch Options</h2>
-      <div class="code-block">
-        <button class="copy-code">Copy</button>
-        <pre><code># Run interactive shell directly from repository
-dotnet run --project src/LlrpCli
+      <h2>1. Scope and launch</h2>
+      <p>Run the CLI from the source tree:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpCli/LlrpCli.csproj</code></pre></div>
+      <p>Release builds are self-contained multi-platform executables. See the <a class="text-link" href="releases.html">release hub</a> for archives. Reader CLI does not create virtual-device servers; use the separate <a class="text-link" href="cli-device.html">Virtual Device CLI</a> for device-side simulation.</p>
+    </section>
 
-# Or publish as standalone single-file binary (no .NET runtime required)
-dotnet publish src/LlrpCli -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
-./src/LlrpCli/bin/Release/net10.0/win-x64/publish/llrp.exe</code></pre>
+    <section id="shell">
+      <h2>2. Interactive Live Shell</h2>
+      <p>Connect first, then inspect status and capabilities:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>&gt; connect 192.168.1.100
+&gt; status
+&gt; status --full
+&gt; caps
+&gt; caps --raw
+&gt; caps --json</code></pre></div>
+      <div class="command-table">
+        <div><code>connect &lt;host&gt; [--port 5084]</code><span>Connect and negotiate the protocol version.</span></div>
+        <div><code>status [--full]</code><span>Show connection and managed state; <code>--full</code> refreshes Settings, ROSpec and AccessSpec.</span></div>
+        <div><code>caps [--raw|--json]</code><span>Refresh normalized capabilities; <code>--raw</code> expands protocol data and <code>--json</code> emits script-friendly output.</span></div>
+        <div><code>sync</code><span>Refresh the observed reader snapshot without clearing SDK DesiredState.</span></div>
       </div>
     </section>
 
-    <!-- 2. Live Shell -->
-    <section id="live-shell">
-      <h2>2. Interactive Live Shell Command Reference</h2>
-      
-      <div id="cmd-conn">
-        <h3>2.1 Connection & Status Commands</h3>
-        <div class="command-table">
-          <div><code>connect &lt;ip&gt; [--port 5084]</code><span>Connect to reader and discover LLRP version</span></div>
-          <div><code>status [--full]</code><span>Display connection state and staged configuration</span></div>
-          <div><code>caps [--raw] [--json]</code><span>Query normalized hardware capabilities and RF tables</span></div>
-        </div>
+    <section id="settings">
+      <h2>3. Settings and resources</h2>
+      <p>Live Shell does not keep an implicit draft. A write operation requires explicit defaults, a file and confirmation:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>&gt; settings apply --defaults --yes
+&gt; settings apply settings.json --yes
+&gt; settings validate settings.json
+&gt; settings show --json
+&gt; settings edit</code></pre></div>
+      <div class="command-table">
+        <div><code>settings apply --defaults --yes</code><span>Build and apply a device-aware default baseline.</span></div>
+        <div><code>settings apply &lt;file&gt; --yes</code><span>Validate and apply local JSON while preserving foreign resources by default.</span></div>
+        <div><code>settings apply &lt;file&gt; --yes --replace-all</code><span>Explicitly take over and delete all standard resources.</span></div>
+        <div><code>settings validate &lt;file&gt;</code><span>Read and validate without changing the reader.</span></div>
+        <div><code>settings show [--json|--raw]</code><span>Read high-level settings and optionally expand raw resource trees.</span></div>
+        <div><code>settings save &lt;file&gt;</code><span>Save high-level settings for review or later application.</span></div>
       </div>
-
-      <div id="cmd-settings" style="margin-top:30px;">
-        <h3>2.2 Settings Commands</h3>
-        <div class="command-table">
-          <div><code>settings apply --defaults --yes</code><span>Deploy reader-recommended settings baseline</span></div>
-          <div><code>settings apply &lt;file.json&gt; --yes</code><span>Deploy settings from JSON file (PreserveForeign)</span></div>
-          <div><code>settings apply &lt;file.json&gt; --yes --replace-all</code><span>Delete all foreign resources and deploy exclusively</span></div>
-          <div><code>settings show [--json] [--raw]</code><span>Read and inspect live configuration from reader</span></div>
-          <div><code>settings edit</code><span>Interactive menu to adjust antennas, RF modes & sessions</span></div>
-        </div>
-      </div>
-
-      <div id="cmd-inventory" style="margin-top:30px;">
-        <h3>2.3 Tag Inventory Commands</h3>
-        <div class="command-table">
-          <div><code>inventory start [--monitor live|frames]</code><span>Start inventory and stream tag reports in terminal</span></div>
-          <div><code>inventory status [--refresh]</code><span>Display current inventory execution status</span></div>
-          <div><code>inventory stop</code><span>Stop managed inventory</span></div>
-        </div>
-      </div>
-
-      <div id="cmd-tag" style="margin-top:30px;">
-        <h3>2.4 C1G2 Tag Operations</h3>
-        <div class="command-table">
-          <div><code>tag read --epc &lt;hex&gt; --bank user --ptr 0 --count 2</code><span>Read memory bank of matched tag</span></div>
-          <div><code>tag write --epc &lt;hex&gt; --bank user --ptr 0 --data 12345678</code><span>Write data to tag memory</span></div>
-          <div><code>tag lock --epc &lt;hex&gt; --user-lock SecuredWrite</code><span>Lock memory bank with access password</span></div>
-          <div><code>tag kill --epc &lt;hex&gt; --password &lt;hex&gt;</code><span>Permanently decommission tag</span></div>
-        </div>
-      </div>
+      <div class="callout warning"><strong>Takeover warning:</strong> <code>--replace-all</code> deletes standard resources created by other applications. Prefer the default PreserveForeign policy on shared readers.</div>
     </section>
 
-    <!-- 3. Automation -->
-    <section id="agent-json">
-      <h2>3. Single-Shot Automation Commands (Agent/CI)</h2>
-      <div class="code-block">
-        <button class="copy-code">Copy</button>
-        <pre><code># Connect, inventory for 10 seconds and output standard JSON
-llrp inventory 192.168.1.100 --duration 10 --yes</code></pre>
-      </div>
+    <section id="inventory">
+      <h2>4. Inventory and tag operations</h2>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>&gt; inventory start
+&gt; inventory start --monitor frames
+&gt; inventory start --monitor live --monitor-duration 30
+&gt; inventory status --refresh
+&gt; inventory stop
+
+&gt; tag read E28011910000000000000001 --bank user --word 0 --count 2
+&gt; tag write E28011910000000000000001 --bank user --word 0 --data CAFEBABE --yes
+&gt; tag lock E28011910000000000000001 --target user --privilege lock --yes
+&gt; tag kill E28011910000000000000001 --yes</code></pre></div>
+      <p><code>inventory start</code> uses the SDK-managed inventory resource and consumes one report outlet. <code>--monitor frames</code> is useful for raw LLRP observation; <code>--monitor-duration</code> limits foreground monitoring and is not the same as stopping the device-side inventory.</p>
+      <p>Read, Write, Lock, Kill and Erase use the standard SDK Tag Access path. Kill, Lock and write operations can be irreversible; the CLI requests confirmation and production workflows should restrict both permissions and tag selection.</p>
     </section>
 
-    <!-- 4. Pcapng -->
-    <section id="pcapng-decode">
-      <h2>4. Wireshark Capture Analysis (.pcapng)</h2>
-      <div class="code-block">
-        <button class="copy-code">Copy</button>
-        <pre><code># Decode Wireshark capture to summary overview
-llrp decode ./capture.pcapng --output summary
+    <section id="automation">
+      <h2>5. One-shot automation</h2>
+      <p>Use one-shot commands from CI, agents or operations scripts without entering the interactive shell:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code># Online status and capability queries
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- status 192.168.1.100
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- caps 192.168.1.100 --output json
 
-# Decode detailed parameter tree with vendor extension
-llrp decode ./capture.pcapng --extension impinj --output detail</code></pre>
-      </div>
+# Connect, deploy, inventory for 10 seconds and emit JSON
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- inventory 192.168.1.100 --duration 10 --yes
+
+# Use a local settings file
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- inventory 192.168.1.100 --settings reader.json --duration 30 --yes</code></pre></div>
+      <p>One-shot commands connect, perform the operation and disconnect. Use Live Shell for long-running observation or step-by-step editing.</p>
     </section>
 
-    <!-- 5. Offline Tools -->
-    <section id="offline-tools">
-      <h2>5. Offline Codec & Diagnostic Tools</h2>
-      <div class="code-block">
-        <button class="copy-code">Copy</button>
-        <pre><code># Inspect raw hex frame into human-readable parameter tree
-llrp inspect 04030000001000000001000000000000
-
-# Encode JSON object into raw LLRP binary frame
-llrp encode ./message.json</code></pre>
+    <section id="offline">
+      <h2>6. Offline protocol tools</h2>
+      <p><code>inspect</code>, <code>decode</code>, <code>validate</code> and <code>encode</code> do not connect to a reader; they process hex frames or pcapng captures:</p>
+      <div class="command-table">
+        <div><code>inspect &lt;HEX&gt;</code><span>Inspect the LLRP header: version, message type, message ID and length.</span></div>
+        <div><code>decode &lt;HEX|PCAPNG&gt; --output summary</code><span>Decode a frame or capture; summary shows direction, message name, ID and length.</span></div>
+        <div><code>validate &lt;HEX&gt;</code><span>Validate frame length and structural integrity.</span></div>
+        <div><code>encode &lt;MESSAGE&gt; --llrp &lt;VERSION&gt;</code><span>Build an LLRP hex frame from a message name and options.</span></div>
       </div>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code># Capture summary
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- decode capture.pcapng --output summary
+
+# Full tree or JSON
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- decode capture.pcapng --output text
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- decode capture.pcapng --output json
+
+# Build a message for an explicit protocol version
+dotnet run --project src/LlrpCli/LlrpCli.csproj -- encode get-reader-capabilities --requested-data All --llrp 2.0</code></pre></div>
+      <p>Live and offline commands support 1.0.1, 1.1 and 2.0 according to the command path; the offline registry also includes Impinj and Zebra extensions. <code>decode</code> recognizes an existing pcapng file automatically.</p>
+    </section>
+
+    <section id="safety">
+      <h2>7. Version and safety boundaries</h2>
+      <div class="api-table">
+        <div class="api-row api-head"><span>Topic</span><span>Current behavior</span><span>Keep in mind</span></div>
+        <div class="api-row"><span>Protocol versions</span><span><code>auto</code>, 1.0.1, 1.1, 2.0</span><span>1.1/2.0 physical coverage is validated per model.</span></div>
+        <div class="api-row"><span>Resource policy</span><span>PreserveForeign by default</span><span>Use ReplaceAll only when ownership is explicit.</span></div>
+        <div class="api-row"><span>Hardware tests</span><span>May skip when no reader is reachable</span><span>Release acceptance must confirm tests actually ran.</span></div>
+        <div class="api-row"><span>Virtual device</span><span>Started by a separate CLI</span><span>Reader CLI does not create a device-side server.</span></div>
+      </div>
+      <p class="callout">For the same connection, settings and inventory flow inside a .NET application, return to the <a class="text-link" href="reader-sdk.html">Reader SDK Programmer’s Guide</a>. For signatures, use the <a class="text-link" href="reader-api.html">Reader SDK API Reference</a>.</p>
     </section>
   </article>
 </main>
 
 <footer class="shell footer">
-  <span>LLRPCSharp · Reader CLI Manual</span>
-  <span><a href="cli-device.html">Next: Device CLI Manual →</a></span>
+  <span>LLRPCSharp · Reader CLI User’s Guide</span>
+  <span><a href="cli-device.html">Virtual Device CLI User’s Guide →</a></span>
 </footer>
-
 <script src="../assets/app.js"></script>
 </body>
 </html>

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp Device SDK API 参考手册 - 包含 VirtualLlrpDeviceHost 测试宿主、LlrpDeviceServer 服务端与 ILlrpDevice 硬件适配抽象（含代码示例）">
-  <title>Device SDK (虚拟读写器) API 参考 · LLRPCSharp</title>
+  <meta name="description" content="LLRPCSharp Virtual Device API 高级参考 - SDK 测试宿主、通用 LLRP 服务端与 ILlrpDevice 设备抽象。">
+  <title>Virtual Device API（高级测试工具）· LLRPCSharp</title>
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/reference.css">
   <link rel="stylesheet" href="assets/brand.css">
@@ -15,16 +15,16 @@
 <aside id="reference-sidebar">
   <div class="reference-logo">
     <a href="index.html">
-      <span class="mark" style="background:var(--ref-badge-struct);">D</span>
+      <span class="mark" style="background:var(--ref-primary);">D</span>
       <div>
         <span>LLRPCSharp</span>
-        <small>Device API Reference</small>
+        <small>Virtual Device API</small>
       </div>
     </a>
   </div>
 
   <div class="reference-version">
-    <span class="dot" style="background:var(--ref-badge-struct);"></span> LlrpDevice.* · 虚拟设备与服务端
+    <span class="dot" style="background:var(--ref-primary);"></span> LlrpDevice.* · 虚拟设备与服务端
   </div>
 
   <div class="search-box-wrapper">
@@ -43,7 +43,7 @@
   </div>
 
   <!-- Tree Navigation -->
-  <nav class="reference-nav" aria-label="Device SDK API reference navigation">
+  <nav class="reference-nav" aria-label="Virtual Device API reference navigation">
     <div class="reference-nav-group">
       <div class="reference-nav-title">快速入口</div>
       <a href="#info-overview">架构与包分工</a>
@@ -59,13 +59,6 @@
     <div class="reference-nav-group">
       <div class="reference-nav-title">Server 服务端引擎</div>
       <a href="#type-lrpdeviceserver"><code>LlrpDeviceServer</code> <span class="badge class">Class</span></a>
-      <a href="#type-lrpdeviceserveroptions"><code>LlrpDeviceServerOptions</code> <span class="badge record">Record</span></a>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">Virtual 仿真核与标签</div>
-      <a href="#type-virtualdeviceoptions"><code>VirtualDeviceOptions</code> <span class="badge record">Record</span></a>
-      <a href="#type-virtualinventorytag"><code>VirtualInventoryTag</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
@@ -80,9 +73,10 @@
 <main id="reference-main">
   <!-- Topbar Navigation -->
   <header class="reference-topbar">
-    <div class="topbar-title">Device SDK (虚拟设备与服务端) API 参考手册</div>
+    <div class="topbar-title">Virtual Device API（高级测试工具）</div>
     <div class="topbar-links">
       <a href="index.html">首页</a>
+      <a href="reader-sdk.html">开发者指南</a>
 
       <!-- API Reference Dropdown -->
       <div class="nav-dropdown">
@@ -108,8 +102,8 @@
           <a href="device-api.html" class="dropdown-item active">
             <span class="item-icon">🖥️</span>
             <div class="item-text">
-              <strong>Device SDK API</strong>
-              <small>虚拟读写器测试宿主与服务端抽象</small>
+              <strong>Virtual Device API</strong>
+              <small>SDK 测试宿主与服务端抽象</small>
             </div>
           </a>
         </div>
@@ -132,13 +126,14 @@
           <a href="cli-device.html" class="dropdown-item">
             <span class="item-icon">📟</span>
             <div class="item-text">
-              <strong>Device CLI (`llrp-device`)</strong>
-              <small>独立虚拟读写器服务与场景仿真</small>
+              <strong>Virtual Device CLI</strong>
+              <small>单台虚拟设备服务与联调</small>
             </div>
           </a>
         </div>
       </div>
 
+      <a href="releases.html">发布资源</a>
       <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
     </div>
   </header>
@@ -146,7 +141,7 @@
   <article class="reference-content">
     <header class="reference-title">
       <p class="reference-eyebrow">LLRPCSHARP / DEVICE SDK PUBLIC API REFERENCE</p>
-      <h1>Device SDK (虚拟读写器) API 参考文档</h1>
+      <h1>Virtual Device API（高级测试工具）</h1>
       <p class="reference-lead">
         <code>LlrpDevice.*</code> 系列包提供通用的 LLRP TCP 服务端引擎、确定性软件虚拟读写器与嵌入式测试宿主，专为脱机 CI/CD 自动化测试与自定义硬件对接而设计。
       </p>
@@ -175,9 +170,9 @@
           <div class="quick-jump-card-header"><code>LlrpDeviceServer</code><span class="badge class">Class</span></div>
           <p>通用 LLRP 服务端引擎，挂载自定义 <code>ILlrpDevice</code> 实例。</p>
         </a>
-        <a href="#type-virtualinventorytag" class="quick-jump-card" data-category="virtual">
-          <div class="quick-jump-card-header"><code>VirtualInventoryTag</code><span class="badge record">Record</span></div>
-          <p>宿主层标签定义：EPC 字节流、TID/User 内存、天线与 RSSI。</p>
+        <a href="#type-virtualdevicehostoptions" class="quick-jump-card" data-category="hosting">
+          <div class="quick-jump-card-header"><code>VirtualDeviceHostOptions</code><span class="badge record">Record</span></div>
+          <p>虚拟设备宿主配置：端口、协议版本、标签集合与 RF 仿真参数。</p>
         </a>
         <a href="#type-illrpdevice" class="quick-jump-card" data-category="abstractions">
           <div class="quick-jump-card-header"><code>ILlrpDevice</code><span class="badge interface">Interface</span></div>
@@ -317,7 +312,7 @@ public class VirtualDeviceTests
 </main>
 
 <footer class="shell footer">
-  <span>LLRPCSharp · Device SDK API 参考手册</span>
+  <span>LLRPCSharp · Virtual Device API Reference</span>
   <span><a href="cli-reader.html">下一步：Reader CLI 用户手册 →</a></span>
 </footer>
 

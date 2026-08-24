@@ -3,215 +3,177 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp Device CLI (LlrpVirtualDevice.Cli / llrp-device) 用户手册 - 独立虚拟读写器服务、场景预设与 Impinj ItemTest 第三方联调">
-  <title>Device CLI 用户手册 (llrp-device) · LLRPCSharp</title>
+  <meta name="description" content="LLRPCSharp Virtual Device CLI 用户指南：启动单台虚拟 LLRP 设备、生命周期管理、配置校验与第三方客户端联调。">
+  <title>Virtual Device CLI User’s Guide · LLRPCSharp</title>
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/brand.css">
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="index.html">
-    <img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
-    <span>LLRPCSharp<small>Device CLI</small></span>
-  </a>
+  <a class="brand" href="index.html"><img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Virtual Device CLI</small></span></a>
   <button class="menu-toggle" aria-label="切换导航">☰</button>
   <nav>
     <a href="index.html">首页</a>
-
-    <!-- API Reference Dropdown -->
+    <a href="reader-sdk.html">开发者指南</a>
     <div class="nav-dropdown">
-      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
-        <span>API 参考文档</span>
-        <span class="chevron">▾</span>
-      </button>
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>API 文档</span><span class="chevron">▾</span></button>
       <div class="dropdown-menu">
-        <a href="protocol-api.html" class="dropdown-item">
-          <span class="item-icon">🧬</span>
-          <div class="item-text">
-            <strong>LlrpNet 协议 API</strong>
-            <small>底层帧拆装、会话传输与 Codec 注册表</small>
-          </div>
-        </a>
-        <a href="reader-api.html" class="dropdown-item">
-          <span class="item-icon">📡</span>
-          <div class="item-text">
-            <strong>Reader SDK API</strong>
-            <small>上位机门面、不可变配置与 TagAccess</small>
-          </div>
-        </a>
-        <a href="device-api.html" class="dropdown-item">
-          <span class="item-icon">🖥️</span>
-          <div class="item-text">
-            <strong>Device SDK API</strong>
-            <small>虚拟读写器测试宿主与服务端抽象</small>
-          </div>
-        </a>
+        <a href="reader-api.html" class="dropdown-item"><span class="item-icon">📡</span><span class="item-text"><strong>Reader SDK API</strong><small>托管客户端与公开类型</small></span></a>
+        <a href="protocol-api.html" class="dropdown-item"><span class="item-icon">🧬</span><span class="item-text"><strong>LlrpNet Protocol API</strong><small>底层协议类型与 Codec</small></span></a>
+        <a href="device-api.html" class="dropdown-item"><span class="item-icon">🧪</span><span class="item-text"><strong>Virtual Device API</strong><small>高级测试工具 API</small></span></a>
       </div>
     </div>
-
-    <!-- CLI Manuals Dropdown -->
     <div class="nav-dropdown">
-      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true">
-        <span>CLI 用户手册</span>
-        <span class="chevron">▾</span>
-      </button>
+      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true"><span>CLI 用户指南</span><span class="chevron">▾</span></button>
       <div class="dropdown-menu">
-        <a href="cli-reader.html" class="dropdown-item">
-          <span class="item-icon">⚡</span>
-          <div class="item-text">
-            <strong>Reader CLI (`llrp`)</strong>
-            <small>现场交互 Shell、JSON 调度与抓包解析</small>
-          </div>
-        </a>
-        <a href="cli-device.html" class="dropdown-item active">
-          <span class="item-icon">📟</span>
-          <div class="item-text">
-            <strong>Device CLI (`llrp-device`)</strong>
-            <small>独立虚拟读写器服务与场景仿真</small>
-          </div>
-        </a>
+        <a href="cli-reader.html" class="dropdown-item"><span class="item-icon">⚡</span><span class="item-text"><strong>Reader CLI (llrp)</strong><small>现场运维与抓包分析</small></span></a>
+        <a href="cli-device.html" class="dropdown-item active"><span class="item-icon">🖥️</span><span class="item-text"><strong>Virtual Device CLI</strong><small>单台虚拟设备联调</small></span></a>
       </div>
     </div>
+    <a href="releases.html">发布资源</a>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
 
 <main class="shell docs-layout">
-  <!-- Left Navigation -->
   <aside class="side-nav">
-    <p class="eyebrow">DEVICE CLI (LLRP-DEVICE)</p>
-    <a href="#overview">1. 工具概述与使用场景</a>
-    <a href="#modes">2. 核心运行命令 (run/live/presets)</a>
-    <a href="#host-shell">3. 交互式 Host 管理控制台</a>
-    <a href="#config-schema">4. 场景预设与 JSON 配置规范</a>
-    <a href="#interop">5. 第三方客户端联调 (ItemTest)</a>
+    <p class="eyebrow">CLI USER’S GUIDE</p>
+    <a href="#overview">1. 定位与启动</a>
+    <a href="#modes">2. 运行模式</a>
+    <a href="#shell">3. 交互式生命周期 Shell</a>
+    <a href="#configuration">4. 预设与 JSON 配置</a>
+    <a href="#interop">5. 第三方客户端联调</a>
+    <a href="#boundaries">6. 工具边界</a>
+    <p class="eyebrow" style="margin-top:22px;">RELATED</p>
+    <a href="device-api.html" style="color:var(--teal);font-weight:700;">Virtual Device API →</a>
   </aside>
 
-  <!-- Main Article Content -->
   <article class="doc-content">
-    <p class="eyebrow">LLRPCSHARP / DEVICE CLI USER MANUAL</p>
-    <h1>LlrpVirtualDevice.Cli (`llrp-device`) 虚拟读写器服务手册</h1>
+    <p class="eyebrow">LLRPCSHARP / CLI USER’S GUIDE</p>
+    <h1>Virtual Device CLI User’s Guide</h1>
     <p class="doc-lead">
-      <code>LlrpVirtualDevice.Cli</code>（命令别名 <code>llrp-device</code>）是独立运行的 LLRP 虚拟读写器服务端程序。无需编写代码，一条命令即可启动一台标准的 LLRP TCP 读写器服务器（默认端口 5084），供任意第三方 LLRP 客户端或业务系统进行仿真联调。
+      <code>LlrpVirtualDevice.Cli</code> 是设备侧的独立命令行工具。它在一个进程中托管一台确定性虚拟 LLRP 设备，提供标准 TCP 端点，让 Reader SDK、WPF 客户端或第三方 LLRP 客户端在没有真实硬件时进行联调。
     </p>
 
-    <!-- 1. Overview -->
     <section id="overview">
-      <h2>1. 工具概述与使用场景</h2>
-      <div class="code-block">
-        <button class="copy-code">复制</button>
-        <pre><code># 方式 1：通过仓库源码直接启动交互控制台
-dotnet run --project src/LlrpVirtualDevice.Cli
-
-# 方式 2：启动前台服务并加载 warehouse 仓库高密度场景预设
-dotnet run --project src/LlrpVirtualDevice.Cli -- run --port 5084 --preset warehouse</code></pre>
-      </div>
+      <h2>1. 定位与启动</h2>
+      <p>从源码启动。无参数进入交互式设备 Shell，但不会立即创建设备：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj</code></pre></div>
+      <p>命令行帮助使用的可执行文件名是 <code>llrp-virtual-device</code>；源码运行时使用上面的项目路径。</p>
+      <div class="callout">这是“单台设备”工具，不是多设备管理器，也不会自动恢复进程重启前的 ROSpec、AccessSpec 或盘点状态。</div>
     </section>
 
-    <!-- 2. Modes -->
     <section id="modes">
-      <h2>2. 核心运行命令速查</h2>
-      <div class="table-wrapper">
-        <table class="member-table">
-          <thead><tr><th>命令格式</th><th>功能说明与示例</th></tr></thead>
-          <tbody>
-            <tr>
-              <td><code>llrp-device run [options]</code></td>
-              <td>前台静默服务模式启动读写器（适合容器部署或后台运行）。<br><code>llrp-device run --port 5084 --preset warehouse</code></td>
-            </tr>
-            <tr>
-              <td><code>llrp-device live [options]</code></td>
-              <td>启动服务并进入带实时 RX/TX 帧级日志追踪的交互式终端。<br><code>llrp-device live --port 5084 --preset conveyor</code></td>
-            </tr>
-            <tr>
-              <td><code>llrp-device presets</code></td>
-              <td>列出系统内置的所有场景预设名称与说明。</td>
-            </tr>
-            <tr>
-              <td><code>llrp-device validate &lt;config.json&gt;</code></td>
-              <td>校验自定义仿真场景配置文件的 JSON Schema 与标签数据完整性。</td>
-            </tr>
-          </tbody>
-        </table>
+      <h2>2. 运行模式</h2>
+      <div class="command-table">
+        <div><code>llrp-virtual-device</code><span>进入 Shell，不创建设备。</span></div>
+        <div><code>llrp-virtual-device run [options]</code><span>创建并以前台服务模式运行，Ctrl+C 停止。</span></div>
+        <div><code>llrp-virtual-device live [options]</code><span>自动创建并启动设备，然后进入带 RX/TX 事件输出的 Shell。</span></div>
+        <div><code>llrp-virtual-device shell</code><span>显式进入空的交互式 Shell。</span></div>
+        <div><code>llrp-virtual-device validate --config PATH</code><span>校验一个本地 JSON 设备配置。</span></div>
+        <div><code>llrp-virtual-device presets</code><span>列出内置设备预设。</span></div>
+        <div><code>llrp-virtual-device caps</code><span>列出能力 Profile。</span></div>
       </div>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code># 安静的前台服务
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- run --port 5084
+
+# 自动启动并观察客户端产生的 RX/TX 报文
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- live --llrp 1.0.1</code></pre></div>
+      <p><code>live</code> 不会自己伪造客户端请求；必须由 <code>LlrpCli</code>、Reader SDK 或其他 LLRP 客户端连接并产生流量。</p>
     </section>
 
-    <!-- 3. Host Shell -->
-    <section id="host-shell">
-      <h2>3. 交互式 Host 管理控制台</h2>
-      <p>直接运行 <code>llrp-device</code> 不带子命令即可进入宿主管理控制台：</p>
-      <div class="code-block">
-        <button class="copy-code">复制</button>
-        <pre><code># 控制台常用管理命令：
-server create --llrp 1.0.1 --port 5084  # 创建读写器实例（尚未绑定端口）
-server start                            # 绑定网络端口并开始接受客户端连接
-server status                           # 查看运行状态与已连接客户端 IP
-server restart                          # 重启 TCP 监听器并断开客户端
-server stop                             # 停止服务
-caps                                    # 列出当前读写器注册的能力 Profile
-logs on / logs off                      # 开启或关闭实时 RX/TX LLRP 报文追踪日志</code></pre>
+    <section id="shell">
+      <h2>3. 交互式生命周期 Shell</h2>
+      <p>进入 Shell 后，生命周期按“创建 → 启动 → 观察 → 停止/销毁”管理：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>vdev (empty)&gt; server create --llrp 1.0.1
+vdev (created)&gt; server start
+vdev (running)&gt; server status
+vdev (running)&gt; logs on
+vdev (running)&gt; server stop
+vdev (stopped)&gt; server destroy
+vdev (empty)&gt; exit</code></pre></div>
+      <div class="command-table">
+        <div><code>server create [options]</code><span>创建 Host，但默认不绑定 TCP。</span></div>
+        <div><code>server run [options]</code><span>创建并启动一台设备。</span></div>
+        <div><code>server start|stop|restart</code><span>控制同一个 Host 的监听器和客户端会话。</span></div>
+        <div><code>server status</code><span>显示状态、端点、协议、Profile 和客户端数量。</span></div>
+        <div><code>server destroy</code><span>销毁当前设备，之后才能创建下一台。</span></div>
+        <div><code>logs on|off|status</code><span>控制生命周期、客户端和解码后的 RX/TX 事件输出。</span></div>
       </div>
+      <p>默认监听地址是 <code>127.0.0.1</code>、端口是 <code>5084</code>、连接数为 1；通过 <code>--listen</code>、<code>--port</code> 和 <code>--max-client-connections</code> 覆盖。</p>
     </section>
 
-    <!-- 4. Config Schema -->
-    <section id="config-schema">
-      <h2>4. 场景预设与自定义 JSON 配置规范</h2>
+    <section id="configuration">
+      <h2>4. 预设与 JSON 配置</h2>
+      <p>当前内置预设以协议和设备形状为中心，而不是虚构的业务场景：</p>
       <div class="mini-grid">
-        <div>
-          <strong>conveyor (传送带场景)</strong>
-          <p>模拟标签以特定速度穿越天线感应区域，产生动态的进入与离开事件。</p>
-        </div>
-        <div>
-          <strong>warehouse (仓库高密度盘点)</strong>
-          <p>模拟 4 根天线覆盖下的上百张高密度标签群，用于压力与吞吐量测试。</p>
-        </div>
-        <div>
-          <strong>portal (通道门禁场景)</strong>
-          <p>模拟双侧门禁天线感应，适用于批量进出库校验。</p>
-        </div>
+        <div><strong><code>llrp.standard101.basic</code></strong><p>LLRP 1.0.1 标准设备与确定性标签报告。</p></div>
+        <div><strong><code>llrp.standard101.strict</code></strong><p>LLRP 1.0.1 标准设备，启用严格盘点状态校验。</p></div>
+        <div><strong><code>llrp.standard11.basic</code></strong><p>LLRP 1.1 设备，显式执行版本协商。</p></div>
+        <div><strong><code>llrp.standard20.basic</code></strong><p>当前 LLRP 2.0 翻译设备基线。</p></div>
+        <div><strong><code>impinj.r420.basic</code></strong><p>Impinj R420 形状的 LLRP 1.0.1 扩展设备。</p></div>
       </div>
+      <p>配置文件描述能力 Profile、数据源、报告节奏和确定性 RF 可观察行为；监听地址、端口和运行中的 ROSpec/AccessSpec 不写入配置：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>{
+  "schemaVersion": 1,
+  "presetId": "llrp.standard101.basic",
+  "capabilityProfileId": "llrp1.0.1_standard",
+  "protocolVersion": "1.0.1",
+  "inventoryDataSource": "default",
+  "reportIntervalMilliseconds": 100,
+  "repeat": true,
+  "rfScenario": "static",
+  "randomSeed": 2026,
+  "singleTagProbability": 0.85,
+  "maxTagsPerRound": 2,
+  "tags": [
+    {
+      "epc": "E28011910000000000000001",
+      "antennaId": 1,
+      "peakRssi": -55,
+      "tid": "E280110520007001",
+      "userMemory": [4660, 22136]
+    }
+  ]
+}</code></pre></div>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code># 校验配置
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- validate --config virtual-device.json
 
-      <p style="margin-top:20px;">自定义 JSON 配置文件示例：</p>
-      <div class="code-block">
-        <button class="copy-code">复制</button>
-        <pre><code>{
-  "profile": "llrp1.0.1_standard",
-  "port": 5084,
-  "inventory": {
-    "tags": [
-      {
-        "epc": "E28011910000000000000001",
-        "antennaId": 1,
-        "rssi": -55,
-        "tid": "E280110520007001",
-        "user": "12345678"
-      },
-      {
-        "epc": "E28011910000000000000002",
-        "antennaId": 2,
-        "rssi": -62
-      }
-    ]
-  }
-}</code></pre>
-      </div>
+# 运行配置
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- run --config virtual-device.json</code></pre></div>
+      <p>标准 Profile 暴露 4 根逻辑天线，默认数据源包含确定性标签。<code>static</code>、<code>moving-tags</code> 和 <code>noisy</code> 只控制可观察标签行为，不是物理 RF 波形模拟。</p>
     </section>
 
-    <!-- 5. Interop -->
     <section id="interop">
-      <h2>5. 第三方客户端联调 (如 Impinj ItemTest)</h2>
-      <p>
-        <code>llrp-device</code> 完全遵循 LLRP 1.0.1 / 1.1 国际规范。启动后，可以使用商业上位机软件（如 <strong>Impinj ItemTest 2.10.0</strong>）直接输入 <code>127.0.0.1:5084</code> 建立连接并执行盘点测试。
-      </p>
+      <h2>5. 第三方客户端联调</h2>
+      <p>启动虚拟设备后，任何普通 LLRP 客户端都可以连接 <code>127.0.0.1:5084</code>。典型组合是：</p>
+      <div class="number-list">
+        <div><b>01</b><span>使用 <code>llrp-virtual-device run</code> 或 <code>live</code> 启动设备端。</span></div>
+        <div><b>02</b><span>使用 <code>LlrpCli</code>、<code>LlrpSdk</code> 或第三方客户端连接端点。</span></div>
+        <div><b>03</b><span>通过 <code>logs on</code> 观察连接、能力查询、ROSpec 和报告的 RX/TX 事件。</span></div>
+      </div>
+      <p>Impinj R420 Profile 已用 ItemTest 2.10.0 验证 LLRP 1.0.1 连接和进入盘点启动流程。这一结论只覆盖 LLRP 通道，不代表实现 mDNS、rshell/SSH 等非 LLRP 服务。</p>
+    </section>
+
+    <section id="boundaries">
+      <h2>6. 工具边界</h2>
+      <div class="callout">
+        Virtual Device CLI 是 SDK 的测试工具，不是产品主页上的主要应用 API。需要在 xUnit 或 WPF 内嵌虚拟设备时，再查看 <a class="text-link" href="device-api.html">Virtual Device API Reference</a>；需要命令行联调时留在本指南。
+      </div>
+      <ul>
+        <li>支持标准设备端连接、能力/配置、ROSpec/AccessSpec 生命周期、报告和标准 Tag Access 路径。</li>
+        <li>不驱动真实 RFID 模块，不计算 Tx Power、灵敏度、Tari、距离和碰撞物理。</li>
+        <li>默认只托管一个设备实例，不提供多设备目录或跨进程恢复。</li>
+        <li>设备端的协议版本和厂商 Profile 仍以当前状态与互操作证据为准。</li>
+      </ul>
     </section>
   </article>
 </main>
 
 <footer class="shell footer">
-  <span>LLRPCSharp · Device CLI 用户手册</span>
-  <span><a href="reader-api.html">查看 Reader SDK API 参考 →</a></span>
+  <span>LLRPCSharp · Virtual Device CLI User’s Guide</span>
+  <span><a href="device-api.html">Virtual Device API Reference →</a></span>
 </footer>
-
 <script src="assets/app.js"></script>
 </body>
 </html>

@@ -55,27 +55,16 @@
       <div class="reference-nav-title">Core Facade</div>
       <a href="#type-llrpreader"><code>LlrpReader</code> <span class="badge class">Class</span></a>
       <a href="#type-llrpreaderbuilder"><code>LlrpReaderBuilder</code> <span class="badge class">Class</span></a>
-      <a href="#type-readercapabilities"><code>ReaderCapabilities</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">Settings & Inventory</div>
       <a href="#type-readersettings"><code>ReaderSettings</code> <span class="badge record">Record</span></a>
-      <a href="#type-inventorysettings"><code>InventorySettings</code> <span class="badge record">Record</span></a>
-      <a href="#type-inventorysession"><code>InventorySession</code> <span class="badge class">Class</span></a>
-      <a href="#type-tagreport"><code>TagReport</code> <span class="badge record">Record</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">C1G2 Tag Access</div>
       <a href="#type-tagaccessrequest"><code>TagAccessRequest</code> <span class="badge record">Abstract</span></a>
-      <a href="#type-tagselection"><code>TagSelection</code> <span class="badge record">Record</span></a>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">Expert & Extensions</div>
-      <a href="#type-irospecservice"><code>IRoSpecService</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-extensions">Extensions (Impinj/Zebra)</a>
     </div>
   </nav>
 </aside>
@@ -87,6 +76,7 @@
     <div class="topbar-title">Reader SDK API Reference</div>
     <div class="topbar-links">
       <a href="index.html">Home</a>
+      <a href="reader-sdk.html">Programmer’s Guide</a>
 
       <!-- API Reference Dropdown -->
       <div class="nav-dropdown">
@@ -112,8 +102,8 @@
           <a href="device-api.html" class="dropdown-item">
             <span class="item-icon">🖥️</span>
             <div class="item-text">
-              <strong>Device SDK API</strong>
-              <small>Virtual reader test host & server</small>
+              <strong>Virtual Device API</strong>
+              <small>SDK test host & server abstractions</small>
             </div>
           </a>
         </div>
@@ -136,13 +126,14 @@
           <a href="cli-device.html" class="dropdown-item">
             <span class="item-icon">📟</span>
             <div class="item-text">
-              <strong>Device CLI (`llrp-device`)</strong>
-              <small>Standalone virtual server & simulation</small>
+              <strong>Virtual Device CLI</strong>
+              <small>One virtual device & interoperability</small>
             </div>
           </a>
         </div>
       </div>
 
+      <a href="releases.html">Releases</a>
       <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
     </div>
   </header>
@@ -303,7 +294,7 @@ TagAccessResult writeResult = await reader.WriteTagMemoryAsync(new WriteTagReque
 
 <footer class="shell footer">
   <span>LLRPCSharp · Reader SDK API Reference</span>
-  <span><a href="device-api.html">Next: Device SDK API Reference →</a></span>
+  <span><a href="device-api.html">Next: Virtual Device API Reference →</a></span>
 </footer>
 
 <script src="../assets/app.js"></script>

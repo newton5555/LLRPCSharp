@@ -3,185 +3,177 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp Device CLI (LlrpVirtualDevice.Cli / llrp-device) Manual - Standalone virtual reader server, scenario presets and interop manual.">
-  <title>Device CLI Manual (llrp-device) · LLRPCSharp</title>
+  <meta name="description" content="LLRPCSharp Virtual Device CLI User’s Guide: one virtual LLRP device, lifecycle management, configuration validation and client interoperability.">
+  <title>Virtual Device CLI User’s Guide · LLRPCSharp</title>
   <link rel="stylesheet" href="../assets/styles.css">
   <link rel="stylesheet" href="../assets/brand.css">
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="index.html">
-    <img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp">
-    <span>LLRPCSharp<small>Device CLI</small></span>
-  </a>
+  <a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Virtual Device CLI</small></span></a>
   <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
   <nav>
     <a href="index.html">Home</a>
-
-    <!-- API Reference Dropdown -->
+    <a href="reader-sdk.html">Programmer’s Guide</a>
     <div class="nav-dropdown">
-      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true">
-        <span>API Reference</span>
-        <span class="chevron">▾</span>
-      </button>
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>API Documentation</span><span class="chevron">▾</span></button>
       <div class="dropdown-menu">
-        <a href="protocol-api.html" class="dropdown-item">
-          <span class="item-icon">🧬</span>
-          <div class="item-text">
-            <strong>LlrpNet Protocol API</strong>
-            <small>Framing, session transport & codecs</small>
-          </div>
-        </a>
-        <a href="reader-api.html" class="dropdown-item">
-          <span class="item-icon">📡</span>
-          <div class="item-text">
-            <strong>Reader SDK API</strong>
-            <small>Managed client, settings & tag access</small>
-          </div>
-        </a>
-        <a href="device-api.html" class="dropdown-item">
-          <span class="item-icon">🖥️</span>
-          <div class="item-text">
-            <strong>Device SDK API</strong>
-            <small>Virtual reader test host & server</small>
-          </div>
-        </a>
+        <a href="reader-api.html" class="dropdown-item"><span class="item-icon">📡</span><span class="item-text"><strong>Reader SDK API</strong><small>Managed client and public types</small></span></a>
+        <a href="protocol-api.html" class="dropdown-item"><span class="item-icon">🧬</span><span class="item-text"><strong>LlrpNet Protocol API</strong><small>Protocol types and codecs</small></span></a>
+        <a href="device-api.html" class="dropdown-item"><span class="item-icon">🧪</span><span class="item-text"><strong>Virtual Device API</strong><small>Advanced testing-tool API</small></span></a>
       </div>
     </div>
-
-    <!-- CLI Manuals Dropdown -->
     <div class="nav-dropdown">
-      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true">
-        <span>CLI Manuals</span>
-        <span class="chevron">▾</span>
-      </button>
+      <button class="dropdown-toggle active" aria-expanded="false" aria-haspopup="true"><span>CLI User’s Guides</span><span class="chevron">▾</span></button>
       <div class="dropdown-menu">
-        <a href="cli-reader.html" class="dropdown-item">
-          <span class="item-icon">⚡</span>
-          <div class="item-text">
-            <strong>Reader CLI (`llrp`)</strong>
-            <small>Live shell, JSON automation & pcapng decode</small>
-          </div>
-        </a>
-        <a href="cli-device.html" class="dropdown-item active">
-          <span class="item-icon">📟</span>
-          <div class="item-text">
-            <strong>Device CLI (`llrp-device`)</strong>
-            <small>Standalone virtual server & simulation</small>
-          </div>
-        </a>
+        <a href="cli-reader.html" class="dropdown-item"><span class="item-icon">⚡</span><span class="item-text"><strong>Reader CLI (llrp)</strong><small>Reader operations and capture analysis</small></span></a>
+        <a href="cli-device.html" class="dropdown-item active"><span class="item-icon">🖥️</span><span class="item-text"><strong>Virtual Device CLI</strong><small>One virtual device for interoperability</small></span></a>
       </div>
     </div>
+    <a href="releases.html">Releases</a>
   </nav>
   <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
 </header>
 
 <main class="shell docs-layout">
-  <!-- Left Navigation -->
   <aside class="side-nav">
-    <p class="eyebrow">DEVICE CLI (LLRP-DEVICE)</p>
-    <a href="#overview">1. Overview & Use Cases</a>
-    <a href="#quick-run">2. Core Run Modes (run/live)</a>
-    <a href="#host-shell">3. Interactive Host Shell</a>
-    <a href="#config-schema">4. JSON Scenario Presets</a>
-    <a href="#interop">5. 3rd-Party Interop (ItemTest)</a>
+    <p class="eyebrow">CLI USER’S GUIDE</p>
+    <a href="#overview">1. Scope and launch</a>
+    <a href="#modes">2. Run modes</a>
+    <a href="#shell">3. Interactive lifecycle shell</a>
+    <a href="#configuration">4. Presets and JSON configuration</a>
+    <a href="#interop">5. Client interoperability</a>
+    <a href="#boundaries">6. Tool boundaries</a>
+    <p class="eyebrow" style="margin-top:22px;">RELATED</p>
+    <a href="device-api.html" style="color:var(--teal);font-weight:700;">Virtual Device API →</a>
   </aside>
 
-  <!-- Main Content -->
   <article class="doc-content">
-    <p class="eyebrow">LLRPCSHARP / DEVICE CLI USER MANUAL</p>
-    <h1>LlrpVirtualDevice.Cli (`llrp-device`) Virtual Reader Server Manual</h1>
+    <p class="eyebrow">LLRPCSHARP / CLI USER’S GUIDE</p>
+    <h1>Virtual Device CLI User’s Guide</h1>
     <p class="doc-lead">
-      <code>LlrpVirtualDevice.Cli</code> (command alias <code>llrp-device</code>) is a standalone virtual LLRP reader server. Without writing code, you can start a standard 5084 LLRP TCP server, load presets or custom tag scenarios, and serve any compliant LLRP client.
+      <code>LlrpVirtualDevice.Cli</code> is the device-side command-line tool. One process hosts one deterministic virtual LLRP device and exposes a normal TCP endpoint so the Reader SDK, WPF clients or third-party LLRP clients can be tested without physical hardware.
     </p>
 
-    <!-- 1. Overview -->
     <section id="overview">
-      <h2>1. Overview & Launch Options</h2>
-      <div class="code-block">
-        <button class="copy-code">Copy</button>
-        <pre><code># Start interactive host management shell
-dotnet run --project src/LlrpVirtualDevice.Cli
-
-# Or run foreground service with warehouse preset on port 5084
-dotnet run --project src/LlrpVirtualDevice.Cli -- run --port 5084 --preset warehouse</code></pre>
-      </div>
+      <h2>1. Scope and launch</h2>
+      <p>Run it from the source tree. With no arguments it enters the interactive device shell but does not create a device:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj</code></pre></div>
+      <p>The executable name used by the built-in help is <code>llrp-virtual-device</code>; source runs use the project path above.</p>
+      <div class="callout">This is a one-device tool, not a multi-device manager. It does not restore ROSpec, AccessSpec or inventory state after a process restart.</div>
     </section>
 
-    <!-- 2. Core Run Commands -->
-    <section id="quick-run">
-      <h2>2. Core Commands & Options</h2>
-      <div class="table-wrapper">
-        <table class="member-table">
-          <thead><tr><th>Command Syntax</th><th>Description & Example</th></tr></thead>
-          <tbody>
-            <tr>
-              <td><code>llrp-device run [options]</code></td>
-              <td>Launch foreground server: <code>llrp-device run --port 5084 --preset warehouse</code></td>
-            </tr>
-            <tr>
-              <td><code>llrp-device live [options]</code></td>
-              <td>Start server with interactive RX/TX logging: <code>llrp-device live --port 5084 --preset conveyor</code></td>
-            </tr>
-            <tr>
-              <td><code>llrp-device presets</code></td>
-              <td>List all built-in scenario presets.</td>
-            </tr>
-            <tr>
-              <td><code>llrp-device validate &lt;config.json&gt;</code></td>
-              <td>Validate configuration file schema and tag data.</td>
-            </tr>
-          </tbody>
-        </table>
+    <section id="modes">
+      <h2>2. Run modes</h2>
+      <div class="command-table">
+        <div><code>llrp-virtual-device</code><span>Enter the shell without creating a device.</span></div>
+        <div><code>llrp-virtual-device run [options]</code><span>Create and run one device in the foreground; Ctrl+C stops it.</span></div>
+        <div><code>llrp-virtual-device live [options]</code><span>Create and start one device, then enter the shell with RX/TX events enabled.</span></div>
+        <div><code>llrp-virtual-device shell</code><span>Explicit alias for the empty interactive shell.</span></div>
+        <div><code>llrp-virtual-device validate --config PATH</code><span>Validate one local JSON device configuration.</span></div>
+        <div><code>llrp-virtual-device presets</code><span>List built-in device presets.</span></div>
+        <div><code>llrp-virtual-device caps</code><span>List capability profiles.</span></div>
       </div>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code># Quiet foreground service
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- run --port 5084
+
+# Start and observe RX/TX traffic generated by a client
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- live --llrp 1.0.1</code></pre></div>
+      <p><code>live</code> does not manufacture client requests. <code>LlrpCli</code>, the Reader SDK or another LLRP client must connect and drive traffic.</p>
     </section>
 
-    <!-- 3. Host Shell -->
-    <section id="host-shell">
-      <h2>3. Interactive Host Management Shell</h2>
-      <div class="code-block">
-        <button class="copy-code">Copy</button>
-        <pre><code>server create --llrp 1.0.1 --port 5084  # Create host instance
-server start                            # Bind port and begin accepting clients
-server status                           # Display state & connected clients
-logs on / logs off                      # Toggle live RX/TX LLRP frame tracing</code></pre>
+    <section id="shell">
+      <h2>3. Interactive lifecycle shell</h2>
+      <p>Inside the shell, manage the lifecycle as “create → start → observe → stop/destroy”:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>vdev (empty)&gt; server create --llrp 1.0.1
+vdev (created)&gt; server start
+vdev (running)&gt; server status
+vdev (running)&gt; logs on
+vdev (running)&gt; server stop
+vdev (stopped)&gt; server destroy
+vdev (empty)&gt; exit</code></pre></div>
+      <div class="command-table">
+        <div><code>server create [options]</code><span>Create a host without binding TCP by default.</span></div>
+        <div><code>server run [options]</code><span>Create and start one device.</span></div>
+        <div><code>server start|stop|restart</code><span>Control the listener and sessions on the same host.</span></div>
+        <div><code>server status</code><span>Show state, endpoint, protocol, profile and client count.</span></div>
+        <div><code>server destroy</code><span>Dispose the current device before creating another.</span></div>
+        <div><code>logs on|off|status</code><span>Control lifecycle, client and decoded RX/TX event output.</span></div>
       </div>
+      <p>The default endpoint is <code>127.0.0.1:5084</code> with one client slot. Override it with <code>--listen</code>, <code>--port</code> and <code>--max-client-connections</code>.</p>
     </section>
 
-    <!-- 4. Presets -->
-    <section id="config-schema">
-      <h2>4. Scenario Presets & Custom Configuration</h2>
+    <section id="configuration">
+      <h2>4. Presets and JSON configuration</h2>
+      <p>The built-in presets describe protocol and device shapes rather than invented business scenarios:</p>
       <div class="mini-grid">
-        <div>
-          <strong>conveyor</strong>
-          <p>Simulates tags passing dynamic antenna interrogation zones at speed.</p>
-        </div>
-        <div>
-          <strong>warehouse</strong>
-          <p>Multi-antenna high tag density inventory for throughput testing.</p>
-        </div>
-        <div>
-          <strong>portal</strong>
-          <p>Dual-sided portal gate for rapid group tag transit verification.</p>
-        </div>
+        <div><strong><code>llrp.standard101.basic</code></strong><p>LLRP 1.0.1 standard device with deterministic tag reports.</p></div>
+        <div><strong><code>llrp.standard101.strict</code></strong><p>LLRP 1.0.1 standard device with strict inventory state checks.</p></div>
+        <div><strong><code>llrp.standard11.basic</code></strong><p>LLRP 1.1 device with explicit version negotiation.</p></div>
+        <div><strong><code>llrp.standard20.basic</code></strong><p>Current translated LLRP 2.0 device baseline.</p></div>
+        <div><strong><code>impinj.r420.basic</code></strong><p>Impinj R420-shaped LLRP 1.0.1 extension device.</p></div>
       </div>
+      <p>The configuration selects a capability profile, data source, report cadence and deterministic RF-observable behavior. The listen address, port and runtime ROSpec/AccessSpec state are not stored:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>{
+  "schemaVersion": 1,
+  "presetId": "llrp.standard101.basic",
+  "capabilityProfileId": "llrp1.0.1_standard",
+  "protocolVersion": "1.0.1",
+  "inventoryDataSource": "default",
+  "reportIntervalMilliseconds": 100,
+  "repeat": true,
+  "rfScenario": "static",
+  "randomSeed": 2026,
+  "singleTagProbability": 0.85,
+  "maxTagsPerRound": 2,
+  "tags": [
+    {
+      "epc": "E28011910000000000000001",
+      "antennaId": 1,
+      "peakRssi": -55,
+      "tid": "E280110520007001",
+      "userMemory": [4660, 22136]
+    }
+  ]
+}</code></pre></div>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code># Validate
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- validate --config virtual-device.json
+
+# Run the configuration
+dotnet run --project src/LlrpVirtualDevice.Cli/LlrpVirtualDevice.Cli.csproj -- run --config virtual-device.json</code></pre></div>
+      <p>The standard profile exposes four logical antennas and a deterministic inventory source. <code>static</code>, <code>moving-tags</code> and <code>noisy</code> control observable tag behavior; they are not physical RF waveform simulation.</p>
     </section>
 
-    <!-- 5. Interop -->
     <section id="interop">
-      <h2>5. 3rd-Party Interop (Impinj ItemTest)</h2>
-      <p>
-        <code>llrp-device</code> is fully compliant with LLRP standards. Connect commercial software (e.g. <strong>Impinj ItemTest 2.10.0</strong>) to <code>127.0.0.1:5084</code> for live verification.
-      </p>
+      <h2>5. Client interoperability</h2>
+      <p>After startup, any ordinary LLRP client can connect to <code>127.0.0.1:5084</code>. A typical workflow is:</p>
+      <div class="number-list">
+        <div><b>01</b><span>Start the device with <code>llrp-virtual-device run</code> or <code>live</code>.</span></div>
+        <div><b>02</b><span>Connect with <code>LlrpCli</code>, <code>LlrpSdk</code> or another LLRP client.</span></div>
+        <div><b>03</b><span>Use <code>logs on</code> to observe capability, ROSpec and report RX/TX events.</span></div>
+      </div>
+      <p>The Impinj R420 profile has been checked with ItemTest 2.10.0 for the LLRP 1.0.1 connection and inventory-start path. This is an LLRP-path compatibility statement, not an implementation claim for mDNS, rshell/SSH or other non-LLRP services.</p>
+    </section>
+
+    <section id="boundaries">
+      <h2>6. Tool boundaries</h2>
+      <div class="callout">
+        Virtual Device CLI is an SDK testing tool, not a primary product API presented on the home page. If you need to embed a virtual device in xUnit or WPF, use the <a class="text-link" href="device-api.html">Virtual Device API Reference</a>; for command-line interoperability, stay in this guide.
+      </div>
+      <ul>
+        <li>Covers device-side connection, capabilities/configuration, ROSpec/AccessSpec lifecycle, reports and standard Tag Access paths.</li>
+        <li>Does not drive a physical RFID module or calculate Tx power, sensitivity, Tari, distance or collision physics.</li>
+        <li>Hosts one device by design; there is no multi-device directory or cross-process recovery.</li>
+        <li>Protocol-version and vendor-profile behavior remains bounded by current status and interoperability evidence.</li>
+      </ul>
     </section>
   </article>
 </main>
 
 <footer class="shell footer">
-  <span>LLRPCSharp · Device CLI Manual</span>
-  <span><a href="reader-api.html">View Reader SDK API Reference →</a></span>
+  <span>LLRPCSharp · Virtual Device CLI User’s Guide</span>
+  <span><a href="device-api.html">Virtual Device API Reference →</a></span>
 </footer>
-
 <script src="../assets/app.js"></script>
 </body>
 </html>

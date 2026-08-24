@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp v2.0.3 release resources: NuGet packages, Reader CLI archives, source and release notes.">
+  <title>Release Resources · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/home.css">
+  <link rel="stylesheet" href="../assets/brand.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Release Resources</small></span></a>
+  <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="reader-sdk.html">Programmer’s Guide</a>
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>API Documentation</span><span class="chevron">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="reader-api.html" class="dropdown-item"><span class="item-icon">📡</span><span class="item-text"><strong>Reader SDK API</strong><small>Managed client and public types</small></span></a>
+        <a href="protocol-api.html" class="dropdown-item"><span class="item-icon">🧬</span><span class="item-text"><strong>LlrpNet Protocol API</strong><small>Protocol types and codecs</small></span></a>
+        <a href="device-api.html" class="dropdown-item"><span class="item-icon">🧪</span><span class="item-text"><strong>Virtual Device API</strong><small>Advanced testing-tool API</small></span></a>
+      </div>
+    </div>
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>CLI User’s Guides</span><span class="chevron">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="cli-reader.html" class="dropdown-item"><span class="item-icon">⚡</span><span class="item-text"><strong>Reader CLI (llrp)</strong><small>Reader operations and capture analysis</small></span></a>
+        <a href="cli-device.html" class="dropdown-item"><span class="item-icon">🖥️</span><span class="item-text"><strong>Virtual Device CLI</strong><small>One virtual device for interoperability</small></span></a>
+      </div>
+    </div>
+    <a href="releases.html" class="active">Releases</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <aside class="side-nav">
+    <p class="eyebrow">RELEASE RESOURCES</p>
+    <a href="#latest">Current release</a>
+    <a href="#packages">NuGet packages</a>
+    <a href="#cli">Reader CLI downloads</a>
+    <a href="#notes">Release notes</a>
+    <a href="#verification">Verification and compatibility</a>
+  </aside>
+
+  <article class="doc-content">
+    <p class="eyebrow">LLRPCSHARP / RELEASE RESOURCES</p>
+    <h1>Release Resources</h1>
+    <p class="doc-lead">This page collects the current SDK packages, standalone Reader CLI programs, source and release notes. The home page keeps only quick links; detailed usage belongs in the corresponding Guide or API Reference.</p>
+
+    <section id="latest">
+      <div class="release-banner">
+        <div class="release-head">
+          <div>
+            <h3>🚀 LLRPCSharp v2.0.3</h3>
+            <span class="release-date">Stable release · 2026-08-22 · .NET 10</span>
+          </div>
+          <a class="button secondary" href="https://github.com/newton5555/LLRPCSharp/releases/tag/v2.0.3" target="_blank" rel="noreferrer" style="margin:0;border-color:rgba(255,255,255,.3);color:#fff;background:rgba(255,255,255,.1);">GitHub Release ↗</a>
+        </div>
+        <p>The release separates managed desired state from observed reader resources, adds explicit takeover policy and publishes the Reader SDK, vendor extensions and Virtual Device Hosting packages.</p>
+      </div>
+      <div class="cards">
+        <div class="card featured"><span>GET STARTED</span><h3>Application development</h3><p>Install <code>LlrpSdk</code> and start with the Reader SDK Programmer’s Guide.</p><a class="text-link" href="reader-sdk.html">Open the Programmer’s Guide →</a></div>
+        <div class="card"><span>COMMAND LINE</span><h3>Field tooling</h3><p>Download a self-contained Reader CLI and run <code>llrp</code> without a separate .NET Runtime.</p><a class="text-link" href="#cli">View CLI downloads →</a></div>
+        <div class="card"><span>SOURCE</span><h3>Source and history</h3><p>Browse source, tags, release notes and the complete build workflow.</p><a class="text-link" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">Open GitHub →</a></div>
+      </div>
+    </section>
+
+    <section id="packages">
+      <h2>NuGet packages</h2>
+      <p>The v2.0.3 release workflow packs these four public packages:</p>
+      <div class="table-wrapper">
+        <table class="member-table">
+          <thead><tr><th>Package</th><th>Role</th><th>Install</th></tr></thead>
+          <tbody>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk/" target="_blank" rel="noreferrer"><code>LlrpSdk</code> ↗</a></td><td>Managed Reader client, settings, inventory and standard Tag Access.</td><td><code>dotnet add package LlrpSdk --version 2.0.3</code></td></tr>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk.Extensions.Impinj/" target="_blank" rel="noreferrer"><code>LlrpSdk.Extensions.Impinj</code> ↗</a></td><td>Impinj protocol and Reader SDK extension.</td><td><code>dotnet add package LlrpSdk.Extensions.Impinj --version 2.0.3</code></td></tr>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk.Extensions.Zebra/" target="_blank" rel="noreferrer"><code>LlrpSdk.Extensions.Zebra</code> ↗</a></td><td>Zebra protocol and Reader SDK extension baseline.</td><td><code>dotnet add package LlrpSdk.Extensions.Zebra --version 2.0.3</code></td></tr>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpDevice.Virtual.Hosting/" target="_blank" rel="noreferrer"><code>LlrpDevice.Virtual.Hosting</code> ↗</a></td><td>Host one virtual LLRP device inside a test or application process.</td><td><code>dotnet add package LlrpDevice.Virtual.Hosting --version 2.0.3</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="cli">
+      <h2>Reader CLI downloads</h2>
+      <p>The release workflow creates self-contained <code>LlrpCli</code> archives. Extract and run them without installing a separate .NET Runtime:</p>
+      <div class="download-grid">
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-win-x64.zip" target="_blank" rel="noreferrer"><span>Windows x64</span><small>ZIP ↗</small></a>
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-linux-x64.zip" target="_blank" rel="noreferrer"><span>Linux x64</span><small>ZIP ↗</small></a>
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-osx-x64.zip" target="_blank" rel="noreferrer"><span>macOS Intel x64</span><small>ZIP ↗</small></a>
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.3/LlrpCli-v2.0.3-osx-arm64.zip" target="_blank" rel="noreferrer"><span>macOS Apple Silicon</span><small>ZIP ↗</small></a>
+      </div>
+      <div class="callout">The current Release workflow publishes Reader CLI archives. Virtual Device CLI is a separate testing tool in the solution; run it from source or publish it separately for your environment.</div>
+    </section>
+
+    <section id="notes">
+      <h2>v2.0.3 release notes</h2>
+      <ul>
+        <li>Separates managed DesiredState from the reader’s ObservedState so raw/expert operations do not silently overwrite application intent.</li>
+        <li>Adds explicit resource takeover policy: <code>PreserveForeign</code> by default and opt-in <code>ReplaceAll</code> for dedicated readers.</li>
+        <li>Keeps LLRP 1.0.1, 1.1 and 2.0 SDK baselines; physical 2.0 interoperability remains separately verified.</li>
+        <li>Publishes <code>LlrpSdk</code>, Impinj, Zebra and <code>LlrpDevice.Virtual.Hosting</code> packages at v2.0.3.</li>
+      </ul>
+      <p><a class="text-link" href="https://github.com/newton5555/LLRPCSharp/blob/master/docs/releases/v2.0.3.md" target="_blank" rel="noreferrer">Read the complete release notes ↗</a></p>
+    </section>
+
+    <section id="verification">
+      <h2>Verification and compatibility</h2>
+      <div class="api-table">
+        <div class="api-row api-head"><span>Area</span><span>Current statement</span><span>Evidence boundary</span></div>
+        <div class="api-row"><span>Build and automated tests</span><span>Run by the Release workflow before publishing.</span><span>Passing automation does not accept every physical model.</span></div>
+        <div class="api-row"><span>LLRP 1.0.1</span><span>Usable Reader SDK and generic Virtual Device path.</span><span>Model coverage is recorded from hardware evidence.</span></div>
+        <div class="api-row"><span>LLRP 1.1 / 2.0</span><span>SDK and protocol adapter baselines are available.</span><span>Physical interoperability requires separate verification.</span></div>
+        <div class="api-row"><span>Impinj / Zebra</span><span>Extension packages and verified subsets are available.</span><span>Vendor fields and model coverage are not a blanket claim.</span></div>
+      </div>
+      <p class="callout">Release Resources describes published artifacts. For API contracts use the <a class="text-link" href="reader-api.html">Reader SDK API Reference</a>; for usage use the <a class="text-link" href="reader-sdk.html">Programmer’s Guide</a>.</p>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Release Resources</span>
+  <span><a href="https://github.com/newton5555/LLRPCSharp/releases" target="_blank" rel="noreferrer">All GitHub Releases ↗</a></span>
+</footer>
+<script src="../assets/app.js"></script>
+</body>
+</html>

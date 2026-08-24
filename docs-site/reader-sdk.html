@@ -2,11 +2,197 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="refresh" content="0; url=api-reference.html#type-llrpreader">
-  <title>正在跳转至 API 参考文档...</title>
-  <link rel="canonical" href="api-reference.html#type-llrpreader">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Reader SDK Programmer’s Guide：连接读写器、读取能力、应用设置、托管盘点、Tag Access 与厂商扩展。">
+  <title>Reader SDK Programmer’s Guide · LLRPCSharp</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/brand.css">
 </head>
 <body>
-  <p>正在跳转至 <a href="api-reference.html#type-llrpreader">Reader SDK API 参考</a>...</p>
+<header class="topbar">
+  <a class="brand" href="index.html"><img class="project-logo" src="assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Programmer’s Guide</small></span></a>
+  <button class="menu-toggle" aria-label="切换导航">☰</button>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="reader-sdk.html" class="active">开发者指南</a>
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>API 文档</span><span class="chevron">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="reader-api.html" class="dropdown-item"><span class="item-icon">📡</span><span class="item-text"><strong>Reader SDK API</strong><small>托管客户端与公开类型</small></span></a>
+        <a href="protocol-api.html" class="dropdown-item"><span class="item-icon">🧬</span><span class="item-text"><strong>LlrpNet Protocol API</strong><small>底层协议类型与 Codec</small></span></a>
+        <a href="device-api.html" class="dropdown-item"><span class="item-icon">🧪</span><span class="item-text"><strong>Virtual Device API</strong><small>高级测试工具 API</small></span></a>
+      </div>
+    </div>
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>CLI 用户指南</span><span class="chevron">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="cli-reader.html" class="dropdown-item"><span class="item-icon">⚡</span><span class="item-text"><strong>Reader CLI (llrp)</strong><small>现场运维与抓包分析</small></span></a>
+        <a href="cli-device.html" class="dropdown-item"><span class="item-icon">🖥️</span><span class="item-text"><strong>Virtual Device CLI</strong><small>单台虚拟设备联调</small></span></a>
+      </div>
+    </div>
+    <a href="releases.html">发布资源</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <aside class="side-nav">
+    <p class="eyebrow">PROGRAMMER’S GUIDE</p>
+    <a href="#install">1. 安装与边界</a>
+    <a href="#connect">2. 连接读写器</a>
+    <a href="#capabilities">3. 读取设备能力</a>
+    <a href="#settings">4. 配置读写器</a>
+    <a href="#inventory">5. 托管盘点与报告</a>
+    <a href="#tag-access">6. 标签访问</a>
+    <a href="#extensions">7. 厂商扩展</a>
+    <a href="#lifecycle">8. 生命周期与边界</a>
+    <p class="eyebrow" style="margin-top:22px;">API DOCUMENTATION</p>
+    <a href="reader-api.html" style="color:var(--teal);font-weight:700;">Reader SDK API →</a>
+  </aside>
+
+  <article class="doc-content">
+    <p class="eyebrow">LLRPCSHARP / PROGRAMMER’S GUIDE</p>
+    <h1>Reader SDK Programmer’s Guide</h1>
+    <p class="doc-lead">
+      <code>LlrpSdk</code> 是面向 .NET 应用的托管 LLRP 客户端。它把 TCP 会话、协议版本协商、设备能力、Reader 设置、托管盘点和标准 C1G2 标签访问收敛到 <code>LlrpReader</code> 门面；应用通常不需要手写 ROSpec 或 AccessSpec 消息。
+    </p>
+
+    <section id="install">
+      <h2>1. 安装与边界</h2>
+      <p>将 Reader SDK 添加到应用：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>dotnet add package LlrpSdk --version 2.0.3</code></pre></div>
+      <p>Impinj 与 Zebra 扩展是独立包，只有在目标设备和版本匹配时才会激活：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>dotnet add package LlrpSdk.Extensions.Impinj --version 2.0.3
+dotnet add package LlrpSdk.Extensions.Zebra --version 2.0.3</code></pre></div>
+      <div class="callout">
+        本指南讲应用层 Reader SDK。需要直接处理 LLRP 帧、Codec、会话传输或生成协议类型时，请转到 <a class="text-link" href="protocol-api.html">LlrpNet Protocol API</a>；公开类型、方法签名和参数契约见 <a class="text-link" href="reader-api.html">Reader SDK API Reference</a>。
+      </div>
+    </section>
+
+    <section id="connect">
+      <h2>2. 连接读写器</h2>
+      <p><code>LlrpReaderBuilder</code> 用于设置地址、端口和连接超时。默认协议策略为自动协商：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>using LlrpSdk;
+
+await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
+    .WithPort(5084)
+    .WithConnectTimeout(TimeSpan.FromSeconds(5))
+    .Build();
+
+await reader.ConnectAsync();
+Console.WriteLine(reader.Identity);</code></pre></div>
+      <div class="api-table">
+        <div class="api-row api-head"><span>策略</span><span>行为</span><span>适用场景</span></div>
+        <div class="api-row"><span><code>Auto</code></span><span>先建立连接，再尝试 1.1 协商；不支持时回到 1.0.1。</span><span>默认选择</span></div>
+        <div class="api-row"><span><code>Force101</code></span><span>跳过版本探查，直接使用 LLRP 1.0.1。</span><span>已知旧设备</span></div>
+        <div class="api-row"><span><code>Force11</code></span><span>必须完成 1.1 协商，失败不会静默降级。</span><span>明确要求 1.1</span></div>
+        <div class="api-row"><span><code>Force20</code></span><span>使用当前 2.0 SDK 适配器基线；真实设备互操作仍需单独验收。</span><span>2.0 实验或目标设备</span></div>
+      </div>
+      <p>连接成功后，<code>Capabilities</code>、<code>Identity</code> 和扩展激活状态才具有设备上下文。</p>
+    </section>
+
+    <section id="capabilities">
+      <h2>3. 读取设备能力</h2>
+      <p>LLRP 的 RF Mode、发射功率和接收灵敏度通常以 Index 表示。不要猜测数字含义，应从当前 Reader 的能力表读取：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>ReaderCapabilities capabilities = reader.Capabilities!;
+
+Console.WriteLine(capabilities.MaxAntennas);
+foreach (var mode in capabilities.RfModes)
+    Console.WriteLine(mode.Description);
+foreach (var power in capabilities.TransmitPowerTable)
+    Console.WriteLine(power.TransmitPowerDbm / 100.0);</code></pre></div>
+      <p><code>GetDefaultSettingsAsync()</code> 会基于当前设备身份、协商版本和能力表生成推荐基线；它不是设备当前配置快照。需要读取设备事实时使用 <code>QuerySettingsAsync()</code>。</p>
+    </section>
+
+    <section id="settings">
+      <h2>4. 配置读写器</h2>
+      <p><code>ReaderSettings</code> 表示应用想要的配置。常见流程是“读取能力相关默认值 → 编辑 → 应用”，应用后 Inventory 仍保持停止，直到显式启动：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>ReaderSettings baseSettings = (await reader.GetDefaultSettingsAsync()).Settings;
+
+ReaderSettings settings = baseSettings.Edit(builder => builder
+    .Inventory(inventory => inventory
+        .Antennas(1, 2, 3, 4)
+        .Mode(modeIndex: 1000)
+        .Session(2)
+        .Population(128)
+        .ReportEveryTag()));
+
+await reader.ApplySettingsAsync(settings);</code></pre></div>
+      <div class="policy-grid">
+        <div class="policy safe"><span>DEFAULT</span><h3><code>PreserveForeign</code></h3><p>默认只替换 SDK 自己托管的 ROSpec、AccessSpec 和临时资源，保留其他应用资源。</p></div>
+        <div class="policy danger"><span>EXPLICIT</span><h3><code>ReplaceAll</code></h3><p>明确要求独占设备时才使用；它会删除全部标准 ROSpec/AccessSpec，适合专用测试设备。</p></div>
+      </div>
+      <p>配置文件、默认值和设备快照分别代表不同来源。SDK 不会把 Raw/专家接口的修改自动当成新的应用意图。</p>
+    </section>
+
+    <section id="inventory">
+      <h2>5. 托管盘点与报告</h2>
+      <p>应用配置完成后，使用独立的 <code>InventorySession</code> 读取报告：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>await using var session = await reader.StartInventoryAsync();
+await foreach (TagReport tag in session.ReadReportsAsync())
+{
+    Console.WriteLine(tag.EpcHex);
+}</code></pre></div>
+      <p><code>InventorySession.ReadReportsAsync()</code>、<code>TagsReported</code> 和连接级 <code>ReadTagReportsAsync()</code> 是互斥的报告出口。一次盘点中，第一个开始消费的出口取得所有权，避免同一份报告被多个消费者重复处理。</p>
+      <div class="callout warning"><strong>恢复边界：</strong>设备上的 ROSpec/AccessSpec 通常是易失资源。重连会同步设备现状，但不会替应用猜测并重放所有期望配置；应用应保留自己的 <code>ReaderSettings</code> 或 <code>InventorySettings</code>，必要时重新部署。</div>
+    </section>
+
+    <section id="tag-access">
+      <h2>6. 标签访问</h2>
+      <p>标准 C1G2 Tag Access 由 SDK 管理 AccessSpec 生命周期。下面是按 EPC 选择标签并读取 User 区的最小示例：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>var selection = new TagSelection
+{
+    MemoryBank = TagMemoryBank.ElectronicProductCode,
+    BitPointer = 32,
+    BitLength = 96,
+    Mask = Convert.FromHexString("FFFFFFFFFFFFFFFFFFFFFFFF"),
+    Data = Convert.FromHexString("E28011910000000000000001")
+};
+
+TagAccessResult result = await reader.ReadTagMemoryAsync(new ReadTagRequest
+{
+    Selection = selection,
+    MemoryBank = TagMemoryBank.User,
+    WordPointer = 0,
+    WordCount = 2
+});
+
+Console.WriteLine(result.Operation.Success);</code></pre></div>
+      <p>写入、锁定、销毁和块擦除也有对应的高层请求。<strong>Kill、Lock 以及带写入的操作可能不可逆</strong>，请在专用标签和明确的应用确认流程中执行。</p>
+    </section>
+
+    <section id="extensions">
+      <h2>7. 厂商扩展</h2>
+      <p>扩展注册只是声明候选能力；连接后 SDK 会根据 Reader 身份和协商版本决定是否激活。应用在使用扩展设置前应检查实际激活状态：</p>
+      <div class="code-block"><button class="copy-code">复制</button><pre><code>using LlrpSdk.Extensions.Impinj;
+
+await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
+    .UseImpinj()
+    .Build();
+
+await reader.ConnectAsync();
+if (reader.Extensions.Get&lt;ImpinjReaderExtension&gt;() is null)
+    throw new NotSupportedException("Impinj extension is not active on this reader.");</code></pre></div>
+      <p>当前仓库提供 Impinj 与 Zebra 的协议/SDK 扩展基线；不同型号、固件和字段仍以实机互操作证据为准。</p>
+    </section>
+
+    <section id="lifecycle">
+      <h2>8. 生命周期与边界</h2>
+      <div class="number-list">
+        <div><b>01</b><span>连接后读取 <code>Capabilities</code>，用设备事实生成或校验设置。</span></div>
+        <div><b>02</b><span>应用设置只负责部署；需要开始射频盘点时显式调用 <code>StartInventoryAsync()</code>。</span></div>
+        <div><b>03</b><span>断开、Dispose 或使用 <code>await using</code> 结束 Reader 生命周期。</span></div>
+        <div><b>04</b><span>LLRP 2.0、Zebra 及其他厂商扩展的“可编译”不等同于所有真实型号已验收。</span></div>
+      </div>
+      <p class="callout">下一步：<a class="text-link" href="reader-api.html">Reader SDK API Reference</a> 提供公开类型和方法索引；需要命令行操作时转到 <a class="text-link" href="cli-reader.html">Reader CLI User’s Guide</a>。</p>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Reader SDK Programmer’s Guide</span>
+  <span><a href="reader-api.html">Reader SDK API Reference →</a></span>
+</footer>
+<script src="assets/app.js"></script>
 </body>
 </html>

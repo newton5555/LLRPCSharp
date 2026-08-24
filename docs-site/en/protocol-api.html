@@ -53,28 +53,11 @@
     <div class="reference-nav-group">
       <div class="reference-nav-title">Framing</div>
       <a href="#type-llrpframedecoder"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></a>
-      <a href="#type-llrpframeencoder"><code>LlrpFrameEncoder</code> <span class="badge class">Class</span></a>
-      <a href="#type-llrpframe"><code>LlrpFrame</code> <span class="badge record">Struct</span></a>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">Transport & Session</div>
-      <a href="#type-llrpsession"><code>LlrpSession</code> <span class="badge class">Class</span></a>
-      <a href="#type-itransport"><code>ITransport</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-llrptcptransport"><code>LlrpTcpTransport</code> <span class="badge class">Class</span></a>
     </div>
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">Codec Registry</div>
       <a href="#type-llrpcodecregistry"><code>LlrpCodecRegistry</code> <span class="badge class">Class</span></a>
-      <a href="#type-icodec"><code>ICodec</code> <span class="badge interface">Interface</span></a>
-    </div>
-
-    <div class="reference-nav-group">
-      <div class="reference-nav-title">Contracts & Namespaces</div>
-      <a href="#type-illrpmessage"><code>ILLRPMessage</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-illrpparameter"><code>ILLRPParameter</code> <span class="badge interface">Interface</span></a>
-      <a href="#type-namespaces">Multi-Version Rules</a>
     </div>
   </nav>
 </aside>
@@ -86,6 +69,7 @@
     <div class="topbar-title">LlrpNet Protocol API Reference</div>
     <div class="topbar-links">
       <a href="index.html">Home</a>
+      <a href="reader-sdk.html">Programmer’s Guide</a>
 
       <!-- API Reference Dropdown -->
       <div class="nav-dropdown">
@@ -111,8 +95,8 @@
           <a href="device-api.html" class="dropdown-item">
             <span class="item-icon">🖥️</span>
             <div class="item-text">
-              <strong>Device SDK API</strong>
-              <small>Virtual reader test host & server</small>
+              <strong>Virtual Device API</strong>
+              <small>SDK test host & server abstractions</small>
             </div>
           </a>
         </div>
@@ -135,13 +119,14 @@
           <a href="cli-device.html" class="dropdown-item">
             <span class="item-icon">📟</span>
             <div class="item-text">
-              <strong>Device CLI (`llrp-device`)</strong>
-              <small>Standalone virtual server & simulation</small>
+              <strong>Virtual Device CLI</strong>
+              <small>One virtual device & interoperability</small>
             </div>
           </a>
         </div>
       </div>
 
+      <a href="releases.html">Releases</a>
       <a href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
     </div>
   </header>
@@ -177,10 +162,6 @@
         <a href="#type-llrpcodecregistry" class="quick-jump-card" data-category="codec">
           <div class="quick-jump-card-header"><code>LlrpCodecRegistry</code><span class="badge class">Class</span></div>
           <p>Central registry for standard and vendor custom wire codecs.</p>
-        </a>
-        <a href="#type-llrpsession" class="quick-jump-card" data-category="transport">
-          <div class="quick-jump-card-header"><code>LlrpSession</code><span class="badge class">Class</span></div>
-          <p>Full-duplex asynchronous message dispatch and response channel.</p>
         </a>
       </div>
     </section>

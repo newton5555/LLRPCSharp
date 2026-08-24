@@ -2,11 +2,197 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="refresh" content="0; url=api-reference.html#type-llrpreader">
-  <title>Redirecting to API Reference...</title>
-  <link rel="canonical" href="api-reference.html#type-llrpreader">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LLRPCSharp Reader SDK Programmer’s Guide: connecting readers, capabilities, settings, managed inventory, Tag Access and vendor extensions.">
+  <title>Reader SDK Programmer’s Guide · LLRPCSharp</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/brand.css">
 </head>
 <body>
-  <p>Redirecting to <a href="api-reference.html#type-llrpreader">Reader SDK API Reference</a>...</p>
+<header class="topbar">
+  <a class="brand" href="index.html"><img class="project-logo" src="../assets/llrpcsharp-icon.svg" alt="LLRPCSharp"><span>LLRPCSharp<small>Programmer’s Guide</small></span></a>
+  <button class="menu-toggle" aria-label="Toggle navigation">☰</button>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="reader-sdk.html" class="active">Programmer’s Guide</a>
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>API Documentation</span><span class="chevron">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="reader-api.html" class="dropdown-item"><span class="item-icon">📡</span><span class="item-text"><strong>Reader SDK API</strong><small>Managed client and public types</small></span></a>
+        <a href="protocol-api.html" class="dropdown-item"><span class="item-icon">🧬</span><span class="item-text"><strong>LlrpNet Protocol API</strong><small>Protocol types and codecs</small></span></a>
+        <a href="device-api.html" class="dropdown-item"><span class="item-icon">🧪</span><span class="item-text"><strong>Virtual Device API</strong><small>Advanced testing-tool API</small></span></a>
+      </div>
+    </div>
+    <div class="nav-dropdown">
+      <button class="dropdown-toggle" aria-expanded="false" aria-haspopup="true"><span>CLI User’s Guides</span><span class="chevron">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="cli-reader.html" class="dropdown-item"><span class="item-icon">⚡</span><span class="item-text"><strong>Reader CLI (llrp)</strong><small>Reader operations and capture analysis</small></span></a>
+        <a href="cli-device.html" class="dropdown-item"><span class="item-icon">🖥️</span><span class="item-text"><strong>Virtual Device CLI</strong><small>One virtual device for interoperability</small></span></a>
+      </div>
+    </div>
+    <a href="releases.html">Releases</a>
+  </nav>
+  <a class="github" href="https://github.com/newton5555/LLRPCSharp" target="_blank" rel="noreferrer">GitHub ↗</a>
+</header>
+
+<main class="shell docs-layout">
+  <aside class="side-nav">
+    <p class="eyebrow">PROGRAMMER’S GUIDE</p>
+    <a href="#install">1. Install and scope</a>
+    <a href="#connect">2. Connect to a reader</a>
+    <a href="#capabilities">3. Read capabilities</a>
+    <a href="#settings">4. Configure the reader</a>
+    <a href="#inventory">5. Managed inventory</a>
+    <a href="#tag-access">6. Tag Access</a>
+    <a href="#extensions">7. Vendor extensions</a>
+    <a href="#lifecycle">8. Lifecycle and boundaries</a>
+    <p class="eyebrow" style="margin-top:22px;">API DOCUMENTATION</p>
+    <a href="reader-api.html" style="color:var(--teal);font-weight:700;">Reader SDK API →</a>
+  </aside>
+
+  <article class="doc-content">
+    <p class="eyebrow">LLRPCSHARP / PROGRAMMER’S GUIDE</p>
+    <h1>Reader SDK Programmer’s Guide</h1>
+    <p class="doc-lead">
+      <code>LlrpSdk</code> is the application-facing managed LLRP client. It brings TCP sessions, protocol negotiation, reader capabilities, settings, managed inventory and standard C1G2 Tag Access behind the <code>LlrpReader</code> facade, so most applications do not need to construct ROSpec or AccessSpec messages by hand.
+    </p>
+
+    <section id="install">
+      <h2>1. Install and scope</h2>
+      <p>Add the Reader SDK to an application:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet add package LlrpSdk --version 2.0.3</code></pre></div>
+      <p>Impinj and Zebra extensions are separate packages and activate only when the connected identity and protocol version match:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>dotnet add package LlrpSdk.Extensions.Impinj --version 2.0.3
+dotnet add package LlrpSdk.Extensions.Zebra --version 2.0.3</code></pre></div>
+      <div class="callout">
+        This guide covers the application-facing Reader SDK. Use the <a class="text-link" href="protocol-api.html">LlrpNet Protocol API</a> for frames, codecs, sessions and generated protocol types, and the <a class="text-link" href="reader-api.html">Reader SDK API Reference</a> for public signatures and contracts.
+      </div>
+    </section>
+
+    <section id="connect">
+      <h2>2. Connect to a reader</h2>
+      <p><code>LlrpReaderBuilder</code> configures the endpoint and timeout. The default protocol strategy performs automatic negotiation:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>using LlrpSdk;
+
+await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
+    .WithPort(5084)
+    .WithConnectTimeout(TimeSpan.FromSeconds(5))
+    .Build();
+
+await reader.ConnectAsync();
+Console.WriteLine(reader.Identity);</code></pre></div>
+      <div class="api-table">
+        <div class="api-row api-head"><span>Strategy</span><span>Behavior</span><span>Use when</span></div>
+        <div class="api-row"><span><code>Auto</code></span><span>Connects, attempts 1.1 negotiation, and falls back to 1.0.1 when unsupported.</span><span>Default</span></div>
+        <div class="api-row"><span><code>Force101</code></span><span>Skips discovery and uses LLRP 1.0.1.</span><span>Known legacy reader</span></div>
+        <div class="api-row"><span><code>Force11</code></span><span>Requires 1.1 negotiation; it never silently falls back.</span><span>Explicit 1.1 target</span></div>
+        <div class="api-row"><span><code>Force20</code></span><span>Uses the current 2.0 adapter baseline; physical interoperability remains separately verified.</span><span>2.0 target or lab</span></div>
+      </div>
+      <p>After connection, <code>Capabilities</code>, <code>Identity</code> and extension activation have device context.</p>
+    </section>
+
+    <section id="capabilities">
+      <h2>3. Read reader capabilities</h2>
+      <p>LLRP commonly represents RF mode, transmit power and receive sensitivity as indexes. Read their meanings from the current reader instead of guessing:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>ReaderCapabilities capabilities = reader.Capabilities!;
+
+Console.WriteLine(capabilities.MaxAntennas);
+foreach (var mode in capabilities.RfModes)
+    Console.WriteLine(mode.Description);
+foreach (var power in capabilities.TransmitPowerTable)
+    Console.WriteLine(power.TransmitPowerDbm / 100.0);</code></pre></div>
+      <p><code>GetDefaultSettingsAsync()</code> creates a recommended baseline from the connected identity, negotiated version and capability tables. It is not a snapshot of the reader’s current configuration; use <code>QuerySettingsAsync()</code> for observed state.</p>
+    </section>
+
+    <section id="settings">
+      <h2>4. Configure the reader</h2>
+      <p><code>ReaderSettings</code> represents application intent. The usual flow is “get capability-aware defaults → edit → apply”; applying settings leaves inventory stopped until it is explicitly started:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>ReaderSettings baseSettings = (await reader.GetDefaultSettingsAsync()).Settings;
+
+ReaderSettings settings = baseSettings.Edit(builder => builder
+    .Inventory(inventory => inventory
+        .Antennas(1, 2, 3, 4)
+        .Mode(modeIndex: 1000)
+        .Session(2)
+        .Population(128)
+        .ReportEveryTag()));
+
+await reader.ApplySettingsAsync(settings);</code></pre></div>
+      <div class="policy-grid">
+        <div class="policy safe"><span>DEFAULT</span><h3><code>PreserveForeign</code></h3><p>Replaces only SDK-owned ROSpec, AccessSpec and temporary resources, preserving resources owned by other applications.</p></div>
+        <div class="policy danger"><span>EXPLICIT</span><h3><code>ReplaceAll</code></h3><p>Deletes all standard ROSpec/AccessSpec resources and is appropriate only when the reader is dedicated to this application.</p></div>
+      </div>
+      <p>Settings files, SDK defaults and observed reader snapshots are different sources. Raw or expert changes are not silently converted into new application intent.</p>
+    </section>
+
+    <section id="inventory">
+      <h2>5. Managed inventory and reports</h2>
+      <p>After applying settings, use an independent <code>InventorySession</code> to consume reports:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>await using var session = await reader.StartInventoryAsync();
+await foreach (TagReport tag in session.ReadReportsAsync())
+{
+    Console.WriteLine(tag.EpcHex);
+}</code></pre></div>
+      <p><code>InventorySession.ReadReportsAsync()</code>, <code>TagsReported</code> and connection-level <code>ReadTagReportsAsync()</code> are mutually exclusive report outlets. The first consumer in an inventory lifecycle owns the stream.</p>
+      <div class="callout warning"><strong>Recovery boundary:</strong> reader ROSpec/AccessSpec resources are commonly volatile. Reconnect synchronizes observed state but does not guess and replay every desired setting; keep your own <code>ReaderSettings</code> or <code>InventorySettings</code> and redeploy when required.</div>
+    </section>
+
+    <section id="tag-access">
+      <h2>6. Tag Access</h2>
+      <p>The SDK manages the AccessSpec lifecycle for standard C1G2 operations. This minimal example selects an EPC and reads two User-memory words:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>var selection = new TagSelection
+{
+    MemoryBank = TagMemoryBank.ElectronicProductCode,
+    BitPointer = 32,
+    BitLength = 96,
+    Mask = Convert.FromHexString("FFFFFFFFFFFFFFFFFFFFFFFF"),
+    Data = Convert.FromHexString("E28011910000000000000001")
+};
+
+TagAccessResult result = await reader.ReadTagMemoryAsync(new ReadTagRequest
+{
+    Selection = selection,
+    MemoryBank = TagMemoryBank.User,
+    WordPointer = 0,
+    WordCount = 2
+});
+
+Console.WriteLine(result.Operation.Success);</code></pre></div>
+      <p>High-level requests also cover write, lock, kill and block erase. <strong>Kill, Lock and write operations can be irreversible</strong>; use dedicated tags and an explicit application confirmation path.</p>
+    </section>
+
+    <section id="extensions">
+      <h2>7. Vendor extensions</h2>
+      <p>Registering an extension declares a candidate capability. After connection, the SDK activates it only when reader identity and negotiated version match. Check the active extension before using extension settings:</p>
+      <div class="code-block"><button class="copy-code">Copy</button><pre><code>using LlrpSdk.Extensions.Impinj;
+
+await using var reader = LlrpReader.CreateBuilder("192.168.1.100")
+    .UseImpinj()
+    .Build();
+
+await reader.ConnectAsync();
+if (reader.Extensions.Get&lt;ImpinjReaderExtension&gt;() is null)
+    throw new NotSupportedException("Impinj extension is not active on this reader.");</code></pre></div>
+      <p>The repository provides Impinj and Zebra protocol/SDK extension baselines. Device-model, firmware and field support remain subject to physical interoperability evidence.</p>
+    </section>
+
+    <section id="lifecycle">
+      <h2>8. Lifecycle and boundaries</h2>
+      <div class="number-list">
+        <div><b>01</b><span>Connect, then read <code>Capabilities</code> to generate or validate device-aware settings.</span></div>
+        <div><b>02</b><span>Applying settings deploys resources; call <code>StartInventoryAsync()</code> explicitly when radio inventory should begin.</span></div>
+        <div><b>03</b><span>Disconnect, dispose or use <code>await using</code> to finish the Reader lifecycle.</span></div>
+        <div><b>04</b><span>A compilable LLRP 2.0, Zebra or vendor extension baseline is not a claim that every physical model has been accepted.</span></div>
+      </div>
+      <p class="callout">Next: use the <a class="text-link" href="reader-api.html">Reader SDK API Reference</a> for public types and signatures, or continue to the <a class="text-link" href="cli-reader.html">Reader CLI User’s Guide</a> for command-line workflows.</p>
+    </section>
+  </article>
+</main>
+
+<footer class="shell footer">
+  <span>LLRPCSharp · Reader SDK Programmer’s Guide</span>
+  <span><a href="reader-api.html">Reader SDK API Reference →</a></span>
+</footer>
+<script src="../assets/app.js"></script>
 </body>
 </html>
