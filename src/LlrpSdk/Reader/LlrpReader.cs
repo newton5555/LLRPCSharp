@@ -2053,10 +2053,17 @@ public sealed class LlrpReader : IAsyncDisposable
             .Append(new GpoConfiguration { GpoPortNumber = portNumber, GpoData = state })
             .OrderBy(static gpo => gpo.GpoPortNumber)
             .ToArray();
-        await ApplySettingsAsync(snapshot.Settings with
-        {
-            Configuration = snapshot.Settings.Configuration with { Gpos = gpos }
-        }, cancellationToken).ConfigureAwait(false);
+        // GPO is part of SET_READER_CONFIG. It must not redeploy the managed inventory
+        // resource merely because the output state changed; doing so can send DELETE for
+        // an optional SDK-owned AccessSpec/ROSpec that is not present on the reader.
+        await ApplySettingsAsync(
+            snapshot.Settings with
+            {
+                Configuration = snapshot.Settings.Configuration with { Gpos = gpos },
+                Inventory = null,
+            },
+            ResourceTakeoverPolicy.PreserveForeign,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -2700,8 +2707,18 @@ public sealed class LlrpReader : IAsyncDisposable
         }
     }
 
-    private static bool IsNoResourceError(LlrpReaderOperationException exception) =>
-        exception.StatusCode == 100 && exception.ErrorDescription.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
+    private static bool IsNoResourceError(LlrpReaderOperationException exception)
+    {
+        bool descriptionIndicatesMissingResource =
+            exception.ErrorDescription.Contains("does not exist", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("not exist", StringComparison.OrdinalIgnoreCase);
+
+        // LLRP 1.0.1 devices commonly use M_ParameterError (100) for a missing
+        // resource. Zebra returns P_UnknownParameter (207) with "*ID Not Found"
+        // for the same idempotent delete operation.
+        return descriptionIndicatesMissingResource && (exception.StatusCode == 100 || exception.StatusCode == 207);
+    }
 
     private static bool IsIgnorableOwnedCleanupError(LlrpReaderOperationException exception) =>
         IsNoResourceError(exception) ||

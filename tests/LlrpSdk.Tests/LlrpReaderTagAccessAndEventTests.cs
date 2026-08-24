@@ -74,10 +74,12 @@ public sealed class LlrpReaderTagAccessAndEventTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var transport = new ScriptedLlrpTransport();
+        var sentMessageTypes = new List<ushort>();
 
         transport.OnSendAsync = (copy, _) =>
         {
             LlrpMessageHeader header = LlrpMessageHeader.Decode(copy.Span);
+            sentMessageTypes.Add(header.MessageType);
             if (header.MessageType == V101.GET_READER_CONFIG.MessageType)
             {
                 var response = new V101.GET_READER_CONFIG_RESPONSE(
@@ -123,6 +125,8 @@ public sealed class LlrpReaderTagAccessAndEventTests
         byte[] sentFrame = transport.SentFrames.Last();
         ILlrpMessage sentMsg = Registry.DecodeMessage(sentFrame);
         Assert.IsType<V101.SET_READER_CONFIG>(sentMsg);
+        Assert.DoesNotContain(V101.DELETE_ACCESSSPEC.MessageType, sentMessageTypes);
+        Assert.DoesNotContain(V101.DELETE_ROSPEC.MessageType, sentMessageTypes);
     }
 
     [Fact]
