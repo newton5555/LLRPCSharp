@@ -34,5 +34,10 @@ the project.
 - [Protocol Definitions](../definitions/README.md): definition and code
   generation workflow.
 
+## Releases
+
+- [v2.0.4 Release Notes](releases/v2.0.4.md)
+- [v2.0.3 Release Notes](releases/v2.0.3.md)
+
 The roadmap is maintained for project planning, but is intentionally not part
 of the user-facing README path.
