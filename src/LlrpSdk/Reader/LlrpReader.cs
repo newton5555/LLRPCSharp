@@ -2678,7 +2678,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             await GetProtocolAdapter().StopRoSpecAsync(this, _messageIds.Next(), ManagedInventoryRoSpecId, cancellationToken).ConfigureAwait(false);
         }
-        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception))
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "STOP_ROSPEC"))
         {
         }
 
@@ -2686,7 +2686,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             await GetProtocolAdapter().DisableRoSpecAsync(this, _messageIds.Next(), ManagedInventoryRoSpecId, cancellationToken).ConfigureAwait(false);
         }
-        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception))
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DISABLE_ROSPEC"))
         {
         }
 
@@ -2694,7 +2694,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             await GetProtocolAdapter().DeleteAccessSpecAsync(this, _messageIds.Next(), ManagedInventoryAttachedDataAccessSpecId, cancellationToken).ConfigureAwait(false);
         }
-        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DELETE_ACCESSSPEC"))
         {
         }
 
@@ -2702,7 +2702,7 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             await GetProtocolAdapter().DeleteRoSpecAsync(this, _messageIds.Next(), ManagedInventoryRoSpecId, cancellationToken).ConfigureAwait(false);
         }
-        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception))
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DELETE_ROSPEC"))
         {
         }
     }
@@ -2720,13 +2720,50 @@ public sealed class LlrpReader : IAsyncDisposable
         return descriptionIndicatesMissingResource && (exception.StatusCode == 100 || exception.StatusCode == 207);
     }
 
-    private static bool IsIgnorableOwnedCleanupError(LlrpReaderOperationException exception) =>
-        IsNoResourceError(exception) ||
-        exception.StatusCode == 100 && (
+    private static bool IsIgnorableOwnedCleanupError(
+        LlrpReaderOperationException exception,
+        string expectedOperation)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedOperation);
+
+        // This predicate is used only by lifecycle cleanup of SDK-reserved resources. Keep the operation check
+        // explicit so a status from an unrelated request can never become an idempotent cleanup success.
+        if (!string.Equals(exception.Operation, expectedOperation, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        bool descriptionIndicatesMissingResource =
+            exception.ErrorDescription.Contains("does not exist", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("not exist", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("unknown rospec", StringComparison.OrdinalIgnoreCase) ||
+            exception.ErrorDescription.Contains("unknown accessspec", StringComparison.OrdinalIgnoreCase);
+
+        // A few readers report an SDK-owned delete of an already absent resource as M_FieldError (101), while
+        // other readers use M_ParameterError (100) or P_UnknownParameter (207). The operation/description gate
+        // keeps this tolerance local to the expected cleanup request.
+        if (IsNoResourceError(exception) ||
+            (exception.StatusCode == 101 && descriptionIndicatesMissingResource))
+        {
+            return true;
+        }
+
+        // Readers use both M_ParameterError (100) and M_FieldError (101) for an already inactive/disabled
+        // resource. Only STOP/DISABLE operations can safely treat those state descriptions as idempotent; a
+        // DELETE response with the same wording may indicate a real lifecycle violation and must still fail.
+        if (expectedOperation is not ("STOP_ROSPEC" or "DISABLE_ROSPEC" or "DISABLE_ACCESSSPEC"))
+        {
+            return false;
+        }
+
+        return (exception.StatusCode is 100 or 101) && (
             exception.ErrorDescription.Contains("not active", StringComparison.OrdinalIgnoreCase) ||
             exception.ErrorDescription.Contains("only an active", StringComparison.OrdinalIgnoreCase) ||
             exception.ErrorDescription.Contains("not enabled", StringComparison.OrdinalIgnoreCase) ||
             exception.ErrorDescription.Contains("disabled", StringComparison.OrdinalIgnoreCase));
+    }
 
     private void StartKeepaliveMonitor()
     {
@@ -3513,6 +3550,9 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             await RoSpecs.StopAsync(roSpecId, cancellationToken).ConfigureAwait(false);
         }
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "STOP_ROSPEC"))
+        {
+        }
         catch (Exception exception)
         {
             failure = exception;
@@ -3525,6 +3565,9 @@ public sealed class LlrpReader : IAsyncDisposable
             {
                 await AccessSpecs.DisableAsync(attachedDataId, cancellationToken).ConfigureAwait(false);
             }
+            catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DISABLE_ACCESSSPEC"))
+            {
+            }
             catch (Exception exception)
             {
                 failure ??= exception;
@@ -3535,6 +3578,9 @@ public sealed class LlrpReader : IAsyncDisposable
         try
         {
             await RoSpecs.DisableAsync(roSpecId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DISABLE_ROSPEC"))
+        {
         }
         catch (Exception exception)
         {
@@ -3575,16 +3621,16 @@ public sealed class LlrpReader : IAsyncDisposable
         // settings snapshot did not contain AttachedData (for example after an expert
         // write or reconnect). Clear must therefore always target the fixed identifier.
         try { await AccessSpecs.DeleteAsync(ManagedInventoryAttachedDataAccessSpecId, cancellationToken).ConfigureAwait(false); }
-        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception)) { }
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DELETE_ACCESSSPEC")) { }
         catch (Exception exception) { failure ??= exception; }
         if (_managedInventoryAttachedDataAccessSpecId is uint attachedDataId && attachedDataId != ManagedInventoryAttachedDataAccessSpecId)
         {
             try { await AccessSpecs.DeleteAsync(attachedDataId, cancellationToken).ConfigureAwait(false); }
-            catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception)) { }
+            catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DELETE_ACCESSSPEC")) { }
             catch (Exception exception) { failure ??= exception; }
         }
         try { await RoSpecs.DeleteAsync(roSpecId, cancellationToken).ConfigureAwait(false); }
-        catch (LlrpReaderOperationException exception) when (IsNoResourceError(exception)) { }
+        catch (LlrpReaderOperationException exception) when (IsIgnorableOwnedCleanupError(exception, "DELETE_ROSPEC")) { }
         catch (Exception exception) { failure ??= exception; }
         if (failure is not null)
         {

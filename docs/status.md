@@ -93,6 +93,8 @@ LLRP 服务。
   内部等待器，不会抢占公开回调。
 - SDK 管理保留的 ROSpec/AccessSpec 资源；应用设置后保持停止，显式启动后才
   开始盘点。
+- SDK 自有资源清理对已 inactive/disabled 或已不存在资源的设备响应按幂等成功处理，
+  仅限带有匹配操作和明确状态/缺失描述的保留资源请求；其他操作和无关错误仍会抛出。
 - 部署契约：持久 DesiredState 与设备 Observed 快照分离。带 Inventory 意图的
   `ApplySettingsAsync` 或 `StartInventoryAsync(settings)` 默认使用
   `ResourceTakeoverPolicy.PreserveForeign`，只替换 SDK 自有 ROSpec 14150、

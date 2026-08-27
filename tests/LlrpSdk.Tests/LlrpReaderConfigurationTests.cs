@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using LlrpNet.Core.Protocol;
 using LlrpNet.Protocol.Enumerations.V1_0_1;
+using LlrpNet.Protocol.Messages;
 using LlrpNet.Protocol.Messages.V1_0_1;
 using LlrpNet.Protocol.Parameters;
 using LlrpNet.Protocol.Parameters.V1_0_1;
@@ -254,6 +255,184 @@ public sealed class LlrpReaderConfigurationTests
         Assert.Equal((uint)2, exception.Required);
         Assert.Equal(ResourceTakeoverPolicy.PreserveForeign, exception.TakeoverPolicy);
         Assert.False(mutationSent);
+    }
+
+    [Fact]
+    public async Task ApplySettings_PreserveForeign_IgnoresInactiveOwnedStopAndContinuesDeployment()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponseWithResourceLimits(
+                messageId,
+                new LLRPCapabilities(
+                    CanDoRFSurvey: false,
+                    CanReportBufferFillWarning: false,
+                    SupportsClientRequestOpSpec: false,
+                    CanDoTagInventoryStateAwareSingulation: false,
+                    SupportsEventAndReportHolding: false,
+                    MaxNumPriorityLevelsSupported: 1,
+                    ClientRequestOpSpecTimeout: 0,
+                    MaxNumROSpecs: 2,
+                    MaxNumSpecsPerROSpec: 8,
+                    MaxNumInventoryParameterSpecsPerAISpec: 8,
+                    MaxNumAccessSpecs: 2,
+                    MaxNumOpSpecsPerAccessSpec: 8),
+                maxNumSelectFiltersPerQuery: 8),
+        };
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        var registry = new LlrpCodecRegistry();
+        Llrp101StandardModule.Register(registry);
+        var requests = new List<ILlrpMessage>();
+        transport.OnSendAsync = (frame, _) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            ILlrpMessage request = registry.DecodeMessage(frame.Span);
+            requests.Add(request);
+            LLRPStatus success = new(StatusCode.M_Success, string.Empty, null, null);
+            switch (header.MessageType)
+            {
+                case GET_ROSPECS.MessageType:
+                    // The foreign ROSpec must remain untouched by PreserveForeign cleanup.
+                    transport.EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(
+                        header.MessageId,
+                        roSpecs: [CreateForeignRoSpec(77)]));
+                    break;
+                case GET_ACCESSSPECS.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetAccessSpecsResponseFrame(header.MessageId));
+                    break;
+                case STOP_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        STOP_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId,
+                        new LLRPStatus(StatusCode.M_FieldError, "Spec is not active", null, null)));
+                    break;
+                case DISABLE_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        DISABLE_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId,
+                        success));
+                    break;
+                case DELETE_ACCESSSPEC.MessageType:
+                    transport.EnqueueFrame(registry.EncodeMessage(
+                        LlrpProtocolVersion.Version101,
+                        new DELETE_ACCESSSPEC_RESPONSE(
+                            header.MessageId,
+                            new LLRPStatus(StatusCode.M_FieldError, "DeleteAccessSpec: AccessSpecId:14151 not found", null, null))));
+                    break;
+                case DELETE_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        DELETE_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId,
+                        new LLRPStatus(StatusCode.M_FieldError, "DeleteRoSpec: ROSpecId:14150 not found", null, null)));
+                    break;
+                case SET_READER_CONFIG.MessageType:
+                    transport.EnqueueFrame(registry.EncodeMessage(
+                        LlrpProtocolVersion.Version101,
+                        new SET_READER_CONFIG_RESPONSE(header.MessageId, success)));
+                    break;
+                case ADD_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        ADD_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId,
+                        success));
+                    break;
+            }
+
+            return ValueTask.CompletedTask;
+        };
+
+        await reader.ApplySettingsAsync(
+            new ReaderSettings { Inventory = new InventorySettings { AntennaIds = [1] } },
+            ResourceTakeoverPolicy.PreserveForeign,
+            timeout.Token);
+
+        Assert.Equal(ReaderResourceMode.HighLevelConfigured, reader.ResourceMode);
+        ILlrpMessage[] mutations = requests
+            .Where(static request => request is
+                STOP_ROSPEC or
+                DISABLE_ROSPEC or
+                DELETE_ACCESSSPEC or
+                DELETE_ROSPEC or
+                SET_READER_CONFIG or
+                ADD_ROSPEC)
+            .ToArray();
+        Assert.Collection(
+            mutations,
+            request => Assert.Equal(LlrpReader.ManagedInventoryRoSpecId, Assert.IsType<STOP_ROSPEC>(request).ROSpecID),
+            request => Assert.Equal(LlrpReader.ManagedInventoryRoSpecId, Assert.IsType<DISABLE_ROSPEC>(request).ROSpecID),
+            request => Assert.Equal(LlrpReader.ManagedInventoryAttachedDataAccessSpecId, Assert.IsType<DELETE_ACCESSSPEC>(request).AccessSpecID),
+            request => Assert.Equal(LlrpReader.ManagedInventoryRoSpecId, Assert.IsType<DELETE_ROSPEC>(request).ROSpecID),
+            request => Assert.IsType<SET_READER_CONFIG>(request),
+            request => Assert.Equal(LlrpReader.ManagedInventoryRoSpecId, Assert.IsType<ADD_ROSPEC>(request).ROSpec.ROSpecID));
+
+        Assert.DoesNotContain(
+            mutations,
+            static request => request is DELETE_ROSPEC delete && delete.ROSpecID == 77);
+    }
+
+    [Fact]
+    public async Task ApplySettings_PreserveForeign_DoesNotIgnoreUnrelatedStopFieldError()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var transport = new ScriptedLlrpTransport
+        {
+            CapabilityResponseFactory = messageId => LlrpTestFrames.CapabilitiesResponseWithResourceLimits(
+                messageId,
+                new LLRPCapabilities(
+                    CanDoRFSurvey: false,
+                    CanReportBufferFillWarning: false,
+                    SupportsClientRequestOpSpec: false,
+                    CanDoTagInventoryStateAwareSingulation: false,
+                    SupportsEventAndReportHolding: false,
+                    MaxNumPriorityLevelsSupported: 1,
+                    ClientRequestOpSpecTimeout: 0,
+                    MaxNumROSpecs: 1,
+                    MaxNumSpecsPerROSpec: 8,
+                    MaxNumInventoryParameterSpecsPerAISpec: 8,
+                    MaxNumAccessSpecs: 1,
+                    MaxNumOpSpecsPerAccessSpec: 8),
+                maxNumSelectFiltersPerQuery: 8),
+        };
+        await using LlrpReader reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        transport.OnSendAsync = (frame, _) =>
+        {
+            LlrpMessageHeader header = LlrpMessageHeader.Decode(frame.Span);
+            switch (header.MessageType)
+            {
+                case GET_ROSPECS.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetRoSpecsResponseFrame(header.MessageId));
+                    break;
+                case GET_ACCESSSPECS.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.GetAccessSpecsResponseFrame(header.MessageId));
+                    break;
+                case STOP_ROSPEC.MessageType:
+                    transport.EnqueueFrame(LlrpTestFrames.RoSpecStatusResponse(
+                        STOP_ROSPEC_RESPONSE.MessageType,
+                        header.MessageId,
+                        new LLRPStatus(StatusCode.M_FieldError, "Invalid antenna configuration", null, null)));
+                    break;
+            }
+
+            return ValueTask.CompletedTask;
+        };
+
+        LlrpReaderOperationException exception = await Assert.ThrowsAsync<LlrpReaderOperationException>(
+            () => reader.ApplySettingsAsync(
+                new ReaderSettings { Inventory = new InventorySettings { AntennaIds = [1] } },
+                ResourceTakeoverPolicy.PreserveForeign,
+                timeout.Token));
+
+        Assert.Equal("STOP_ROSPEC", exception.Operation);
+        Assert.Equal((ushort)101, exception.StatusCode);
+        Assert.Contains("Invalid antenna", exception.ErrorDescription, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            transport.SentFrames,
+            static frame => LlrpMessageHeader.Decode(frame).MessageType == ADD_ROSPEC.MessageType);
     }
 
     private static ROSpec CreateForeignRoSpec(uint id) => new(
