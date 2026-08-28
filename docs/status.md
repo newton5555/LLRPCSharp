@@ -1,6 +1,6 @@
 # 当前状态
 
-> 基准日期：2026-08-20
+> 基准日期：2026-08-28
 
 本文档只记录当前实现事实。开发计划见 [roadmap.md](roadmap.md)，用户入口见
 根目录 [README](../README.zh.md)。
@@ -250,7 +250,7 @@ Settings 短连接可以在断开后立即重连，而不会被旧会话的异�
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，共 523 项自动化测试全部通过；其中
+截至基准日期，解决方案构建为零警告、零错误，共 543 项自动化测试全部通过；其中
 `LlrpDevice.Abstractions.Tests` 覆盖合同模型和依赖边界，`LlrpDevice.Server.Tests` 覆盖
   非 Virtual Scripted Device、生命周期和配置隔离，`LlrpDevice.Virtual.Tests` 覆盖确定性
   RF、Tag Access 和实例隔离，`LlrpDevice.Virtual.Hosting.Tests` 覆盖 SDK 门面生命周期，

@@ -96,7 +96,7 @@ Console.WriteLine(reader.Identity);</code></pre></div>
       <p>LLRP 的 RF Mode、发射功率和接收灵敏度通常以 Index 表示。不要猜测数字含义，应从当前 Reader 的能力表读取：</p>
       <div class="code-block"><button class="copy-code">复制</button><pre><code>ReaderCapabilities capabilities = reader.Capabilities!;
 
-Console.WriteLine(capabilities.MaxAntennas);
+Console.WriteLine(capabilities.MaxNumberOfAntennas);
 foreach (var mode in capabilities.RfModes)
     Console.WriteLine(mode.Description);
 foreach (var power in capabilities.TransmitPowerTable)

@@ -56,7 +56,7 @@
       <div class="reference-nav-title">核心门面与生命周期</div>
       <a href="#type-llrpreader"><code>LlrpReader</code> <span class="badge class">Class</span></a>
       <a href="#type-llrpreaderbuilder"><code>LlrpReaderBuilder</code> <span class="badge class">Class</span></a>
-      <a href="#type-readercapabilities"><code>ReaderCapabilities</code> <span class="badge record">Record</span></a>
+      <a href="#type-readercapabilities"><code>ReaderCapabilities</code> <span class="badge class">Class</span></a>
     </div>
 
     <div class="reference-nav-group">
@@ -68,7 +68,7 @@
 
     <div class="reference-nav-group">
       <div class="reference-nav-title">C1G2 标签内存操作</div>
-      <a href="#type-tagaccessrequest"><code>TagAccessRequest</code> <span class="badge record">Abstract</span></a>
+      <a href="#type-tagaccessrequest"><code>TagAccessRequest</code> <span class="badge record">Abstract record</span></a>
     </div>
 
     <div class="reference-nav-group">
@@ -191,7 +191,7 @@
           <p>异步盘点会话生命周期与独占 <code>IAsyncEnumerable&lt;TagReport&gt;</code> 流。</p>
         </a>
         <a href="#type-tagaccessrequest" class="quick-jump-card" data-category="access">
-          <div class="quick-jump-card-header"><code>TagAccessRequest</code><span class="badge record">Abstract</span></div>
+          <div class="quick-jump-card-header"><code>TagAccessRequest</code><span class="badge record">Abstract record</span></div>
           <p>标准 Gen2 内存读、写、锁、灭与块擦除请求族。</p>
         </a>
       </div>
@@ -291,8 +291,8 @@ var reader = LlrpReader.CreateBuilder("192.168.1.100")
       <!-- ReaderCapabilities -->
       <article id="type-readercapabilities" class="api-type" data-category="facade" data-search="ReaderCapabilities MaxNumberOfAntennas RfModes TxPowers">
         <div class="api-type-header">
-          <div class="api-type-title"><code>ReaderCapabilities</code> <span class="badge record">Record</span></div>
-          <div class="api-type-ns">命名空间: <code>LlrpSdk.Capabilities</code></div>
+          <div class="api-type-title"><code>ReaderCapabilities</code> <span class="badge class">Class</span></div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code></div>
         </div>
         <p>存储连接建立后从读写器查询并归一化的硬件能力（天线数、功率索引表、RF 调制模式表）。</p>
       </article>
@@ -306,7 +306,7 @@ var reader = LlrpReader.CreateBuilder("192.168.1.100")
       <article id="type-readersettings" class="api-type" data-category="settings" data-search="ReaderSettings Edit Validate">
         <div class="api-type-header">
           <div class="api-type-title"><code>ReaderSettings</code> <span class="badge record">Record</span></div>
-          <div class="api-type-ns">命名空间: <code>LlrpSdk.Configuration</code></div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code></div>
         </div>
         <p>不可变的读写器配置意图 Record，包含设备级心跳与 Inventory 盘点参数。</p>
 
@@ -354,7 +354,7 @@ await reader.ApplySettingsAsync(customSettings);</code></pre>
       <article id="type-tagaccessrequest" class="api-type" data-category="access" data-search="TagAccessRequest ReadTagRequest WriteTagRequest LockTagRequest KillTagRequest TagSelection">
         <div class="api-type-header">
           <div class="api-type-title"><code>TagAccessRequest / TagSelection</code> <span class="badge record">Records</span></div>
-          <div class="api-type-ns">命名空间: <code>LlrpSdk.Access</code></div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code></div>
         </div>
         <p>标准 Gen2 内存读写锁灭请求族，支持通过 EPC/TID 掩码过滤目标标签。</p>
 
@@ -392,7 +392,7 @@ TagAccessResult writeResult = await reader.WriteTagMemoryAsync(new WriteTagReque
       <article id="type-irospecservice" class="api-type" data-category="expert" data-search="IRoSpecService StartExistingRoSpecAsync">
         <div class="api-type-header">
           <div class="api-type-title"><code>IRoSpecService / IReaderProtocolAccess</code> <span class="badge interface">Interfaces</span></div>
-          <div class="api-type-ns">命名空间: <code>LlrpSdk.Services / LlrpSdk.Protocol</code></div>
+          <div class="api-type-ns">命名空间: <code>LlrpSdk</code></div>
         </div>
         <p>提供对底层 ROSpec 资源的直接控制与桥接运行，以及直发直收二进制 LLRP 帧的逃生通道。</p>
       </article>

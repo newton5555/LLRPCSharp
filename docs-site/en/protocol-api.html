@@ -53,6 +53,12 @@
     <div class="reference-nav-group">
       <div class="reference-nav-title">Framing</div>
       <a href="#type-llrpframedecoder"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpmessageheader"><code>LlrpMessageHeader</code> <span class="badge record">Record struct</span></a>
+    </div>
+
+    <div class="reference-nav-group">
+      <div class="reference-nav-title">Transport</div>
+      <a href="#type-llrpsession"><code>LlrpSession</code> <span class="badge class">Class</span></a>
     </div>
 
     <div class="reference-nav-group">
@@ -159,6 +165,10 @@
           <div class="quick-jump-card-header"><code>LlrpFrameDecoder</code><span class="badge class">Class</span></div>
           <p>Zero-allocation binary frame decoder handling TCP packet fragmentation.</p>
         </a>
+        <a href="#type-llrpsession" class="quick-jump-card" data-category="transport">
+          <div class="quick-jump-card-header"><code>LlrpSession</code><span class="badge class">Class</span></div>
+          <p>Full-duplex session with correlated transactions and an unsolicited-frame stream.</p>
+        </a>
         <a href="#type-llrpcodecregistry" class="quick-jump-card" data-category="codec">
           <div class="quick-jump-card-header"><code>LlrpCodecRegistry</code><span class="badge class">Class</span></div>
           <p>Central registry for standard and vendor custom wire codecs.</p>
@@ -171,31 +181,115 @@
       <h2>Framing Core Types</h2>
 
       <!-- LlrpFrameDecoder -->
-      <article id="type-llrpframedecoder" class="api-type" data-category="framing" data-search="LlrpFrameDecoder TryDecodeFrame Framing">
+      <article id="type-llrpframedecoder" class="api-type" data-category="framing" data-search="LlrpFrameDecoder TryReadFrame Framing ReadOnlySequence">
         <div class="api-type-header">
           <div class="api-type-title"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></div>
-          <div class="api-type-ns">Namespace: <code>LlrpNet.Core.Framing</code></div>
+          <div class="api-type-ns">Namespace: <code>LlrpNet.Core.Frames</code></div>
         </div>
-        <p>Span-based zero-allocation binary frame decoder for LLRP 10-byte headers and payloads.</p>
+        <p>High-performance decoder over <code>ReadOnlySequence&lt;byte&gt;</code>. It removes one complete frame from a network buffer and leaves an incomplete buffer unchanged.</p>
+
+        <h4>Method signature</h4>
+        <div class="table-wrapper">
+          <table class="member-table">
+            <thead><tr><th>Signature</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr class="api-entry" data-search="TryReadFrame">
+                <td><code>bool TryReadFrame(ref ReadOnlySequence&lt;byte&gt; buffer, out LlrpFrame frame)</code></td>
+                <td>Reads one complete LLRP frame, advancing the input sequence only on success.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <h4>C# Code Sample</h4>
         <div class="code-block">
           <button class="copy-code">Copy</button>
-          <pre><code>using LlrpNet.Core.Framing;
+          <pre><code>using System.Buffers;
+using LlrpNet.Core.Frames;
 
 var decoder = new LlrpFrameDecoder();
 
-ReadOnlySpan&lt;byte&gt; rawBytes = stackalloc byte[] 
-{ 
-    0x04, 0x01,                   // Type=1 (GET_READER_CAPABILITIES)
-    0x00, 0x00, 0x00, 0x10,       // Length=16 bytes
-    0x00, 0x00, 0x00, 0x01,       // MessageID=1
-    0x00, 0x00, 0x00, 0x00        // RequestedData=All
+byte[] rawBytes =
+{
+    0x04, 0x01,                   // Version=1 (LLRP 1.0.1), Type=1
+    0x00, 0x00, 0x00, 0x10,       // MessageLength=16 bytes
+    0x00, 0x00, 0x00, 0x01,       // MessageId=1
+    0x00, 0x00, 0x00, 0x00        // Payload
 };
 
-if (decoder.TryDecodeFrame(rawBytes, out LlrpFrame frame, out int consumedBytes))
+ReadOnlySequence&lt;byte&gt; buffer = new(rawBytes);
+if (decoder.TryReadFrame(ref buffer, out LlrpFrame frame))
 {
-    Console.WriteLine($"Decoded Frame: Type={frame.TypeNumber}, Length={frame.Length}, MsgID={frame.MessageId}");
+    Console.WriteLine($"Decoded Frame: Version={frame.Header.Version}, Type={frame.Header.MessageType}, " +
+                      $"Length={frame.Header.MessageLength}, MsgID={frame.Header.MessageId}");
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- LlrpMessageHeader -->
+      <article id="type-llrpmessageheader" class="api-type" data-category="framing" data-search="LlrpMessageHeader Decode Encode">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>LlrpMessageHeader</code> <span class="badge record">Record struct</span></div>
+          <div class="api-type-ns">Namespace: <code>LlrpNet.Core.Protocol</code></div>
+        </div>
+        <p>Readonly record struct for the fixed 10-byte LLRP common header: protocol version, message type, total message length, and MessageId.</p>
+        <h4>Key methods</h4>
+        <div class="table-wrapper">
+          <table class="member-table">
+            <thead><tr><th>Signature</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr class="api-entry" data-search="Decode">
+                <td><code>static LlrpMessageHeader Decode(ReadOnlySpan&lt;byte&gt; source)</code></td>
+                <td>Parses and validates a network-order LLRP header.</td>
+              </tr>
+              <tr class="api-entry" data-search="Encode">
+                <td><code>void Encode(Span&lt;byte&gt; destination)</code></td>
+                <td>Encodes the header into a destination span of at least 10 bytes.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- SECTION: TRANSPORT & SESSION -->
+    <section class="reference-section">
+      <h2>Transport & Session</h2>
+
+      <!-- LlrpSession -->
+      <article id="type-llrpsession" class="api-type" data-category="transport" data-search="LlrpSession ConnectAsync DisconnectAsync SendFrameAsync TransactAsync ReadUnsolicitedFramesAsync">
+        <div class="api-type-header">
+          <div class="api-type-title"><code>LlrpSession</code> <span class="badge class">Class</span></div>
+          <div class="api-type-ns">Namespace: <code>LlrpNet.Core.Session</code></div>
+        </div>
+        <p>Full-duplex session manager. It correlates response frames by MessageId and publishes unmatched complete frames through <code>ReadUnsolicitedFramesAsync()</code>.</p>
+
+        <h4>C# Code Sample</h4>
+        <div class="code-block">
+          <button class="copy-code">Copy</button>
+          <pre><code>using System;
+using System.Buffers;
+using LlrpNet.Core.Frames;
+using LlrpNet.Core.Session;
+using LlrpNet.Core.Transport;
+
+await using var transport = new LlrpTcpTransport(new LlrpTcpTransportOptions
+{
+    Host = "192.168.1.100",
+    Port = 5084
+});
+await using var session = new LlrpSession(transport);
+await session.ConnectAsync();
+
+var decoder = new LlrpFrameDecoder();
+await foreach (ReadOnlyMemory&lt;byte&gt; frameBytes in session.ReadUnsolicitedFramesAsync())
+{
+    ReadOnlySequence&lt;byte&gt; buffer = new(frameBytes);
+    if (decoder.TryReadFrame(ref buffer, out LlrpFrame frame))
+    {
+        Console.WriteLine($"Received unsolicited frame: Type={frame.Header.MessageType}, " +
+                          $"MessageId={frame.Header.MessageId}");
+    }
 }</code></pre>
         </div>
       </article>
@@ -206,29 +300,33 @@ if (decoder.TryDecodeFrame(rawBytes, out LlrpFrame frame, out int consumedBytes)
       <h2>Codec Registry</h2>
 
       <!-- LlrpCodecRegistry -->
-      <article id="type-llrpcodecregistry" class="api-type" data-category="codec" data-search="LlrpCodecRegistry RegisterModule EncodeMessage DecodeMessage">
+      <article id="type-llrpcodecregistry" class="api-type" data-category="codec" data-search="LlrpCodecRegistry Register Llrp101StandardModule EncodeMessage DecodeMessage">
         <div class="api-type-header">
           <div class="api-type-title"><code>LlrpCodecRegistry</code> <span class="badge class">Class</span></div>
-          <div class="api-type-ns">Namespace: <code>LlrpNet.Core.Codec</code></div>
+          <div class="api-type-ns">Namespace: <code>LlrpNet.Protocol.Registry</code></div>
         </div>
         <p>Central registry for standard and vendor custom protocol codecs.</p>
 
         <h4>C# Code Sample</h4>
         <div class="code-block">
           <button class="copy-code">Copy</button>
-          <pre><code>using LlrpNet.Core.Codec;
-using LlrpNet.Protocol.V1_0_1;
+          <pre><code>using System;
+using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Messages;
+using LlrpNet.Protocol.Parameters;
+using LlrpNet.Protocol.Registry;
+using LlrpNet.Protocol.Registry.V1_0_1;
+using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 var registry = new LlrpCodecRegistry();
-registry.RegisterModule(new Llrp101StandardModule());
+Llrp101StandardModule.Register(registry);
 
-var getCaps = new V101Messages.GET_READER_CAPABILITIES
-{
-    MessageID = 100,
-    RequestedData = LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderCapabilitiesRequestedData.All
-};
-byte[] wireBytes = registry.EncodeMessage(getCaps);
+var getCaps = new V101Messages.GET_READER_CAPABILITIES(
+    MessageId: 100,
+    RequestedData: V101Enumerations.GetReaderCapabilitiesRequestedData.All,
+    CustomItems: Array.Empty&lt;ILlrpParameter&gt;());
+byte[] wireBytes = registry.EncodeMessage(LlrpProtocolVersion.Version101, getCaps);
 ILLRPMessage decoded = registry.DecodeMessage(wireBytes);</code></pre>
         </div>
       </article>

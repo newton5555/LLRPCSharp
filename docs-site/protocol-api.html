@@ -53,7 +53,7 @@
     <div class="reference-nav-group">
       <div class="reference-nav-title">Framing 帧拆装</div>
       <a href="#type-llrpframedecoder"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></a>
-      <a href="#type-llrpframeencoder"><code>LlrpFrameEncoder</code> <span class="badge class">Class</span></a>
+      <a href="#type-llrpmessageheader"><code>LlrpMessageHeader</code> <span class="badge record">Record struct</span></a>
     </div>
 
     <div class="reference-nav-group">
@@ -176,7 +176,7 @@
         </a>
         <a href="#type-llrpsession" class="quick-jump-card" data-category="transport">
           <div class="quick-jump-card-header"><code>LlrpSession</code><span class="badge class">Class</span></div>
-          <p>全双工异步消息派发管道，支持按 MessageId 异步等待应答。</p>
+          <p>全双工异步会话通道：按 MessageId 将响应帧匹配到事务，并把未匹配的完整帧发布到 <code>UnsolicitedFrames</code>。</p>
         </a>
         <a href="#type-namespaces" class="quick-jump-card" data-category="contract">
           <div class="quick-jump-card-header"><code>Multi-Version Rules</code><span class="badge contract">Convention</span></div>
@@ -190,21 +190,21 @@
       <h2>Framing 帧拆装核心类型</h2>
 
       <!-- LlrpFrameDecoder -->
-      <article id="type-llrpframedecoder" class="api-type" data-category="framing" data-search="LlrpFrameDecoder TryDecodeFrame Framing">
+      <article id="type-llrpframedecoder" class="api-type" data-category="framing" data-search="LlrpFrameDecoder TryReadFrame Framing ReadOnlySequence">
         <div class="api-type-header">
           <div class="api-type-title"><code>LlrpFrameDecoder</code> <span class="badge class">Class</span></div>
-          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Framing</code></div>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Frames</code></div>
         </div>
-        <p>基于 <code>ReadOnlySpan&lt;byte&gt;</code> 的高性能二进制帧流解析器。支持无堆分配地提取 10 字节 LLRP 标准帧头与负载切片。</p>
+        <p>基于 <code>ReadOnlySequence&lt;byte&gt;</code> 的高性能二进制帧流解析器。按 LLRP 消息头中的长度从网络缓冲区移出完整帧，并保留半包缓冲区不变。</p>
 
         <h4>方法签名</h4>
         <div class="table-wrapper">
           <table class="member-table">
             <thead><tr><th>方法签名</th><th>说明</th></tr></thead>
             <tbody>
-              <tr class="api-entry" data-search="TryDecodeFrame">
-                <td><code>bool TryDecodeFrame(ReadOnlySpan&lt;byte&gt; source, out LlrpFrame frame, out int consumedBytes)</code></td>
-                <td>尝试从缓冲区切片中解析出一个完整的 LLRP 帧。返回 false 表示数据不完整（半包），需要等待更多网络字节。</td>
+              <tr class="api-entry" data-search="TryReadFrame">
+                <td><code>bool TryReadFrame(ref ReadOnlySequence&lt;byte&gt; buffer, out LlrpFrame frame)</code></td>
+                <td>尝试从缓冲区开头取出一个完整的 LLRP 帧。成功时推进输入序列；数据不足时返回 false 且不修改缓冲区。</td>
               </tr>
             </tbody>
           </table>
@@ -213,34 +213,53 @@
         <h4>实战代码示例 (C# Code Sample)</h4>
         <div class="code-block">
           <button class="copy-code">复制</button>
-          <pre><code>using LlrpNet.Core.Framing;
+          <pre><code>using System.Buffers;
+using LlrpNet.Core.Frames;
 
 var decoder = new LlrpFrameDecoder();
 
 // 模拟接收到的 16 字节 GET_READER_CAPABILITIES 消息二进制报文
-ReadOnlySpan&lt;byte&gt; rawBytes = stackalloc byte[] 
-{ 
-    0x04, 0x01,                   // Type=1 (GET_READER_CAPABILITIES), Version=1
-    0x00, 0x00, 0x00, 0x10,       // Length=16 bytes
-    0x00, 0x00, 0x00, 0x01,       // MessageID=1
-    0x00, 0x00, 0x00, 0x00        // RequestedData=All
+byte[] rawBytes =
+{
+    0x04, 0x01,                   // Version=1 (LLRP 1.0.1), Type=1
+    0x00, 0x00, 0x00, 0x10,       // MessageLength=16 bytes
+    0x00, 0x00, 0x00, 0x01,       // MessageId=1
+    0x00, 0x00, 0x00, 0x00        // Payload
 };
 
-if (decoder.TryDecodeFrame(rawBytes, out LlrpFrame frame, out int consumedBytes))
+ReadOnlySequence&lt;byte&gt; buffer = new(rawBytes);
+if (decoder.TryReadFrame(ref buffer, out LlrpFrame frame))
 {
-    Console.WriteLine($"解析成功: Type={frame.TypeNumber}, Length={frame.Length}, MsgID={frame.MessageId}");
-    Console.WriteLine($"负载长度: {frame.Payload.Length} 字节, 已消费字节: {consumedBytes}");
+    Console.WriteLine($"解析成功: Version={frame.Header.Version}, Type={frame.Header.MessageType}, " +
+                      $"Length={frame.Header.MessageLength}, MsgID={frame.Header.MessageId}");
+    Console.WriteLine($"负载长度: {frame.Payload.Length} 字节");
 }</code></pre>
         </div>
       </article>
 
-      <!-- LlrpFrameEncoder -->
-      <article id="type-llrpframeencoder" class="api-type" data-category="framing" data-search="LlrpFrameEncoder EncodeFrame">
+      <!-- LlrpMessageHeader -->
+      <article id="type-llrpmessageheader" class="api-type" data-category="framing" data-search="LlrpMessageHeader Decode Encode">
         <div class="api-type-header">
-          <div class="api-type-title"><code>LlrpFrameEncoder</code> <span class="badge class">Class</span></div>
-          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Framing</code></div>
+          <div class="api-type-title"><code>LlrpMessageHeader</code> <span class="badge record">Record struct</span></div>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Protocol</code></div>
         </div>
-        <p>将消息类型、版本与负载组装为标准的 10 字节 LLRP 报头格式。</p>
+        <p>表示所有 LLRP 消息共用的固定 10 字节报头，包含协议版本、消息类型、完整消息长度和 MessageId。</p>
+        <h4>主要方法</h4>
+        <div class="table-wrapper">
+          <table class="member-table">
+            <thead><tr><th>方法签名</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr class="api-entry" data-search="Decode">
+                <td><code>static LlrpMessageHeader Decode(ReadOnlySpan&lt;byte&gt; source)</code></td>
+                <td>从网络字节序报头解析并校验协议版本、消息类型和长度。</td>
+              </tr>
+              <tr class="api-entry" data-search="Encode">
+                <td><code>void Encode(Span&lt;byte&gt; destination)</code></td>
+                <td>将当前报头编码为 LLRP 网络字节序；目标缓冲区至少需要 10 字节。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </article>
     </section>
 
@@ -249,32 +268,40 @@ if (decoder.TryDecodeFrame(rawBytes, out LlrpFrame frame, out int consumedBytes)
       <h2>Transport 会话与网络传输</h2>
 
       <!-- LlrpSession -->
-      <article id="type-llrpsession" class="api-type" data-category="transport" data-search="LlrpSession TransactAsync SendAsync ReceiveLoop">
+      <article id="type-llrpsession" class="api-type" data-category="transport" data-search="LlrpSession ConnectAsync DisconnectAsync SendFrameAsync TransactAsync ReadUnsolicitedFramesAsync">
         <div class="api-type-header">
           <div class="api-type-title"><code>LlrpSession</code> <span class="badge class">Class</span></div>
           <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Session</code></div>
         </div>
-        <p>全双工异步消息会话管理通道。负责将网络底层字节流解包为消息帧，并将通知（如 RO_ACCESS_REPORT）推入事件管道，将响应消息匹配到等待中的 <code>TransactAsync</code> 任务。</p>
+        <p>全双工异步会话管理通道。负责维护连接生命周期，将响应帧按 MessageId 匹配到 <code>TransactAsync</code> 事务，并将未匹配的完整帧发布到 <code>ReadUnsolicitedFramesAsync()</code>。</p>
 
         <h4>实战代码示例 (C# Code Sample)</h4>
         <div class="code-block">
           <button class="copy-code">复制</button>
-          <pre><code>using LlrpNet.Core.Session;
+          <pre><code>using System;
+using System.Buffers;
+using LlrpNet.Core.Frames;
+using LlrpNet.Core.Session;
 using LlrpNet.Core.Transport;
 
-// 1. 建立 TCP 传输
-await using var transport = new LlrpTcpTransport("192.168.1.100", 5084);
-await transport.ConnectAsync(CancellationToken.None);
-
-// 2. 创建会话管理管道
-await using var session = new LlrpSession(transport);
-session.Start();
-
-// 3. 监听异步主动上报消息 (RO_ACCESS_REPORT)
-session.MessageReceived += (sender, msg) =>
+await using var transport = new LlrpTcpTransport(new LlrpTcpTransportOptions
 {
-    Console.WriteLine($"收到主动上报报文: Type={msg.TypeNumber}, MsgID={msg.MessageID}");
-};</code></pre>
+    Host = "192.168.1.100",
+    Port = 5084
+});
+await using var session = new LlrpSession(transport);
+await session.ConnectAsync();
+
+var decoder = new LlrpFrameDecoder();
+await foreach (ReadOnlyMemory&lt;byte&gt; frameBytes in session.ReadUnsolicitedFramesAsync())
+{
+    ReadOnlySequence&lt;byte&gt; buffer = new(frameBytes);
+    if (decoder.TryReadFrame(ref buffer, out LlrpFrame frame))
+    {
+        Console.WriteLine($"收到主动上报报文: Type={frame.Header.MessageType}, " +
+                          $"MsgID={frame.Header.MessageId}");
+    }
+}</code></pre>
         </div>
       </article>
     </section>
@@ -284,31 +311,35 @@ session.MessageReceived += (sender, msg) =>
       <h2>Codec 编解码器注册表</h2>
 
       <!-- LlrpCodecRegistry -->
-      <article id="type-llrpcodecregistry" class="api-type" data-category="codec" data-search="LlrpCodecRegistry RegisterModule EncodeMessage DecodeMessage">
+      <article id="type-llrpcodecregistry" class="api-type" data-category="codec" data-search="LlrpCodecRegistry Register Llrp101StandardModule EncodeMessage DecodeMessage">
         <div class="api-type-header">
           <div class="api-type-title"><code>LlrpCodecRegistry</code> <span class="badge class">Class</span></div>
-          <div class="api-type-ns">命名空间: <code>LlrpNet.Core.Codec</code></div>
+          <div class="api-type-ns">命名空间: <code>LlrpNet.Protocol.Registry</code></div>
         </div>
         <p>中央编解码器注册表。管理标准 1.0.1 / 1.1 / 2.0 及 Impinj / Zebra 厂商扩展的序列化器与反序列化器。</p>
 
         <h4>实战代码示例 (C# Code Sample)</h4>
         <div class="code-block">
           <button class="copy-code">复制</button>
-          <pre><code>using LlrpNet.Core.Codec;
-using LlrpNet.Protocol.V1_0_1;
+          <pre><code>using System;
+using LlrpNet.Core.Protocol;
+using LlrpNet.Protocol.Messages;
+using LlrpNet.Protocol.Parameters;
+using LlrpNet.Protocol.Registry;
+using LlrpNet.Protocol.Registry.V1_0_1;
+using V101Enumerations = LlrpNet.Protocol.Enumerations.V1_0_1;
 using V101Messages = LlrpNet.Protocol.Messages.V1_0_1;
 
 // 1. 注册标准 1.0.1 模块
 var registry = new LlrpCodecRegistry();
-registry.RegisterModule(new Llrp101StandardModule());
+Llrp101StandardModule.Register(registry);
 
 // 2. 强类型消息序列化为二进制
-var getCaps = new V101Messages.GET_READER_CAPABILITIES
-{
-    MessageID = 100,
-    RequestedData = LlrpNet.Protocol.Enumerations.V1_0_1.GetReaderCapabilitiesRequestedData.All
-};
-byte[] wireBytes = registry.EncodeMessage(getCaps);
+var getCaps = new V101Messages.GET_READER_CAPABILITIES(
+    MessageId: 100,
+    RequestedData: V101Enumerations.GetReaderCapabilitiesRequestedData.All,
+    CustomItems: Array.Empty&lt;ILlrpParameter&gt;());
+byte[] wireBytes = registry.EncodeMessage(LlrpProtocolVersion.Version101, getCaps);
 
 // 3. 二进制报文反序列化为强类型实例
 ILLRPMessage decoded = registry.DecodeMessage(wireBytes);

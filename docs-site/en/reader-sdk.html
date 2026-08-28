@@ -96,7 +96,7 @@ Console.WriteLine(reader.Identity);</code></pre></div>
       <p>LLRP commonly represents RF mode, transmit power and receive sensitivity as indexes. Read their meanings from the current reader instead of guessing:</p>
       <div class="code-block"><button class="copy-code">Copy</button><pre><code>ReaderCapabilities capabilities = reader.Capabilities!;
 
-Console.WriteLine(capabilities.MaxAntennas);
+Console.WriteLine(capabilities.MaxNumberOfAntennas);
 foreach (var mode in capabilities.RfModes)
     Console.WriteLine(mode.Description);
 foreach (var power in capabilities.TransmitPowerTable)
