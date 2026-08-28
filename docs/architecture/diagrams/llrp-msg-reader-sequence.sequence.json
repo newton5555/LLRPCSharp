@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "LLRP Reader SDK 主流程摘要（详细功能图索引）",
+    "locale": "zh-CN",
+    "output": "llrp-msg-reader-sequence.html",
+    "viewBox": [1600, 860],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "connect-and-ready",
+        "label": "连接与就绪",
+        "focus": ["app", "reader", "adapter", "session", "device"],
+        "note": "详细展开见 llrp-reader-connect-lifecycle。"
+      },
+      {
+        "id": "configure-and-inventory",
+        "label": "配置与盘点",
+        "focus": ["app", "reader", "adapter", "device"],
+        "note": "详细展开见 llrp-reader-inventory-deployment-lifecycle。"
+      },
+      {
+        "id": "async-and-stop",
+        "label": "异步回流与停止",
+        "focus": ["device", "session", "reader", "app"],
+        "note": "详细展开见 llrp-reader-report-stop-lifecycle；断线恢复见 llrp-reader-reconnect-lifecycle。"
+      }
+    ]
+  },
+  "participants": [
+    { "id": "app", "type": "external", "label": "应用" },
+    { "id": "reader", "type": "backend", "label": "LlrpReader" },
+    { "id": "adapter", "type": "backend", "label": "Protocol Adapter" },
+    { "id": "session", "type": "backend", "label": "LlrpSession" },
+    { "id": "device", "type": "external", "label": "Reader 设备" }
+  ],
+  "segments": [
+    { "from": 140, "to": 420, "label": "连接、协商与初始化" },
+    { "from": 435, "to": 565, "label": "配置托管 ROSpec" },
+    { "from": 575, "to": 780, "label": "盘点、异步报告与停止" }
+  ],
+  "messages": [
+    { "id": "connect-api", "from": "app", "to": "reader", "y": 160, "label": "ConnectAsync()", "variant": "emphasis" },
+    { "id": "select-adapter", "from": "reader", "to": "adapter", "y": 190, "label": "SelectProtocolAdapter(1.0.1)", "variant": "emphasis" },
+    { "id": "connect-session", "from": "reader", "to": "session", "y": 220, "label": "_session.ConnectAsync()" },
+    { "id": "connect-wire", "from": "session", "to": "device", "y": 250, "label": "TCP :5084" },
+    { "id": "connect-accepted", "from": "device", "to": "session", "y": 280, "label": "connected", "variant": "return" },
+    { "id": "start-pump", "from": "reader", "to": "session", "y": 310, "label": "StartPump()", "variant": "emphasis" },
+    { "id": "version-request", "from": "reader", "to": "device", "y": 340, "label": "GET_SUPPORTED_VERSION / SET_PROTOCOL_VERSION", "variant": "emphasis", "note": "Auto/Force11/Force20 探测并切换；Force101 跳过探测。" },
+    { "id": "version-response", "from": "device", "to": "reader", "y": 370, "label": "negotiation responses", "variant": "return", "note": "每个事务由 LlrpSession 按 message id 匹配响应。" },
+    { "id": "capabilities-request", "from": "reader", "to": "device", "y": 400, "label": "GET_READER_CAPABILITIES(General + All)", "variant": "emphasis", "note": "先取身份激活扩展，再取完整能力。" },
+    { "id": "capabilities-response", "from": "device", "to": "reader", "y": 430, "label": "capability responses", "variant": "return" },
+    { "id": "ready-state", "from": "reader", "to": "app", "y": 460, "label": "ConnectionState.Ready", "variant": "return" },
+    { "id": "apply-settings", "from": "app", "to": "reader", "y": 490, "label": "ApplySettingsAsync(Inventory)", "variant": "emphasis", "note": "只部署资源；此路径 startAfterDeployment:false，不在此处 ENABLE/START。" },
+    { "id": "add-rospec", "from": "adapter", "to": "device", "y": 520, "label": "ADD_ROSPEC (+ optional ADD_ACCESSSPEC)", "variant": "emphasis", "note": "adapter 编码；经 Registry 与 LlrpSession 写入设备。" },
+    { "id": "add-rospec-response", "from": "device", "to": "reader", "y": 550, "label": "deployment responses", "variant": "return" },
+    { "id": "configured-state", "from": "reader", "to": "app", "y": 580, "label": "OperationState.Idle / HighLevelConfigured", "variant": "return" },
+    { "id": "start-inventory", "from": "app", "to": "reader", "y": 610, "label": "StartInventoryAsync()", "variant": "emphasis" },
+    { "id": "enable-rospec", "from": "adapter", "to": "device", "y": 640, "label": "ENABLE_ROSPEC (+ optional ENABLE_ACCESSSPEC)", "variant": "emphasis" },
+    { "id": "start-rospec", "from": "adapter", "to": "device", "y": 670, "label": "START_ROSPEC (Null trigger)", "variant": "emphasis", "note": "其他 StartTrigger 由设备触发，不发送 START_ROSPEC。" },
+    { "id": "access-report", "from": "device", "to": "reader", "y": 700, "label": "RO_ACCESS_REPORT → UnsolicitedFrames", "variant": "dashed", "note": "PumpAsync 解码并 TranslateTagReports 后发布给应用。" },
+    { "id": "stop-inventory", "from": "app", "to": "device", "y": 730, "label": "StopAsync() → STOP/DISABLE_ROSPEC", "variant": "emphasis", "note": "附加 AccessSpec 时也会先 Disable；停止后连接仍可保持 Ready。" },
+    { "id": "stop-response", "from": "device", "to": "reader", "y": 760, "label": "OperationState.Idle / HighLevelConfigured", "variant": "return", "note": "连接状态仍为 ConnectionState.Ready；DesiredSettings 保留。" }
+  ],
+  "activations": [
+    { "participant": "reader", "from": 160, "to": 770, "type": "backend" },
+    { "participant": "adapter", "from": 180, "to": 700, "type": "backend" },
+    { "participant": "session", "from": 220, "to": 295, "type": "backend" },
+    { "participant": "device", "from": 250, "to": 770, "type": "external" }
+  ]
+}

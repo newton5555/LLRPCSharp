@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Reader SDK 托管盘点部署与启动生命周期",
+    "locale": "zh-CN",
+    "output": "llrp-reader-inventory-deployment-lifecycle.html",
+    "viewBox": [1600, 800],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "deploy-and-configure",
+        "label": "部署与配置",
+        "focus": ["app", "reader", "adapter", "device"],
+        "note": "ApplySettingsAsync(Inventory) 编译并部署资源，但保持 ROSpec 未启动。"
+      },
+      {
+        "id": "enable-and-start",
+        "label": "启用与启动",
+        "focus": ["app", "reader", "adapter", "device"],
+        "note": "StartInventoryAsync() 从已部署资源进入 Enable；Null trigger 才发送 START_ROSPEC。"
+      }
+    ]
+  },
+  "participants": [
+    { "id": "app", "type": "external", "label": "应用" },
+    { "id": "reader", "type": "backend", "label": "LlrpReader" },
+    { "id": "adapter", "type": "backend", "label": "Protocol Adapter" },
+    { "id": "session", "type": "backend", "label": "LlrpSession" },
+    { "id": "device", "type": "external", "label": "Reader 设备" }
+  ],
+  "segments": [
+    { "from": 140, "to": 390, "label": "ApplySettingsAsync：编译与部署" },
+    { "from": 400, "to": 535, "label": "保持已配置状态" },
+    { "from": 550, "to": 735, "label": "StartInventoryAsync：启用与启动" }
+  ],
+  "messages": [
+    { "id": "apply-settings", "from": "app", "to": "reader", "y": 160, "label": "ApplySettingsAsync(Inventory)", "variant": "emphasis", "note": "此图采用先部署、后显式启动的公开 API 路径。" },
+    { "id": "compile-settings", "from": "reader", "to": "adapter", "y": 195, "label": "Validate + CompileInventory", "variant": "emphasis", "note": "InventorySettings 编译为版本适配器的 ROSpec。" },
+    { "id": "set-reader-config", "from": "adapter", "to": "device", "y": 230, "label": "SET_READER_CONFIG (if configured)", "variant": "dashed", "note": "ReaderSettings.Configuration 存在时才发送。" },
+    { "id": "set-reader-config-response", "from": "device", "to": "reader", "y": 265, "label": "SET_READER_CONFIG_RESPONSE", "variant": "return" },
+    { "id": "add-rospec", "from": "adapter", "to": "device", "y": 300, "label": "ADD_ROSPEC", "variant": "emphasis", "note": "通过 LlrpReader Registry 编码，由 LlrpSession 事务发送。" },
+    { "id": "add-rospec-response", "from": "device", "to": "reader", "y": 335, "label": "ADD_ROSPEC_RESPONSE", "variant": "return" },
+    { "id": "add-accessspec", "from": "adapter", "to": "device", "y": 370, "label": "ADD_ACCESSSPEC (if AttachedData)", "variant": "dashed" },
+    { "id": "add-accessspec-response", "from": "device", "to": "reader", "y": 405, "label": "ADD_ACCESSSPEC_RESPONSE", "variant": "return" },
+    { "id": "configured-state", "from": "reader", "to": "app", "y": 440, "label": "OperationState.Idle / HighLevelConfigured", "variant": "return", "note": "StartManagedInventoryCoreAsync(startAfterDeployment:false) 不发送 ENABLE/START。" },
+    { "id": "start-inventory", "from": "app", "to": "reader", "y": 475, "label": "StartInventoryAsync()", "variant": "emphasis", "note": "先创建并挂接 InventorySession，再进入启用/启动流程。" },
+    { "id": "enable-rospec", "from": "adapter", "to": "device", "y": 510, "label": "ENABLE_ROSPEC", "variant": "emphasis" },
+    { "id": "enable-rospec-response", "from": "device", "to": "reader", "y": 545, "label": "ENABLE_ROSPEC_RESPONSE", "variant": "return" },
+    { "id": "enable-accessspec", "from": "adapter", "to": "device", "y": 580, "label": "ENABLE_ACCESSSPEC (if AttachedData)", "variant": "dashed" },
+    { "id": "enable-accessspec-response", "from": "device", "to": "reader", "y": 615, "label": "ENABLE_ACCESSSPEC_RESPONSE", "variant": "return" },
+    { "id": "start-rospec", "from": "adapter", "to": "device", "y": 650, "label": "START_ROSPEC (Null trigger)", "variant": "emphasis", "note": "Immediate/Periodic/GPI trigger 由设备触发时，不发送此消息。" },
+    { "id": "start-rospec-response", "from": "device", "to": "reader", "y": 685, "label": "START_ROSPEC_RESPONSE", "variant": "return" },
+    { "id": "inventorying-state", "from": "reader", "to": "app", "y": 710, "label": "InventorySession + OperationState.Inventorying", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "reader", "from": 160, "to": 735, "type": "backend" },
+    { "participant": "adapter", "from": 190, "to": 700, "type": "backend" },
+    { "participant": "session", "from": 295, "to": 695, "type": "backend" },
+    { "participant": "device", "from": 230, "to": 700, "type": "external" }
+  ]
+}

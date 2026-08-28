@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Reader SDK 断线、设备关闭与重连恢复生命周期",
+    "locale": "zh-CN",
+    "output": "llrp-reader-reconnect-lifecycle.html",
+    "viewBox": [1600, 800],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "fault-and-reconnect",
+        "label": "断线与重连",
+        "focus": ["app", "reader", "session", "device"],
+        "note": "传输层异常或设备主动关闭后，应用调用 ReconnectAsync() 重新建立会话。"
+      },
+      {
+        "id": "state-synchronization",
+        "label": "重新初始化与状态同步",
+        "focus": ["reader", "adapter", "session", "device", "app"],
+        "note": "重连会重新协商、初始化并查询设备现实状态，不会自动重新部署缺失的托管资源。"
+      }
+    ]
+  },
+  "participants": [
+    { "id": "app", "type": "external", "label": "应用" },
+    { "id": "reader", "type": "backend", "label": "LlrpReader" },
+    { "id": "adapter", "type": "backend", "label": "Protocol Adapter" },
+    { "id": "session", "type": "backend", "label": "LlrpSession" },
+    { "id": "device", "type": "external", "label": "Reader 设备" }
+  ],
+  "segments": [
+    { "from": 140, "to": 260, "label": "断线与关闭" },
+    { "from": 275, "to": 430, "label": "传输层重连" },
+    { "from": 445, "to": 720, "label": "协商、初始化与状态同步" }
+  ],
+  "messages": [
+    { "id": "disconnect-signal", "from": "device", "to": "session", "y": 160, "label": "transport EOF / CLOSE_CONNECTION", "variant": "dashed", "note": "可能是 TCP 异常，也可能是设备主动发送 CLOSE_CONNECTION。" },
+    { "id": "disconnect-published", "from": "session", "to": "reader", "y": 188, "label": "ConnectionCompletion / UnsolicitedFrames", "variant": "dashed" },
+    { "id": "close-response", "from": "reader", "to": "device", "y": 216, "label": "CLOSE_CONNECTION_RESPONSE (if device initiated)", "variant": "return", "note": "设备主动关闭时由 PumpAsync 尽力回包。" },
+    { "id": "faulted", "from": "reader", "to": "app", "y": 244, "label": "ConnectionState.Faulted / reconnect scheduled", "variant": "return" },
+    { "id": "reconnect-api", "from": "app", "to": "reader", "y": 272, "label": "ReconnectAsync()", "variant": "emphasis" },
+    { "id": "stop-old-pump", "from": "reader", "to": "session", "y": 300, "label": "StopPumpAsync + DisconnectAsync", "variant": "emphasis" },
+    { "id": "close-transport", "from": "session", "to": "device", "y": 328, "label": "TCP close", "variant": "return" },
+    { "id": "connect-new-session", "from": "reader", "to": "session", "y": 356, "label": "ConnectAsync()", "variant": "emphasis" },
+    { "id": "tcp-reconnect", "from": "session", "to": "device", "y": 384, "label": "TCP reconnect :5084", "variant": "emphasis" },
+    { "id": "renegotiate", "from": "reader", "to": "adapter", "y": 412, "label": "NegotiateAsync + SelectProtocolAdapter", "variant": "emphasis" },
+    { "id": "version-requests", "from": "reader", "to": "device", "y": 440, "label": "GET_SUPPORTED_VERSION / SET_PROTOCOL_VERSION", "variant": "emphasis", "note": "两类消息各自有匹配的 response；Force101 跳过探测。" },
+    { "id": "version-responses", "from": "device", "to": "reader", "y": 468, "label": "negotiation responses", "variant": "return" },
+    { "id": "reinitialize", "from": "reader", "to": "adapter", "y": 496, "label": "InitializeReaderAsync()", "variant": "emphasis" },
+    { "id": "capability-requests", "from": "adapter", "to": "device", "y": 524, "label": "GET_READER_CAPABILITIES(General + All)", "variant": "emphasis", "note": "先取身份以激活扩展，再取完整能力。" },
+    { "id": "capability-responses", "from": "device", "to": "reader", "y": 552, "label": "capability responses", "variant": "return" },
+    { "id": "sync-state", "from": "reader", "to": "adapter", "y": 580, "label": "SynchronizeManagedStateOnReconnectAsync()", "variant": "emphasis" },
+    { "id": "query-resources", "from": "adapter", "to": "device", "y": 608, "label": "GET_ROSPECS + GET_ACCESSSPECS", "variant": "emphasis" },
+    { "id": "resource-snapshot", "from": "device", "to": "reader", "y": 636, "label": "resource snapshots", "variant": "return", "note": "缺失托管 ROSpec 时结束当前 session 并回到 Idle；存在时保留现实状态。" },
+    { "id": "restore-events", "from": "reader", "to": "device", "y": 664, "label": "ENABLE_EVENTS_AND_REPORTS (if configured)", "variant": "dashed", "note": "仅 HoldEventsAndReportsUponReconnect 配置开启时发送。" },
+    { "id": "ready-after-reconnect", "from": "reader", "to": "app", "y": 692, "label": "ConnectionState.Ready + sync result", "variant": "return", "note": "重连不自动重新部署缺失的托管 ROSpec/AccessSpec。" }
+  ],
+  "activations": [
+    { "participant": "reader", "from": 272, "to": 702, "type": "backend" },
+    { "participant": "adapter", "from": 405, "to": 620, "type": "backend" },
+    { "participant": "session", "from": 300, "to": 400, "type": "backend" },
+    { "participant": "device", "from": 160, "to": 650, "type": "external" }
+  ]
+}

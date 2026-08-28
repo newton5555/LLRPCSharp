@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Reader SDK 连接、协商与初始化生命周期",
+    "locale": "zh-CN",
+    "output": "llrp-reader-connect-lifecycle.html",
+    "viewBox": [1600, 800],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "tcp-and-pump",
+        "label": "TCP 与消息泵",
+        "focus": ["app", "reader", "session", "device"],
+        "note": "连接传输层、启动 LlrpReader PumpAsync，并进入协商阶段。"
+      },
+      {
+        "id": "version-negotiation",
+        "label": "版本协商",
+        "focus": ["reader", "adapter", "session", "device"],
+        "note": "Auto/Force11/Force20 使用 LLRP 1.1 探测；Force101 跳过探测。"
+      },
+      {
+        "id": "identity-and-capabilities",
+        "label": "身份与能力",
+        "focus": ["reader", "adapter", "device", "app"],
+        "note": "先取 General_Device_Capabilities 激活扩展，再取 All 能力并进入 Ready。"
+      }
+    ]
+  },
+  "participants": [
+    { "id": "app", "type": "external", "label": "应用" },
+    { "id": "reader", "type": "backend", "label": "LlrpReader" },
+    { "id": "adapter", "type": "backend", "label": "Protocol Adapter" },
+    { "id": "session", "type": "backend", "label": "LlrpSession" },
+    { "id": "device", "type": "external", "label": "Reader 设备" }
+  ],
+  "segments": [
+    { "from": 140, "to": 320, "label": "连接与消息泵" },
+    { "from": 335, "to": 440, "label": "协议版本协商" },
+    { "from": 455, "to": 720, "label": "身份、扩展与能力初始化" }
+  ],
+  "messages": [
+    { "id": "connect-api", "from": "app", "to": "reader", "y": 160, "label": "ConnectAsync()", "variant": "emphasis" },
+    { "id": "select-default-adapter", "from": "reader", "to": "adapter", "y": 190, "label": "SelectProtocolAdapter(1.0.1)", "variant": "emphasis", "note": "连接开始时先设置默认适配器。" },
+    { "id": "connect-session", "from": "reader", "to": "session", "y": 220, "label": "_session.ConnectAsync()" },
+    { "id": "connect-wire", "from": "session", "to": "device", "y": 250, "label": "TCP connect :5084" },
+    { "id": "connect-accepted", "from": "device", "to": "session", "y": 280, "label": "connected", "variant": "return" },
+    { "id": "start-pump", "from": "reader", "to": "session", "y": 310, "label": "StartPump()", "variant": "emphasis", "note": "PumpAsync 等待 UnsolicitedFrames 与连接完成。" },
+    { "id": "get-supported-version", "from": "reader", "to": "device", "y": 340, "label": "GET_SUPPORTED_VERSION", "variant": "emphasis", "note": "通过 Registry 编码，由 LlrpSession 事务发送；Force101 不发送。" },
+    { "id": "supported-version-response", "from": "device", "to": "reader", "y": 370, "label": "GET_SUPPORTED_VERSION_RESPONSE", "variant": "return" },
+    { "id": "set-protocol-version", "from": "reader", "to": "device", "y": 400, "label": "SET_PROTOCOL_VERSION(target)", "variant": "emphasis", "note": "仅当目标版本不是 1.0.1 时发送。" },
+    { "id": "set-protocol-version-response", "from": "device", "to": "reader", "y": 430, "label": "SET_PROTOCOL_VERSION_RESPONSE", "variant": "return" },
+    { "id": "select-negotiated-adapter", "from": "reader", "to": "adapter", "y": 460, "label": "SelectProtocolAdapter(target)", "variant": "emphasis" },
+    { "id": "fetch-identity", "from": "reader", "to": "adapter", "y": 490, "label": "FetchIdentityAsync()", "variant": "emphasis" },
+    { "id": "identity-request", "from": "adapter", "to": "device", "y": 520, "label": "GET_READER_CAPABILITIES(General)", "variant": "emphasis" },
+    { "id": "identity-response", "from": "device", "to": "reader", "y": 550, "label": "GET_READER_CAPABILITIES_RESPONSE", "variant": "return" },
+    { "id": "initialize-extensions", "from": "reader", "to": "adapter", "y": 580, "label": "Activate + InitializeConnectionAsync", "variant": "dashed", "note": "根据身份激活 IReaderExtension；扩展可在此阶段发起事务。" },
+    { "id": "fetch-capabilities", "from": "reader", "to": "adapter", "y": 610, "label": "FetchCapabilitiesAsync()", "variant": "emphasis" },
+    { "id": "capabilities-request", "from": "adapter", "to": "device", "y": 640, "label": "GET_READER_CAPABILITIES(All)", "variant": "emphasis" },
+    { "id": "capabilities-response", "from": "device", "to": "reader", "y": 670, "label": "GET_READER_CAPABILITIES_RESPONSE", "variant": "return" },
+    { "id": "ready", "from": "reader", "to": "app", "y": 700, "label": "ConnectionState.Ready", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "reader", "from": 160, "to": 710, "type": "backend" },
+    { "participant": "adapter", "from": 455, "to": 680, "type": "backend" },
+    { "participant": "session", "from": 220, "to": 295, "type": "backend" },
+    { "participant": "device", "from": 250, "to": 685, "type": "external" }
+  ]
+}

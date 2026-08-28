@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LlrpSdk Reader API 架构",
+    "locale": "zh-CN",
+    "output": "reader-sdk-api.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/newton5555/LLRPCSharp.git",
+      "revision": "199ff24fdc64f8599ded18a85c1822f3e1146b68"
+    },
+    "views": [
+      {
+        "id": "api-surface",
+        "label": "公开 API 表面",
+        "focus": ["client-app", "builder", "reader-api", "settings", "inventory", "tag-access"],
+        "note": "从应用入口观察 Reader 的连接、配置、盘点和标签访问能力。"
+      },
+      {
+        "id": "request-path",
+        "label": "请求与报告主链路",
+        "focus": ["client-app", "reader-api", "adapter", "session", "reader-pump", "protocol", "physical-reader"],
+        "note": "沿着版本无关的 Reader API 追踪到 LLRP 帧和设备响应。"
+      },
+      {
+        "id": "version-boundary",
+        "label": "版本与扩展边界",
+        "focus": ["reader-api", "adapter", "protocol", "extensions", "session", "reader-pump"],
+        "note": "查看 1.0.1、1.1、2.0 适配器和厂商扩展如何隔离协议类型。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "client-app",
+      "type": "external",
+      "label": "应用程序",
+      "sublabel": "LlrpSdk consumer",
+      "tag": "调用方",
+      "pos": [40, 300],
+      "size": [150, 72],
+      "sources": [
+        { "path": "docs/guides/sdk-api-guide.md", "label": "SDK guide" }
+      ]
+    },
+    {
+      "id": "builder",
+      "type": "backend",
+      "label": "LlrpReaderBuilder",
+      "sublabel": "CreateBuilder(host) → Build()",
+      "pos": [250, 120],
+      "size": [190, 72],
+      "sources": [
+        { "path": "src/LlrpSdk/Reader/LlrpReaderBuilder.cs", "label": "builder" }
+      ]
+    },
+    {
+      "id": "reader-api",
+      "type": "backend",
+      "label": "LlrpReader",
+      "sublabel": "连接 · 配置 · 盘点 · Tag Access",
+      "tag": "Facade + orchestrator",
+      "pos": [250, 300],
+      "size": [190, 82],
+      "sources": [
+        { "path": "src/LlrpSdk/Reader/LlrpReader.cs", "label": "facade" },
+        { "path": "docs/status.md", "label": "status" }
+      ]
+    },
+    {
+      "id": "settings",
+      "type": "backend",
+      "label": "ReaderSettings",
+      "sublabel": "Model · capability defaults",
+      "pos": [490, 100],
+      "size": [190, 72],
+      "sources": [
+        { "path": "docs/guides/sdk-api-guide.md", "label": "settings API" }
+      ]
+    },
+    {
+      "id": "adapter",
+      "type": "backend",
+      "label": "ILlrpProtocolAdapter",
+      "sublabel": "1.0.1 · 1.1 · 2.0 version boundary",
+      "tag": "Explicit versioning",
+      "pos": [490, 300],
+      "size": [210, 82],
+      "sources": [
+        { "path": "src/LlrpSdk/Protocol/Llrp101ProtocolAdapter.cs", "label": "LLRP 1.0.1" },
+        { "path": "src/LlrpSdk/Protocol/Llrp11ProtocolAdapter.cs", "label": "LLRP 1.1" },
+        { "path": "src/LlrpSdk/Protocol/Llrp20ProtocolAdapter.cs", "label": "LLRP 2.0" }
+      ]
+    },
+    {
+      "id": "inventory",
+      "type": "backend",
+      "label": "InventorySession + TagReport",
+      "sublabel": "ReadReportsAsync() / TagsReported",
+      "pos": [490, 500],
+      "size": [210, 76],
+      "sources": [
+        { "path": "docs/guides/sdk-api-guide.md", "label": "inventory API" }
+      ]
+    },
+    {
+      "id": "tag-access",
+      "type": "backend",
+      "label": "标准 Tag Access",
+      "sublabel": "Read · Write · Lock · Kill · BlockErase",
+      "pos": [250, 500],
+      "size": [210, 76],
+      "sources": [
+        { "path": "docs/status.md", "label": "tag access" }
+      ]
+    },
+    {
+      "id": "extensions",
+      "type": "backend",
+      "label": "厂商扩展注册",
+      "sublabel": "UseImpinj() · UseZebra() · contributors",
+      "tag": "Optional",
+      "pos": [745, 100],
+      "size": [210, 72],
+      "sources": [
+        { "path": "docs/guides/sdk-api-guide.md", "label": "extension API" },
+        { "path": "docs/status.md", "label": "extensions" }
+      ]
+    },
+    {
+      "id": "session",
+      "type": "backend",
+      "label": "LlrpSession + Transport",
+      "sublabel": "TCP · request/response · frame journal",
+      "pos": [745, 300],
+      "size": [210, 82],
+      "sources": [
+        { "path": "src/LlrpNet/LlrpNet.Core/Session/LlrpSession.cs", "label": "session core" },
+        { "path": "src/LlrpNet/LlrpNet.Core/Transport/LlrpTcpTransport.cs", "label": "transport core" }
+      ]
+    },
+    {
+      "id": "reader-pump",
+      "type": "backend",
+      "label": "LlrpReader Pump",
+      "sublabel": "UnsolicitedFrames → decode → project",
+      "tag": "Internal",
+      "pos": [745, 500],
+      "size": [210, 76],
+      "sources": [
+        { "path": "src/LlrpSdk/Reader/LlrpReader.cs", "line": 2549, "label": "pump lifecycle" },
+        { "path": "src/LlrpSdk/Reader/LlrpReader.cs", "line": 2878, "label": "decode + projection" }
+      ]
+    },
+    {
+      "id": "protocol",
+      "type": "backend",
+      "label": "LLRP Models + Codec Registry",
+      "sublabel": "Reader-owned encode/decode · versioned types",
+      "pos": [990, 420],
+      "size": [230, 82],
+      "sources": [
+        { "path": "src/LlrpNet/LlrpNet.Protocol/Registry/LlrpCodecRegistry.cs", "label": "protocol layer" },
+        { "path": "src/LlrpNet/LlrpNet.Protocol/Codecs/LlrpMessageCodec.cs", "label": "message codec" }
+      ]
+    },
+    {
+      "id": "physical-reader",
+      "type": "external",
+      "label": "LLRP Reader 设备",
+      "sublabel": "TCP :5084 · physical or virtual",
+      "tag": "External boundary",
+      "pos": [1000, 275],
+      "size": [220, 82],
+      "sources": [
+        { "path": "docs/guides/sdk-api-guide.md", "label": "reader endpoint" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "LlrpSdk · application-facing orchestration",
+      "wraps": ["builder", "reader-api", "settings", "adapter", "inventory", "tag-access", "extensions", "reader-pump"],
+      "pad": 28
+    },
+    {
+      "kind": "region",
+      "label": "LlrpNet · wire protocol and transport",
+      "wraps": ["session", "protocol"],
+      "pad": 28
+    }
+  ],
+  "connections": [
+    { "id": "app-builds-reader", "from": "client-app", "to": "builder", "label": "CreateBuilder / Build", "variant": "dashed", "fromSide": "right", "toSide": "left" },
+    { "id": "app-uses-reader", "from": "client-app", "to": "reader-api", "label": "ConnectAsync · public API", "variant": "emphasis", "labelDy": 63 },
+    { "id": "reader-owns-settings", "from": "reader-api", "to": "settings", "label": "GetDefault · Apply · Query", "fromSide": "top", "toSide": "bottom" },
+    { "id": "reader-to-adapter", "from": "reader-api", "to": "adapter", "label": "select version · compile · parse", "variant": "emphasis", "labelDy": 65 },
+    { "id": "reader-to-inventory", "from": "reader-api", "to": "inventory", "label": "StartInventoryAsync → InventorySession", "fromSide": "bottom", "toSide": "top" },
+    { "id": "reader-to-tag-access", "from": "reader-api", "to": "tag-access", "label": "Tag Access API", "fromSide": "bottom", "toSide": "top", "labelDx": -100 },
+    { "id": "extensions-to-adapter", "from": "extensions", "to": "adapter", "label": "register module + extension", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "adapter-to-session", "from": "adapter", "to": "session", "label": "request via Reader Registry", "variant": "emphasis", "labelDy": 65 },
+    { "id": "session-to-reader", "from": "session", "to": "physical-reader", "label": "LLRP frames over TCP", "variant": "emphasis", "labelDy": 77 },
+    { "id": "reader-receives-reports", "from": "physical-reader", "to": "session", "label": "responses · reports", "variant": "dashed", "fromSide": "bottom", "toSide": "bottom", "labelAt": [987, 396] },
+    { "id": "session-to-pump", "from": "session", "to": "reader-pump", "label": "UnsolicitedFrames", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelAt": [843, 450] },
+    { "id": "pump-to-protocol", "from": "reader-pump", "to": "protocol", "label": "Registry.DecodeMessage", "variant": "dashed", "fromSide": "right", "toSide": "left", "via": [[972, 538], [972, 461]], "labelAt": [972, 590] },
+    { "id": "pump-to-inventory", "from": "reader-pump", "to": "inventory", "label": "TagReport projection", "variant": "dashed", "fromSide": "left", "toSide": "right", "labelDy": 58 }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "应用入口",
+      "items": [
+        "LlrpReaderBuilder 将 host、端口和选项组装成托管 Reader",
+        "LlrpReader 封装常用 ROSpec / AccessSpec 操作，同时保留 RoSpecs、AccessSpecs、Protocol、Registry 专家入口"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "托管能力",
+      "items": [
+        "ReaderSettings 是配置模型；默认值、校验、查询和应用由 LlrpReader 编排",
+        "报告链为 UnsolicitedFrames → Reader Pump → TranslateTagReports → InventorySession / TagsReported；标准 Tag Access 自动管理底层资源"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "边界与状态",
+      "items": [
+        "ILlrpProtocolAdapter 是内部版本边界，收敛 1.0.1、1.1、2.0 的协商、编译、反解析和事件投影",
+        "DesiredState 与设备 Observed 快照分离；默认 PreserveForeign，ReplaceAll 需显式选择"
+      ]
+    }
+  ]
+}

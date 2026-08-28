@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Reader SDK 报告回流、Keepalive 与停止生命周期",
+    "locale": "zh-CN",
+    "output": "llrp-reader-report-stop-lifecycle.html",
+    "viewBox": [1600, 800],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "report-return",
+        "label": "报告回流",
+        "focus": ["device", "session", "reader", "adapter", "app"],
+        "note": "RO_ACCESS_REPORT 不匹配事务响应，经过 UnsolicitedFrames 和 PumpAsync 回流到应用。"
+      },
+      {
+        "id": "keepalive",
+        "label": "Keepalive",
+        "focus": ["device", "session", "reader"],
+        "note": "Keepalive 同样走 unsolicited frame，但由 LlrpReader 自动回复 ACK。"
+      },
+      {
+        "id": "stop-and-cleanup",
+        "label": "停止与清理",
+        "focus": ["app", "reader", "device"],
+        "note": "停止托管盘点后，按 Stop、可选 AccessSpec 禁用、ROSpec 禁用顺序清理。"
+      }
+    ]
+  },
+  "participants": [
+    { "id": "app", "type": "external", "label": "应用" },
+    { "id": "reader", "type": "backend", "label": "LlrpReader" },
+    { "id": "adapter", "type": "backend", "label": "Protocol Adapter" },
+    { "id": "session", "type": "backend", "label": "LlrpSession" },
+    { "id": "device", "type": "external", "label": "Reader 设备" }
+  ],
+  "segments": [
+    { "from": 140, "to": 295, "label": "RO_ACCESS_REPORT 报告回流" },
+    { "from": 310, "to": 415, "label": "KEEPALIVE / ACK" },
+    { "from": 430, "to": 720, "label": "StopAsync 与资源清理" }
+  ],
+  "messages": [
+    { "id": "access-report-wire", "from": "device", "to": "session", "y": 160, "label": "RO_ACCESS_REPORT", "variant": "dashed", "note": "设备主动发送，不是某个请求的匹配响应。" },
+    { "id": "access-report-frame", "from": "session", "to": "reader", "y": 195, "label": "UnsolicitedFrames", "variant": "dashed", "note": "LlrpSession 只解析公共头并将未匹配帧投递到有界 channel。" },
+    { "id": "translate-report", "from": "reader", "to": "adapter", "y": 230, "label": "DecodeMessage + TranslateTagReports", "variant": "dashed" },
+    { "id": "publish-report", "from": "reader", "to": "app", "y": 265, "label": "ReadReportsAsync() / TagsReported", "variant": "return", "note": "两个报告出口互斥选择。" },
+    { "id": "keepalive-wire", "from": "device", "to": "session", "y": 315, "label": "KEEPALIVE", "variant": "dashed" },
+    { "id": "keepalive-frame", "from": "session", "to": "reader", "y": 350, "label": "UnsolicitedFrames", "variant": "dashed" },
+    { "id": "keepalive-ack", "from": "reader", "to": "device", "y": 385, "label": "KEEPALIVE_ACK", "variant": "return", "note": "PumpAsync 解码后立即由 Registry 编码并 SendFrameAsync。" },
+    { "id": "stop-api", "from": "app", "to": "reader", "y": 440, "label": "StopAsync()", "variant": "emphasis" },
+    { "id": "stop-rospec", "from": "reader", "to": "device", "y": 475, "label": "STOP_ROSPEC", "variant": "emphasis" },
+    { "id": "stop-rospec-response", "from": "device", "to": "reader", "y": 510, "label": "STOP_ROSPEC_RESPONSE", "variant": "return" },
+    { "id": "disable-accessspec", "from": "reader", "to": "device", "y": 545, "label": "DISABLE_ACCESSSPEC (if attached)", "variant": "dashed" },
+    { "id": "disable-accessspec-response", "from": "device", "to": "reader", "y": 580, "label": "DISABLE_ACCESSSPEC_RESPONSE", "variant": "return" },
+    { "id": "disable-rospec", "from": "reader", "to": "device", "y": 615, "label": "DISABLE_ROSPEC", "variant": "emphasis" },
+    { "id": "disable-rospec-response", "from": "device", "to": "reader", "y": 650, "label": "DISABLE_ROSPEC_RESPONSE", "variant": "return" },
+    { "id": "idle-state", "from": "reader", "to": "app", "y": 685, "label": "OperationState.Idle / HighLevelConfigured", "variant": "return", "note": "ConnectionState 仍为 Ready；DesiredSettings 保留用于后续 StartInventoryAsync。" }
+  ],
+  "activations": [
+    { "participant": "reader", "from": 230, "to": 700, "type": "backend" },
+    { "participant": "adapter", "from": 225, "to": 245, "type": "backend" },
+    { "participant": "session", "from": 160, "to": 210, "type": "backend" },
+    { "participant": "device", "from": 160, "to": 665, "type": "external" }
+  ]
+}
