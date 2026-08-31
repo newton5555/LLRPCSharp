@@ -189,6 +189,19 @@ await using var session = await reader.StartInventoryAsync(saved);
 `DeleteAllResourcesAsync(ReplaceAll)` / 资源服务的 `DeleteAllAsync(ReplaceAll)`，才会使用 LLRP ID=0 删除全部标准
 ROSpec/AccessSpec。仅修改 Reader 全局配置而不提供 `Inventory` 不会删除资源，也不要求先同步。
 
+如果设备上已有正在运行的盘点，而应用必须在查询或重新部署前先静音并全量接管，可以显式调用：
+
+```csharp
+await reader.PrepareInventoryTakeoverAsync(ResourceTakeoverPolicy.ReplaceAll);
+ReaderSettingsSnapshot snapshot = await reader.QuerySettingsAsync();
+```
+
+该入口只接受 `ReplaceAll`，会删除设备上的全部标准 ROSpec/AccessSpec；它不是默认流程，
+也不会保留 foreign 资源。普通应用仍应使用默认的 `PreserveForeign` 托管入口。
+
+高层请求默认等待 30 秒；发生超时时，`TimeoutException` 会带上请求消息 ID、请求类型和
+期望响应类型，便于区分设备慢响应与响应丢失。
+
 ### 4.2 入口选择：一段式 vs 两段式
 
 公开盘点入口只有两个重载，按场景选择：
@@ -197,6 +210,7 @@ ROSpec/AccessSpec。仅修改 Reader 全局配置而不提供 `Inventory` 不会
 |---|---|---|
 | **快速/临时盘点** | `StartInventoryAsync(InventorySettings)` | 部署并启动 SDK ROSpec；默认只替换 SDK 自有资源并保留 foreign ROSpec/AccessSpec |
 | **显式全量接管** | `StartInventoryAsync(settings, ReplaceAll)` 或 `ApplySettingsAsync(settings, ReplaceAll)` | 明确确认后删除全部标准资源，再部署 SDK 资源；适合设备资源确实由当前应用独占的场景 |
+| **接管正在运行的盘点** | `PrepareInventoryTakeoverAsync(ReplaceAll)` → 查询/部署 | 先静音并清理全部标准资源，再查询或部署；仅适合当前应用明确独占设备的场景 |
 | **受控部署 + 显式启动** | `ApplySettingsAsync(ReaderSettings)` → `StartInventoryAsync()` | 写入 Reader 配置并部署 SDK 资源（默认 PreserveForeign，保持停止），随后显式启动 |
 | **恢复（断电重启/新会话）** | 见 4.1 三种来源 + 显式传入 | 设备重启后 ROSpec 丢失，无参 `StartInventoryAsync()` 会报错，需应用从本地/default 重新部署 |
 

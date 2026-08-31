@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LLRPCSharp v2.0.4 发布资源：NuGet 包、Reader CLI 多平台压缩包、源码和版本说明。">
+  <meta name="description" content="LLRPCSharp v2.0.5 发布资源：NuGet 包、Reader CLI 多平台压缩包、源码和版本说明。">
   <title>发布资源 · LLRPCSharp</title>
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/home.css">
@@ -55,12 +55,12 @@
       <div class="release-banner">
         <div class="release-head">
           <div>
-            <h3>🚀 LLRPCSharp v2.0.4</h3>
-            <span class="release-date">正式版 · 2026-08-27 · .NET 10</span>
+            <h3>🚀 LLRPCSharp v2.0.5</h3>
+            <span class="release-date">正式版 · 2026-08-31 · .NET 10</span>
           </div>
-          <a class="button secondary" href="https://github.com/newton5555/LLRPCSharp/releases/tag/v2.0.4" target="_blank" rel="noreferrer" style="margin:0;border-color:rgba(255,255,255,.3);color:#fff;background:rgba(255,255,255,.1);">GitHub Release ↗</a>
+          <a class="button secondary" href="https://github.com/newton5555/LLRPCSharp/releases/tag/v2.0.5" target="_blank" rel="noreferrer" style="margin:0;border-color:rgba(255,255,255,.3);color:#fff;background:rgba(255,255,255,.1);">GitHub Release ↗</a>
         </div>
-        <p>当前版本修复 GPO 更新时不必要地重新部署盘点资源的问题，增强缺失资源清理兼容性，并发布 Reader SDK、Impinj/Zebra 扩展和 Virtual Device Hosting 包。</p>
+        <p>当前版本为正在运行的设备盘点增加显式全量接管入口，延长慢设备请求等待时间，并增强超时诊断；同时发布 Reader SDK、Impinj/Zebra 扩展和 Virtual Device Hosting 包。</p>
       </div>
       <div class="cards">
         <div class="card featured"><span>GET STARTED</span><h3>应用开发</h3><p>安装 <code>LlrpSdk</code>，从 Reader SDK Programmer’s Guide 开始。</p><a class="text-link" href="reader-sdk.html">打开开发者指南 →</a></div>
@@ -71,15 +71,15 @@
 
     <section id="packages">
       <h2>NuGet 包</h2>
-      <p>v2.0.4 发布工作流会打包以下四个公开包：</p>
+      <p>v2.0.5 发布工作流会打包以下四个公开包：</p>
       <div class="table-wrapper">
         <table class="member-table">
           <thead><tr><th>Package</th><th>用途</th><th>安装</th></tr></thead>
           <tbody>
-            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk/" target="_blank" rel="noreferrer"><code>LlrpSdk</code> ↗</a></td><td>托管 Reader 客户端、设置、盘点和标准 Tag Access。</td><td><code>dotnet add package LlrpSdk --version 2.0.4</code></td></tr>
-            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk.Extensions.Impinj/" target="_blank" rel="noreferrer"><code>LlrpSdk.Extensions.Impinj</code> ↗</a></td><td>Impinj 协议与 Reader SDK 扩展。</td><td><code>dotnet add package LlrpSdk.Extensions.Impinj --version 2.0.4</code></td></tr>
-            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk.Extensions.Zebra/" target="_blank" rel="noreferrer"><code>LlrpSdk.Extensions.Zebra</code> ↗</a></td><td>Zebra 协议与 Reader SDK 扩展基线。</td><td><code>dotnet add package LlrpSdk.Extensions.Zebra --version 2.0.4</code></td></tr>
-            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpDevice.Virtual.Hosting/" target="_blank" rel="noreferrer"><code>LlrpDevice.Virtual.Hosting</code> ↗</a></td><td>在测试或应用进程内启动单台虚拟 LLRP 设备。</td><td><code>dotnet add package LlrpDevice.Virtual.Hosting --version 2.0.4</code></td></tr>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk/" target="_blank" rel="noreferrer"><code>LlrpSdk</code> ↗</a></td><td>托管 Reader 客户端、设置、盘点和标准 Tag Access。</td><td><code>dotnet add package LlrpSdk --version 2.0.5</code></td></tr>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk.Extensions.Impinj/" target="_blank" rel="noreferrer"><code>LlrpSdk.Extensions.Impinj</code> ↗</a></td><td>Impinj 协议与 Reader SDK 扩展。</td><td><code>dotnet add package LlrpSdk.Extensions.Impinj --version 2.0.5</code></td></tr>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpSdk.Extensions.Zebra/" target="_blank" rel="noreferrer"><code>LlrpSdk.Extensions.Zebra</code> ↗</a></td><td>Zebra 协议与 Reader SDK 扩展基线。</td><td><code>dotnet add package LlrpSdk.Extensions.Zebra --version 2.0.5</code></td></tr>
+            <tr><td><a class="text-link" href="https://www.nuget.org/packages/LlrpDevice.Virtual.Hosting/" target="_blank" rel="noreferrer"><code>LlrpDevice.Virtual.Hosting</code> ↗</a></td><td>在测试或应用进程内启动单台虚拟 LLRP 设备。</td><td><code>dotnet add package LlrpDevice.Virtual.Hosting --version 2.0.5</code></td></tr>
           </tbody>
         </table>
       </div>
@@ -89,23 +89,23 @@
       <h2>Reader CLI 下载</h2>
       <p>发布工作流生成自包含的 <code>LlrpCli</code> 压缩包。解压后即可运行，不需要单独安装 .NET Runtime：</p>
       <div class="download-grid">
-        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.4/LlrpCli-v2.0.4-win-x64.zip" target="_blank" rel="noreferrer"><span>Windows x64</span><small>ZIP ↗</small></a>
-        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.4/LlrpCli-v2.0.4-linux-x64.zip" target="_blank" rel="noreferrer"><span>Linux x64</span><small>ZIP ↗</small></a>
-        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.4/LlrpCli-v2.0.4-osx-x64.zip" target="_blank" rel="noreferrer"><span>macOS Intel x64</span><small>ZIP ↗</small></a>
-        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.4/LlrpCli-v2.0.4-osx-arm64.zip" target="_blank" rel="noreferrer"><span>macOS Apple Silicon</span><small>ZIP ↗</small></a>
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.5/LlrpCli-v2.0.5-win-x64.zip" target="_blank" rel="noreferrer"><span>Windows x64</span><small>ZIP ↗</small></a>
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.5/LlrpCli-v2.0.5-linux-x64.zip" target="_blank" rel="noreferrer"><span>Linux x64</span><small>ZIP ↗</small></a>
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.5/LlrpCli-v2.0.5-osx-x64.zip" target="_blank" rel="noreferrer"><span>macOS Intel x64</span><small>ZIP ↗</small></a>
+        <a class="download-btn" href="https://github.com/newton5555/LLRPCSharp/releases/download/v2.0.5/LlrpCli-v2.0.5-osx-arm64.zip" target="_blank" rel="noreferrer"><span>macOS Apple Silicon</span><small>ZIP ↗</small></a>
       </div>
       <div class="callout">当前 Release workflow 发布的是 Reader CLI 压缩包；Virtual Device CLI 是解决方案中的独立测试工具，可从源码运行或按项目需求自行发布。</div>
     </section>
 
     <section id="notes">
-      <h2>v2.0.4 版本说明</h2>
+      <h2>v2.0.5 版本说明</h2>
       <ul>
-        <li>GPO 输出更新保持配置专用，不会仅因输出状态变化而重新部署托管盘点资源。</li>
-        <li>识别常见 LLRP 1.0.1 与 Zebra 设备返回的缺失资源响应，并补充回归测试。</li>
-        <li>保持 LLRP 1.0.1、1.1 和 2.0 SDK 基线；2.0 的真实设备互操作仍需单独验收。</li>
-        <li>发布 <code>LlrpSdk</code>、Impinj 扩展、Zebra 扩展和 <code>LlrpDevice.Virtual.Hosting</code> v2.0.4。</li>
+        <li>新增显式的 <code>PrepareInventoryTakeoverAsync(ReplaceAll)</code>，先静音并清理正在运行设备上的全部标准资源，再查询或重新部署。</li>
+        <li>普通 <code>PreserveForeign</code> 托管流程继续保留其他应用资源；全量接管仍必须显式选择。</li>
+        <li>默认高层请求超时从 10 秒提高到 30 秒，超时信息包含消息 ID、请求类型和期望响应类型。</li>
+        <li>发布 <code>LlrpSdk</code>、Impinj 扩展、Zebra 扩展和 <code>LlrpDevice.Virtual.Hosting</code> v2.0.5。</li>
       </ul>
-      <p><a class="text-link" href="https://github.com/newton5555/LLRPCSharp/blob/master/docs/releases/v2.0.4.md" target="_blank" rel="noreferrer">阅读完整 Release Notes ↗</a></p>
+      <p><a class="text-link" href="https://github.com/newton5555/LLRPCSharp/blob/master/docs/releases/v2.0.5.md" target="_blank" rel="noreferrer">阅读完整 Release Notes ↗</a></p>
     </section>
 
     <section id="verification">

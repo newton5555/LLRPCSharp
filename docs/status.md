@@ -1,6 +1,6 @@
 # 当前状态
 
-> 基准日期：2026-08-28
+> 基准日期：2026-08-31
 
 本文档只记录当前实现事实。开发计划见 [roadmap.md](roadmap.md)，用户入口见
 根目录 [README](../README.zh.md)。
@@ -101,6 +101,11 @@ LLRP 服务。
   AccessSpec 14151 和可追踪临时资源；Raw/专家写入只使观测 Stale/Unknown，
   不清空 DesiredState。显式 `ReplaceAll` 才使用 LLRP id=0 删除全部标准资源。
   `SynchronizeStateAsync()` 只刷新设备快照，不是托管 API 的前置条件。
+- `PrepareInventoryTakeoverAsync(ResourceTakeoverPolicy.ReplaceAll)` 提供显式的
+  全量盘点接管前置步骤：先用 LLRP id=0 清理全部标准 ROSpec/AccessSpec，再交给上层
+  查询或部署新的托管盘点；传入 `PreserveForeign` 会直接拒绝，避免误用破坏性接管。
+- 高层事务的默认请求超时为 30 秒；超时异常会包含请求消息 ID、请求/期望响应类型和
+  未收到匹配响应的诊断信息，便于定位慢设备或丢响应。
 - `StartExistingRoSpecAsync(roSpecId)` 可将 Raw/专家创建的 ROSpec 接入独立
   `InventorySession`，复用报告、停止和生命周期逻辑，停止时保留调用者资源。
 - 标签访问 API 复用同一资源生命周期，不要求应用手写 AccessSpec。
@@ -250,7 +255,7 @@ Settings 短连接可以在断开后立即重连，而不会被旧会话的异�
 
 ## 验证状态
 
-截至基准日期，解决方案构建为零警告、零错误，共 543 项自动化测试全部通过；其中
+截至基准日期，解决方案构建为零警告、零错误，共 546 项自动化测试全部通过；其中
 `LlrpDevice.Abstractions.Tests` 覆盖合同模型和依赖边界，`LlrpDevice.Server.Tests` 覆盖
   非 Virtual Scripted Device、生命周期和配置隔离，`LlrpDevice.Virtual.Tests` 覆盖确定性
   RF、Tag Access 和实例隔离，`LlrpDevice.Virtual.Hosting.Tests` 覆盖 SDK 门面生命周期，

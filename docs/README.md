@@ -36,6 +36,7 @@ the project.
 
 ## Releases
 
+- [v2.0.5 Release Notes](releases/v2.0.5.md)
 - [v2.0.4 Release Notes](releases/v2.0.4.md)
 - [v2.0.3 Release Notes](releases/v2.0.3.md)
 
