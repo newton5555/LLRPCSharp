@@ -25,7 +25,10 @@ public sealed class LlrpReaderBuilder
     private int _port = LlrpTcpTransportOptions.DefaultPort;
     private TimeSpan _connectTimeout = TimeSpan.FromSeconds(10);
     private TimeSpan _frameAssemblyTimeout = TimeSpan.FromSeconds(10);
-    private TimeSpan _requestTimeout = TimeSpan.FromSeconds(10);
+    // Reader resource queries can legitimately take longer while an ROSpec is active.
+    // Keep the transport/connect timers strict, but give correlated high-level SDK
+    // operations enough time for slow readers to return a successful response.
+    private TimeSpan _requestTimeout = TimeSpan.FromSeconds(30);
     private TimeSpan? _keepaliveTimeout;
     private uint _maximumFrameLength = LlrpFrameDecoder.DefaultMaximumFrameLength;
     private int _incomingMessageCapacity = LlrpReaderOptions.DefaultIncomingMessageCapacity;

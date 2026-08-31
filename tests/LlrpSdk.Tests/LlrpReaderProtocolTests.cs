@@ -87,6 +87,28 @@ public sealed class LlrpReaderProtocolTests
     }
 
     [Fact]
+    public async Task TypedTransactionTimeout_IncludesRequestAndExpectedResponseTypes()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        await using var reader = CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        transport.OnSendAsync = (_, _) => ValueTask.CompletedTask;
+        TimeoutException exception = await Assert.ThrowsAsync<TimeoutException>(() =>
+            reader.Protocol.TransactAsync<GET_ROSPECS_RESPONSE>(
+                new GET_ROSPECS(100),
+                timeout: TimeSpan.FromMilliseconds(100),
+                cancellationToken: timeout.Token));
+
+        Assert.Contains("message identifier 100", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Request: GET_ROSPECS (LLRP message type 26)", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("expected response: GET_ROSPECS_RESPONSE", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("no matching response frame", exception.Message, StringComparison.Ordinal);
+        Assert.IsType<TimeoutException>(exception.InnerException);
+    }
+
+    [Fact]
     public void UnexpectedResponseException_ValidatesBeforeBuildingItsMessage()
     {
         Assert.Throws<ArgumentNullException>(() =>

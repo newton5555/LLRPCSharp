@@ -60,7 +60,7 @@ public sealed class LlrpReaderOptionsTests
         Assert.Equal(LlrpTcpTransportOptions.DefaultPort, options.Port);
         Assert.Equal(TimeSpan.FromSeconds(10), options.ConnectTimeout);
         Assert.Equal(TimeSpan.FromSeconds(10), options.FrameAssemblyTimeout);
-        Assert.Equal(TimeSpan.FromSeconds(10), options.RequestTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(30), options.RequestTimeout);
         Assert.Equal(
             LlrpReaderOptions.DefaultIncomingMessageCapacity,
             options.IncomingMessageCapacity);

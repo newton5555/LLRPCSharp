@@ -346,6 +346,63 @@ public sealed class LlrpReaderTagAccessAndEventTests
     }
 
     [Fact]
+    public async Task StartInventory_ReplaceAllClearsExistingResourcesBeforeDeployment()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        ConfigureManagementSuccessResponses(transport);
+
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+        await using InventorySession session = await reader.StartInventoryAsync(
+            new InventorySettings(),
+            ResourceTakeoverPolicy.ReplaceAll,
+            timeout.Token);
+
+        ILlrpMessage[] requests = transport.SentFrames
+            .Select(frame => Registry.DecodeMessage(frame))
+            .ToArray();
+        int deleteAccessSpecsIndex = Array.FindIndex(
+            requests,
+            static message => message is V101.DELETE_ACCESSSPEC { AccessSpecID: 0 });
+        int deleteRoSpecsIndex = Array.FindIndex(
+            requests,
+            static message => message is V101.DELETE_ROSPEC { ROSpecID: 0 });
+        int addManagedRoSpecIndex = Array.FindIndex(
+            requests,
+            static message => message is V101.ADD_ROSPEC);
+
+        Assert.True(deleteAccessSpecsIndex >= 0);
+        Assert.True(deleteRoSpecsIndex > deleteAccessSpecsIndex);
+        Assert.True(addManagedRoSpecIndex > deleteRoSpecsIndex);
+        Assert.DoesNotContain(requests, static message => message is V101.STOP_ROSPEC { ROSpecID: 0 });
+    }
+
+    [Fact]
+    public async Task PrepareInventoryTakeover_RequiresReplaceAllAndClearsResourcesWithoutQueryingThem()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var transport = new ScriptedLlrpTransport();
+        ConfigureManagementSuccessResponses(transport);
+
+        await using var reader = LlrpReaderLifecycleTests.CreateReader(transport);
+        await reader.ConnectAsync(timeout.Token);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            reader.PrepareInventoryTakeoverAsync(ResourceTakeoverPolicy.PreserveForeign, timeout.Token));
+        await reader.PrepareInventoryTakeoverAsync(ResourceTakeoverPolicy.ReplaceAll, timeout.Token);
+
+        ILlrpMessage[] requests = transport.SentFrames
+            .Select(frame => Registry.DecodeMessage(frame))
+            .ToArray();
+        Assert.Contains(requests, static message =>
+            message is V101.DELETE_ACCESSSPEC { AccessSpecID: 0 });
+        Assert.Contains(requests, static message =>
+            message is V101.DELETE_ROSPEC { ROSpecID: 0 });
+        Assert.DoesNotContain(requests, static message => message is V101.GET_ROSPECS);
+    }
+
+    [Fact]
     public void WriteTagRequest_UsesBlockWriteOnlyWhenCapabilityAllowsIt()
     {
         var request = new WriteTagRequest

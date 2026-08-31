@@ -781,6 +781,46 @@ public sealed class LlrpReader : IAsyncDisposable
     }
 
     /// <summary>
+    /// Clears every standard AccessSpec and ROSpec before an exclusive inventory takeover.
+    /// </summary>
+    /// <remarks>
+    /// This is a destructive resource operation: it uses the LLRP identifier-zero delete
+    /// semantics and therefore requires an explicit <see cref="ResourceTakeoverPolicy.ReplaceAll"/>
+    /// policy. It is intended for callers that must silence an already-running inventory before
+    /// querying the remaining resource graph and deploying a replacement.
+    /// </remarks>
+    public async Task PrepareInventoryTakeoverAsync(
+        ResourceTakeoverPolicy takeoverPolicy,
+        CancellationToken cancellationToken = default)
+    {
+        if (takeoverPolicy != ResourceTakeoverPolicy.ReplaceAll)
+        {
+            throw new ArgumentException(
+                "Preparing an exclusive inventory takeover requires ResourceTakeoverPolicy.ReplaceAll.",
+                nameof(takeoverPolicy));
+        }
+
+        EnsureProtocolAvailable();
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using IDisposable scope = BeginInternalResourceOperationScope();
+            PrepareForManagedTakeover();
+            await DeleteAllStandardResourcesAsync(cancellationToken).ConfigureAwait(false);
+            StoreResourceSnapshot([], []);
+        }
+        catch
+        {
+            MarkResourceObservationStale();
+            throw;
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    /// <summary>
     /// Explicitly disconnects and reconnects this reader.
     /// </summary>
     /// <param name="cancellationToken">Cancels either lifecycle operation.</param>
@@ -1617,13 +1657,14 @@ public sealed class LlrpReader : IAsyncDisposable
                 Volatile.Write(ref _desiredReaderSettings, settings);
                 SetDesiredInventorySettings(settings.Inventory);
                 PrepareForManagedTakeover();
-                await PreflightManagedDeploymentAsync(settings.Inventory, takeoverPolicy, cancellationToken).ConfigureAwait(false);
                 if (takeoverPolicy == ResourceTakeoverPolicy.ReplaceAll)
                 {
                     await DeleteAllStandardResourcesAsync(cancellationToken).ConfigureAwait(false);
+                    await PreflightManagedDeploymentAsync(settings.Inventory, takeoverPolicy, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
+                    await PreflightManagedDeploymentAsync(settings.Inventory, takeoverPolicy, cancellationToken).ConfigureAwait(false);
                     await DeleteSdkOwnedResourcesAsync(cancellationToken).ConfigureAwait(false);
                 }
                 await ApplyConfigurationCoreAsync(settings.Configuration, cancellationToken).ConfigureAwait(false);
@@ -1827,13 +1868,14 @@ public sealed class LlrpReader : IAsyncDisposable
         {
             if (!resourcesAlreadyCleared)
             {
-                await PreflightManagedDeploymentAsync(settings, takeoverPolicy, cancellationToken).ConfigureAwait(false);
                 if (takeoverPolicy == ResourceTakeoverPolicy.ReplaceAll)
                 {
                     await DeleteAllStandardResourcesAsync(cancellationToken).ConfigureAwait(false);
+                    await PreflightManagedDeploymentAsync(settings, takeoverPolicy, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
+                    await PreflightManagedDeploymentAsync(settings, takeoverPolicy, cancellationToken).ConfigureAwait(false);
                     await DeleteSdkOwnedResourcesAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -2416,13 +2458,26 @@ public sealed class LlrpReader : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(request);
 
         byte[] requestFrame = _registry.EncodeMessage(protocolVersion ?? NegotiatedVersion, request);
-        ReadOnlyMemory<byte> responseFrame = await _session
-            .TransactAsync(
-                requestFrame,
-                responseMatcher ?? MatchesTypedResponse<TResponse>,
-                timeout,
-                cancellationToken)
-            .ConfigureAwait(false);
+        ReadOnlyMemory<byte> responseFrame;
+        try
+        {
+            responseFrame = await _session
+                .TransactAsync(
+                    requestFrame,
+                    responseMatcher ?? MatchesTypedResponse<TResponse>,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException exception)
+        {
+            LlrpMessageHeader requestHeader = LlrpMessageHeader.Decode(requestFrame);
+            throw new TimeoutException(
+                $"The transaction with message identifier {requestHeader.MessageId} timed out. " +
+                $"Request: {request.GetType().Name} (LLRP message type {requestHeader.MessageType}); " +
+                $"expected response: {typeof(TResponse).Name}; no matching response frame was received before the timeout.",
+                exception);
+        }
         ILlrpMessage response = _registry.DecodeMessage(responseFrame.Span);
         if (LlrpProtocolMessageFactory.TryCreateOperationException(request.GetType().Name, response, out LlrpReaderOperationException? error))
         {
